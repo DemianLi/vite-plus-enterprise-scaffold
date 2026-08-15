@@ -18,7 +18,8 @@
     "supply-chain": "node tools/supply-chain/src/cli.ts",
     "sca-dossier": "node tools/supply-chain/src/cli.ts --dossier",
     "mirror-manifest": "node tools/supply-chain/src/cli.ts --manifest",
-    "airgap": "node tools/supply-chain/src/cli.ts --airgap"
+    "airgap": "node tools/supply-chain/src/cli.ts --airgap",
+    "csp-verify": "node tools/csp-verify/src/cli.ts"
   },
   "devDependencies": {
     "@org/eslint-config": "workspace:*",

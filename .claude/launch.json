@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "csp-verify",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/csp-verify/src/cli.ts"],
+      "port": 4173
+    }
+  ]
+}

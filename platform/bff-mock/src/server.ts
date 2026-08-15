@@ -94,6 +94,14 @@ function sessionCookieValue(name: string, sid: string): string {
   return `${name}=${sid}; HttpOnly; Secure; SameSite=Lax; Path=/`;
 }
 
+/** 示範用的訂單。刻意涵蓋三種狀態，讓篩選與狀態顯示都有東西可看。 */
+const DEMO_ORDERS = [
+  { id: "ORD-1001", customerName: "林佳蓉", totalCents: 128_000, status: "pending" },
+  { id: "ORD-1002", customerName: "陳彥廷", totalCents: 45_500, status: "shipped" },
+  { id: "ORD-1003", customerName: "Aya Nakamura", totalCents: 302_000, status: "pending" },
+  { id: "ORD-1004", customerName: "黃詩涵", totalCents: 8_900, status: "cancelled" },
+] as const;
+
 function csrfCookieValue(token: string): string {
   // 刻意**不加** HttpOnly：double-submit 的前提就是前端讀得到這支。
   // 偷到它沒有用 —— 真正的 session 仍是 HttpOnly。
@@ -219,6 +227,26 @@ export function createBffMock(options: BffMockOptions = {}) {
 
     if (path === DEFAULT_ENDPOINTS.probe) {
       json(res, 200, { pong: true, method });
+      return;
+    }
+
+    // ── 示範資料 ──────────────────────────────────────────────────
+    //
+    // **這不是契約的一部分。** @org/bff-contract 的 13 條講的是 session、
+    // CSRF、401／403 —— 那些是 D8 要求真正的 gateway 必須做到的事。
+    //
+    // 這一段存在的理由不同：少了它，腳手架的示範應用**永遠停在 loading**，
+    // 於是沒有人能在本機看到自己寫的畫面長什麼樣，也沒辦法用真實 CSP
+    // 驗證對話框這類只有互動時才會出現的東西（D15 的 CSP 驗收就卡在這裡）。
+    //
+    // 正式的 gateway 當然不會有這一段。它在這裡是為了讓「跑起來能看見東西」
+    // 成立 —— 一個看不見東西的腳手架，第一天就會被人繞過。
+    if (path === "/api/orders" && method === "GET") {
+      const query = new URLSearchParams((req.url ?? "").split("?")[1] ?? "");
+      const status = query.get("status");
+      const filtered =
+        status === null ? DEMO_ORDERS : DEMO_ORDERS.filter((o) => o.status === status);
+      json(res, 200, { items: filtered, total: filtered.length });
       return;
     }
 
