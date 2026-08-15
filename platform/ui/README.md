@@ -62,7 +62,13 @@ Tailwind v4 的自動來源偵測**刻意跳過 node_modules**，而 monorepo �
 | ------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------- |
 | 不得 import reka-ui 的 **Splitter**                     | `tools/conformance`                           | 它是 reka-ui 唯一會在執行期注入 `<style>` 的地方，被 `style-src 'self'` 擋掉 |
 | 切片不得直接 import `reka-ui`／`clsx`／`tailwind-merge` | `tools/conformance`                           | 一律走 `@org/ui`，否則每個團隊各長一套設計系統                               |
+| 切片**至少一處**使用 `@org/ui`                          | `tools/conformance`                           | 上一條擋「繞過」，這條擋「根本不用」——**沒有 import 也是一種發散**（C41）    |
 | `index.ts` 不得 `export *`、不得轉出 reka-ui            | `tests/styles.test.ts` ＋ `tools/api-surface` | API 表面必須可枚舉，否則破壞性變更閘門看不見它守的東西                       |
+
+「至少一處使用」那條的判定式是 `@org/slice-kit/contract` 的 `usesDesignSystem()`，
+由 `tools/conformance` 與 `tools/slice-gen` 的測試**共用同一份實作** ——
+產生器的模板一旦忘了 `@org/ui`，新切片就會全部從設計系統外面開始，
+而那是不會有任何東西變紅的（D15 落地當下就是這個狀態，見 C41）。
 
 ## 擁有權
 

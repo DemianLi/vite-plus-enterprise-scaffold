@@ -39,6 +39,9 @@ export function buildSliceFiles(options: SliceOptions): FileTree {
           dependencies: {
             "@org/http-client": "workspace:*",
             "@org/slice-kit": "workspace:*",
+            // D15：畫面元件一律從 @org/ui 取用。一致性檢查會驗切片**真的用過**它 ——
+            // 只是宣告依賴不算，只是不用也不行。
+            "@org/ui": "workspace:*",
             "@tanstack/vue-query": "catalog:",
             pinia: "catalog:",
             vue: "catalog:",
@@ -82,6 +85,19 @@ ${title}
 或往下把共用契約抽到 \`platform/\`。
 
 切片**之內**還有第四層（D14）：\`src/views/\` 與 \`src/store.ts\` 不得直接碰資料層。
+
+## 設計系統（D15）
+
+畫面元件一律從 \`@org/ui\` 取用。一致性檢查驗的是**兩個方向**：
+
+| 規則                                            | 防的是什麼                                       |
+| ----------------------------------------------- | ------------------------------------------------ |
+| 不得直接 import \`reka-ui\`／\`clsx\`／\`tailwind-merge\` | 繞過 \`@org/ui\` 自己拼基元                        |
+| 整個切片**至少一處**使用 \`@org/ui\`              | 根本不用 —— 全部自己刻，一條規則都不會 violate    |
+
+第二條才是實際上比較常發生的那一種。要的元件 \`@org/ui\` 沒有，
+就把它加進 \`platform/ui\` —— 那個 package 有 CODEOWNERS 與 api-surface 閘門，
+切片沒有。
 
 ## 結構
 
@@ -191,13 +207,26 @@ import { computed, ref } from "vue";
 export const use${Pascal}FilterStore = defineStore("${name}/filter", () => {
   const page = ref(1);
 
+  /**
+   * 被選取的那一筆 —— 只存 id。
+   *
+   * 這裡刻意**不放** \`selected${Pascal}Item\` 物件。放了就是第二份快取：
+   * 列表重新整理之後對話框裡還是舊資料，而且不會有任何測試變紅。
+   * 要那筆物件的時候，在元件裡用 \`computed\` 從列表推導（見 views/）。
+   */
+  const selectedId = ref<string | null>(null);
+
   const query = computed(() => ({ page: page.value }));
 
   function setPage(next: number): void {
     page.value = next;
   }
 
-  return { page, query, setPage };
+  function select(id: string | null): void {
+    selectedId.value = id;
+  }
+
+  return { page, selectedId, query, setPage, select };
 });
 `,
 
@@ -241,12 +270,18 @@ export default defineFeature({
       ${name === camel ? name : `"${name}"`}: {
         title: "${title}",
         empty: "目前沒有資料",
+        detail: "明細",
+        detailDescription: "這一筆的完整內容",
+        close: "關閉",
       },
     },
     en: {
       ${name === camel ? name : `"${name}"`}: {
         title: "${Pascal}",
         empty: "No data",
+        detail: "Detail",
+        detailDescription: "Full contents of this record",
+        close: "Close",
       },
     },
   },
@@ -316,6 +351,8 @@ export function use${Pascal}List(
 
       views: {
         [`${Pascal}List.vue`]: `<script setup lang="ts">
+import { computed } from "vue";
+import { UiButton, UiDialog } from "@org/ui";
 import { use${Pascal}List } from "../composables/use${Pascal}List.ts";
 import { use${Pascal}FilterStore } from "../store.ts";
 
@@ -323,14 +360,31 @@ import { use${Pascal}FilterStore } from "../store.ts";
  * 這個元件**只負責呈現**（D14）。取數在 composables/use${Pascal}List.ts。
  *
  * 注意傳的是 **getter 而不是當下值** —— 傳值會讓條件變動後查詢不重跑。
+ *
+ * 畫面元件一律從 \`@org/ui\` 取用（D15）。一致性檢查會驗這個切片**真的用過**它：
+ * 自己刻一顆按鈕不會違反任何一條規則，但第二個團隊也刻一顆之後，
+ * 兩套永遠不會收斂 —— 而且兩邊各自看起來都是對的。
  */
 const filter = use${Pascal}FilterStore();
 const { items, isPending, isError, error } = use${Pascal}List(() => filter.query);
+
+/**
+ * 被選取的那一筆 —— **從列表推導，不從 store 讀**（D14）。
+ * store 裡只有一個 id；把物件也存進去就是第二份快取。
+ */
+const selected = computed(() => items.value.find((item) => item.id === filter.selectedId));
+
+const isOpen = computed({
+  get: () => selected.value !== undefined,
+  set: (open: boolean) => {
+    if (!open) filter.select(null);
+  },
+});
 </script>
 
 <template>
   <section>
-    <h1>{{ $t("${name}.title") }}</h1>
+    <h1 class="text-xl font-semibold text-gray-900">{{ $t("${name}.title") }}</h1>
 
     <p v-if="isPending">…</p>
 
@@ -343,9 +397,31 @@ const { items, isPending, isError, error } = use${Pascal}List(() => filter.query
 
     <p v-else-if="items.length === 0">{{ $t("${name}.empty") }}</p>
 
-    <ul v-else>
-      <li v-for="item in items" :key="item.id">{{ item.id }}</li>
+    <ul v-else class="mt-4 flex flex-col gap-2">
+      <li v-for="item in items" :key="item.id" class="flex items-center justify-between gap-4">
+        <span>{{ item.id }}</span>
+        <UiButton size="sm" @click="filter.select(item.id)">
+          {{ $t("${name}.detail") }}
+        </UiButton>
+      </li>
     </ul>
+
+    <!-- 對話框的內容由 \`selected\` 推導 —— D14 那條「存 id 不存 entity」在畫面上的樣子。 -->
+    <UiDialog
+      v-model:open="isOpen"
+      :title="$t('${name}.detail')"
+      :description="$t('${name}.detailDescription')"
+    >
+      <dl v-if="selected" class="grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
+        <dt class="text-(--color-muted)">#</dt>
+        <dd>{{ selected.id }}</dd>
+        <!-- TODO: 補上這個切片實際的欄位（與 api.ts 的 ${Pascal}Item 對齊） -->
+      </dl>
+
+      <template #close>
+        <UiButton>{{ $t("${name}.close") }}</UiButton>
+      </template>
+    </UiDialog>
   </section>
 </template>
 `,

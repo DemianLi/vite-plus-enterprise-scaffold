@@ -14,6 +14,7 @@
   "dependencies": {
     "@org/http-client": "workspace:*",
     "@org/slice-kit": "workspace:*",
+    "@org/ui": "workspace:*",
     "@tanstack/vue-query": "catalog:",
     "pinia": "catalog:",
     "vue": "catalog:",

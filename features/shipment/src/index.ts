@@ -20,12 +20,18 @@ export default defineFeature({
       shipment: {
         title: "出貨管理",
         empty: "目前沒有資料",
+        detail: "明細",
+        detailDescription: "這一筆的完整內容",
+        close: "關閉",
       },
     },
     en: {
       shipment: {
         title: "Shipment",
         empty: "No data",
+        detail: "Detail",
+        detailDescription: "Full contents of this record",
+        close: "Close",
       },
     },
   },

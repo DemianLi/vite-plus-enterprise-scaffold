@@ -9,6 +9,9 @@ import {
   VIEW_FORBIDDEN_IMPORTS,
   isValidComposableFile,
   composableFunctionName,
+  usesDesignSystem,
+  DESIGN_SYSTEM_PACKAGE,
+  SLICE_DESIGN_SYSTEM_IMPORTS,
 } from "@org/slice-kit/contract";
 
 import { buildSliceFiles } from "../src/files.ts";
@@ -190,5 +193,107 @@ describe("產出的切片符合 D14 內部分層", () => {
     // 少了這一條，上面那條「不 import 資料層」可以靠產出一個空元件通過。
     const source = views.map((path) => fileAt(path)).join("\n");
     expect(source).toMatch(/from "\.\.\/composables\/use[A-Z]/);
+  });
+});
+
+/**
+ * D15：產生器產出的切片，必須自己就通過設計系統的**兩條**規則。
+ *
+ * ── 為什麼這組測試是這次工作的核心 ──────────────────────────────────
+ *
+ * D15 落地的時候只改到 `features/order`。產生器完全不知道 `@org/ui` 存在，
+ * 模板的 view 是一顆裸 `<h1>` —— 也就是說**每一個新產生的切片，
+ * 都會從「不使用設計系統」開始**，而當時沒有任何檢查會說話。
+ *
+ * 這正是 C35 那個形狀：產生器是**教學品**，它示範什麼，團隊就長成什麼。
+ * 一致性檢查擋得住既有切片，但擋不住「模板本身教錯」——
+ * 除非產生器的輸出也拿同一份判定式驗一次。
+ *
+ * 所以這裡用的 `usesDesignSystem` 與 `tools/conformance` 是**同一個函式**，
+ * 不是「長得很像的另一份實作」。
+ */
+describe("產出的切片符合 D15 設計系統規則", () => {
+  const sources = paths
+    .filter((path) => path.endsWith(".vue") || path.endsWith(".ts"))
+    .map((path) => fileAt(path));
+
+  it("整個切片至少一處使用 @org/ui —— 與 tools/conformance 同一個判定式", () => {
+    expect(sources.length).toBeGreaterThan(0);
+    expect(sources.some((source) => usesDesignSystem(source))).toBe(true);
+  });
+
+  it("用的是 view 而不是別的地方 —— 設計系統要出現在畫面上", () => {
+    // 上一條可以靠在 store.ts 裡 import 一個沒用到的元件通過。
+    const viewSources = paths
+      .filter((path) => path.startsWith(`${VIEWS_DIR}/`))
+      .map((path) => fileAt(path));
+    expect(viewSources.length).toBeGreaterThan(0);
+    expect(viewSources.some((source) => usesDesignSystem(source))).toBe(true);
+  });
+
+  it("元件真的被渲染，不是只 import 不用", () => {
+    // 只 import 不用會被 Tier 1 的 no-unused-vars 擋，但那是另一道閘門的事；
+    // 這裡直接驗模板有沒有真的示範用法 —— 產生器是教學品。
+    const view = fileAt(`${VIEWS_DIR}/OrderHistoryList.vue`);
+    expect(view).toMatch(/<UiButton[\s>]/);
+  });
+
+  it("package.json 宣告了 @org/ui（否則 import 得到只是 monorepo 的巧合）", () => {
+    const pkg = generatedPackageJson();
+    const deps = pkg["dependencies"] as Record<string, string>;
+    expect(Object.keys(deps)).toContain(DESIGN_SYSTEM_PACKAGE);
+    expect(deps[DESIGN_SYSTEM_PACKAGE]).toBe("workspace:*");
+  });
+
+  it("不直接 import 設計系統的底層（那是另一條 D15 規則）", () => {
+    for (const source of sources) {
+      for (const banned of SLICE_DESIGN_SYSTEM_IMPORTS) {
+        expect(source, `產生器產出了直接 import "${banned}" 的程式碼`).not.toContain(
+          `from "${banned}"`,
+        );
+      }
+    }
+  });
+
+  it("判定式對「沒用設計系統的 view」確實回傳 false（否則上面全是空轉）", () => {
+    // 這是 D15 落地前模板長的樣子。少了這一條，`usesDesignSystem` 只要
+    // 永遠回傳 true，這個 describe 的每一條都會通過。
+    const before = `<script setup lang="ts">
+import { useOrderHistoryList } from "../composables/useOrderHistoryList.ts";
+</script>
+
+<template><section><h1>{{ $t("order-history.title") }}</h1></section></template>
+`;
+    expect(usesDesignSystem(before)).toBe(false);
+  });
+});
+
+/**
+ * D14：模板的 store 註解宣稱「存 id，不存 entity」，那就要真的示範一次。
+ *
+ * 這條是 C39 撈到的同一個形狀 —— `features/order` 的 store 也是先有那段
+ * 註解、很久之後才有 `selectedId`。文件描述了一個它沒有示範的模式，
+ * 而讀模板的人只會照抄看得到的部分。
+ */
+describe("產出的 store 示範了它自己註解裡宣稱的模式", () => {
+  const store = fileAt("src/store.ts");
+
+  it("有 selectedId（客戶端才是權威的東西）", () => {
+    expect(store).toContain("selectedId");
+  });
+
+  it("沒有把 entity 整個存進 store", () => {
+    // 比對的是**實際形狀**（一個持有 entity 的 ref），不是名字有沒有出現 ——
+    // 第一版寫成 `.not.toMatch(/OrderHistoryItem/)`，當場被自己的模板打臉：
+    // store 的註解裡就寫著「這裡刻意不放 OrderHistoryItem 物件」。
+    // 提到一個名字和使用它是兩回事，這正是 conformance 的 importClauseBefore
+    // 在處理的同一件事（見 tools/conformance/src/cli.ts 的註解）。
+    expect(store).not.toMatch(/ref<[^>]*Item/);
+    expect(store).toContain("ref<string | null>(null)");
+  });
+
+  it("view 用 computed 從列表推導那筆物件，而不是從 store 讀", () => {
+    const view = fileAt(`${VIEWS_DIR}/OrderHistoryList.vue`);
+    expect(view).toMatch(/computed\(\(\) =>\s*items\.value\.find/);
   });
 });

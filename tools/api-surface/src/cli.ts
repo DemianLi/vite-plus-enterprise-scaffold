@@ -2,6 +2,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { spawnSync } from "node:child_process";
 
 /**
  * `platform/` 的公開 API 表面快照與破壞性變更偵測（D12）。
@@ -242,6 +243,28 @@ if (missingFiles.length > 0) {
 if (shouldUpdate) {
   const next: Baseline = { surface: current, codemods: baseline.codemods };
   writeFileSync(BASELINE_PATH, `${JSON.stringify(next, null, 2)}\n`);
+
+  /**
+   * 寫完立刻交給 formatter 收尾。
+   *
+   * `JSON.stringify(_, null, 2)` 一律把陣列展成多行，oxfmt 則會把短陣列
+   * 收成單行 —— 於是**每一次更新基準都會產出一個過不了 `vp check` 的檔案**，
+   * 而修好它又會帶來二十幾行與這次改動無關的排版 diff。
+   *
+   * 後果不只是吵：登記破壞性變更是最需要仔細看 diff 的時刻，
+   * 而那正是雜訊最多的時刻。
+   *
+   * 這個教訓 `tools/slice-gen/src/files.ts` 早就寫下來了（「那道 fmt 才是保證」），
+   * 只是當時沒有人想到同一件事會在這裡再發生一次。
+   * 讓 formatter 當唯一權威，而不是手工去猜它的規則。
+   */
+  const formatted = spawnSync("vp", ["fmt", BASELINE_PATH], { cwd: ROOT, encoding: "utf8" });
+  if (formatted.status !== 0) {
+    console.error("✗ 基準已寫入，但格式化失敗 —— 直接 commit 會讓 `vp check` 變紅：");
+    console.error(formatted.stderr || formatted.stdout || String(formatted.error));
+    process.exit(1);
+  }
+
   console.log(`✓ 基準已更新（${Object.keys(current).length} 個進入點）`);
   process.exit(0);
 }
