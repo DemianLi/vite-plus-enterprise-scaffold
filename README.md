@@ -110,11 +110,12 @@ Tier 2 刻意**全量、不快取、不經 `vp`**。原因是安全掃描的結�
 Tier 2 的三條規則——不快取、不做 affected 過濾、必須有時間觸發——是刻意的。
 改動前請先讀該檔開頭的理由；`CODEOWNERS` 也把它劃給資安共同把關。
 
-> ⚠️ **誠實揭露**：兩個 workflow 的 YAML 語法已驗證，內部每一道指令都在本機
-> 實際跑過。但 **workflow 本身沒有在 GitHub Actions 上跑過** ——
-> 這個環境無法執行 Actions。第一次推上去時，預期需要調整的是
-> bootstrap 步驟（內部 registry 的 `npm_config_registry` 與 `NODE_EXTRA_CA_CERTS`）
-> 與 SBOM 工具（若貴組織用 Blackduck／Snyk 而非 Trivy）。
+> **已在 GitHub Actions 上實跑**（2026-08-15）：Tier 1 一次就綠；Tier 2 首跑紅，
+> 抓到三個本機看不到的問題並已修掉（見 DECISIONS.md 的 C32）。
+>
+> ⚠️ 仍有兩處只有在貴組織的環境才驗得了：bootstrap 步驟在內部 registry 下需設
+> `npm_config_registry` 與 `NODE_EXTRA_CA_CERTS`，以及 SBOM 工具
+> （若貴組織用 Blackduck／Snyk 而非 Trivy，交付稽核的必須是稽核認可的那個工具的輸出）。
 
 ## 邊界怎麼守
 

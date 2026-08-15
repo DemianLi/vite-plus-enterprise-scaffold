@@ -156,25 +156,27 @@ jobs:
 
       - name: 上傳掃描結果到 Code Scanning
         # 即使前一步因為發現漏洞而失敗，仍要上傳結果 —— 否則看不到是什麼。
-        if: always()
+        #
+        # ⚠️ 但 always() 也會在前面的步驟**被跳過**時觸發，而那時 trivy.sarif
+        # 根本不存在，於是這一步以 "Path does not exist" 失敗，蓋掉真正的失敗原因。
+        # 實際發生過（首次在 Actions 上執行時）：BFF 契約那步 exit 127，
+        # 掃描步驟被跳過，然後這裡也紅 —— 兩條紅訊息，只有一個真的問題。
+        # 加上 hashFiles 判斷：檔案有產出才上傳。
+        if: always() && hashFiles('trivy.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy.sarif
 
       # ── 供應鏈：原生二進位例外的憑證（R2／R4）─────────────────────
-      # vite-plus 有 8 個平台的原生二進位（各約 41MB），多數 SCA 無法歸屬來源，
-      # 預設會判 fail。申請例外時的證據是 npm 上的 SLSA provenance attestation。
-      # 注意：attestation 經內部 registry proxy 後會遺失，因此在此留存。
-      - name: 留存 vite-plus 的 provenance 證明
-        if: always()
-        run: |
-          npm view vite-plus@0.2.9 dist.attestations --json > provenance.json || true
-          cat provenance.json
-
-      - name: 上傳 provenance
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: vite-plus-provenance
-          path: provenance.json
-          retention-days: 365
+      # 這裡原本有一步：`npm view vite-plus dist.attestations > provenance.json`。
+      # 已移除，因為它在三件事上是錯的：
+      #
+      #   1. 只涵蓋 vite-plus 一個套件。實際的原生二進位有 **121 個、11 個家族**
+      #      （見 C27），而且大半不是 vite-plus 帶來的（TypeScript 7、lightningcss）
+      #   2. 每次 CI 重新抓一份，等於**沒有基線** —— 抓到什麼就是什麼，
+      #      對不上也不會有人知道。R4 要的是「擷取一次、之後離線比對」
+      #   3. 檔名與 tools/supply-chain/provenance.json 撞名，而兩者內容完全不同
+      #
+      # 取而代之的是上面那一步「供應鏈盤點與來源綁定」：來源證明已進版控
+      #（tools/supply-chain/provenance.json，121 筆），CI 只負責驗它與 lockfile 一致。
+      # 交給資安的申請書用 `vpr sca-dossier` 產生。

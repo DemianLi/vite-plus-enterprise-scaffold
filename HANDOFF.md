@@ -21,7 +21,7 @@
 | 8   | 架構         | 指派 D8 同源中間層由誰提供                  | 登入、CSRF、401／403 整條路徑沒有著落 | ✅           |
 | 9   | 發版流程     | 「`--capture` 在公網側完成」寫進流程        | 封閉環境升相依時對著紅燈找不到原因    | ✅           |
 | 10  | 資安         | SCA 掃描把 `bingo` 標為 dev-only            | 開發期工具被當成 runtime 相依計嚴重度 | ⬜           |
-| 11  | 平台（CI）   | workflow 首次在 GitHub Actions 上跑         | bootstrap 與 SBOM 工具可能要調        | ✅           |
+| 11  | 平台（CI）   | 內部 registry 下的 bootstrap ＋ SBOM 工具   | 私有網路下抓不到相依；SBOM 非稽核認可 | ✅           |
 | 12  | repo 管理者  | GitHub 設定 `platform-codemod` 標籤自動核准 | codemod PR 卡在核准地獄               | ⬜           |
 | 13  | 平台（上線） | CSP 由 report-only 切成 enforce             | CSP 只是記錄，不擋任何東西            | ✅           |
 
@@ -200,10 +200,15 @@ gateway 實際回的 `Set-Cookie`，行為面用 `BFF_SESSION_VALUE` 帶一組�
 
 ## 11–13. 其餘待辦
 
-**11 — CI workflow 從未在 GitHub Actions 上跑過。** YAML 語法已驗證、內部每一道指令
-都在本機實際跑過，但本環境無法執行 Actions。第一次推上去時預期要調的兩處：
+**11 — CI 已在 GitHub Actions 上實跑過了**（2026-08-15，公開 repo）。
+Tier 1 一次就綠；Tier 2 首跑紅，抓到三個本機看不到的問題，**都已修掉**
+（根 `package.json` 漏宣告 `vitest`、`if: always()` 涵蓋範圍過大、
+一個過時且寫著錯誤數字的 provenance 步驟）—— 詳見 `DECISIONS.md` 的 C32。
+
+**剩下兩處仍需貴組織的環境才驗得了**：
 
 1. **bootstrap 步驟**在內部 registry 下需設 `npm_config_registry` 與 `NODE_EXTRA_CA_CERTS`
+   （公網環境驗不出來，因為它預設就通）
 2. **SBOM／SCA 工具**目前用 Trivy。若貴組織用 Blackduck／Snyk，這兩步要換 ——
    交付稽核的必須是**稽核認可的那個工具**的輸出
 

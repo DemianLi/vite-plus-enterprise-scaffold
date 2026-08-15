@@ -61,7 +61,10 @@ jobs:
         with:
           name: exit-drill-evidence
           path: tools/exit-drill/evidence.json
-          retention-days: 400
+          # GitHub 的保留上限依方案而定（公開 repo 為 90 天）。填超過會被靜默調降
+          # 並留下一條 annotation —— 實測過。真正的長期證據是進版控的 evidence.json，
+          # 這份 artifact 只是方便下載，所以直接對齊上限。
+          retention-days: 90
 
       - name: 摘要
         if: always()
