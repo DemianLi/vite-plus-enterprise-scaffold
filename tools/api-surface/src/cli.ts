@@ -26,12 +26,42 @@ import { spawnSync } from "node:child_process";
  * 用法：
  *   node tools/api-surface/src/cli.ts          # 檢查
  *   node tools/api-surface/src/cli.ts --update # 更新基準（會要求登記 codemod）
+ *   node tools/api-surface/src/cli.ts --baseline <path>  # 對別的基準檔跑（見下）
  */
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const PLATFORM_DIR = join(ROOT, "platform");
-const BASELINE_PATH = join(ROOT, "tools/api-surface/surface.json");
 const CODEMODS_DIR = join(ROOT, "tools/codemods");
+
+/**
+ * 要比對的基準檔。`--baseline <path>` 可以指到別處。
+ *
+ * ── 這個參數不是為了彈性，是為了讓這道閘門能被反向測試 ──────────────
+ *
+ * 在它之前，`tools/api-surface` 是四道閘門裡**唯一連一條測試都沒有的**
+ *（見 tools/compliance 的對照表）。而「該紅的時候會不會紅」只能靠真的
+ * 製造一次破壞性變更來證明 —— 在寫死路徑的版本下，那意味著去改
+ * `platform/*` 的原始碼再還原，跑到一半被中斷 repo 就壞著。
+ *
+ * 有了 `--baseline`，反向測試改成把 surface.json 複製到暫存目錄、
+ * 在副本裡塞一個「曾經存在但現在沒有」的 export：**platform 的原始碼
+ * 一個位元組都不用動**，而閘門走的是完全相同的比對路徑。
+ *
+ * ⚠️ 與 tools/conformance 的 `--root` 一樣刻意**不做環境變數版本** ——
+ * env 會繼承到子行程，沒清乾淨會讓 CI 安靜地比對錯的基準然後回報通過。
+ */
+function parseBaselinePath(argv: readonly string[]): string {
+  const at = argv.indexOf("--baseline");
+  if (at === -1) return join(ROOT, "tools/api-surface/surface.json");
+  const value = argv[at + 1];
+  if (value === undefined || value.startsWith("--")) {
+    console.error("--baseline 後面要接一個檔案路徑");
+    process.exit(1);
+  }
+  return resolve(value);
+}
+
+const BASELINE_PATH = parseBaselinePath(process.argv.slice(2));
 
 interface CodemodRecord {
   /** codemod 檔名（不含副檔名），對應 tools/codemods/<name>.ts */
