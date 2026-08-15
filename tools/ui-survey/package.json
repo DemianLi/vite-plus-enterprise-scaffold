@@ -1,0 +1,21 @@
+{
+  "name": "@org/ui-survey",
+  "version": "0.0.0",
+  "private": true,
+  "description": "UI／樣式選型市調：授權、CSP 相容性、供應鏈增量（HANDOFF #14 → D15）",
+  "bin": {
+    "ui-survey": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}
