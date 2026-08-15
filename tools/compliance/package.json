@@ -1,0 +1,22 @@
+{
+  "name": "@org/compliance",
+  "version": "0.0.0",
+  "private": true,
+  "description": "法遵對照表：條號 ↔ 閘門 ↔ 證據 ↔ 有沒有證明過會紅（D16）",
+  "bin": {
+    "compliance": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

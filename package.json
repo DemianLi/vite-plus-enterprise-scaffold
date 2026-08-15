@@ -11,7 +11,7 @@
     "build": "vp run -r build",
     "conformance": "node tools/conformance/src/cli.ts",
     "bff-check": "vp run -F @org/bff-check test",
-    "gate": "node tools/conformance/src/cli.ts && node tools/api-surface/src/cli.ts && node tools/exit-drill/src/cli.ts && node tools/supply-chain/src/cli.ts && eslint . --max-warnings=0",
+    "gate": "node tools/conformance/src/cli.ts && node tools/api-surface/src/cli.ts && node tools/exit-drill/src/cli.ts && node tools/supply-chain/src/cli.ts && node tools/compliance/src/cli.ts && eslint . --max-warnings=0",
     "exit-drill": "node tools/exit-drill/src/cli.ts --full",
     "ready": "vp check && vp run -r test && vp run -r build && vpr gate",
     "api-surface": "node tools/api-surface/src/cli.ts",
@@ -19,7 +19,9 @@
     "sca-dossier": "node tools/supply-chain/src/cli.ts --dossier",
     "mirror-manifest": "node tools/supply-chain/src/cli.ts --manifest",
     "airgap": "node tools/supply-chain/src/cli.ts --airgap",
-    "csp-verify": "node tools/csp-verify/src/cli.ts"
+    "csp-verify": "node tools/csp-verify/src/cli.ts",
+    "compliance": "node tools/compliance/src/cli.ts",
+    "compliance-update": "node tools/compliance/src/cli.ts --update"
   },
   "devDependencies": {
     "@org/eslint-config": "workspace:*",
