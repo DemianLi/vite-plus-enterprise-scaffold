@@ -10,6 +10,7 @@ import {
   buildInventory,
   findCoverageGaps,
   isNative,
+  matchesTarget,
   type FamilyTier,
   type Inventory,
 } from "./inventory.ts";
@@ -200,13 +201,31 @@ function checkCoverage(inventory: Inventory): Failure[] {
   ];
 }
 
+/**
+ * 「怎麼修」的訊息必須在**失敗的當下**把限制講完。
+ *
+ * 原本這裡只寫「跑 `--capture`（需連得到 registry.npmjs.org）」。
+ * 在封閉網路裡看到這行的人，會去跑一個**在那裡永遠不可能成功**的指令，
+ * 然後開始懷疑是網路設定壞了。真正的答案是「這件事不能在這裡做」，
+ * 而那句話原本只寫在 `--airgap` 的輸出與 HANDOFF 裡 —— 兩份都不是
+ * 紅燈亮起時會有人去讀的東西。
+ *
+ * 這是把「發版流程要寫進去的一條規定」變成「工具自己會講的一句話」。
+ * 規定會被忘記，錯誤訊息不會。
+ */
+const CAPTURE_FIX =
+  "node tools/supply-chain/src/cli.ts --capture\n" +
+  "         ⚠️ 這一步需要連得到 registry.npmjs.org。**封閉網路裡做不到，也不該在那裡做**：\n" +
+  "         請在還連得到公網的那一側改完 lockfile 並跑 --capture，兩份檔案一起隨變更進來。\n" +
+  "         （閘門刻意不自己連公網補資料 —— 那會讓它在最需要它的環境裡失效。見 vpr airgap 第 5 節）";
+
 function checkProvenance(): Failure[] {
   if (!existsSync(PROVENANCE_PATH)) {
     return [
       {
         title: "沒有 provenance.json",
         detail: "來源證明從未擷取。封閉網路裡再也擷取不到 —— 這件事只能在還連得到公網時做。",
-        fix: "node tools/supply-chain/src/cli.ts --capture",
+        fix: CAPTURE_FIX,
       },
     ];
   }
@@ -230,7 +249,10 @@ function checkProvenance(): Failure[] {
             : "",
         )
         .join("\n    "),
-      fix: "**先當成事故處理**。同一個 name@version 換了內容物，正常升版不會這樣。確認無誤後才 --capture",
+      fix:
+        "**先當成事故處理**。同一個 name@version 換了內容物，正常升版不會這樣。\n" +
+        "         確認無誤後才重新擷取，而且同樣要在公網側做：\n         " +
+        CAPTURE_FIX,
     });
   }
 
@@ -241,7 +263,7 @@ function checkProvenance(): Failure[] {
       detail: others
         .map((p) => `${p.kind === "missing-record" ? "缺少紀錄" : "多餘紀錄"}：${p.id}`)
         .join("\n    "),
-      fix: "node tools/supply-chain/src/cli.ts --capture（需連得到 registry.npmjs.org）",
+      fix: CAPTURE_FIX,
     });
   }
   return failures;
@@ -681,13 +703,31 @@ function runAirgap(): number {
   out.push("");
   out.push("### 要鏡像到哪些平台");
   out.push("");
-  out.push("| 平台 | 依據 |");
-  out.push("| --- | --- |");
-  for (const target of TARGETS) out.push(`| \`${target.label}\` | ${target.why} |`);
+  // 每個平台各自要多存多少 —— 讓「要不要支援 Intel Mac」變成一個帶價目的決定，
+  // 而不是一個憑印象回答的問題。沒有數字的話，這種項目通常就一直懸著。
+  const captured = existsSync(PROVENANCE_PATH)
+    ? (JSON.parse(readFileSync(PROVENANCE_PATH, "utf8")) as ProvenanceFile)
+    : null;
+  const sizeOf = new Map(captured?.records.map((r) => [r.id, r.tarballBytes]) ?? []);
+  const natives = lock.packages.filter(isNative);
+
+  out.push("| 平台 | 依據 | 該平台的原生二進位 | tarball 合計 |");
+  out.push("| --- | --- | --- | --- |");
+  for (const target of TARGETS) {
+    const matching = natives.filter((pkg) => matchesTarget(pkg, target));
+    const bytes = matching.reduce((sum, pkg) => sum + (sizeOf.get(pkg.id) ?? 0), 0);
+    out.push(
+      `| \`${target.label}\` | ${target.why} | ${matching.length} 個 | ${captured === null ? "（尚未擷取）" : mb(bytes)} |`,
+    );
+  }
   out.push("");
   out.push("後兩列標成「假設」是刻意的：**這份文件不假裝知道團隊用什麼機器。**");
+  out.push("上表的最後兩欄就是那個決定的價目 —— 確認不需要的話，拿掉就省下那些容量。");
+  out.push("");
   out.push("平台團隊確認之後，請一併改 `tools/supply-chain/src/inventory.ts` 的 `TARGETS` ——");
-  out.push("拿掉一列會少存兩份變體，加一列則是對每個工具鏈家族提出新的覆蓋要求，兩者閘門都會驗。");
+  out.push(
+    "拿掉一列會少存那個平台的變體，加一列則是對每個工具鏈家族提出新的覆蓋要求，兩者閘門都會驗。",
+  );
   out.push("");
   out.push("## 2. registry 設定要設在哪裡（實測）");
   out.push("");
