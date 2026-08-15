@@ -85,8 +85,23 @@ const FAMILY_TIERS: Readonly<Record<string, FamilyTier>> = {
   "@yuku-parser": "toolchain",
   /** 同上，codegen 那一半。 */
   "@yuku-codegen": "toolchain",
-  /** CSS transform／minify。parcel-bundler/lightningcss，**MPL-2.0**。 */
+  /**
+   * CSS transform／minify。parcel-bundler/lightningcss，**MPL-2.0**。
+   *
+   * ⚠️ D15 之後這個家族有**兩個版本並存**：vite-plus-core 要 ^1.33.0，
+   * 而 @tailwindcss/node 釘死 exact 1.32.0 —— 範圍不相交，pnpm 無法合併。
+   * 對法務的意義：MPL-2.0 的清單從 11 個變成兩組（見 HANDOFF #4）。
+   */
   lightningcss: "toolchain",
+
+  /**
+   * Tailwind v4 的 Rust 掃描引擎（oxide）。tailwindlabs/tailwindcss，MIT。
+   *
+   * 歸 toolchain 而不是 optional：它負責把原始碼裡的 class 掃出來並產生 CSS。
+   * 缺了對應平台的二進位不是「少一點便利」——**建置會產出一個沒有樣式的應用**，
+   * 而且不一定會失敗。這正是它必須進退出演練 DRILL_PLUGINS 的同一個理由（D15）。
+   */
+  "@tailwindcss": "toolchain",
 
   // ── 選用：缺了只是少一點便利 ────────────────────────────────────────
   /** macOS 的檔案系統事件。缺了 watch 會退回輪詢，不影響建置產物。 */

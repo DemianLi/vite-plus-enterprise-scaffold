@@ -111,17 +111,17 @@ describe("parseConfiguredPlugins —— 不可以誤報的", () => {
 describe("accountPlugins —— 閘門本身", () => {
   it("未登記的 plugin 一定會紅，訊息要指得出是哪個檔案的哪一個", () => {
     const errors = accountPlugins([
-      { path: "apps/console/vite.config.ts", source: "plugins: [vue(), tailwindcss()]" },
+      { path: "apps/console/vite.config.ts", source: "plugins: [vue(), unocss()]" },
     ]);
     expect(errors).toHaveLength(1);
-    expect(errors[0]).toContain("tailwindcss");
+    expect(errors[0]).toContain("unocss");
     expect(errors[0]).toContain("apps/console/vite.config.ts");
   });
 
   it("多個未登記的 plugin 全部列出來，不是只報第一個", () => {
     // 只報第一個會讓人一次修一個、跑三次 CI，然後開始覺得這道閘門很煩。
     const errors = accountPlugins([
-      { path: "a.ts", source: "plugins: [tailwindcss(), unocss(), svgLoader()]" },
+      { path: "a.ts", source: "plugins: [unocss(), svgLoader(), imagetools()]" },
     ]);
     expect(errors).toHaveLength(3);
   });
@@ -147,12 +147,13 @@ describe("accountPlugins —— 閘門本身", () => {
 });
 
 describe("退出面設定檔的實際內容", () => {
-  it("apps/console 的三個 plugin 全部被認出來", () => {
+  it("apps/console 的四個 plugin 全部被認出來", () => {
     // 拿真檔案測，而不是只測人造字串 —— 這支測試若和真實設定脫節，
     // 它會在 CI 上一直綠，而閘門在真檔案上早就瞎了。
     const source = readFileSync(join(ROOT, "apps/console/vite.config.ts"), "utf8");
     expect(parseConfiguredPlugins(source)).toEqual([
       "vue",
+      "tailwindcss",
       "securityHeaders",
       "assertStaticCspCompatible",
     ]);
@@ -162,8 +163,8 @@ describe("退出面設定檔的實際內容", () => {
     // 這就是這道閘門存在的理由，用真檔案演一次。
     const source = readFileSync(join(ROOT, "apps/console/vite.config.ts"), "utf8").replace(
       "plugins: [\n      vue(),",
-      "plugins: [\n      vue(),\n      tailwindcss(),",
+      "plugins: [\n      vue(),\n      unocss(),",
     );
-    expect(parseConfiguredPlugins(source)).toContain("tailwindcss");
+    expect(parseConfiguredPlugins(source)).toContain("unocss");
   });
 });

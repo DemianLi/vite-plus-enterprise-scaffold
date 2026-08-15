@@ -72,17 +72,78 @@ function listPlatformPackages(): { name: string; dir: string }[] {
  * 不會出現在這裡。型別的破壞性變更由 tsgolint 在各消費端當場報錯攔下
  *（monorepo 的所有消費端都在同一個 repo，這一點成立）。
  */
+/**
+ * 靜態解析進入點的具名匯出 —— 動態 import 走不通時的後備路徑。
+ *
+ * ── 為什麼需要它 ────────────────────────────────────────────────────
+ *
+ * `@org/ui` 的進入點是純轉出（`export { default as UiButton } from "./x.vue"`），
+ * 而 **Node 載不了 .vue**：`ERR_UNKNOWN_FILE_EXTENSION`。整支工具會當場崩潰。
+ *
+ * 直接跳過那個 package 是最糟的選項：它是**所有切片都依賴的那一個**，
+ * 少了它的 API 表面追蹤，一次沒登記的改名會同時打斷所有團隊 ——
+ * 而那正是這支工具存在的理由。
+ *
+ * ── 這條後備路徑的限制，寫清楚 ──────────────────────────────────────
+ *
+ * 它只認**這個檔案本身**的具名匯出語句，不展開 `export * from`。
+ * 對純轉出的 barrel 這樣就夠（而且 `@org/ui` 的測試禁止 `export *`，
+ * 理由見那份契約）。真的出現 `export *` 時，它會少算 —— 所以下面會擋下來，
+ * 不會安靜地回一份不完整的表面。
+ */
+function parseExportsStatically(entry: string): string[] {
+  const contents = readFileSync(entry, "utf8");
+
+  if (/export\s+\*/.test(contents)) {
+    throw new Error(
+      `${entry} 使用了 export *，靜態解析無法展開。` +
+        "請改成具名轉出 —— API 表面必須是可枚舉的，否則這道閘門看不見它守的東西",
+    );
+  }
+
+  const names = new Set<string>();
+
+  // export { a, b as c } from "..."  /  export { a, b }
+  for (const match of contents.matchAll(/export\s*\{([^}]*)\}/g)) {
+    for (const part of (match[1] ?? "").split(",")) {
+      const trimmed = part.trim();
+      if (trimmed.length === 0) continue;
+      // `default as UiButton` → UiButton；`a as b` → b；`a` → a
+      const alias = /\bas\s+([A-Za-z_$][\w$]*)/.exec(trimmed);
+      const name = alias?.[1] ?? trimmed;
+      if (/^[A-Za-z_$][\w$]*$/.test(name) && name !== "type") names.add(name);
+    }
+  }
+
+  // export const/function/class/let x
+  for (const match of contents.matchAll(
+    /export\s+(?:const|let|function|class)\s+([A-Za-z_$][\w$]*)/g,
+  )) {
+    if (match[1] !== undefined) names.add(match[1]);
+  }
+
+  return [...names].sort();
+}
+
 async function readExports(entry: string): Promise<string[]> {
   // Tier 2 的 no-unsanitized/method 會標記動態 import，而它是對的 ——
   // 一般情況下動態 import 是任意程式碼執行的入口。
   //
   // 此處的豁免理由：路徑完全來自本 repo 的 platform/*/package.json 的 exports
   // 欄位，不接受任何外部輸入；且本檔是 dev-only 工具，永不進入瀏覽器 bundle。
-  // eslint-disable-next-line no-unsanitized/method
-  const module = (await import(pathToFileURL(entry).href)) as Record<string, unknown>;
-  return Object.keys(module)
-    .filter((key) => key !== "default" || module["default"] !== undefined)
-    .sort();
+  try {
+    // eslint-disable-next-line no-unsanitized/method
+    const module = (await import(pathToFileURL(entry).href)) as Record<string, unknown>;
+    return Object.keys(module)
+      .filter((key) => key !== "default" || module["default"] !== undefined)
+      .sort();
+  } catch (error) {
+    // 只對「Node 載不了這種副檔名」退回靜態解析。其他錯誤（語法錯、
+    // 相依缺失）要原樣拋出 —— 把它們吞掉會讓一個壞掉的 package
+    // 悄悄回報成「API 表面是空的」，而空表面永遠不會觸發破壞性變更警報。
+    if ((error as NodeJS.ErrnoException).code !== "ERR_UNKNOWN_FILE_EXTENSION") throw error;
+    return parseExportsStatically(entry);
+  }
 }
 
 async function collectSurface(): Promise<Record<string, string[]>> {

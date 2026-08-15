@@ -39,12 +39,14 @@
       "ALLOWED_VERSION_PROTOCOLS",
       "BANNED_DIRECT_DEPENDENCIES",
       "COMPOSABLES_DIR",
+      "CSP_INCOMPATIBLE_MODULES",
       "IMPORT_SPECIFIER_PATTERN",
       "LAYERS",
       "REQUIRED_FILES",
       "REQUIRE_CATALOG_PROTOCOL",
       "REQUIRE_CODEOWNERS_ENTRY",
       "RUNTIME_TEMPLATE_FORBIDDEN",
+      "SLICE_DESIGN_SYSTEM_IMPORTS",
       "SLICE_PACKAGE_PREFIX",
       "SOURCE_EXTENSIONS",
       "STORE_FILE",
@@ -59,7 +61,8 @@
       "isValidComposableFile",
       "isValidSliceDir",
       "slicePackageName"
-    ]
+    ],
+    "@org/ui": ["UiButton", "UiDialog", "cn"]
   },
   "codemods": [
     {

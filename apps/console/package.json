@@ -16,6 +16,7 @@
     "@org/feature-order": "workspace:*",
     "@org/feature-shipment": "workspace:*",
     "@org/slice-kit": "workspace:*",
+    "@org/ui": "workspace:*",
     "@tanstack/vue-query": "catalog:",
     "pinia": "catalog:",
     "vue": "catalog:",
@@ -25,8 +26,10 @@
   "devDependencies": {
     "@org/security-headers": "workspace:*",
     "@org/tsconfig": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@vitejs/plugin-vue": "catalog:",
+    "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",

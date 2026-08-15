@@ -6,6 +6,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -290,6 +291,161 @@ function listWorkspacePackages(): WorkspacePackage[] {
   return packages;
 }
 
+/**
+ * 從 workspace 的真實內容推導出演練要安裝的執行期相依。
+ *
+ * ── 為什麼不能寫死 ──────────────────────────────────────────────────
+ *
+ * 第一版把 vue／vue-router／pinia／vue-i18n／@tanstack/vue-query 列死在這裡。
+ * D15 讓 `@org/ui` 帶進 reka-ui、clsx、tailwind-merge 之後，演練當場炸在
+ * 「Rolldown failed to resolve import "clsx"」——**寫死的清單不會通知你它過期了**。
+ *
+ * 與 C36 的 plugin 帳目同一個病灶：演練重建應用時，只要有一份「應該長什麼樣」
+ * 的清單是人手維護的，它就會跟真實情況漂移。差別只在漂移的後果是紅燈還是綠燈。
+ *
+ * ── 為什麼要走圖而不是掃全部 workspace ──────────────────────────────
+ *
+ * 第二版改成掃所有 platform/ 與 features/ 的 dependencies，結果把
+ * `@org/eslint-config` 的 typescript-eslint 也裝了進去 —— 而它宣告
+ * `peer typescript >=4.8.4 <6.1.0`，對上本 repo 的 TypeScript 7，npm 直接 ERESOLVE。
+ *
+ * 那個 package **演練根本用不到**。正確的範圍是「從 apps/console 沿 workspace
+ * 連結走得到的」：那才是被建置與被測試的東西。
+ */
+function reachableWorkspacePackages(packages: readonly WorkspacePackage[]): readonly string[] {
+  const byName = new Map(packages.map((pkg) => [pkg.name, pkg]));
+  const reached = new Set<string>();
+  const queue = [join(ROOT, "apps/console/package.json")];
+
+  while (queue.length > 0) {
+    const manifest = queue.pop();
+    if (manifest === undefined || !existsSync(manifest)) continue;
+
+    const parsed = JSON.parse(readFileSync(manifest, "utf8")) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+
+    // devDependencies 也要走：@org/security-headers 是 console 的 devDependency，
+    // 而它有測試 —— 演練會跑那些測試。
+    const links = { ...parsed.dependencies, ...parsed.devDependencies };
+    for (const [name, spec] of Object.entries(links)) {
+      if (!spec.startsWith("workspace:") || reached.has(name)) continue;
+      const pkg = byName.get(name);
+      if (pkg === undefined) continue;
+      reached.add(name);
+      queue.push(join(pkg.dir, "package.json"));
+    }
+  }
+
+  return [...reached];
+}
+
+/**
+ * 演練要安裝的執行期相依。
+ *
+ * 判準：**從 apps/console 走得到的 workspace 套件，其 `dependencies` 裡
+ * 不是 workspace: 連結的那些。** `catalog:` 換成 catalog 的實際版本，
+ * 而 UPSTREAM 有對應的一律優先 —— 整場演練要證明的就是「換成上游也跑得動」。
+ */
+function runtimeDependencies(
+  packages: readonly WorkspacePackage[],
+  catalog: Record<string, string>,
+): Record<string, string> {
+  const byName = new Map(packages.map((pkg) => [pkg.name, pkg]));
+  const manifests = [join(ROOT, "apps/console/package.json")];
+
+  for (const name of reachableWorkspacePackages(packages)) {
+    const pkg = byName.get(name);
+    if (pkg !== undefined) manifests.push(join(pkg.dir, "package.json"));
+  }
+
+  const resolved: Record<string, string> = {};
+
+  for (const manifest of manifests) {
+    if (!existsSync(manifest)) continue;
+    const parsed = JSON.parse(readFileSync(manifest, "utf8")) as {
+      dependencies?: Record<string, string>;
+    };
+
+    for (const [name, spec] of Object.entries(parsed.dependencies ?? {})) {
+      // workspace: 的內部連結由 alias 處理，不必真的安裝。
+      if (spec.startsWith("workspace:")) continue;
+      const version = (UPSTREAM as Record<string, string>)[name] ?? catalog[name] ?? spec;
+      // catalog: 沒對應到實際版本就是 catalog 少了一筆，讓它炸而不是裝一個假的。
+      if (version.startsWith("catalog:")) {
+        throw new Error(`${name} 用了 catalog: 但 pnpm-workspace.yaml 的 catalog 裡沒有它`);
+      }
+      resolved[name] = version;
+    }
+  }
+
+  return Object.fromEntries(
+    Object.entries(resolved).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+  );
+}
+
+/** 一個目錄下所有 .css 的位元組總和。演練與本 repo 兩邊用同一把尺。 */
+function totalCssBytes(dir: string): number {
+  if (!existsSync(dir)) return 0;
+  let total = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) total += totalCssBytes(full);
+    else if (entry.name.endsWith(".css")) total += statSync(full).size;
+  }
+  return total;
+}
+
+/**
+ * 演練建出來的東西，跟本 repo 建出來的是不是同一個等級。
+ *
+ * ── 為什麼光是「建置成功」不夠 ──────────────────────────────────────
+ *
+ * D15 導入 Tailwind 的過程實測過三次「建置成功但產物是壞的」：
+ *
+ *   1. @source 沒宣告 → CSS 從 160 變成 4409 bytes，**裡面一個 utility 都沒有**
+ *   2. @source 用固定相對路徑 → 演練把 package 搬走後掃不到切片，樣式少一半
+ *   3. plugin 沒登記（C36）→ 演練產出完全沒有樣式的應用，exit 0
+ *
+ * 三次的共同點：**退出碼是 0**。而 evidence.json 會據此寫下 "pass"，
+ * 然後被拿去給稽核看。
+ *
+ * 所以這裡拿**本 repo 自己的建置產物**當獨立比較基準 —— 這是 C33 的同一條規則：
+ * 任何「掃了 N 個目標」的步驟都要對著一個獨立來源斷言 N > 0。
+ *
+ * 門檻用 80% 而不是相等：兩邊的 hash 命名與 chunk 切分本來就會有差異，
+ * 要求相等會讓這道檢查在無關的變動上變紅，然後被人加上 skip。
+ * 真正要抓的是「少了一整層」那種等級的落差。
+ */
+function compareArtifacts(workdir: string): { ok: boolean; note: string } {
+  const reference = totalCssBytes(join(ROOT, "apps/console/dist"));
+  const produced = totalCssBytes(join(workdir, "dist"));
+
+  if (reference === 0) {
+    return {
+      ok: true,
+      note: "本 repo 尚無建置產物可比對（先跑一次 vp run -F @org/console build）",
+    };
+  }
+
+  const ratio = produced / reference;
+  if (ratio >= 0.8) {
+    return {
+      ok: true,
+      note: `CSS ${produced} / ${reference} bytes（${Math.round(ratio * 100)}%）`,
+    };
+  }
+
+  return {
+    ok: false,
+    note:
+      `演練產出的 CSS 只有 ${produced} bytes，本 repo 是 ${reference} bytes（${Math.round(ratio * 100)}%）。` +
+      "有東西沒有被重現 —— 最可能是某個影響產物的 plugin 沒登記在 DRILL_PLUGINS，" +
+      "或樣式的 @source 用了綁死目錄佈局的相對路徑",
+  };
+}
+
 interface RunResult {
   readonly ok: boolean;
   /** stdout ＋ stderr 合併。演練要從 vitest 的摘要裡撈出測試數，見 parseTestCounts。 */
@@ -338,7 +494,13 @@ function runFull(): number {
     cpSync(pkg.dir, target, { recursive: true, filter });
 
     for (const [subpath, relative] of Object.entries(pkg.exports)) {
-      if (!/\.(ts|js|mjs)$/.test(relative)) continue;
+      // **不要過濾副檔名。** 第一版只 alias .ts/.js/.mjs，於是 @org/ui 的
+      // `./styles.css` 子路徑被靜靜丟掉，演練的建置炸在
+      // 「Could not load .../index.ts/styles.css」—— 一個完全看不出病因的訊息。
+      //
+      // export 欄位裡的每一個子路徑都可能被 import，沒有哪一種副檔名
+      // 天生不需要解析。這是 C36 的同一種形狀：**演練沒有重現的東西，
+      // 就是它證明不了的東西** —— 只是這次它吵了出來，不是安靜地放行。
       const find = subpath === "." ? pkg.name : `${pkg.name}${subpath.slice(1)}`;
       aliases.push({ find, replacement: join(target, relative) });
     }
@@ -389,13 +551,9 @@ function runFull(): number {
         name: "exit-drill",
         private: true,
         type: "module",
-        dependencies: {
-          vue: UPSTREAM.vue,
-          "vue-router": dependency("vue-router"),
-          pinia: dependency("pinia"),
-          "vue-i18n": dependency("vue-i18n"),
-          "@tanstack/vue-query": dependency("@tanstack/vue-query"),
-        },
+        // 由 workspace 的真實 dependencies 推導，不是寫死的清單 ——
+        // 寫死的清單不會通知你它過期了（見 runtimeDependencies 的說明）。
+        dependencies: runtimeDependencies(packages, catalog),
         devDependencies: {
           // ⚠️ 這裡是**上游的 vite**，不是 catalog 裡被 alias 成
           // @voidzero-dev/vite-plus-core 的那個。整場演練的重點就在這一行。
@@ -417,7 +575,9 @@ function runFull(): number {
   );
 
   // 3. 用 npm 安裝 —— 在專案目錄之外，devEngines 不適用（C8）
-  const installed = run("npm", ["install", "--no-audit", "--no-fund", "--silent"], workdir);
+  // 用 --loglevel=error 而不是 --silent：--silent 連**錯誤訊息也吞掉**，
+  // 於是安裝失敗時只會看到「✗ npm install」與 0 秒，完全無從查起（實測過）。
+  const installed = run("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error"], workdir);
   const steps: [string, boolean][] = [["npm install", installed.ok]];
   let counts: { tests: number; testFiles: number } | null = null;
 
@@ -432,7 +592,15 @@ function runFull(): number {
       filter,
     });
 
-    steps.push(["vite build", run("npx", ["vite", "build"], workdir).ok]);
+    const built = run("npx", ["vite", "build"], workdir).ok;
+    steps.push(["vite build", built]);
+
+    // 建置成功不等於產物是對的。見 compareArtifacts 的說明（實測踩過三次）。
+    if (built) {
+      const comparison = compareArtifacts(workdir);
+      steps.push(["產物與本 repo 同級", comparison.ok]);
+      console.log(`    ${comparison.ok ? "✓" : "✗"} 產物比對：${comparison.note}`);
+    }
 
     const tested = run("npx", ["vitest", "run"], workdir, true);
     steps.push(["vitest run", tested.ok]);

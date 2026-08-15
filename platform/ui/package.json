@@ -1,27 +1,26 @@
 {
-  "name": "@org/feature-order",
+  "name": "@org/ui",
   "version": "0.0.0",
   "private": true,
-  "description": "訂單切片：查詢、篩選、取消",
+  "description": "設計系統：reka-ui 基元 + Tailwind 樣式，元件原始碼由本 repo 擁有（D15）",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles/index.css"
   },
   "scripts": {
     "test": "vp test",
     "check": "vp check"
   },
   "dependencies": {
-    "@org/http-client": "workspace:*",
-    "@org/slice-kit": "workspace:*",
-    "@org/ui": "workspace:*",
-    "@tanstack/vue-query": "catalog:",
-    "pinia": "catalog:",
-    "vue": "catalog:",
-    "vue-router": "catalog:"
+    "clsx": "catalog:",
+    "reka-ui": "catalog:",
+    "tailwind-merge": "catalog:",
+    "vue": "catalog:"
   },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",
