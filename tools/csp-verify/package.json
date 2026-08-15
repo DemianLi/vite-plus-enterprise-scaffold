@@ -2,20 +2,24 @@
   "name": "@org/csp-verify",
   "version": "0.0.0",
   "private": true,
-  "description": "用正式 CSP（enforce）服務正式建置產物，供瀏覽器實測（D15 / R6）",
+  "description": "用正式 CSP（enforce）服務正式建置產物，供瀏覽器實測；並守住實測結果的有效期（D15 / D16 / R6）",
   "bin": {
     "csp-verify": "./src/cli.ts"
   },
   "type": "module",
   "scripts": {
+    "test": "vp test",
     "check": "vp check"
   },
   "dependencies": {
-    "@org/security-headers": "workspace:*"
+    "@org/security-headers": "workspace:*",
+    "@org/supply-chain": "workspace:*"
   },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
     "@types/node": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   }
 }

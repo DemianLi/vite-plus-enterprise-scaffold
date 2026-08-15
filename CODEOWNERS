@@ -55,6 +55,11 @@
 # 不是一次程式碼變更。COMPLIANCE.md 是產生的，改它要從這裡改。
 /tools/compliance/          @org/platform-maintainers @org/security
 
+# evidence.json 是一份「有人開瀏覽器驗過 CSP」的證據，而它的有效期由
+# FINGERPRINT_PACKAGES 這一行決定 —— 從名單裡拿掉一個相依，等於讓一份
+# 舊證據無限期續命。那是一次安全決定，不是一次重構。
+/tools/csp-verify/          @org/platform-maintainers @org/security
+
 /pnpm-workspace.yaml        @org/platform-maintainers
 /vite.config.ts             @org/platform-maintainers
 /eslint.config.js           @org/platform-maintainers @org/security

@@ -7,6 +7,7 @@ import {
   gatesWithoutArticle,
   owedGaps,
   proofStatus,
+  provenCount,
   render,
   unprovenGates,
 } from "../src/render.ts";
@@ -172,5 +173,43 @@ describe("render", () => {
 
   it("★ 表頭警告不要手改 —— 少了它，第一個讀者就會去改那幾格", () => {
     expect(output).toContain("不要手改");
+  });
+});
+
+describe("provenCount：註記裡的計數必須是推導的", () => {
+  it("proposer 不進分子也不進分母", () => {
+    const gates: Gate[] = [
+      { ...GATE, id: "proved", negativeTest: "tests/negative.test.ts" },
+      { ...GATE, id: "bare" },
+      { ...GATE, id: "proposes", kind: "proposer" },
+    ];
+    const control: Control = { ...CONTROL, gates: ["proved", "bare", "proposes"] };
+    expect(provenCount(control, gates)).toEqual({ proven: 1, total: 2 });
+  });
+
+  it("沒有閘門的條號回 0／0，渲染時不印計數", () => {
+    const control: Control = { ...CONTROL, gates: [] };
+    expect(provenCount(control, GATES)).toEqual({ proven: 0, total: 0 });
+    const one = render({ regulation: "r", gates: GATES, controls: [control], future: [] });
+    expect(one).not.toContain("道閘門證明過會紅");
+  });
+
+  it("計數真的印在逐條註記後面", () => {
+    const gates: Gate[] = [{ ...GATE, id: "proved", negativeTest: "tests/negative.test.ts" }];
+    const control: Control = { ...CONTROL, gates: ["proved"], note: "隨便寫些什麼。" };
+    const one = render({ regulation: "r", gates, controls: [control], future: [] });
+    expect(one).toContain("（1／1 道閘門證明過會紅）");
+  });
+
+  it("🔴 註記本文裡不得再出現手寫的閘門計數", () => {
+    // §11 II ⑦ 的註記手寫過「四道裡只有 conformance 證明過會紅」，
+    // 那句話漂移了兩次而一次紅燈都沒有。這條擋住它再長回來。
+    //
+    // 只擋「N 道」這種閘門計數，不擋條號本身（§11 II ③）或別的計量
+    //（例如「22 個 CODEOWNERS 項目」）—— 誤擋會讓人為了過測試而寫得更含糊。
+    const written = /[一二三四五六七八九十兩\d]+\s*道/;
+    for (const control of CONTROLS) {
+      expect(control.note, `${control.article} 的註記手寫了閘門計數`).not.toMatch(written);
+    }
   });
 });
