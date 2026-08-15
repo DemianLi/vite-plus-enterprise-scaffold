@@ -79,6 +79,27 @@ interface RawEntry {
   readonly documents: Set<number>;
 }
 
+/** YAML 文件分隔符。pnpm 用它把兩份 lockfile 併在同一個檔案裡。 */
+const DOCUMENT_SEPARATOR = "\n---\n";
+
+/**
+ * 把 lockfile 拆成一份一份的獨立 YAML 文件（**位元組層級切割，不做任何轉換**）。
+ *
+ * 用途是餵給只讀第一份文件的掃描器。實測（見 C34）：Trivy 0.70.0 對這個檔案
+ * 回報 20 個 component（＝第一份文件的內容），只留第二份文件時回報 **450 個**。
+ * 把兩份分別放進不同目錄再一起掃，兩份都看得到。
+ *
+ * **刻意不合併成單一文件**：合併要動 `packages:` / `snapshots:` / `importers:`
+ * 三個區段，而一個寫錯的合併會安靜地產出一份錯的 SBOM —— 那正是這整套機制
+ * 要防的東西。切割是無損的，合併不是。
+ */
+export function splitDocuments(text: string): readonly string[] {
+  return text
+    .split(DOCUMENT_SEPARATOR)
+    .map((part) => part.replace(/^---\n/, ""))
+    .filter((part) => part.trim().length > 0);
+}
+
 /**
  * 字串排序 —— **刻意不用 `localeCompare`**。
  *

@@ -31,3 +31,8 @@ dist-ssr
 
 # AI agent worktrees
 .claude/worktrees/
+
+# CI 產生的掃描用 lockfile（tools/supply-chain --split-lockfile）
+.scan/
+sbom.cdx.json
+trivy.sarif

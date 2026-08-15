@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseLockfile, splitId } from "../src/lockfile.ts";
+import { parseLockfile, splitDocuments, splitId } from "../src/lockfile.ts";
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 
@@ -120,6 +120,53 @@ describe("parseLockfile", () => {
     // snapshots 裡有同名的鍵。若解析器把兩區混在一起，這裡會出現重複或 integrity 為空的條目。
     expect(lock.packages.filter((pkg) => pkg.id === "@pnpm/macos-arm64@11.21.0")).toHaveLength(1);
     expect(lock.packages.every((pkg) => pkg.integrity !== "")).toBe(true);
+  });
+});
+
+/**
+ * 這組測試守的是 C34 的修法：把兩份 YAML 文件拆成兩個獨立、**位元組無損**的
+ * lockfile，好餵給只讀第一份的掃描器（Trivy 0.70.0 就是這樣，實測 20 vs 450）。
+ *
+ * 「無損」是重點。合併成單一文件會需要動 packages: / snapshots: / importers:，
+ * 而一個寫錯的合併會安靜地產出一份錯的 SBOM —— 正是整套機制要防的東西。
+ */
+describe("splitDocuments", () => {
+  it("拆出的每一份都是獨立可解析的 lockfile", () => {
+    const parts = splitDocuments(TWO_DOCUMENTS);
+    expect(parts).toHaveLength(2);
+    for (const part of parts) {
+      expect(parseLockfile(part).documents).toBe(1);
+    }
+  });
+
+  it("套件總數守恆（拆開之後不多不少）", () => {
+    const whole = parseLockfile(TWO_DOCUMENTS);
+    const parts = splitDocuments(TWO_DOCUMENTS).map((p) => parseLockfile(p));
+    const sum = parts.reduce((n, p) => n + p.packages.length, 0);
+    // 原檔會去重（detect-libc 在兩份文件裡都有），拆開後各自保留 —— 差值就是重複數。
+    const ids = new Set(parts.flatMap((p) => p.packages.map((pkg) => pkg.id)));
+    expect(ids.size).toBe(whole.packages.length);
+    expect(sum).toBeGreaterThanOrEqual(whole.packages.length);
+  });
+
+  it("內容位元組無損（只脫掉開頭的文件分隔符）", () => {
+    const parts = splitDocuments(TWO_DOCUMENTS);
+    for (const part of parts) {
+      expect(TWO_DOCUMENTS).toContain(part);
+    }
+  });
+
+  it("單一文件的 lockfile 原樣回傳一份", () => {
+    const single =
+      "lockfileVersion: '9.0'\n\npackages:\n\n  a@1.0.0:\n    resolution: {integrity: sha512-A==}\n";
+    expect(splitDocuments(single)).toEqual([single]);
+  });
+
+  it("對真實的 pnpm-lock.yaml 拆出 19 + 449", () => {
+    const parts = splitDocuments(readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8"));
+    const counts = parts.map((p) => parseLockfile(p).packages.length);
+    // 這兩個數字是 C34 的核心證據：Trivy 只看到前者，看不到後者。
+    expect(counts).toEqual([19, 449]);
   });
 });
 

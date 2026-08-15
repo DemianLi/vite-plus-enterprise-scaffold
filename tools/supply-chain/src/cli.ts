@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { compareStrings, parseLockfile, type LockPackage } from "./lockfile.ts";
+import { compareStrings, parseLockfile, splitDocuments, type LockPackage } from "./lockfile.ts";
 import {
   TARGETS,
   buildInventory,
@@ -47,6 +47,9 @@ import {
  *   --manifest  不連網。印出給平台團隊的 mirror 清單
  *   --dossier   不連網。印出給資安的 SCA 例外申請書
  *   --airgap    不連網。印出封閉網路的前置條件（含 registry 設定的實測結果）
+ *
+ *   CI 專用：--split-lockfile <dir>（拆出掃描器讀得懂的 lockfile）、
+ *            --verify-sbom <path>（驗掃描器真的看到了東西）
  */
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
@@ -921,6 +924,30 @@ async function main(): Promise<number> {
     );
     return 0;
   }
+  // --split-lockfile <dir>：把 lockfile 的每一份 YAML 文件寫成獨立的 pnpm-lock.yaml，
+  // 各放一個子目錄。掃描器掃這個父目錄就會看到全部，不會只看到第一份（C34）。
+  const splitFlag = args.indexOf("--split-lockfile");
+  if (splitFlag >= 0) {
+    const outDir = args[splitFlag + 1];
+    if (outDir === undefined) {
+      console.error("--split-lockfile 需要一個輸出目錄");
+      return 1;
+    }
+    const documents = splitDocuments(readFileSync(LOCKFILE, "utf8"));
+    for (const [index, document] of documents.entries()) {
+      const dir = join(resolve(outDir), `doc${index + 1}`);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "pnpm-lock.yaml"), document);
+      // 有些掃描器要看到 package.json 才認定這是個 JS 專案。
+      writeFileSync(
+        join(dir, "package.json"),
+        `{"name":"lockfile-doc${index + 1}","private":true}\n`,
+      );
+    }
+    console.log(`✓ 已拆出 ${documents.length} 份文件到 ${outDir}/doc1…doc${documents.length}`);
+    return 0;
+  }
+
   const sbomFlag = args.indexOf("--verify-sbom");
   if (sbomFlag >= 0) {
     const path = args[sbomFlag + 1];

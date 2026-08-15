@@ -127,19 +127,30 @@ jobs:
       # ⚠️ 若貴組織的 SCA 是 Blackduck／Snyk，這兩步要換成對應工具 ——
       # 交付給稽核的必須是稽核認可的那個工具的輸出。
       #
-      # ⚠️⚠️ TRIVY_INCLUDE_DEV_DEPS 是**必要的，不是調校**。少了它，Trivy 會印一行
-      # 「Suppressing dependencies for development and testing」然後產出一份
-      # **0 個 component** 的 SBOM —— 而整個 job 仍然全綠。
-      # 這個 repo 是腳手架：工具鏈（含 R2 那 121 個原生二進位）全都是 dev 相依，
-      # 抑制掉它們等於什麼都沒掃。實際發生過，見 DECISIONS.md 的 C33。
-      # 換掉 Trivy 時，對應工具也要找到等效選項，並保留下面那道 SBOM 檢查。
+      # ⚠️⚠️ 下面兩件事**都是必要的，不是調校**。少了任何一件，掃描器都會
+      # 在完全綠燈的情況下產出一份沒有內容的 SBOM。兩件都是實測出來的：
+      #
+      #   ① TRIVY_INCLUDE_DEV_DEPS —— 少了它，Trivy 印一行 INFO
+      #      「Suppressing dependencies for development and testing」然後給出
+      #      **0 個 component**。這個 repo 是腳手架，工具鏈（含 R2 那 121 個
+      #      原生二進位）全都是 dev 相依，抑制掉等於什麼都沒掃。見 C33。
+      #
+      #   ② 拆開 lockfile —— pnpm-lock.yaml 是**兩份 YAML 文件**，而 Trivy 0.70.0
+      #      只解第一份（＝ pnpm 自己的鎖，19 個套件）。實測：原檔 20 個 component、
+      #      只留第二份文件 450 個。見 C34。拆成兩個目錄再一起掃，兩份都看得到。
+      #
+      # 換掉 Trivy 時這兩件事都要重新驗，而且要保留下面那道 SBOM 完整性檢查 ——
+      # 它才是真正擋下這類問題的東西（①只把 0 變成 20，問題還在，但更難發現）。
+      - name: 拆出掃描器讀得懂的 lockfile
+        run: node tools/supply-chain/src/cli.ts --split-lockfile .scan
+
       - name: 產出 SBOM（CycloneDX）
         uses: aquasecurity/trivy-action@v0.36.0
         env:
           TRIVY_INCLUDE_DEV_DEPS: "true"
         with:
           scan-type: fs
-          scan-ref: .
+          scan-ref: .scan
           format: cyclonedx
           output: sbom.cdx.json
           scanners: license,vuln
@@ -171,7 +182,7 @@ jobs:
           TRIVY_INCLUDE_DEV_DEPS: "true"
         with:
           scan-type: fs
-          scan-ref: .
+          scan-ref: .scan
           format: sarif
           output: trivy.sarif
           severity: HIGH,CRITICAL
