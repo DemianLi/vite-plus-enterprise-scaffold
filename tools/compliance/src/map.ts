@@ -123,8 +123,8 @@ export const GATES: readonly Gate[] = [
     what: "platform/ 公開 API 表面的破壞性變更（D12）",
     command: "node tools/api-surface/src/cli.ts",
     evidence: "tools/api-surface/surface.json",
-    negativeTest: null,
-    note: "四道閘門裡唯一連零件測試都沒有的。基準線進版控，但沒有東西證明過比對會紅。",
+    negativeTest: "tools/api-surface/tests/negative.test.ts",
+    note: "11 條反向測試。破壞的是**基準檔的副本**（`--baseline`），platform 的原始碼不用動 —— 對閘門而言「基準說有、現況沒有」與真的刪掉一個 export 完全等價。其中三條驗 codemod 這個合法出口沒有被繞過，也沒有被誤擋。",
   },
   {
     id: "supply-chain",
@@ -160,7 +160,7 @@ export const GATES: readonly Gate[] = [
     command: "aquasecurity/trivy-action（.github/workflows/tier2-security.yml）",
     evidence: null,
     negativeTest: null,
-    note: "唯一直接對得上 §11 II ③ 的閘門，而且有兩個已知失明模式（C33 dev 相依被抑制掃 0 個、C34 只解第一份 YAML 文件），兩者都是綠燈。",
+    note: "唯一直接對得上 §11 II ③ 的閘門。兩個已知失明模式（C33／C34）現在由 `trivy-sbom` 的 15 條反向測試守著，而**設定漂移**（少一行 TRIVY_INCLUDE_DEV_DEPS、拿掉 exit-code）也有測試釘住。⚠️ 但仍未證明「Trivy 發現 CVE 時 CI 會紅」—— 那需要一份帶已知 CVE 的 fixture，而那種 fixture 會在 CVE 被修掉的那天因為錯誤的理由變綠。這一格刻意留白。",
   },
   {
     id: "trivy-sbom",
@@ -168,8 +168,8 @@ export const GATES: readonly Gate[] = [
     what: "CycloneDX SBOM 產出，並比對 component 數與 lockfile 套件數",
     command: "node tools/supply-chain/src/cli.ts --verify-sbom sbom.cdx.json",
     evidence: null,
-    negativeTest: null,
-    note: "SBOM 上傳為 artifact（保留 90 天），沒有進版控 —— 而 §16 要的是 5 年。",
+    negativeTest: "tools/supply-chain/tests/sbom-negative.test.ts",
+    note: "15 條反向測試，兩個已知失明模式各有一條：SBOM 0 個 component（C33）、只有 20 個（C34 只解第一份 YAML 文件）。⚠️ SBOM 仍只上傳為 artifact（保留 90 天）、沒有進版控 —— 而 §16 要的是 5 年。",
   },
   {
     id: "gitleaks",

@@ -7,9 +7,16 @@
     "api-surface": "./src/cli.ts"
   },
   "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
     "@types/node": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   }
 }

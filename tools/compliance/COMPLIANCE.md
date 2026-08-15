@@ -13,7 +13,7 @@
 ## 一眼看完
 
 - 腳手架欠、而且**完全沒有東西在守**的條號：**3**
-- 存在但**沒有證明過自己會紅**的閘門：**8 / 12**
+- 存在但**沒有證明過自己會紅**的閘門：**6 / 12**
 - 對不到任何條號的閘門：**2**（不是違規，見下方說明）
 
 ## 條號 → 閘門
@@ -22,23 +22,23 @@
 後者問「守它的東西證明過自己會紅嗎」。合成一欄就會產生假的一列 ——
 §12 III 正是樣本：閘門有、閘門也證明過會紅、而法條仍然沒被滿足。
 
-| 條號     | 要求                                                               | 責任落點       | 守它的閘門                                                                  | 覆蓋 | 證明過會紅 |
-| -------- | ------------------------------------------------------------------ | -------------- | --------------------------------------------------------------------------- | ---- | ---------- |
-| §11 I    | 個資之蒐集處理利用應採適當加密，備份與傳輸各採適當保護             | 前端           | bff-check                                                                   | 部分 | ✅ 已證明  |
-| §11 II ① | 防火牆與入侵偵測設備之建置與更新                                   | 後端／基礎設施 | —                                                                           | 無   | — 不在範圍 |
-| §11 II ② | 異常存取行為之監控與演練機制                                       | 後端／基礎設施 | —                                                                           | 無   | — 不在範圍 |
-| §11 II ③ | 定期檢測並因應系統漏洞所造成之威脅                                 | 前端           | trivy-sca ⚠️、trivy-sbom ⚠️、supply-chain ⚠️、dependency-health、renovate ▷ | 部分 | ◐ 部分     |
-| §11 II ④ | 防毒軟體與惡意程式檢測                                             | 後端／基礎設施 | —                                                                           | 無   | — 不在範圍 |
-| §11 II ⑤ | 認證機制與密碼複雜度設定                                           | 前端           | bff-check                                                                   | 部分 | ✅ 已證明  |
-| §11 II ⑥ | 測試環境應避免使用真實個人資料                                     | 前端           | 🔴 **（無）**                                                               | 無   | ❌ 未證明  |
-| §11 II ⑦ | 確保系統變更之安全性                                               | 前端           | conformance、api-surface ⚠️、eslint-security ⚠️、csp-verify ⚠️              | 完整 | ◐ 部分     |
-| §11 II ⑧ | 定期檢視系統之使用狀況                                             | 流程／營運     | —                                                                           | 無   | — 不在範圍 |
-| §11 II ⑨ | 隱碼機制，隱藏個人資料之呈現                                       | 前端           | 🔴 **（無）**                                                               | 無   | ❌ 未證明  |
-| §12 III  | 設定人員接觸個資之權限，並定期檢視其適當性及必要性                 | 流程／營運     | conformance                                                                 | 部分 | ✅ 已證明  |
-| §15      | 訂定安全稽核機制，定期檢查執行狀況並製作評估報告                   | 流程／營運     | compliance                                                                  | 部分 | ✅ 已證明  |
-| §16      | 軌跡資料與安全維護計畫執行證據，保存五年                           | 流程／營運     | 🔴 **（無）**                                                               | 無   | ❌ 未證明  |
-| §18      | 資本額達一千萬元或個資達五千筆者，每十二個月至少實施及檢討改善一次 | 流程／營運     | compliance                                                                  | 部分 | ✅ 已證明  |
-| §8 II    | 危及正常營運或大量當事人權益之事故，七十二小時內通報               | 流程／營運     | —                                                                           | 無   | — 不在範圍 |
+| 條號     | 要求                                                               | 責任落點       | 守它的閘門                                                               | 覆蓋 | 證明過會紅 |
+| -------- | ------------------------------------------------------------------ | -------------- | ------------------------------------------------------------------------ | ---- | ---------- |
+| §11 I    | 個資之蒐集處理利用應採適當加密，備份與傳輸各採適當保護             | 前端           | bff-check                                                                | 部分 | ✅ 已證明  |
+| §11 II ① | 防火牆與入侵偵測設備之建置與更新                                   | 後端／基礎設施 | —                                                                        | 無   | — 不在範圍 |
+| §11 II ② | 異常存取行為之監控與演練機制                                       | 後端／基礎設施 | —                                                                        | 無   | — 不在範圍 |
+| §11 II ③ | 定期檢測並因應系統漏洞所造成之威脅                                 | 前端           | trivy-sca ⚠️、trivy-sbom、supply-chain ⚠️、dependency-health、renovate ▷ | 部分 | ◐ 部分     |
+| §11 II ④ | 防毒軟體與惡意程式檢測                                             | 後端／基礎設施 | —                                                                        | 無   | — 不在範圍 |
+| §11 II ⑤ | 認證機制與密碼複雜度設定                                           | 前端           | bff-check                                                                | 部分 | ✅ 已證明  |
+| §11 II ⑥ | 測試環境應避免使用真實個人資料                                     | 前端           | 🔴 **（無）**                                                            | 無   | ❌ 未證明  |
+| §11 II ⑦ | 確保系統變更之安全性                                               | 前端           | conformance、api-surface、eslint-security ⚠️、csp-verify ⚠️              | 完整 | ◐ 部分     |
+| §11 II ⑧ | 定期檢視系統之使用狀況                                             | 流程／營運     | —                                                                        | 無   | — 不在範圍 |
+| §11 II ⑨ | 隱碼機制，隱藏個人資料之呈現                                       | 前端           | 🔴 **（無）**                                                            | 無   | ❌ 未證明  |
+| §12 III  | 設定人員接觸個資之權限，並定期檢視其適當性及必要性                 | 流程／營運     | conformance                                                              | 部分 | ✅ 已證明  |
+| §15      | 訂定安全稽核機制，定期檢查執行狀況並製作評估報告                   | 流程／營運     | compliance                                                               | 部分 | ✅ 已證明  |
+| §16      | 軌跡資料與安全維護計畫執行證據，保存五年                           | 流程／營運     | 🔴 **（無）**                                                            | 無   | ❌ 未證明  |
+| §18      | 資本額達一千萬元或個資達五千筆者，每十二個月至少實施及檢討改善一次 | 流程／營運     | compliance                                                               | 部分 | ✅ 已證明  |
+| §8 II    | 危及正常營運或大量當事人權益之事故，七十二小時內通報               | 流程／營運     | —                                                                        | 無   | — 不在範圍 |
 
 ### 逐條註記
 
@@ -63,21 +63,21 @@
 標 ▷ 的是**提案者**而不是閘門：它不擋任何東西，所以「反向測試」對它不適用，
 上面那個 8／11 的分子與分母都不含它。
 
-| 閘門                | 檢查什麼                                                                 | 進版控的證據                                | 反向測試                                   |
-| ------------------- | ------------------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------ |
-| `conformance`       | 切片契約、分層邊界、設計系統採用、擁有權（D4／D9／D12／D14／D15）        | **（無）**                                  | `tools/conformance/tests/negative.test.ts` |
-| `bff-check`         | D8 同源中間層的 15 條行為契約（cookie 屬性、CSRF、401／403）             | **（無）**                                  | `tools/bff-check/tests/negative.test.ts`   |
-| `api-surface`       | platform/ 公開 API 表面的破壞性變更（D12）                               | `tools/api-surface/surface.json`            | **❌ 無**                                  |
-| `supply-chain`      | 相依盤點、原生家族分類、tarball digest 與 lockfile 綁定（R2–R5／R8）     | `tools/supply-chain/provenance.json`        | **❌ 無**                                  |
-| `exit-drill`        | D2 退出面靜態檢查、plugin 帳目、演練證據新鮮度（120 天）                 | `tools/exit-drill/evidence.json`            | **❌ 無**                                  |
-| `eslint-security`   | no-unsanitized、eslint-plugin-security、vue/no-v-html（D5 的安全那一半） | **（無）**                                  | **❌ 無**                                  |
-| `trivy-sca`         | 相依套件的 HIGH／CRITICAL 漏洞，PR ＋ 每日 21:00 UTC 排程                | **（無）**                                  | **❌ 無**                                  |
-| `trivy-sbom`        | CycloneDX SBOM 產出，並比對 component 數與 lockfile 套件數               | **（無）**                                  | **❌ 無**                                  |
-| `gitleaks`          | 機密掃描，fetch-depth: 0 以涵蓋被後續 commit 蓋掉的機密                  | **（無）**                                  | **❌ 無**                                  |
-| `csp-verify`        | 用正式 CSP（enforce）服務正式建置產物，實測 violation                    | **（無）**                                  | **❌ 無**                                  |
-| `dependency-health` | 外部直接相依（24 個）的維護狀態與授權變更 —— 停更、或授權被偷偷改掉      | `tools/supply-chain/dependency-health.json` | `tools/supply-chain/tests/health.test.ts`  |
-| `renovate` ▷        | 提出相依升級與安全修補 —— §11 II ③「檢測**並因應**」裡的因應那一半       | `renovate.json`                             | ▷ 不適用                                   |
-| `compliance`        | 本對照表本身：映射與檔案系統一致、且沒有列在說謊                         | `tools/compliance/COMPLIANCE.md`            | `tools/compliance/tests/negative.test.ts`  |
+| 閘門                | 檢查什麼                                                                 | 進版控的證據                                | 反向測試                                         |
+| ------------------- | ------------------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------------ |
+| `conformance`       | 切片契約、分層邊界、設計系統採用、擁有權（D4／D9／D12／D14／D15）        | **（無）**                                  | `tools/conformance/tests/negative.test.ts`       |
+| `bff-check`         | D8 同源中間層的 15 條行為契約（cookie 屬性、CSRF、401／403）             | **（無）**                                  | `tools/bff-check/tests/negative.test.ts`         |
+| `api-surface`       | platform/ 公開 API 表面的破壞性變更（D12）                               | `tools/api-surface/surface.json`            | `tools/api-surface/tests/negative.test.ts`       |
+| `supply-chain`      | 相依盤點、原生家族分類、tarball digest 與 lockfile 綁定（R2–R5／R8）     | `tools/supply-chain/provenance.json`        | **❌ 無**                                        |
+| `exit-drill`        | D2 退出面靜態檢查、plugin 帳目、演練證據新鮮度（120 天）                 | `tools/exit-drill/evidence.json`            | **❌ 無**                                        |
+| `eslint-security`   | no-unsanitized、eslint-plugin-security、vue/no-v-html（D5 的安全那一半） | **（無）**                                  | **❌ 無**                                        |
+| `trivy-sca`         | 相依套件的 HIGH／CRITICAL 漏洞，PR ＋ 每日 21:00 UTC 排程                | **（無）**                                  | **❌ 無**                                        |
+| `trivy-sbom`        | CycloneDX SBOM 產出，並比對 component 數與 lockfile 套件數               | **（無）**                                  | `tools/supply-chain/tests/sbom-negative.test.ts` |
+| `gitleaks`          | 機密掃描，fetch-depth: 0 以涵蓋被後續 commit 蓋掉的機密                  | **（無）**                                  | **❌ 無**                                        |
+| `csp-verify`        | 用正式 CSP（enforce）服務正式建置產物，實測 violation                    | **（無）**                                  | **❌ 無**                                        |
+| `dependency-health` | 外部直接相依（24 個）的維護狀態與授權變更 —— 停更、或授權被偷偷改掉      | `tools/supply-chain/dependency-health.json` | `tools/supply-chain/tests/health.test.ts`        |
+| `renovate` ▷        | 提出相依升級與安全修補 —— §11 II ③「檢測**並因應**」裡的因應那一半       | `renovate.json`                             | ▷ 不適用                                         |
+| `compliance`        | 本對照表本身：映射與檔案系統一致、且沒有列在說謊                         | `tools/compliance/COMPLIANCE.md`            | `tools/compliance/tests/negative.test.ts`        |
 
 ### 逐道註記
 
@@ -86,7 +86,7 @@
 - **`bff-check`** — `./node_modules/.bin/vitest run --root tools/bff-check`  
   9 條反向測試，用改寫回應的 proxy 破壞行為而非程式碼，實作改寫法也不會失效。
 - **`api-surface`** — `node tools/api-surface/src/cli.ts`  
-  四道閘門裡唯一連零件測試都沒有的。基準線進版控，但沒有東西證明過比對會紅。
+  11 條反向測試。破壞的是**基準檔的副本**（`--baseline`），platform 的原始碼不用動 —— 對閘門而言「基準說有、現況沒有」與真的刪掉一個 export 完全等價。其中三條驗 codemod 這個合法出口沒有被繞過，也沒有被誤擋。
 - **`supply-chain`** — `node tools/supply-chain/src/cli.ts`  
   46 條零件測試（parseLockfile／buildInventory），但沒有一條測「把 provenance 弄髒之後 CLI 會不會 exit 1」。
 - **`exit-drill`** — `node tools/exit-drill/src/cli.ts`  
@@ -94,9 +94,9 @@
 - **`eslint-security`** — `./node_modules/.bin/eslint . --max-warnings=0`  
   存在的首要理由是 oxlint 沒有 vue/no-v-html —— Vue 專案最主要的 XSS 入口。
 - **`trivy-sca`** — `aquasecurity/trivy-action（.github/workflows/tier2-security.yml）`  
-  唯一直接對得上 §11 II ③ 的閘門，而且有兩個已知失明模式（C33 dev 相依被抑制掃 0 個、C34 只解第一份 YAML 文件），兩者都是綠燈。
+  唯一直接對得上 §11 II ③ 的閘門。兩個已知失明模式（C33／C34）現在由 `trivy-sbom` 的 15 條反向測試守著，而**設定漂移**（少一行 TRIVY_INCLUDE_DEV_DEPS、拿掉 exit-code）也有測試釘住。⚠️ 但仍未證明「Trivy 發現 CVE 時 CI 會紅」—— 那需要一份帶已知 CVE 的 fixture，而那種 fixture 會在 CVE 被修掉的那天因為錯誤的理由變綠。這一格刻意留白。
 - **`trivy-sbom`** — `node tools/supply-chain/src/cli.ts --verify-sbom sbom.cdx.json`  
-  SBOM 上傳為 artifact（保留 90 天），沒有進版控 —— 而 §16 要的是 5 年。
+  15 條反向測試，兩個已知失明模式各有一條：SBOM 0 個 component（C33）、只有 20 個（C34 只解第一份 YAML 文件）。⚠️ SBOM 仍只上傳為 artifact（保留 90 天）、沒有進版控 —— 而 §16 要的是 5 年。
 - **`gitleaks`** — `gitleaks/gitleaks-action（.github/workflows/tier2-security.yml）`  
   第三方 action，反向測試要塞一個假機密進暫存 repo。
 - **`csp-verify`** — `node tools/csp-verify/src/cli.ts`  
