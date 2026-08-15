@@ -14,12 +14,27 @@ vp create slice -- --directory=../features/<name> --slice=<name> --title=<顯示
 vp create slice -- --directory=../features/shipment --slice=shipment --title=出貨管理 --team=@org/team-logistics
 ```
 
-兩個必須照做的細節，錯了都會以難懂的方式失敗：
+一個必須照做的細節：
 
-| 細節                                           | 為什麼                                                                       |
-| ---------------------------------------------- | ---------------------------------------------------------------------------- |
-| 選項用 `--opt=value`，**不能**用 `--opt value` | bingo 的 CLI 會把 `--opt value` 當成布林旗標，傳進 `produce` 的值變成 `true` |
-| `--directory` 要寫 `../features/<name>`        | `vp create` 以產生器所在的 `tools/` 為錨點，不加 `../` 會產到 `tools/` 底下  |
+| 細節                                    | 為什麼                                                                      |
+| --------------------------------------- | --------------------------------------------------------------------------- |
+| `--directory` 要寫 `../features/<name>` | `vp create` 以產生器所在的 `tools/` 為錨點，不加 `../` 會產到 `tools/` 底下 |
+
+> **`--opt=value` 與 `--opt value` 現在都可以。**
+>
+> 這裡原本寫著「**不能**用 `--opt value`，bingo 會把它當成布林旗標」。
+> 那個限制是真的，但**原因不是 bingo 對所有選項都這樣** ——
+> 只有 zod schema 被 `.refine()`／`.transform()` 包過的選項才會中招
+> （那會變成 `ZodEffects`，bingo 認不得就把整個選項丟掉，
+> 於是 `--slice` 變裸旗標；用 `=` 則讓 `parseArgs` 直接推出字串，所以繞得過）。
+>
+> 當時 `slice` 與 `team` 有 `.refine()`、`title` 沒有 ——
+> 也就是同一支 CLI 上三個選項有兩種行為，而 README 把它寫成一條通則。
+>
+> `.refine()` 已經移除（驗證搬進 `produce()`），所以現在兩種寫法都對。
+> **但如果將來有人加了 `z.enum()`／`z.number()` 或任何 `.refine()`，
+> 這個坑會原樣回來** —— `tests/e2e.test.ts` 會擋下（它用 `--opt value` 跑）。
+> 詳見 C42。
 
 產完之後照畫面上印出的三個步驟做：加 CODEOWNERS 條目、把切片加進
 `apps/<app>/package.json` 的 dependencies 與 `src/features.ts`、跑 `vp install` 驗證。
