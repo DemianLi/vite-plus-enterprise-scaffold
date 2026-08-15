@@ -8,7 +8,9 @@ import { isNative } from "../src/inventory.ts";
 import {
   decodeProvenance,
   integrityToHex,
+  isSafeToRecapture,
   verifyBinding,
+  type BindingProblem,
   type ProvenanceFile,
 } from "../src/provenance.ts";
 
@@ -171,6 +173,48 @@ describe("verifyBinding", () => {
 
   it("擷取檔多出 lockfile 已經沒有的套件", () => {
     expect(verifyBinding([], captured).map((p) => p.kind)).toEqual(["stale-record"]);
+  });
+});
+
+/**
+ * `isSafeToRecapture` 決定的是升級 PR 上「bot 能不能自己重擷」。
+ *
+ * 判錯的方向只有一個是危險的：**把事故當成升級**。所以每一條會回 true 的
+ * 案例都要有一個對應的 false 案例把它圍起來 —— 尤其是混合的情況，
+ * 那才是真實會發生的樣子（一次升級同時帶來 missing／stale，
+ * 而其中夾了一個被掉包的）。
+ */
+describe("isSafeToRecapture", () => {
+  const missing: BindingProblem = { kind: "missing-record", id: "a@1" };
+  const stale: BindingProblem = { kind: "stale-record", id: "b@1" };
+  const tampered: BindingProblem = {
+    kind: "integrity-changed",
+    id: "c@1",
+    lock: "sha512-X==",
+    captured: "sha512-Y==",
+  };
+
+  it("沒有任何問題 → 安全", () => {
+    expect(isSafeToRecapture([])).toBe(true);
+  });
+
+  it("只有版本換了（missing ＋ stale）→ 安全，那就是每個升級 PR 的樣子", () => {
+    expect(isSafeToRecapture([missing, stale])).toBe(true);
+  });
+
+  it("內容物被換掉 → 不安全", () => {
+    expect(isSafeToRecapture([tampered])).toBe(false);
+  });
+
+  it("★ 混在一堆正常升級裡的一個掉包 → 仍然不安全", () => {
+    // 這是最可能被寫錯的一條：用「多數是升級」或「第一筆是什麼」來判定，
+    // 都會在這裡放行 —— 而這正是掉包會長的樣子。
+    expect(isSafeToRecapture([missing, stale, tampered, missing])).toBe(false);
+  });
+
+  it("★ 順序不影響判定", () => {
+    expect(isSafeToRecapture([tampered, missing])).toBe(false);
+    expect(isSafeToRecapture([missing, tampered])).toBe(false);
   });
 });
 

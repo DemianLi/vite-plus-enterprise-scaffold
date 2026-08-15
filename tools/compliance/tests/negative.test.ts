@@ -59,6 +59,7 @@ function runCli(args: readonly string[]): Result {
 /** 一組乾淨的最小映射，用來把每個破壞隔離開來。 */
 const GATE: Gate = {
   id: "demo",
+  kind: "gate",
   what: "示範",
   command: "node nowhere.ts",
   evidence: null,

@@ -211,3 +211,26 @@ export function verifyBinding(
 
   return problems;
 }
+
+/**
+ * 自動重新擷取是否安全（`--recapture-safe`，供升級 PR 使用）。
+ *
+ * ── 為什麼不是「有不同步就重擷一次」 ────────────────────────────────
+ *
+ * 三種不同步裡有兩種是例行的：升一個版本，舊的 id 消失（stale）、
+ * 新的 id 出現（missing）。那正是每一個 Renovate PR 都會發生的事。
+ *
+ * 但 `integrity-changed` **完全不同**：它的意思是「同一個 name@version，
+ * tarball 的內容物換了」。正常升版不會這樣 —— 那是重新發佈或被掉包。
+ * 對它自動重擷，等於把一件該當成事故處理的事，用一個 bot commit 蓋掉。
+ *
+ * ⚠️ 而且 `captureOne` 的既有防線在這裡**不夠**：它只在 attestation 的
+ * subject digest 與 lockfile 對不上時中止，而 121 個原生二進位裡有 32 個
+ * **只有發佈簽章、沒有 SLSA provenance**（見 C27）。那 32 個沒有 subject
+ * digest 可比，於是自動重擷會安靜地把新的 digest 記下來當成事實。
+ *
+ * 所以這道判定必須在**重擷之前**做，而不是靠擷取過程自己擋。
+ */
+export function isSafeToRecapture(problems: readonly BindingProblem[]): boolean {
+  return !problems.some((problem) => problem.kind === "integrity-changed");
+}
