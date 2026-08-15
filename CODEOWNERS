@@ -49,6 +49,12 @@
 # 一個新的原生工具鏈進到建置環境時，分類必須是一次**被資安看過**的變更。
 # 這裡也放著 inventory.json / provenance.json 兩份基線 —— 它們是拿給稽核看的東西。
 /tools/supply-chain/        @org/platform-maintainers @org/security
+
+# 同一個理由，但更直接：map.ts 決定的是**這個組織對外宣稱自己遵循了什麼**。
+# 把一條法規標成「已覆蓋」、或把一道閘門標成「已證明會紅」，是一次法遵聲明，
+# 不是一次程式碼變更。COMPLIANCE.md 是產生的，改它要從這裡改。
+/tools/compliance/          @org/platform-maintainers @org/security
+
 /pnpm-workspace.yaml        @org/platform-maintainers
 /vite.config.ts             @org/platform-maintainers
 /eslint.config.js           @org/platform-maintainers @org/security
