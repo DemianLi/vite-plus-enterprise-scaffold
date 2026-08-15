@@ -1,5 +1,20 @@
 # 擁有權對照（D12）。一致性檢查會驗證每個 features/* 都在此有條目 ——
 # 沒有 owner 的切片＝沒人負責的切片。
+#
+# ⚠️ ── 採用時必須做的第一件事：把 @org 換成真的組織 ──────────────────
+#
+# 這份檔案裡的 `@org/*` **全部是佔位符**。在還沒替換之前，GitHub 判定
+# 每一條都是 `Unknown owner`，也就是**這份 CODEOWNERS 一條都沒有生效** ——
+# PR 不會自動指派審查者，保護分支的「需要 owner 核准」也沒有東西可要求。
+#
+# 而 `tools/conformance` 驗的是**條目存在**，不是**owner 有效** ——
+# 存在不等於生效。這道落差本機看不出來，只有 GitHub 知道：
+#
+#     gh api repos/<owner>/<repo>/codeowners/errors
+#
+# 本 repo 2026-08-15 實測：**22 條全部 Unknown owner**（見 DECISIONS 的 C40）。
+# 刻意不做成 CI 閘門 —— 那需要 GitHub API，會因為 token 權限與速率限制而變紅，
+# 而不是因為真的有問題（與 tools/ui-survey 不進 gate 是同一條理由）。
 
 # ── platform/ 由跨團隊抽調的 maintainer 把關（D12）────────────────────
 # 任何人都能提 PR，但需 maintainer 核准。目的是既不製造瓶頸、也不放任無主。
@@ -11,17 +26,24 @@
 # 放寬它們不會讓任何測試變紅 —— 只會讓標準變低，所以由資安共同把關。
 /platform/security-headers/ @org/platform-maintainers @org/security
 /platform/bff-contract/     @org/platform-maintainers @org/security
-
-# ── platform/ui —— ⚠️ 這一列的 owner 尚未由組織指派（HANDOFF #14）─────
-#
-# 它是**唯一一個所有切片都依賴的 UI package**，所以它的 owner 等於
-# 「誰有權改變全公司產品的長相」。這不是技術問題。
-#
-# 目前暫掛 platform-maintainers 讓閘門能運作。若組織要另設設計系統小組，
-# 改這一列即可 —— 但**不能把它拿掉**：沒有 owner 的 platform 套件會讓
-# api-surface 的破壞性變更閘門沒有人回應，而它是全體切片的相依。
-/platform/ui/               @org/platform-maintainers
 /tools/bff-check/           @org/platform-maintainers @org/security
+
+# ── platform/ui 刻意**沒有**獨立條目 ─────────────────────────────────
+#
+# 它已經被上面的 `/platform/` 通則涵蓋（platform-maintainers）。
+# 再寫一條 `/platform/ui/ @org/platform-maintainers` 是**完全等價的 no-op**，
+# 而一個 no-op 配上一段說明，讀起來會像「這裡做過一個決定」—— 它沒有。
+#（第一版就是那樣寫的，見 C40。）
+#
+# 真正待決的問題在 HANDOFF #14，而且它比「誰來當 owner」更具體：
+#
+#   **設計系統與應用外殼，是不是同一個團隊的事？**
+#
+# 因為候選已經在這份檔案裡了 —— 最下面的 `@org/team-platform-ui` 擁有
+# `/apps/console/`。同一組人接手 `platform/ui` 是最省事的答案；
+# 但那等於把「全公司產品長什麼樣」交給維護單一應用外殼的團隊。
+#
+# 要獨立 owner 的話，在這裡加一列就是了 —— 但**要加就要是真的決定**。
 
 # supply-chain 的家族分級表刻意寫在原始碼裡（而不是 JSON），為的就是這一列：
 # 一個新的原生工具鏈進到建置環境時，分類必須是一次**被資安看過**的變更。
