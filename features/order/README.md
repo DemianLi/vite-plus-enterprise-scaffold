@@ -10,21 +10,28 @@
 
 1. `tools/conformance` 讀 `package.json`（Tier 2，繞不過的底線）
 2. oxlint `no-restricted-imports`（Tier 1，擋裸模組名）
-3. oxlint `import/no-relative-parent-imports`（Tier 1，擋 `../../billing/...` 這類相對路徑逃逸）
+3. `tools/conformance` 精確路徑解析（Tier 2，擋相對路徑逃逸）
 
 需要與其他切片互動時，只有兩條合法路徑：往上到 `apps/` 層組裝，
 或往下把共用契約抽到 `platform/`。
 
+切片**之內**還有第四層（D14）：`src/views/` 與 `src/store.ts` 不得直接碰資料層。
+
 ## 結構
 
-| 檔案            | 職責                                                        |
-| --------------- | ----------------------------------------------------------- |
-| `src/index.ts`  | 對外的唯一公開契約（`defineFeature`）                       |
-| `src/routes.ts` | 本切片的路由樹，`/order` 之下、name 以 `order/` 開頭        |
-| `src/api.ts`    | 資料存取。一律走 `@org/http-client`，禁止直接用 fetch/axios |
-| `src/store.ts`  | Pinia store，id 以 `order/` 命名空間為前綴                  |
-| `src/views/`    | 畫面元件                                                    |
-| `tests/`        | 本切片的測試。一致性檢查要求至少一支                        |
+| 檔案               | 職責                                                                            |
+| ------------------ | ------------------------------------------------------------------------------- |
+| `src/index.ts`     | 對外的唯一公開契約（`defineFeature`）                                           |
+| `src/routes.ts`    | 本切片的路由樹，`/order` 之下、name 以 `order/` 開頭                            |
+| `src/api.ts`       | 資料存取。一律走 `@org/http-client`，禁止直接用 fetch/axios                     |
+| `src/composables/` | `useXxx()` —— 取數、快取 key、後備值。**有狀態的邏輯住這裡**（D14）             |
+| `src/store.ts`     | Pinia。只放**客戶端才是權威**的東西：篩選條件、選取的 id。**存 id 不存 entity** |
+| `src/views/`       | 畫面元件，**只負責呈現**。不得直接 import `@tanstack/vue-query` 或 `api.ts`     |
+| `tests/`           | 本切片的測試。一致性檢查要求至少一支                                            |
+
+> 「這份資料如果和伺服器不一致，誰是錯的？」
+> 伺服器是權威 → `composables/`；客戶端是權威 → `store.ts`；
+> 兩者都不是（例如「選取的那幾筆 Order 物件」）→ 哪裡都不放，用 `computed` 推導。
 
 ## 命名空間
 
