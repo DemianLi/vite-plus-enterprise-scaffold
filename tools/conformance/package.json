@@ -7,12 +7,19 @@
     "conformance": "./src/cli.ts"
   },
   "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
   "dependencies": {
     "@org/slice-kit": "workspace:*"
   },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
     "@types/node": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   }
 }
