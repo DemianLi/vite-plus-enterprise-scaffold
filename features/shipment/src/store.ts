@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 
 /**
  * 切片內的 Pinia store。
@@ -11,9 +11,11 @@ import { ref } from "vue";
 export const useShipmentFilterStore = defineStore("shipment/filter", () => {
   const page = ref(1);
 
+  const query = computed(() => ({ page: page.value }));
+
   function setPage(next: number): void {
     page.value = next;
   }
 
-  return { page, setPage };
+  return { page, query, setPage };
 });

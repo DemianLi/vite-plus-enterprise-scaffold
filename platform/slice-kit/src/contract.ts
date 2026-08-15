@@ -27,6 +27,58 @@ export const REQUIRED_FILES = [
   "src/index.ts",
 ] as const;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 切片**內部**的分層（D14）
+//
+// 上面那些規則管的是「切片之間」。這一段管的是「切片之內」——
+// 而它原本是空白的：REQUIRED_FILES 驗完四個檔案就結束，
+// api.ts / store.ts / routes.ts / views/ 那套結構只存在於產生器的模板裡，
+// 沒有任何檢查在守。誰手寫一個切片、或改了產生器，那套慣例就消失，而閘門全綠。
+//
+// 補上的分層照 Vue 官方對 composable 的定義（vuejs.org/guide/reusability/composables）：
+// **有狀態的邏輯住在 `useXxx()` 裡，元件只負責呈現。**
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 切片內放 composable 的目錄。Vue 官方文件用的就是這個慣例位置。 */
+export const COMPOSABLES_DIR = "src/composables";
+
+/** 切片內放元件的目錄。 */
+export const VIEWS_DIR = "src/views";
+
+/**
+ * composable 檔名規則：`use` 開頭、駝峰、`.ts` 結尾（`useOrderList.ts`）。
+ *
+ * 與切片名的規則同理，刻意避開巢狀量詞（見本檔案末尾 SLICE_DIR_CHARSET 的說明）——
+ * Tier 2 的 `security/detect-unsafe-regex` 會擋，而且它是對的。
+ */
+const COMPOSABLE_FILE_CHARSET = /^use[A-Z][A-Za-z0-9]*\.ts$/;
+
+export function isValidComposableFile(fileName: string): boolean {
+  return COMPOSABLE_FILE_CHARSET.test(fileName);
+}
+
+/** 檔名 → 應該匯出的函式名（`useOrderList.ts` → `useOrderList`）。 */
+export function composableFunctionName(fileName: string): string {
+  return fileName.replace(/\.ts$/, "");
+}
+
+/**
+ * **元件不得直接碰資料層。**
+ *
+ * 這是 D14 唯一真正有牙齒的一條，其餘都是命名規則。禁的兩樣東西合起來
+ * 恰好就是「在元件裡抓資料」：查詢的執行器，以及本切片的資料存取模組。
+ *
+ * 為什麼是禁「元件 import 它們」而不是禁「元件裡有 useQuery」：
+ * 前者是可精確判定的靜態事實，後者要語意分析。同樣的取捨見 D4 第 3 層。
+ *
+ * ⚠️ 這條不禁 `@tanstack/vue-query` 出現在切片裡 —— composable 就是要用它。
+ * 禁的是**位置**，不是相依。
+ */
+export const VIEW_FORBIDDEN_IMPORTS = ["@tanstack/vue-query", "@org/http-client"] as const;
+
+/** 元件也不得直接 import 同切片的資料存取模組（相對路徑，需另外判定）。 */
+export const VIEW_FORBIDDEN_LOCAL_MODULES = ["api"] as const;
+
 /** 切片必須有測試。沒有測試的切片＝沒有人能安全重構的切片。 */
 export const TEST_GLOB = "tests/**/*.test.ts";
 

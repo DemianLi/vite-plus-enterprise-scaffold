@@ -4,6 +4,11 @@ import {
   BANNED_DIRECT_DEPENDENCIES,
   ALLOWED_VERSION_PROTOCOLS,
   slicePackageName,
+  COMPOSABLES_DIR,
+  VIEWS_DIR,
+  VIEW_FORBIDDEN_IMPORTS,
+  isValidComposableFile,
+  composableFunctionName,
 } from "@org/slice-kit/contract";
 
 import { buildSliceFiles } from "../src/files.ts";
@@ -20,6 +25,15 @@ import { flattenPaths, assertCoversContract } from "../src/contract-shape.ts";
 const options = { name: "order-history", title: "訂單紀錄", team: "@org/team-fulfillment" };
 const files = buildSliceFiles(options);
 const paths = flattenPaths(files);
+
+function fileAt(path: string): string {
+  let node: unknown = files;
+  for (const part of path.split("/")) {
+    node = (node as Record<string, unknown>)[part];
+  }
+  if (typeof node !== "string") throw new Error(`${path} 不是檔案`);
+  return node;
+}
 
 function generatedPackageJson(): Record<string, Record<string, string> | string> {
   const raw = files["package.json"];
@@ -123,5 +137,58 @@ describe("產出的程式碼落在正確的命名空間", () => {
     // 比對「指令用法」而非字串出現：產出的檔案刻意在註解裡提到 vue/no-v-html
     // 來說明為什麼錯誤訊息要用文字插值，單純 toContain("v-html") 會誤判。
     expect(read("src/views/OrderHistoryList.vue")).not.toMatch(/\sv-html\s*=/);
+  });
+});
+
+/**
+ * D14：產生器產出的切片，內部分層必須自己就過得了一致性檢查。
+ *
+ * 這組測試存在的理由與整個檔案一樣 —— 產生器是**教學品**。
+ * 它示範什麼，團隊就長成什麼。原本的模板把 `useQuery` 直接寫在元件裡，
+ * 於是每個新切片都從「取數混在呈現層」開始，而當時沒有任何檢查會說話。
+ */
+describe("產出的切片符合 D14 內部分層", () => {
+  const composables = paths.filter((path) => path.startsWith(`${COMPOSABLES_DIR}/`));
+  const views = paths.filter((path) => path.startsWith(`${VIEWS_DIR}/`));
+
+  it("產出至少一個 composable —— 否則模板等於沒示範這一層", () => {
+    expect(composables.length).toBeGreaterThan(0);
+  });
+
+  it("composable 檔名符合 useXxx.ts 且匯出同名函式", () => {
+    for (const path of composables) {
+      const fileName = path.split("/").pop() ?? "";
+      expect(isValidComposableFile(fileName), `${path} 不符合 useXxx.ts`).toBe(true);
+
+      const source = fileAt(path);
+      expect(source, `${path} 沒有匯出 ${composableFunctionName(fileName)}`).toContain(
+        `export function ${composableFunctionName(fileName)}`,
+      );
+    }
+  });
+
+  it("composable 照 Vue 官方慣例：toValue 正規化輸入、queryKey 包 computed", () => {
+    const source = composables.map((path) => fileAt(path)).join("\n");
+    // 少了 toValue，呼叫端就得自己解 .value，getter 傳進來會變成函式當成查詢條件。
+    expect(source).toContain("toValue(");
+    // queryKey 傳靜態值 → 條件變了不重新取數，畫面停在舊資料且不報錯。
+    expect(source).toMatch(/queryKey:\s*computed\(/);
+  });
+
+  it("產出的元件不直接 import 資料層（這條由一致性檢查強制）", () => {
+    expect(views.length).toBeGreaterThan(0);
+    for (const path of views) {
+      const source = fileAt(path);
+      for (const banned of VIEW_FORBIDDEN_IMPORTS) {
+        expect(source, `${path} 直接 import 了 ${banned}`).not.toContain(`from "${banned}"`);
+      }
+      expect(source, `${path} 直接 import 了 api.ts`).not.toContain(`from "../api.ts"`);
+    }
+  });
+
+  it("產出的元件確實透過 composable 取數（不是單純把邏輯刪掉）", () => {
+    // 少了這一條，上面那條「不 import 資料層」可以靠產出一個空元件通過。
+    const source = views.map((path) => fileAt(path)).join("\n");
+    expect(source).toMatch(/from "\.\.\/composables\/use[A-Z]/);
   });
 });

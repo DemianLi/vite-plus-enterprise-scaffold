@@ -38,7 +38,7 @@ describe("shipment 切片契約", () => {
 describe("query key 命名空間", () => {
   it("所有 key 以切片名開頭，兩個切片的快取不可能互相污染", () => {
     expect(shipmentKeys.all[0]).toBe("shipment");
-    expect(shipmentKeys.list()[0]).toBe("shipment");
+    expect(shipmentKeys.list({})[0]).toBe("shipment");
     expect(shipmentKeys.detail("x")[0]).toBe("shipment");
   });
 });

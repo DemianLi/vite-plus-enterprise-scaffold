@@ -1,7 +1,7 @@
 # Vite+ 企業級腳手架 — 決策紀錄
 
 > 本檔是**已建成腳手架**的交接文件，不是待辦筆記。
-> D1–D13 為定案決策；C1–C34 是實作階段推翻或修正設計的紀錄（含原文與「不要照這裡做」標註）；
+> D1–D14 為定案決策；C1–C34 是實作階段推翻或修正設計的紀錄（含原文與「不要照這裡做」標註）；
 > R1–R9 是風險登記簿。實作順序 **1–10 全部完成**。
 >
 > **全部九條風險已於 2026-08-15 調查完畢**，處置分寫在〈R1／R6 調查與處置〉與
@@ -290,6 +290,77 @@ SBOM 從根 `pnpm-lock.yaml` 一次產出全 repo 的（D3 是共用 lockfile，
 建立 `.git-blame-ignore-revs`，並由腳手架 setup 腳本自動設定
 `git config blame.ignoreRevsFile .git-blame-ignore-revs`。
 等真的要 reformat 那天再補，全員本機設定收不齊。
+
+### D14 — 切片**內部**的分層：composable（2026-08-15 補）
+
+前面 D1–D13 有一個共同的盲點，是在一次針對「這到底算不算 Feature-Driven」的
+review 裡被指出來的：
+
+> **這個腳手架把「切片之間」的邊界守得極嚴，對「切片之內」幾乎什麼都沒說。**
+
+證據是 `REQUIRED_FILES` 只有四項（`package.json`／`tsconfig.json`／`README.md`／
+`src/index.ts`）。`api.ts`／`store.ts`／`routes.ts`／`views/` 那套結構**只存在於
+產生器的模板裡，沒有任何檢查在守** —— 誰手寫一個切片、或改了產生器，慣例就消失，
+而閘門全綠。當時全 repo grep `composable` 是 **0 筆**：它不是被評估後否決的選項，
+是沒被想過。
+
+#### 決定
+
+採用 **Vue 官方的 composable 慣例**（vuejs.org/guide/reusability/composables）作為
+切片內部的分層，**有狀態的邏輯住在 `useXxx()` 裡，元件只負責呈現**。
+
+| 位置               | 放什麼                                              |
+| ------------------ | --------------------------------------------------- |
+| `src/api.ts`       | 純資料存取與 query key，無響應性                    |
+| `src/composables/` | `useXxx()` —— 取數、快取 key、後備值                |
+| `src/store.ts`     | Pinia，跨元件共享的**使用者意圖**（篩選條件、分頁） |
+| `src/views/`       | **只呈現**                                          |
+
+照官方的三條慣例寫，每一條都有具體代價：
+
+1. **輸入接受 ref／getter／純值，用 `toValue()` 正規化** —— 否則呼叫端得自己解
+   `.value`，而傳 getter 進來會變成把函式本身當查詢條件
+2. **回傳 ref 組成的普通物件** —— 回傳 `reactive()` 的話，
+   `const { orders } = useOrderList()` 當場斷開響應性
+3. **只在 setup 期間同步呼叫** —— 由 Vue 自己在執行期報錯，不需額外守
+
+#### 有牙齒的只有一條
+
+命名規則（`useXxx.ts` 且匯出同名函式）是輔助。真正的邊界是：
+
+> **`src/views/` 底下不得直接 import `@tanstack/vue-query`、`@org/http-client`，
+> 或本切片的 `api.ts`。**
+
+禁的是**位置**不是相依 —— composable 就是要用它們。
+
+為什麼是「禁 import」而不是「禁元件裡出現 `useQuery`」：前者是可精確判定的靜態事實，
+後者要語意分析。同一個取捨見 D4 第 3 層。
+
+#### 為什麼值得補
+
+現在每個切片只有一個 view，內聯 `useQuery` 看不出問題。但這是**腳手架**——
+產生器會被跑上幾十次，它示範什麼，團隊就長成什麼。等到同一個切片長出第二個
+消費者（例如首頁的「最近訂單」小卡），那段查詢只能複製貼上，因為沒有地方放它。
+複製之後兩份 queryKey 會慢慢漂移，**快取失效的時機從此對不起來，而且不會有任何
+測試變紅**。
+
+#### 反向測試
+
+五種破壞，每一種都紅在正確的一條上：元件 import `useQuery`／元件 import `../api.ts`／
+元件 import `@org/http-client`／`composables/` 放非 `useXxx` 命名的檔案／檔名與匯出名
+不一致。**並驗過無偽陽性**：composable 自己 import `useQuery` 與 `api.ts` 是正確的，
+不得被誤擋。
+
+#### 術語附註
+
+提出這次 review 的說法是「後端的 vertical slice 在前端該叫 Feature-Driven + Composable」。
+前半對，而且腳手架本來就是那個東西；後半是誤植 —— **Composable 在 Vue 3 不是架構名稱**，
+是一個具體構件（Composition API 的 `useXxx()` 函式）。前端真正有這個名字的方法論是
+**Feature-Sliced Design（FSD）**。
+
+但把它當成架構要求來讀是有生產力的：它正好指到了上面那個盲點。**本節就是這個誤植
+帶來的結果**，記在這裡是因為它示範了一件事——用錯的名字問對的問題，比用對的名字
+問不出問題有價值。
 
 ---
 
@@ -1162,12 +1233,12 @@ lockfile、SBOM、attestation 這類**給機器讀的中介檔**最容易出這�
 ### 驗證結果（全部實機執行）
 
 最新一次全套（2026-08-15）：**`vpr ready` exit 0**、122 檔案格式一致、
-63 檔案 0 errors 0 warnings、**192 tests / 15 檔案全過**、建置 110 modules 成功。
+63 檔案 0 errors 0 warnings、**202 tests / 15 檔案全過**、建置 110 modules 成功。
 
 | 項目                                  | 結果                                                                                                     |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `vp check`（Tier 1）                  | 0 errors 0 warnings，122 檔案格式一致                                                                    |
-| `vp run -r test`                      | **192 tests 全過**（15 個測試檔）                                                                        |
+| `vp run -r test`                      | **202 tests 全過**（15 個測試檔）                                                                        |
 | `eslint . --max-warnings=0`（Tier 2） | 0 problems                                                                                               |
 | 一致性檢查                            | 通過                                                                                                     |
 | 一致性檢查**反向測試**                | 故意破壞的切片 → **抓到 9 項違規，exit 1**                                                               |

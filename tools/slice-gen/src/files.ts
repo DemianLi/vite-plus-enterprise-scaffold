@@ -128,8 +128,13 @@ export interface ${Pascal}ListResponse {
   readonly total: number;
 }
 
-export function fetch${Pascal}List(): Promise<${Pascal}ListResponse> {
-  return http.get<${Pascal}ListResponse>("/${name}");
+export interface ${Pascal}ListQuery {
+  readonly page?: number;
+}
+
+export function fetch${Pascal}List(query: ${Pascal}ListQuery = {}): Promise<${Pascal}ListResponse> {
+  const search = query.page === undefined ? "" : \`?page=\${String(query.page)}\`;
+  return http.get<${Pascal}ListResponse>(\`/${name}\${search}\`);
 }
 
 /**
@@ -138,13 +143,13 @@ export function fetch${Pascal}List(): Promise<${Pascal}ListResponse> {
  */
 export const ${camel}Keys = {
   all: ["${name}"] as const,
-  list: () => ["${name}", "list"] as const,
+  list: (query: ${Pascal}ListQuery) => ["${name}", "list", query] as const,
   detail: (id: string) => ["${name}", "detail", id] as const,
 } as const;
 `,
 
       "store.ts": `import { defineStore } from "pinia";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 
 /**
  * 切片內的 Pinia store。
@@ -156,11 +161,13 @@ import { ref } from "vue";
 export const use${Pascal}FilterStore = defineStore("${name}/filter", () => {
   const page = ref(1);
 
+  const query = computed(() => ({ page: page.value }));
+
   function setPage(next: number): void {
     page.value = next;
   }
 
-  return { page, setPage };
+  return { page, query, setPage };
 });
 `,
 
@@ -227,19 +234,68 @@ export default defineFeature({
 export type { ${Pascal}Item, ${Pascal}ListResponse } from "./api.ts";
 `,
 
+      composables: {
+        [`use${Pascal}List.ts`]: `import { useQuery } from "@tanstack/vue-query";
+import { computed, toValue, type ComputedRef, type MaybeRefOrGetter, type Ref } from "vue";
+
+import { fetch${Pascal}List, ${camel}Keys, type ${Pascal}Item, type ${Pascal}ListQuery } from "../api.ts";
+
+/**
+ * 本切片的取數邏輯（D14）。
+ *
+ * **元件只負責呈現，有狀態的邏輯住在這裡。** 一致性檢查會擋下
+ * 直接在 views/ 裡 import \`@tanstack/vue-query\` 或 \`../api.ts\` 的寫法。
+ *
+ * 照 Vue 官方 composable 的三條慣例（vuejs.org/guide/reusability/composables）：
+ *
+ * 1. 輸入接受 ref／getter／純值，一律用 \`toValue()\` 正規化
+ * 2. 回傳 ref 組成的**普通物件**（回傳 \`reactive()\` 的話，解構就斷開響應性）
+ * 3. 只在 setup 期間同步呼叫
+ *
+ * ⚠️ queryKey 包 \`computed\` 是必要的：傳靜態值的話，條件變了不會重新取數，
+ * 畫面停在舊資料上而且不報錯。
+ */
+export interface Use${Pascal}ListResult {
+  readonly items: ComputedRef<readonly ${Pascal}Item[]>;
+  readonly total: ComputedRef<number>;
+  readonly isPending: Ref<boolean>;
+  readonly isError: Ref<boolean>;
+  readonly error: Ref<Error | null>;
+}
+
+export function use${Pascal}List(
+  query: MaybeRefOrGetter<${Pascal}ListQuery> = {},
+): Use${Pascal}ListResult {
+  const current = computed(() => toValue(query));
+
+  const { data, isPending, isError, error } = useQuery({
+    queryKey: computed(() => ${camel}Keys.list(current.value)),
+    queryFn: () => fetch${Pascal}List(current.value),
+  });
+
+  return {
+    items: computed(() => data.value?.items ?? []),
+    total: computed(() => data.value?.total ?? 0),
+    isPending,
+    isError,
+    error,
+  };
+}
+`,
+      },
+
       views: {
         [`${Pascal}List.vue`]: `<script setup lang="ts">
-import { useQuery } from "@tanstack/vue-query";
-import { computed } from "vue";
+import { use${Pascal}List } from "../composables/use${Pascal}List.ts";
+import { use${Pascal}FilterStore } from "../store.ts";
 
-import { fetch${Pascal}List, ${camel}Keys } from "../api.ts";
-
-const { data, isPending, isError, error } = useQuery({
-  queryKey: ${camel}Keys.list(),
-  queryFn: fetch${Pascal}List,
-});
-
-const items = computed(() => data.value?.items ?? []);
+/**
+ * 這個元件**只負責呈現**（D14）。取數在 composables/use${Pascal}List.ts。
+ *
+ * 注意傳的是 **getter 而不是當下值** —— 傳值會讓條件變動後查詢不重跑。
+ */
+const filter = use${Pascal}FilterStore();
+const { items, isPending, isError, error } = use${Pascal}List(() => filter.query);
 </script>
 
 <template>
@@ -307,7 +363,7 @@ describe("${name} 切片契約", () => {
 describe("query key 命名空間", () => {
   it("所有 key 以切片名開頭，兩個切片的快取不可能互相污染", () => {
     expect(${camel}Keys.all[0]).toBe("${name}");
-    expect(${camel}Keys.list()[0]).toBe("${name}");
+    expect(${camel}Keys.list({})[0]).toBe("${name}");
     expect(${camel}Keys.detail("x")[0]).toBe("${name}");
   });
 });

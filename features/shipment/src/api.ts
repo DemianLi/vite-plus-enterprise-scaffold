@@ -17,8 +17,13 @@ export interface ShipmentListResponse {
   readonly total: number;
 }
 
-export function fetchShipmentList(): Promise<ShipmentListResponse> {
-  return http.get<ShipmentListResponse>("/shipment");
+export interface ShipmentListQuery {
+  readonly page?: number;
+}
+
+export function fetchShipmentList(query: ShipmentListQuery = {}): Promise<ShipmentListResponse> {
+  const search = query.page === undefined ? "" : `?page=${String(query.page)}`;
+  return http.get<ShipmentListResponse>(`/shipment${search}`);
 }
 
 /**
@@ -27,6 +32,6 @@ export function fetchShipmentList(): Promise<ShipmentListResponse> {
  */
 export const shipmentKeys = {
   all: ["shipment"] as const,
-  list: () => ["shipment", "list"] as const,
+  list: (query: ShipmentListQuery) => ["shipment", "list", query] as const,
   detail: (id: string) => ["shipment", "detail", id] as const,
 } as const;

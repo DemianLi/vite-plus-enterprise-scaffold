@@ -38,6 +38,7 @@
     "@org/slice-kit/contract": [
       "ALLOWED_VERSION_PROTOCOLS",
       "BANNED_DIRECT_DEPENDENCIES",
+      "COMPOSABLES_DIR",
       "IMPORT_SPECIFIER_PATTERN",
       "LAYERS",
       "REQUIRED_FILES",
@@ -47,6 +48,11 @@
       "SLICE_PACKAGE_PREFIX",
       "SOURCE_EXTENSIONS",
       "TEST_GLOB",
+      "VIEWS_DIR",
+      "VIEW_FORBIDDEN_IMPORTS",
+      "VIEW_FORBIDDEN_LOCAL_MODULES",
+      "composableFunctionName",
+      "isValidComposableFile",
       "isValidSliceDir",
       "slicePackageName"
     ]

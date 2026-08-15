@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import { defineFeature, registerFeatures } from "../src/index.ts";
 import type { Feature } from "../src/index.ts";
+import { composableFunctionName, isValidComposableFile } from "../src/contract.ts";
 
 /**
  * D7 契約的執行期驗證。
@@ -115,5 +116,31 @@ describe("registerFeatures 組裝", () => {
 
   it("擋下重複註冊同一個切片名", () => {
     expect(() => registerFeatures([order, order])).toThrow(/重複註冊/);
+  });
+});
+
+/**
+ * D14 的命名規則。這些函式同時被一致性檢查與產生器的測試使用 ——
+ * 契約裡的每個判定都該有測試，否則「單一事實來源」只是位置上的，不是行為上的。
+ */
+describe("composable 命名（D14）", () => {
+  it("接受 Vue 官方慣例的形狀", () => {
+    expect(isValidComposableFile("useOrderList.ts")).toBe(true);
+    expect(isValidComposableFile("useOrder.ts")).toBe(true);
+    expect(isValidComposableFile("useOrderListV2.ts")).toBe(true);
+  });
+
+  it("擋掉不是 composable 的東西", () => {
+    // 這些放進 composables/ 通常代表作者其實想放的是工具函式或型別，
+    // 而混在一起之後，「哪些必須在 setup 期間同步呼叫」就看不出來了。
+    expect(isValidComposableFile("orderHelpers.ts")).toBe(false);
+    expect(isValidComposableFile("use.ts")).toBe(false);
+    expect(isValidComposableFile("uselessThing.ts")).toBe(false); // use 後面必須接大寫
+    expect(isValidComposableFile("useOrderList.vue")).toBe(false);
+    expect(isValidComposableFile("use-order-list.ts")).toBe(false);
+  });
+
+  it("由檔名推出應該匯出的函式名", () => {
+    expect(composableFunctionName("useOrderList.ts")).toBe("useOrderList");
   });
 });

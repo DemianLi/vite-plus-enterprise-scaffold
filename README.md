@@ -44,7 +44,9 @@ cp apps/console/.env.example apps/console/.env && ./node_modules/.bin/vp run con
 
 ```
 apps/        部署單位。薄殼：路由組裝、環境設定、composition root
-features/    垂直切片。一片 = 一個 package，內含 UI + state + api + 自己的測試
+features/    垂直切片。一片 = 一個 package：
+             src/api.ts（純資料存取）→ src/composables/（useXxx，有狀態的邏輯）
+             → src/views/（只呈現）＋ src/store.ts（Pinia）＋ 自己的測試
 platform/    技術底座。slice-kit / http-client / config / security-headers /
              bff-contract / bff-mock / tsconfig / eslint-config
 tools/       建置與治理腳本。conformance / api-surface / codemods / slice-gen /
@@ -126,6 +128,10 @@ Tier 2 的三條規則——不快取、不做 affected 過濾、必須有時間
 | 1   | `tools/conformance` 讀 workspace manifest | 宣告出來的跨切片依賴                           | Tier 2               |
 | 2   | oxlint `no-restricted-imports`            | 裸模組名跨切片 import、繞過 `@org/http-client` | Tier 1（編輯器即時） |
 | 3   | `tools/conformance` 精確路徑解析          | 相對路徑逃逸切片根目錄                         | Tier 2               |
+
+切片**之內**還有第四層（D14）：`src/views/` 不得直接 import `@tanstack/vue-query`、
+`@org/http-client` 或本切片的 `api.ts` —— 取數一律走 `src/composables/useXxx.ts`。
+禁的是**位置**不是相依，composable 本來就要用它們。理由與反向測試見 DECISIONS.md 的 D14。
 
 第 3 層之所以不用 lint 規則：`import/no-relative-parent-imports` 擋掉的是**所有** `../`，
 連 `src/views/X.vue` 匯入同 package 的 `../api.ts` 都擋，偽陽性高到大家會關掉它。

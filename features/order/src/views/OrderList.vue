@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import { useQuery } from "@tanstack/vue-query";
-import { computed } from "vue";
-
-import { fetchOrders, orderKeys } from "../api.ts";
+import { useOrderList } from "../composables/useOrderList.ts";
 import { useOrderFilterStore } from "../store.ts";
 
+/**
+ * 這個元件**只負責呈現**（D14）。
+ *
+ * 取數、快取 key、後備值全在 `useOrderList` 裡 —— 元件不得直接 import
+ * `@tanstack/vue-query` 或本切片的 `api.ts`，這條由一致性檢查強制。
+ *
+ * 注意傳給 composable 的是 **getter 而不是 `filter.query` 的當下值**：
+ * 傳值會讓篩選條件變動後查詢不重跑，畫面停在舊資料上且不報錯。
+ */
 const filter = useOrderFilterStore();
-
-const { data, isPending, isError, error } = useQuery({
-  queryKey: computed(() => orderKeys.list(filter.query)),
-  queryFn: () => fetchOrders(filter.query),
-});
-
-const orders = computed(() => data.value?.items ?? []);
+const { orders, isPending, isError, error } = useOrderList(() => filter.query);
 
 const currency = new Intl.NumberFormat("zh-TW", {
   style: "currency",

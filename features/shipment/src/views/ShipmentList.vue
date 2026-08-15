@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import { useQuery } from "@tanstack/vue-query";
-import { computed } from "vue";
+import { useShipmentList } from "../composables/useShipmentList.ts";
+import { useShipmentFilterStore } from "../store.ts";
 
-import { fetchShipmentList, shipmentKeys } from "../api.ts";
-
-const { data, isPending, isError, error } = useQuery({
-  queryKey: shipmentKeys.list(),
-  queryFn: fetchShipmentList,
-});
-
-const items = computed(() => data.value?.items ?? []);
+/**
+ * 這個元件**只負責呈現**（D14）。取數在 composables/useShipmentList.ts。
+ *
+ * 注意傳的是 **getter 而不是當下值** —— 傳值會讓條件變動後查詢不重跑。
+ */
+const filter = useShipmentFilterStore();
+const { items, isPending, isError, error } = useShipmentList(() => filter.query);
 </script>
 
 <template>
