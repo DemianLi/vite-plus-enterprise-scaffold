@@ -39,6 +39,17 @@ catalog:
   clsx: ^2.1.1
   tailwind-merge: ^3.4.1
 
+  # --- 元件測試（§11 II ⑨ 的執行期那一層）---
+  # ⚠️ C47 才剛以「會把瀏覽器二進位拉進供應鏈盤點範圍」為由拒絕 Playwright，
+  # 這兩個看起來像同一件事，但成本完全不同：**純 JS，沒有平台二進位、
+  # 沒有 postinstall 下載**。它們進 SBOM 與 dependency-health 的範圍，
+  # 但永遠不會進 tools/supply-chain 的原生家族分類。理由見 C48。
+  #
+  # happy-dom 而不是 jsdom：兩者都**沒有實作 CSP**（所以 csp-verify 那一層
+  # 換不掉），但 happy-dom 快得多，而這裡要的只是一個能算 textContent 的 DOM。
+  "@vue/test-utils": ^2.4.11
+  happy-dom: ^20.11.2
+
   # --- 產生器（tools/slice-gen）---
   bingo: ^0.9.3
   zod: ^3.25.76

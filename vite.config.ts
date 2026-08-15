@@ -1,4 +1,5 @@
 import { defineConfig } from "vite-plus";
+import vue from "@vitejs/plugin-vue";
 
 /**
  * Tier 1（品質快軌）設定 — D5 / D10。
@@ -24,6 +25,8 @@ export default defineConfig({
       },
     ],
   },
+  plugins: [vue()],
+
   fmt: {},
 
   lint: {

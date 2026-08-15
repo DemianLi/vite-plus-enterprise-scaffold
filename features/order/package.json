@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@org/http-client": "workspace:*",
+    "@org/pii": "workspace:*",
     "@org/slice-kit": "workspace:*",
     "@org/ui": "workspace:*",
     "@tanstack/vue-query": "catalog:",
@@ -22,6 +23,9 @@
   },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vue/test-utils": "catalog:",
+    "happy-dom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",
