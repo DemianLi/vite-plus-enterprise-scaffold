@@ -229,6 +229,52 @@ export const CSP_INCOMPATIBLE_MODULES = [
  */
 export const SLICE_DESIGN_SYSTEM_IMPORTS = ["reka-ui", "clsx", "tailwind-merge"] as const;
 
+/** D15：設計系統的唯一入口。切片要用元件只能從這裡拿。 */
+export const DESIGN_SYSTEM_PACKAGE = "@org/ui";
+
+/**
+ * D15 的另一半：切片**有沒有真的用**設計系統。
+ *
+ * ── 為什麼上面那條不夠 ──────────────────────────────────────────────
+ *
+ * `SLICE_DESIGN_SYSTEM_IMPORTS` 擋的是「繞過 `@org/ui` 自己拼基元」。
+ * 但它擋不住更常見、也更安靜的那條路：**根本不用**。
+ * 一個切片全用裸 `<h1>`、`<table>`、自己寫的 `<style scoped>`，
+ * 一條規則都不會violate —— 而 D15 想避免的「每個團隊各長一套」
+ * 就是這樣發生的，不是靠有人偷偷 import reka-ui。
+ *
+ * 這條規則就是在講：**沒有 import 也是一種發散。**
+ *
+ * ── 判準刻意寬鬆：整個 src/ 有一處用到就算 ──────────────────────────
+ *
+ * 不限定 `src/views/`。上面那段註解已經承認切片本來就該有自己的呈現元件
+ * （一張只有訂單用得到的表格），那種元件很可能住在 `src/components/`，
+ * 而 view 只是把它擺上去。只掃 views 會把那個完全正確的結構判成違規 ——
+ * 而一道會誤報的閘門最後只會被加上 skip。
+ *
+ * 要證明的命題其實很小：**這個切片碰過設計系統**。碰過就不會有
+ * 「整片沒有人知道 `@org/ui` 存在」的情況，而那才是真正要防的事。
+ *
+ * ── 借型別不算用過 ──────────────────────────────────────────────────
+ *
+ * `import type { ButtonVariant } from "@org/ui"` 在 verbatimModuleSyntax
+ * 下會被完全抹除，執行期一個位元組都不剩 —— 畫面上不會有任何東西來自
+ * 設計系統。放行它等於讓這條規則變成一行就能滿足的形式。
+ *
+ * 這個判定式由兩處共用（理由同 `IMPORT_SPECIFIER_PATTERN`）：
+ *   - `tools/conformance` 用它檢查既有切片
+ *   - `tools/slice-gen` 的測試用它檢查**產生器的輸出**
+ * 各持一份副本的話，產生器改了模板就會安靜地產出過不了 Tier 2 的切片。
+ */
+export function usesDesignSystem(source: string): boolean {
+  for (const match of source.matchAll(IMPORT_SPECIFIER_PATTERN)) {
+    if (match[1] !== DESIGN_SYSTEM_PACKAGE || match.index === undefined) continue;
+    if (isTypeOnlyImportAt(source, match.index)) continue;
+    return true;
+  }
+  return false;
+}
+
 /** D6：所有版本必須走 catalog，否則共用 lockfile 下的 CVE 同步升級會有漏網。 */
 export const REQUIRE_CATALOG_PROTOCOL = true;
 

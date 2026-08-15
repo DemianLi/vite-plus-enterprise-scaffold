@@ -40,6 +40,7 @@
       "BANNED_DIRECT_DEPENDENCIES",
       "COMPOSABLES_DIR",
       "CSP_INCOMPATIBLE_MODULES",
+      "DESIGN_SYSTEM_PACKAGE",
       "IMPORT_SPECIFIER_PATTERN",
       "LAYERS",
       "REQUIRED_FILES",
@@ -60,7 +61,8 @@
       "isTypeOnlyImportAt",
       "isValidComposableFile",
       "isValidSliceDir",
-      "slicePackageName"
+      "slicePackageName",
+      "usesDesignSystem"
     ],
     "@org/ui": ["UiButton", "UiDialog", "cn"]
   },
