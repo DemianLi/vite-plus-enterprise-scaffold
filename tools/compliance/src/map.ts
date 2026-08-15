@@ -183,11 +183,11 @@ export const GATES: readonly Gate[] = [
   {
     id: "csp-verify",
     kind: "gate",
-    what: "用正式 CSP（enforce）服務正式建置產物，實測 violation",
-    command: "node tools/csp-verify/src/cli.ts",
-    evidence: null,
-    negativeTest: null,
-    note: "兩軸都有分卻三樣都缺：零測試、零進版控的產物、不在任何 workflow 裡。結果目前由人抄進 DECISIONS C39。",
+    what: "用正式 CSP（enforce）服務正式建置產物，實測 violation；CI 守實測結果的有效期",
+    command: "node tools/csp-verify/src/cli.ts --verify",
+    evidence: "tools/csp-verify/evidence.json",
+    negativeTest: "tools/csp-verify/tests/negative.test.ts",
+    note: "CSP 只有真的瀏覽器驗得了（happy-dom 與 jsdom 都沒實作 CSP），所以人跑一次、機器守有效期 —— 形狀比照 exit-drill。失效條件是**指紋**（CSP 政策字串 ＋ 七個會注入執行期 <style>／script 的相依版本），不是日曆：日曆過期每季紅一次而通常什麼都沒變，那種紅燈會被關掉。⚠️ 瀏覽器自己改版時指紋不會動 —— 證據檔記錄驗證當時的瀏覽器，但刻意不守它（Chromium 每四週一版）。",
   },
   {
     id: "dependency-health",
@@ -289,7 +289,7 @@ export const CONTROLS: readonly Control[] = [
     gates: ["conformance", "api-surface", "eslint-security", "csp-verify"],
     coverage: "full",
     owed: false,
-    note: "治理面（切片邊界、platform API 表面）、程式碼面（XSS、eval）與執行期（CSP enforce 實測）三層。⚠️ 覆蓋是滿的，欠的是**證明** —— 四道裡只有 conformance 證明過會紅。",
+    note: "治理面（切片邊界、platform API 表面）、程式碼面（XSS、eval）與執行期（CSP enforce 實測）三層。⚠️ 覆蓋是滿的，欠的是**證明**。",
   },
   {
     article: "§11 II ⑧",

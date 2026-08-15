@@ -1,0 +1,84 @@
+{
+  "verifiedAt": "2026-08-15",
+  "browser": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.30096.1 Chrome/148.0.7778.280 Electron/42.7.0 Safari/537.36",
+  "fingerprint": {
+    "policy": "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; worker-src 'self'; manifest-src 'self'",
+    "packages": {
+      "vue": "3.5.41",
+      "@vitejs/plugin-vue": "6.0.8",
+      "reka-ui": "2.10.3",
+      "tailwindcss": "4.3.3",
+      "@tailwindcss/vite": "4.3.3",
+      "@voidzero-dev/vite-plus-core": "0.2.9",
+      "vue-i18n": "11.4.8"
+    }
+  },
+  "probes": [
+    {
+      "id": "injected-style-element-blocked",
+      "what": "JS 注入 <style> 元素（reka-ui Splitter 會做的事）",
+      "expected": "顏色不是 rgb(1, 2, 3)，且有 enforce 的 style-src violation",
+      "observed": "顏色 rgb(0, 0, 0)；violation style-src-elem（enforce）",
+      "passed": true
+    },
+    {
+      "id": "style-attribute-allowed",
+      "what": "style 屬性（Vue 的 :style 走這條）不得被誤擋",
+      "expected": "rgb(4, 5, 6)",
+      "observed": "rgb(4, 5, 6)",
+      "passed": true
+    },
+    {
+      "id": "external-stylesheet-loaded",
+      "what": "外部 stylesheet 真的載入且有規則 —— 對照組",
+      "expected": "至少 1 份、規則數 > 0",
+      "observed": "2 份（規則數 45／2）",
+      "passed": true
+    },
+    {
+      "id": "inline-script-blocked",
+      "what": "inline <script> 不得執行 —— 同時證明不需要 nonce（R6 的成本前提）",
+      "expected": "沒有執行，且有 enforce 的 script-src violation",
+      "observed": "執行 否；violation script-src-elem（enforce）",
+      "passed": true
+    },
+    {
+      "id": "dialog-no-violation",
+      "what": "UiDialog 在 enforce CSP 下開啟：零 violation、零執行期注入的 <style>",
+      "expected": "對話框開啟、0 violation、0 個 <style> 元素",
+      "observed": "開啟 是；violation 0；<style> 0",
+      "passed": true
+    }
+  ],
+  "capture": {
+    "injectedStyleElementColor": "rgb(0, 0, 0)",
+    "styleAttributeColor": "rgb(4, 5, 6)",
+    "externalStylesheets": [
+      {
+        "href": "http://localhost:4173/assets/index-DR8KxuBA.css",
+        "rules": 45
+      },
+      {
+        "href": "http://localhost:4173/assets/OrderList-CO50T-2l.css",
+        "rules": 2
+      }
+    ],
+    "inlineScriptRan": false,
+    "probeViolations": [
+      {
+        "effectiveDirective": "style-src-elem",
+        "blockedURI": "inline",
+        "disposition": "enforce"
+      },
+      {
+        "effectiveDirective": "script-src-elem",
+        "blockedURI": "inline",
+        "disposition": "enforce"
+      }
+    ],
+    "dialogOpened": true,
+    "dialogViolations": [],
+    "styleElementsDuringDialog": 0,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.30096.1 Chrome/148.0.7778.280 Electron/42.7.0 Safari/537.36"
+  }
+}

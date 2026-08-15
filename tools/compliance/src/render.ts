@@ -99,6 +99,30 @@ export function proofStatus(control: Control, gates: readonly Gate[]): ProofStat
   return proven === blocking.length ? "proven" : "partial";
 }
 
+/**
+ * 一條法規底下「幾道閘門證明過會紅 ／ 共幾道」。
+ *
+ * ── 為什麼這個數字非得算出來不可 ────────────────────────────────────
+ *
+ * §11 II ⑦ 的註記原本手寫著「四道裡只有 conformance 證明過會紅」。
+ * 那句話在補完 api-surface 的反向測試那天就過期了，補完 csp-verify 又過期一次，
+ * 而 §11 II ⑥／⑨ 做完還會再過期一次 —— **三次漂移，零次紅燈**。
+ *
+ * 一張自稱守著「數字會不會說謊」的表，自己的註記在說謊，是最壞的一種。
+ * 所以這個數字由 `GATES` 推導，註記只留判斷、不留計數。
+ */
+export function provenCount(
+  control: Control,
+  gates: readonly Gate[],
+): { readonly proven: number; readonly total: number } {
+  const byId = new Map(gates.map((gate) => [gate.id, gate]));
+  const blocking = control.gates.filter((id) => byId.get(id)?.kind !== "proposer");
+  return {
+    proven: blocking.filter((id) => byId.get(id)?.negativeTest != null).length,
+    total: blocking.length,
+  };
+}
+
 const PROOF_MARK: Record<ProofStatus, string> = {
   "out-of-scope": "— 不在範圍",
   none: "❌ 未證明",
@@ -189,7 +213,11 @@ export function render(input: RenderInput): string {
 
   lines.push("", "### 逐條註記", "");
   for (const control of controls) {
-    lines.push(`- **${control.article}** ${control.note}`);
+    const { proven, total } = provenCount(control, gates);
+    // 計數由 GATES 推導、附在註記後面。註記本文不得再寫死數字 ——
+    // 理由見 provenCount 的說明。
+    const tally = total === 0 ? "" : `（${proven}／${total} 道閘門證明過會紅）`;
+    lines.push(`- **${control.article}** ${control.note}${tally}`);
   }
 
   lines.push(
@@ -197,7 +225,7 @@ export function render(input: RenderInput): string {
     "## 閘門 → 證據",
     "",
     "標 ▷ 的是**提案者**而不是閘門：它不擋任何東西，所以「反向測試」對它不適用，",
-    "上面那個 8／11 的分子與分母都不含它。",
+    `上面那個 ${unproven.length}／${blockingGates(gates).length} 的分子與分母都不含它。`,
     "",
     "| 閘門 | 檢查什麼 | 進版控的證據 | 反向測試 |",
     "| --- | --- | --- | --- |",

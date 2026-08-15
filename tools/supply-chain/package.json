@@ -8,7 +8,8 @@
   },
   "type": "module",
   "exports": {
-    "./health": "./src/health.ts"
+    "./health": "./src/health.ts",
+    "./lockfile": "./src/lockfile.ts"
   },
   "scripts": {
     "test": "vp test",

@@ -376,7 +376,7 @@ gh api repos/<owner>/<repo>/codeowners/errors
 | 2   | 重跑 `vpr supply-chain --capture`        | ✅ 519 套件／144 原生／12 家族。新家族 `@tailwindcss` 已分類為 toolchain              |
 | 3   | 新增 `platform/ui` package               | ✅ CODEOWNERS（暫掛）、api-surface（9 進入點／65 export）、退出演練 alias 都已接上    |
 | 4   | 擋住「切片自己拼一套設計系統」           | ✅ 擋的是 **import 而非目錄**（理由見契約）；另加全 repo 禁用 reka-ui Splitter（CSP） |
-| 5   | 瀏覽器實測 CSP                           | ✅ enforce 下零 violation，四個正反探針全對（C39）。工具：`vpr csp-verify`            |
+| 5   | 瀏覽器實測 CSP                           | ✅ 五個探針全對，結果進版控（`tools/csp-verify/evidence.json`），CI 守其有效期（C47） |
 
 ### 會連動到本清單其他項的兩件事
 
