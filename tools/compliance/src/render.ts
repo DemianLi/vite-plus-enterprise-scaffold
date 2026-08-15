@@ -20,9 +20,22 @@ export function owedGaps(controls: readonly Control[]): readonly Control[] {
   return controls.filter((control) => control.owed && control.coverage === "none");
 }
 
-/** 存在、但沒有證明過自己會紅的閘門。 */
+/**
+ * 存在、但沒有證明過自己會紅的**閘門**。
+ *
+ * ⚠️ `kind: "proposer"` 的不算。Renovate 不擋任何東西 —— 把它算進「待補的洞」，
+ * 會讓這個數字永遠少一個永遠補不完的，而讀的人會以為那是欠的工作。
+ */
 export function unprovenGates(gates: readonly Gate[]): readonly Gate[] {
-  return gates.filter((gate) => gate.negativeTest === null);
+  return blockingGates(gates).filter((gate) => gate.negativeTest === null);
+}
+
+/**
+ * 會擋人的那些。**分母也要用它** —— 只把 proposer 從分子拿掉、分母仍算全部，
+ * 會讓「8／12」看起來比「8／11」好，而好的那一格是憑空長出來的。
+ */
+export function blockingGates(gates: readonly Gate[]): readonly Gate[] {
+  return gates.filter((gate) => gate.kind === "gate");
 }
 
 /**
@@ -74,10 +87,16 @@ export type ProofStatus = "out-of-scope" | "none" | "partial" | "proven";
  */
 export function proofStatus(control: Control, gates: readonly Gate[]): ProofStatus {
   if (control.gates.length === 0) return control.owed ? "none" : "out-of-scope";
+
   const byId = new Map(gates.map((gate) => [gate.id, gate]));
-  const proven = control.gates.filter((id) => byId.get(id)?.negativeTest != null).length;
+  // proposer 不擋人，「會不會紅」對它沒有意義 —— 兩邊都不算，
+  // 否則它要嘛拉低分母（假的洞）、要嘛拉高分子（假的已證明）。
+  const blocking = control.gates.filter((id) => byId.get(id)?.kind !== "proposer");
+  if (blocking.length === 0) return control.owed ? "none" : "out-of-scope";
+
+  const proven = blocking.filter((id) => byId.get(id)?.negativeTest != null).length;
   if (proven === 0) return "none";
-  return proven === control.gates.length ? "proven" : "partial";
+  return proven === blocking.length ? "proven" : "partial";
 }
 
 const PROOF_MARK: Record<ProofStatus, string> = {
@@ -102,7 +121,11 @@ function gateSummary(control: Control, gates: readonly Gate[]): string {
   if (control.gates.length === 0) return control.owed ? "🔴 **（無）**" : "—";
   const byId = new Map(gates.map((gate) => [gate.id, gate]));
   return control.gates
-    .map((id) => (byId.get(id)?.negativeTest == null ? `${id} ⚠️` : id))
+    .map((id) => {
+      const gate = byId.get(id);
+      if (gate?.kind === "proposer") return `${id} ▷`;
+      return gate?.negativeTest == null ? `${id} ⚠️` : id;
+    })
     .join("、");
 }
 
@@ -143,7 +166,7 @@ export function render(input: RenderInput): string {
     "## 一眼看完",
     "",
     `- 腳手架欠、而且**完全沒有東西在守**的條號：**${gaps.length}**`,
-    `- 存在但**沒有證明過自己會紅**的閘門：**${unproven.length} / ${gates.length}**`,
+    `- 存在但**沒有證明過自己會紅**的閘門：**${unproven.length} / ${blockingGates(gates).length}**`,
     `- 對不到任何條號的閘門：**${orphans.length}**（不是違規，見下方說明）`,
     "",
     "## 條號 → 閘門",
@@ -173,14 +196,23 @@ export function render(input: RenderInput): string {
     "",
     "## 閘門 → 證據",
     "",
+    "標 ▷ 的是**提案者**而不是閘門：它不擋任何東西，所以「反向測試」對它不適用，",
+    "上面那個 8／11 的分子與分母都不含它。",
+    "",
     "| 閘門 | 檢查什麼 | 進版控的證據 | 反向測試 |",
     "| --- | --- | --- | --- |",
   );
 
   for (const gate of gates) {
+    const proof =
+      gate.kind === "proposer"
+        ? "▷ 不適用"
+        : gate.negativeTest === null
+          ? "**❌ 無**"
+          : `\`${gate.negativeTest}\``;
     lines.push(
-      `| \`${gate.id}\` | ${cell(gate.what)} | ${gate.evidence === null ? "**（無）**" : `\`${gate.evidence}\``} ` +
-        `| ${gate.negativeTest === null ? "**❌ 無**" : `\`${gate.negativeTest}\``} |`,
+      `| \`${gate.id}\`${gate.kind === "proposer" ? " ▷" : ""} | ${cell(gate.what)} ` +
+        `| ${gate.evidence === null ? "**（無）**" : `\`${gate.evidence}\``} | ${proof} |`,
     );
   }
 

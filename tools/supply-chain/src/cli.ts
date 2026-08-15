@@ -18,6 +18,7 @@ import {
   attestationUrl,
   decodeProvenance,
   integrityToHex,
+  isSafeToRecapture,
   packumentUrl,
   verifyBinding,
   type EvidenceLevel,
@@ -45,6 +46,9 @@ import {
  *   （預設）    不連網。跑在 gate 裡：基線比對、平台覆蓋、來源綁定、建置腳本
  *   --update    不連網。重算 inventory.json（等同 api-surface 的 --update）
  *   --capture   **要連公網**。重新擷取 provenance.json
+ *   --recapture-safe  同上，但只在不同步全部屬於「版本換了」時才動手。
+ *                     出現 integrity-changed 就拒絕 —— 那是事故不是升級。
+ *                     升級 PR（Renovate）用這個，人用 --capture。
  *   --manifest  不連網。印出給平台團隊的 mirror 清單
  *   --dossier   不連網。印出給資安的 SCA 例外申請書
  *   --airgap    不連網。印出封閉網路的前置條件（含 registry 設定的實測結果）
@@ -232,7 +236,10 @@ const CAPTURE_FIX =
   "node tools/supply-chain/src/cli.ts --capture\n" +
   "         ⚠️ 這一步需要連得到 registry.npmjs.org。**封閉網路裡做不到，也不該在那裡做**：\n" +
   "         請在還連得到公網的那一側改完 lockfile 並跑 --capture，兩份檔案一起隨變更進來。\n" +
-  "         （閘門刻意不自己連公網補資料 —— 那會讓它在最需要它的環境裡失效。見 vpr airgap 第 5 節）";
+  "         （閘門刻意不自己連公網補資料 —— 那會讓它在最需要它的環境裡失效。見 vpr airgap 第 5 節）\n" +
+  "\n         升級 PR（Renovate）不必在本機跑：到 Actions 執行\n" +
+  "         「供應鏈 — 重新擷取來源證明」並選這條分支即可。它走 --recapture-safe，\n" +
+  "         只在不同步全部屬於版本變動時才動手。";
 
 function checkProvenance(): Failure[] {
   if (!existsSync(PROVENANCE_PATH)) {
@@ -599,6 +606,65 @@ async function runCapture(): Promise<number> {
   );
   if (totals.none > 0) console.log("  ⚠ 有套件連發佈簽章都沒有，SCA 例外申請書必須單獨列出它們");
   return 0;
+}
+
+/**
+ * `--recapture-safe`：升級 PR 專用的重新擷取。
+ *
+ * ── 它與 `--capture` 的差別只有一個，而那個差別是全部的重點 ──────────
+ *
+ * 先驗一次綁定；只有在**不同步全部屬於「版本換了」**的情況下才重擷。
+ * 一旦出現 `integrity-changed`（同一個 name@version 內容物換了），
+ * 直接拒絕並要求人介入 —— 那是事故，不是升級。
+ *
+ * ── 為什麼需要這個東西 ──────────────────────────────────────────────
+ *
+ * Renovate 的每一個 PR 都會改 lockfile，於是供應鏈閘門必然紅。
+ * 沒有這一支，兩條路都不好走：手動重擷會讓升級 PR 卡在一個需要人跑
+ * 兩行指令的步驟上（而升級節奏就是這樣死的）；無條件自動重擷則會在
+ * 真的被掉包時，用一個 bot commit 把事故蓋掉。
+ *
+ * ⚠️ 這是 HANDOFF #9「閘門刻意不自己連公網補資料」的**具名例外**，
+ * 而例外的邊界寫在 `isSafeToRecapture()` 裡，不是寫在 workflow 的註解裡 ——
+ * 註解不會在半夜三點擋下任何東西。
+ */
+async function runRecaptureSafe(): Promise<number> {
+  if (!existsSync(PROVENANCE_PATH)) {
+    console.error("✗ 沒有 provenance.json —— 第一次擷取必須由人執行 --capture");
+    return 1;
+  }
+
+  const captured = JSON.parse(readFileSync(PROVENANCE_PATH, "utf8")) as ProvenanceFile;
+  const lock = parseLockfile(readFileSync(LOCKFILE, "utf8"));
+  const problems = verifyBinding(lock.packages.filter(isNative), captured);
+
+  if (problems.length === 0) {
+    console.log("✓ 來源證明與 lockfile 已同步，不需要重擷");
+    return 0;
+  }
+
+  if (!isSafeToRecapture(problems)) {
+    const changed = problems.filter((problem) => problem.kind === "integrity-changed");
+    console.error("\n✗ 拒絕自動重擷：有套件的 tarball 內容物換了\n");
+    for (const problem of changed) {
+      if (problem.kind === "integrity-changed") {
+        console.error(
+          `  ✗ ${problem.id}\n      lock     ${problem.lock}\n      captured ${problem.captured}`,
+        );
+      }
+    }
+    console.error(
+      "\n  同一個 name@version 換了內容物，正常升版不會這樣。**先當成事故處理。**\n" +
+        "  自動重擷會把新的 digest 記下來當成事實 —— 那正是掉包要的結果。\n" +
+        "  尤其是那 32 個只有發佈簽章、沒有 SLSA provenance 的套件：\n" +
+        "  它們沒有 subject digest 可比，擷取過程自己擋不住。\n\n" +
+        "  確認無誤後由人執行：node tools/supply-chain/src/cli.ts --capture\n",
+    );
+    return 1;
+  }
+
+  console.log(`偵測到 ${problems.length} 筆版本變動，全部屬於升級（沒有內容物被換掉）。重新擷取…`);
+  return runCapture();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1020,6 +1086,7 @@ async function main(): Promise<number> {
     }
     return 1;
   }
+  if (args.includes("--recapture-safe")) return runRecaptureSafe();
   if (args.includes("--capture")) return runCapture();
   if (args.includes("--manifest")) return runManifest();
   if (args.includes("--dossier")) return runDossier();

@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CONTROLS, FUTURE, GATES, REGULATION } from "./map.ts";
-import { owedGaps, render, unprovenGates } from "./render.ts";
+import { blockingGates, owedGaps, render, unprovenGates } from "./render.ts";
 import { verifyMap } from "./verify.ts";
 
 /**
@@ -101,7 +101,7 @@ function summarise(): void {
   const unproven = unprovenGates(GATES);
   console.log(
     `  欠、且沒有東西在守的條號 ${gaps.length}／${CONTROLS.length}、` +
-      `未證明會紅的閘門 ${unproven.length}／${GATES.length}`,
+      `未證明會紅的閘門 ${unproven.length}／${blockingGates(GATES).length}`,
   );
 }
 

@@ -2123,6 +2123,64 @@ pytest-cookies 的 `cookies.bake()` 也是同一個形狀：產到目錄、斷�
 通則：**宣告一件事壞掉之前，先去看那個東西自己的文件有沒有提過。**
 與 C40 那條「交接事項交出去之前先自己查一次」是同一件事的另一面。
 
+### C44 — 加了升級提案機制，並且發現「自動修好它」會蓋掉供應鏈事故
+
+D16 的迭代軸點出最大的空白：整個腳手架能在升級**之後**告訴你什麼壞了，
+卻**沒有任何東西會說「該升了」**。沒有 Renovate、沒有 Dependabot，
+而 `vite-plus` 釘在 0.2.9、約 5–14 天一版。
+
+#### catalog 裡有一組綁死的三件套，天真的設定會開三個各自壞掉的 PR
+
+`vite-plus`、`vite`（npm alias 指向 `@voidzero-dev/vite-plus-core`）、`vitest`
+必須同版。`pnpm-workspace.yaml` 的註解早就寫著：vitest 若與 vite-plus 內部
+釘死的版本不一致，`node_modules` 會出現兩份 vitest，測試以難以診斷的方式失敗。
+
+Renovate 的 `matchPackageNames` 打錯一個字**不會有任何錯誤** —— 那條規則只是
+靜靜地匹配不到任何東西，而設定檔看起來完全正常。這與 `--reporter=basic` 那次
+是同一個形狀：失敗的樣子和成功的樣子一模一樣。所以分組要有測試釘住，
+而且要驗「分組裡的每個名字都真的在 catalog 裡」。
+
+#### 真正的發現：把「自動修好閘門」做對，比做出來難
+
+Renovate 的每個 PR 都改 lockfile，於是供應鏈閘門必然紅。直覺的解法是讓 CI
+自己重擷一次 `provenance.json`。**那是錯的，而錯在一個不明顯的地方。**
+
+`verifyBinding()` 回報三種不同步。其中兩種（missing／stale）就是「版本換了」，
+是每個升級 PR 都會發生的事。但 `integrity-changed` 完全不同 ——
+**同一個 name@version，tarball 內容物換了**。無條件自動重擷，等於用一個
+bot commit 把一件該當成事故處理的事蓋掉。
+
+而既有的防線在這裡**不夠**：`captureOne()` 只在 attestation 的 subject digest
+與 lockfile 對不上時中止，但 121 個原生二進位裡有 **32 個只有發佈簽章、
+沒有 SLSA provenance**（C27）。那 32 個沒有 subject digest 可比 ——
+自動重擷會安靜地把新的 digest 記下來當成事實。
+
+所以判定必須在**重擷之前**做：`isSafeToRecapture()`，而且要有一條測試釘住
+「混在一堆正常升級裡的一個掉包，仍然不安全」—— 用「多數是升級」或
+「第一筆是什麼」來判定的寫法都會在那裡放行，而那正是掉包會長的樣子。
+
+#### 為什麼是 workflow_dispatch，不是自動觸發
+
+`tools/supply-chain/` 與 `.github/` 都是 `@org/security` 共管。讓 bot 自主
+提交那裡的檔案是一個**治理決定**，不該由實作者單方面做 —— 與 HANDOFF #12
+的自動核准標籤同一條理由，而 bot commit 會被 rubber-stamp 這件事更糟。
+
+`workflow_dispatch` 拿到兩邊的好處：`contents: write` 只存在於那一支
+workflow（Tier 2 的權限一格都沒放寬），動作由具名的人發起，
+而使用者只要按一下、不必在本機裝任何東西。它也拒絕在預設分支上執行 ——
+直接推 main 等於繞過 CODEOWNERS。
+
+#### 對照表因此多了一個型別
+
+Renovate 補的是 §11 II ③「定期檢測**並因應**」裡從來沒人做的「因應」那一半。
+但它**不擋任何東西**，硬塞進「證明過會紅」那一欄只有兩種寫法，兩種都是謊：
+宣稱它有反向測試，或把它算進「8 道未證明」（一個永遠不會紅的東西被列成
+待補的工作）。所以 `Gate` 多了 `kind: "gate" | "proposer"`，
+而分子與分母**都**要排除 proposer —— 只排除分子的話，8／12 會看起來比
+8／11 好，而好的那一格是憑空長出來的。
+
+---
+
 ### C43 — 把反向測試從暫存區搬進 repo，兩支工具的閘門第一次證明自己有牙齒
 
 四支反向測試一直只活在工作階段的暫存區。`DECISIONS.md` 引用它們的結果 **16 次**，

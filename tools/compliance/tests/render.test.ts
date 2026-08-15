@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { CONTROLS, GATES, type Control, type Gate } from "../src/map.ts";
 import {
+  blockingGates,
   danglingGateIds,
   gatesWithoutArticle,
   owedGaps,
@@ -20,6 +21,7 @@ import {
 
 const GATE: Gate = {
   id: "demo",
+  kind: "gate",
   what: "示範",
   command: "node nowhere.ts",
   evidence: null,
@@ -65,6 +67,37 @@ describe("proofStatus", () => {
     // 打錯字時最糟的結果是「查無此閘門 → 沒有 negativeTest → 但也沒人發現」。
     // 這裡釘住它會落在 none，而 danglingGateIds 會另外把它報出來。
     expect(proofStatus({ ...CONTROL, gates: ["typo"] }, [PROVEN])).toBe("none");
+  });
+});
+
+/**
+ * proposer（Renovate）不擋任何東西。它進到分子或分母都是謊，
+ * 而兩個方向的謊剛好相反 —— 所以兩邊都要釘住。
+ */
+describe("proposer 不算進「證明過會紅」", () => {
+  const proposer: Gate = { ...GATE, id: "renovate", kind: "proposer" };
+
+  it("只有 proposer 守、而腳手架不欠 → out-of-scope，不是「未證明」", () => {
+    const control: Control = { ...CONTROL, gates: ["renovate"], owed: false };
+    expect(proofStatus(control, [proposer])).toBe("out-of-scope");
+  });
+
+  it("★ 一道已證明的閘門＋一個 proposer → proven，不會被拉成 partial", () => {
+    const control: Control = { ...CONTROL, gates: ["proven", "renovate"] };
+    expect(proofStatus(control, [PROVEN, proposer])).toBe("proven");
+  });
+
+  it("★ 一道未證明的閘門＋一個 proposer → 仍是 none", () => {
+    const control: Control = { ...CONTROL, gates: ["demo", "renovate"] };
+    expect(proofStatus(control, [GATE, proposer])).toBe("none");
+  });
+
+  it("分母不含 proposer —— 否則 8／12 會看起來比 8／11 好", () => {
+    expect(blockingGates([GATE, PROVEN, proposer]).map((gate) => gate.id)).toEqual([
+      "demo",
+      "proven",
+    ]);
+    expect(unprovenGates([GATE, PROVEN, proposer]).map((gate) => gate.id)).toEqual(["demo"]);
   });
 });
 

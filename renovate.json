@@ -1,0 +1,80 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "description": [
+    "升級提案機制（D16 迭代軸）。",
+    "在這份設定存在之前，整個腳手架能在你升級「之後」告訴你什麼壞了，",
+    "卻沒有任何一個東西會說「該升了」—— vite-plus 釘在 0.2.9，而它約 5–14 天一版。",
+    "Renovate 補的是 §11 II ③「定期檢測並因應系統漏洞」裡的「因應」那一半：",
+    "Trivy 負責檢測，這裡負責提出修補。"
+  ],
+  "timezone": "Asia/Taipei",
+  "schedule": ["before 6am on monday"],
+  "dependencyDashboard": true,
+  "rebaseWhen": "conflicted",
+  "labels": ["dependencies"],
+  "automerge": false,
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2,
+  "minimumReleaseAge": "3 days",
+  "lockFileMaintenance": {
+    "enabled": false
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"],
+    "minimumReleaseAge": null,
+    "labels": ["dependencies", "security"],
+    "prPriority": 10
+  },
+  "packageRules": [
+    {
+      "description": [
+        "D2 驅動層是綁死的一組，必須同一個 PR。",
+        "pnpm-workspace.yaml 的註解寫得很清楚：vitest 必須與 vite-plus 內部釘死的版本",
+        "完全一致，否則 node_modules 會出現兩份 vitest，測試以難以診斷的方式失敗",
+        "（型別對不上、mock 失效）。而 vite 是 npm alias 指向 @voidzero-dev/vite-plus-core。",
+        "分成三個 PR 的話，每一個都是壞的，而且壞法各不相同。",
+        "needs-exit-drill 標籤是給人看的：這一組動到 D2 的退出保單，合併前應重跑 vpr exit-drill。"
+      ],
+      "groupName": "vite-plus 驅動層（D2）",
+      "matchPackageNames": ["vite-plus", "vite", "vitest", "@voidzero-dev/vite-plus-core"],
+      "matchDepNames": ["vite-plus", "vite", "vitest"],
+      "labels": ["dependencies", "driver-layer", "needs-exit-drill"],
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": [
+        "workspace 內部套件由 workspace: 協定解析，不存在於 registry。",
+        "Renovate 本來就不會動它們，明寫是為了讓讀設定的人不必猜。"
+      ],
+      "matchPackageNames": ["@org/**"],
+      "enabled": false
+    },
+    {
+      "description": [
+        "樣式層一起升：Tailwind 的 vite plugin 與核心是同版號發佈的，",
+        "而 @tailwindcss/vite 會改變建置產物（已登記在 tools/exit-drill 的 DRILL_PLUGINS，見 C36）。"
+      ],
+      "groupName": "Tailwind（D15）",
+      "matchPackageNames": ["tailwindcss", "@tailwindcss/vite"],
+      "labels": ["dependencies", "needs-exit-drill"]
+    },
+    {
+      "description": [
+        "Tier 2 安全閘門自己的相依。它們只在 CI 跑、不進 runtime bundle，",
+        "所以可以合成一個 PR，但仍不自動合併 —— 放寬 lint 規則集是安全決定。"
+      ],
+      "groupName": "安全 lint（D5）",
+      "matchPackageNames": [
+        "eslint",
+        "eslint-plugin-security",
+        "eslint-plugin-no-unsanitized",
+        "eslint-plugin-vue",
+        "typescript-eslint",
+        "vue-eslint-parser"
+      ],
+      "labels": ["dependencies", "security"]
+    }
+  ]
+}

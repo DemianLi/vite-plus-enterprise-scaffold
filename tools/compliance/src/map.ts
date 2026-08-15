@@ -30,8 +30,19 @@
 /** 這條要求落在誰身上。決定它會不會被算進「前端的洞」。 */
 export type Scope = "frontend" | "backend" | "process";
 
+/**
+ * 這個東西**會不會擋人**。
+ *
+ * ⚠️ 這個欄位是為了不說謊而存在的。Renovate 補的是 §11 II ③「定期檢測
+ * **並因應**」裡的「因應」那一半 —— 它提出升級，但它不擋任何東西。
+ * 硬把它塞進「證明過會紅」那一欄，只有兩種寫法：宣稱有反向測試（謊），
+ * 或算進「8 道未證明」（把一個永遠不會紅的東西列成待補的洞，同樣是謊）。
+ */
+export type GateKind = "gate" | "proposer";
+
 export interface Gate {
   readonly id: string;
+  readonly kind: GateKind;
   /** 這道閘門實際在檢查什麼。 */
   readonly what: string;
   /** 怎麼跑它。稽核會要求現場重現。 */
@@ -90,6 +101,7 @@ export const REGULATION = "數位經濟相關產業個人資料檔案安全維�
 export const GATES: readonly Gate[] = [
   {
     id: "conformance",
+    kind: "gate",
     what: "切片契約、分層邊界、設計系統採用、擁有權（D4／D9／D12／D14／D15）",
     command: "node tools/conformance/src/cli.ts",
     evidence: null,
@@ -98,6 +110,7 @@ export const GATES: readonly Gate[] = [
   },
   {
     id: "bff-check",
+    kind: "gate",
     what: "D8 同源中間層的 15 條行為契約（cookie 屬性、CSRF、401／403）",
     command: "./node_modules/.bin/vitest run --root tools/bff-check",
     evidence: null,
@@ -106,6 +119,7 @@ export const GATES: readonly Gate[] = [
   },
   {
     id: "api-surface",
+    kind: "gate",
     what: "platform/ 公開 API 表面的破壞性變更（D12）",
     command: "node tools/api-surface/src/cli.ts",
     evidence: "tools/api-surface/surface.json",
@@ -114,6 +128,7 @@ export const GATES: readonly Gate[] = [
   },
   {
     id: "supply-chain",
+    kind: "gate",
     what: "相依盤點、原生家族分類、tarball digest 與 lockfile 綁定（R2–R5／R8）",
     command: "node tools/supply-chain/src/cli.ts",
     evidence: "tools/supply-chain/provenance.json",
@@ -122,6 +137,7 @@ export const GATES: readonly Gate[] = [
   },
   {
     id: "exit-drill",
+    kind: "gate",
     what: "D2 退出面靜態檢查、plugin 帳目、演練證據新鮮度（120 天）",
     command: "node tools/exit-drill/src/cli.ts",
     evidence: "tools/exit-drill/evidence.json",
@@ -130,6 +146,7 @@ export const GATES: readonly Gate[] = [
   },
   {
     id: "eslint-security",
+    kind: "gate",
     what: "no-unsanitized、eslint-plugin-security、vue/no-v-html（D5 的安全那一半）",
     command: "./node_modules/.bin/eslint . --max-warnings=0",
     evidence: null,
@@ -138,6 +155,7 @@ export const GATES: readonly Gate[] = [
   },
   {
     id: "trivy-sca",
+    kind: "gate",
     what: "相依套件的 HIGH／CRITICAL 漏洞，PR ＋ 每日 21:00 UTC 排程",
     command: "aquasecurity/trivy-action（.github/workflows/tier2-security.yml）",
     evidence: null,
@@ -146,6 +164,7 @@ export const GATES: readonly Gate[] = [
   },
   {
     id: "trivy-sbom",
+    kind: "gate",
     what: "CycloneDX SBOM 產出，並比對 component 數與 lockfile 套件數",
     command: "node tools/supply-chain/src/cli.ts --verify-sbom sbom.cdx.json",
     evidence: null,
@@ -154,6 +173,7 @@ export const GATES: readonly Gate[] = [
   },
   {
     id: "gitleaks",
+    kind: "gate",
     what: "機密掃描，fetch-depth: 0 以涵蓋被後續 commit 蓋掉的機密",
     command: "gitleaks/gitleaks-action（.github/workflows/tier2-security.yml）",
     evidence: null,
@@ -162,6 +182,7 @@ export const GATES: readonly Gate[] = [
   },
   {
     id: "csp-verify",
+    kind: "gate",
     what: "用正式 CSP（enforce）服務正式建置產物，實測 violation",
     command: "node tools/csp-verify/src/cli.ts",
     evidence: null,
@@ -169,7 +190,17 @@ export const GATES: readonly Gate[] = [
     note: "兩軸都有分卻三樣都缺：零測試、零進版控的產物、不在任何 workflow 裡。結果目前由人抄進 DECISIONS C39。",
   },
   {
+    id: "renovate",
+    kind: "proposer",
+    what: "提出相依升級與安全修補 —— §11 II ③「檢測**並因應**」裡的因應那一半",
+    command: "Mend Renovate App（設定：renovate.json）",
+    evidence: "renovate.json",
+    negativeTest: null,
+    note: "在它之前，整個腳手架能在升級**之後**告訴你什麼壞了，卻沒有一個東西會說「該升了」。⚠️ 它不擋任何東西，所以「證明過會紅」對它不適用（見 GateKind）。安全邊界在 `--recapture-safe`：升級 PR 造成的不同步可自動重擷，但 integrity-changed 一律拒絕 —— 那是事故不是升級。",
+  },
+  {
     id: "compliance",
+    kind: "gate",
     what: "本對照表本身：映射與檔案系統一致、且沒有列在說謊",
     command: "node tools/compliance/src/cli.ts",
     evidence: "tools/compliance/COMPLIANCE.md",
@@ -210,10 +241,10 @@ export const CONTROLS: readonly Control[] = [
     article: "§11 II ③",
     requirement: "定期檢測並因應系統漏洞所造成之威脅",
     scope: "frontend",
-    gates: ["trivy-sca", "trivy-sbom", "supply-chain"],
+    gates: ["trivy-sca", "trivy-sbom", "supply-chain", "renovate"],
     coverage: "partial",
     owed: true,
-    note: "「定期」由每日 21:00 UTC 的排程滿足 —— 沒有它，三個月沒人動的專案就三個月沒掃過。⚠️ 只涵蓋**相依套件**：自己寫的程式碼沒有 SAST，而 eslint 的安全規則不是漏洞掃描器。",
+    note: "這一條有兩半：**檢測**由 Trivy 做（每日 21:00 UTC 排程 —— 沒有它，三個月沒人動的專案就三個月沒掃過），**因應**由 Renovate 提出（D13 的 critical 3 天／high 14 天 SLA 要有人真的去升，才是 SLA）。⚠️ 仍只涵蓋**相依套件**：自己寫的程式碼沒有 SAST，而 eslint 的安全規則不是漏洞掃描器。",
   },
   {
     article: "§11 II ④",
