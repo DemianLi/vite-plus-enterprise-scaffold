@@ -44,9 +44,9 @@
     },
     {
       "id": "dialog-no-violation",
-      "what": "UiDialog 在 enforce CSP 下開啟：零 violation、零執行期注入的 <style>",
-      "expected": "對話框開啟、0 violation、0 個 <style> 元素",
-      "observed": "開啟 是；violation 0；<style> 0",
+      "what": "UiDialog 在 enforce CSP 下開啟：零 violation、沒有多長出 <style> 元素",
+      "expected": "對話框開啟、0 violation、<style> 數量不變",
+      "observed": "開啟 是；violation 0；<style> 0 → 0",
       "passed": true
     }
   ],
@@ -78,6 +78,7 @@
     ],
     "dialogOpened": true,
     "dialogViolations": [],
+    "styleElementsBeforeDialog": 0,
     "styleElementsDuringDialog": 0,
     "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.30096.1 Chrome/148.0.7778.280 Electron/42.7.0 Safari/537.36"
   }

@@ -2169,6 +2169,14 @@ CSP，收進來只會逼人重跑一次結論不會變的驗證。
 `passed` 由 `evaluate()` 推導。少了這一層，證據檔就從量測退化成主張 ——
 **而主張不需要開瀏覽器就寫得出來。**
 
+而且 `--verify` 要**再重算一次**。第一版沒有這一段，於是那句「不接受人手寫」
+只在 `--record` 那一刻成立：事後把 `evidence.json` 裡的 `passed: false` 改成
+`true`、或直接蓋一份全綠的 `probes` 上去，CI 照樣綠。既有的竄改測試只驗到
+**清空** `probes`，沒驗到**偽造** —— 而偽造才是有動機的那一種。
+
+比的是 `(id, passed)` 而不是整個物件：`what`／`observed` 是給人看的訊息，
+改一句措辭就讓證據失效的話，那種與事實無關的紅燈一樣會被關掉。
+
 ### 四、實測：兩個「被擋下」都要有正面佐證
 
 探針一與探針四驗的是「這件事被擋下來了」。而「被擋下來」與**「注入的程式碼
@@ -2183,10 +2191,17 @@ CSP，收進來只會逼人重跑一次結論不會變的驗證。
 | `style` **屬性**       | `rgb(4, 5, 6)` —— 沒被誤擋，Vue 的 `:style` 走得通       |
 | 外部 stylesheet        | 2 份、規則數 45／2 —— 畫面不是整個壞掉                   |
 | inline `<script>`      | 沒執行＋`script-src-elem`（**enforce**）                 |
-| `UiDialog` 開啟        | 0 violation、**0 個執行期注入的 `<style>` 元素**         |
+| `UiDialog` 開啟        | 0 violation、`<style>` 數量 **0 → 0**（沒有多長出來）    |
 
 `disposition` 這個欄位是整份證據唯一機器驗得出「不是 report-only」的地方；
 report-only 的事件會寫 `"report"`，畫面照常運作，那種驗證等於沒驗。
+
+最後一列看的是**差值不是絕對值**，而這一點是被追問出來的。第一版斷言
+「開對話框時 `<style>` 元素數 ＝ 0」，今天成立是因為這個建置產物靜置時就是 0。
+但 Vite 只要開始內聯小 CSS（`assetsInlineLimit`）、或 Tailwind 吐出一段
+critical CSS，絕對值就不是 0 —— 而那時探針會報「`<style>` 1」，讀的人會
+診斷成「reka-ui 開始在執行期注入樣式」。**錯的原因**，出現在一道全部價值
+都在「訊息講得出原因」的閘門上。
 
 另外一個之前沒記下來的細節：violation 的 `effectiveDirective` 是
 `style-src-elem` 與 `script-src-elem`，**不是** `style-src`／`script-src`。

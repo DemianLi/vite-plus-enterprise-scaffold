@@ -104,6 +104,7 @@ export function buildProbeScript(): string {
     probeViolations,
     dialogOpened,
     dialogViolations,
+    styleElementsBeforeDialog: styleElementsBefore,
     styleElementsDuringDialog,
     userAgent: navigator.userAgent,
   };

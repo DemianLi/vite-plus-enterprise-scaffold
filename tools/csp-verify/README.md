@@ -45,8 +45,8 @@ CSP 只有真的瀏覽器 CSP 引擎驗得了（happy-dom 與 jsdom 都沒實作
 **人跑一次，機器守它的有效期。**
 
 失效條件是**指紋**，不是日曆 —— 日曆過期每季紅一次而通常什麼都沒變，
-那種紅燈會被關掉。指紋 ＝ CSP 政策字串 ＋ `FINGERPRINT_PACKAGES`
-那七個會在執行期注入 `<style>`／script 的相依版本。改 `policy.ts`、
+那種紅燈會被關掉。指紋 ＝ CSP 政策字串 ＋ `FINGERPRINT_PACKAGES` 列的那些
+會在執行期注入 `<style>`／script 的相依版本。改 `policy.ts`、
 升 `reka-ui`／`vue`／`tailwindcss`，這道閘門就會紅並要求重驗。
 
 ⚠️ **瀏覽器自己改版時指紋不會動。** 這是真的洞，沒有補：Chromium 每四週發一版，
@@ -72,6 +72,10 @@ console 一片安靜也可能代表 CSP 根本沒生效。所以探針有五項�
 
 `passed` 一律由 `evaluate()` 從原始觀測推導，**不接受人手寫**：
 少了這一層，證據檔就從量測退化成主張，而主張不用開瀏覽器就寫得出來。
+
+而且 `--verify` 會**再重算一次**。只在 `--record` 那一刻推導等於沒有推導 ——
+事後把 `evidence.json` 裡的 `passed: false` 改成 `true` 就能讓 CI 變綠，
+那樣這道閘門就變成它自己在防的那個東西。
 
 實測結果在 `evidence.json`（進版控），論證見 `DECISIONS.md` 的 C39 與 C47。
 

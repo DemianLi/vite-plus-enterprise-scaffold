@@ -124,8 +124,9 @@ jobs:
       #
       # 所以人跑一次（tools/csp-verify/src/cli.ts --print-probe），
       # 這一步守的是那次結論的前提還在不在：CSP 政策字串，
-      # 以及七個會在執行期注入 <style>／script 的相依版本。
-      # 升 reka-ui 或改 policy.ts 時，這裡會紅並要求重驗。
+      # 以及 FINGERPRINT_PACKAGES 列的那些會在執行期注入 <style>／script
+      # 的相依版本。升 reka-ui 或改 policy.ts 時，這裡會紅並要求重驗。
+      # 它同時會從原始觀測重算探針結論 —— 手改 evidence.json 的 passed 不放行。
       #
       # 放在 PR 上而不是排程：失效的原因是**變更**（升版、改政策），
       # 不是時間。日曆式過期每季紅一次而通常什麼都沒變，那種紅燈會被關掉。

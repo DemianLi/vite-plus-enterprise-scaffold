@@ -108,6 +108,16 @@ export interface RawCapture {
   readonly probeViolations: readonly Violation[];
   readonly dialogOpened: boolean;
   readonly dialogViolations: readonly Violation[];
+  /**
+   * 開對話框**之前**畫面上有幾個 `<style>` 元素。
+   *
+   * 有意義的量是**差值**，不是絕對值。今天這個建置產物靜置時是 0 個，
+   * 但 Vite 只要開始內聯小 CSS（`assetsInlineLimit`）、或 Tailwind 吐出一段
+   * critical CSS，絕對值就不是 0 了 —— 而那時探針會報「`<style>` 1」，
+   * 讀的人會診斷成「reka-ui 開始在執行期注入樣式」。**錯的原因**，
+   * 出現在一道全部價值都在「訊息講得出原因」的閘門上。
+   */
+  readonly styleElementsBeforeDialog: number;
   readonly styleElementsDuringDialog: number;
   readonly userAgent: string;
 }
@@ -214,17 +224,17 @@ export function evaluate(capture: RawCapture): readonly ProbeResult[] {
     },
     {
       id: "dialog-no-violation",
-      what: "UiDialog 在 enforce CSP 下開啟：零 violation、零執行期注入的 <style>",
+      what: "UiDialog 在 enforce CSP 下開啟：零 violation、沒有多長出 <style> 元素",
       // 「對話框有打開」是這一條的前提，不是附帶條件：
       // 沒打開的話「零 violation」只代表沒有東西跑過。
-      expected: "對話框開啟、0 violation、0 個 <style> 元素",
+      expected: "對話框開啟、0 violation、<style> 數量不變",
       observed: `開啟 ${capture.dialogOpened ? "是" : "否"}；violation ${
         capture.dialogViolations.length
-      }；<style> ${capture.styleElementsDuringDialog}`,
+      }；<style> ${capture.styleElementsBeforeDialog} → ${capture.styleElementsDuringDialog}`,
       passed:
         capture.dialogOpened &&
         capture.dialogViolations.length === 0 &&
-        capture.styleElementsDuringDialog === 0,
+        capture.styleElementsDuringDialog - capture.styleElementsBeforeDialog === 0,
     },
   ];
 }
@@ -235,6 +245,8 @@ export interface EvidenceProblem {
     | "empty"
     | "missing-probe"
     | "probe-failed"
+    | "no-capture"
+    | "derivation-mismatch"
     | "policy-changed"
     | "roster-drift"
     | "version-changed";
@@ -302,6 +314,37 @@ export function checkEvidence(
   for (const id of REQUIRED_PROBES) {
     if (!recorded.has(id)) {
       problems.push({ kind: "missing-probe", detail: `缺少必要探針：${id}` });
+    }
+  }
+
+  // ── 探針結論必須跟原始觀測算得出來的一致 ──────────────────────────
+  //
+  // 少了這一段，「passed 由 evaluate() 推導、不接受人手寫」這句話**只在
+  // --record 那一刻成立**：事後把 evidence.json 裡的 `passed: false` 改成
+  // `true`，或直接蓋一份全綠的 probes 上去，CI 照樣綠。
+  //
+  // 也就是說，這道閘門會變成它自己在防的那個東西 —— 一份不用開瀏覽器
+  // 就寫得出來的主張。所以在這裡重算一次。
+  //
+  // 比的是 (id, passed) 而不是整個物件：`what`／`observed` 是給人看的訊息，
+  // 改一句措辭就讓證據失效，那種紅燈會被關掉。
+  if (file.capture === undefined) {
+    problems.push({
+      kind: "no-capture",
+      detail: "證據檔沒有原始觀測（capture）—— 那樣 probes 就無法重算，等於無法查證。",
+    });
+  } else {
+    const derived = new Map(evaluate(file.capture).map((probe) => [probe.id, probe.passed]));
+    for (const probe of file.probes) {
+      const truth = derived.get(probe.id);
+      if (truth !== undefined && truth !== probe.passed) {
+        problems.push({
+          kind: "derivation-mismatch",
+          detail:
+            `探針 ${probe.id} 記的是 ${probe.passed}，但從原始觀測重算是 ${truth} —— ` +
+            "結論被人改過，或原始觀測被換掉了。",
+        });
+      }
     }
   }
 

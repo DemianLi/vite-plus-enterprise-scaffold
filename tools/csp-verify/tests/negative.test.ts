@@ -59,6 +59,7 @@ function capture(overrides: Partial<RawCapture> = {}): RawCapture {
     ],
     dialogOpened: true,
     dialogViolations: [],
+    styleElementsBeforeDialog: 0,
     styleElementsDuringDialog: 0,
     userAgent: "Mozilla/5.0 Chrome/148.0.0.0",
     ...overrides,
@@ -129,6 +130,51 @@ describe("🔴 沒有證據不得等於通過", () => {
     const broken = evaluate(capture({ inlineScriptRan: true }));
     const problems = checkEvidence(evidence({ probes: broken }), currentFingerprint(LOCKFILE));
     expect(kinds(problems)).toContain("probe-failed");
+  });
+});
+
+describe("🔴 偽造的結論：手改 passed 不得放行", () => {
+  /**
+   * 「`passed` 由 `evaluate()` 推導、不接受人手寫」這句話，如果只在 `--record`
+   * 那一刻成立，就等於沒有 —— 事後把 `evidence.json` 裡的 false 改成 true，
+   * 或直接蓋一份全綠的 probes 上去，CI 照樣綠。
+   *
+   * 那樣的話這道閘門會變成它自己在防的那個東西：**一份不用開瀏覽器就寫得
+   * 出來的主張。** 所以 `checkEvidence` 會從 `capture` 重算一次。
+   */
+  it("把失敗的探針改成 passed: true → 紅", () => {
+    const contradicted = capture({ dialogOpened: false });
+    const forged = evaluate(contradicted).map((probe) => ({ ...probe, passed: true }));
+    const problems = checkEvidence(
+      evidence({ probes: forged, capture: contradicted }),
+      currentFingerprint(LOCKFILE),
+    );
+    expect(kinds(problems)).toContain("derivation-mismatch");
+  });
+
+  it("把真證據的 probes 蓋到一份矛盾的 capture 上 → 紅", () => {
+    const problems = checkEvidence(
+      { ...REAL, capture: capture({ inlineScriptRan: true, probeViolations: [] }) },
+      currentFingerprint(LOCKFILE),
+    );
+    expect(kinds(problems)).toContain("derivation-mismatch");
+  });
+
+  it("整個 capture 被拿掉 → 紅（沒有原始觀測就無從查證）", () => {
+    const { capture: _dropped, ...withoutCapture } = evidence();
+    const problems = checkEvidence(
+      withoutCapture as unknown as EvidenceFile,
+      currentFingerprint(LOCKFILE),
+    );
+    expect(kinds(problems)).toContain("no-capture");
+  });
+
+  it("★ 只改給人看的訊息不算竄改 —— 比的是 (id, passed)", () => {
+    // 深比較整個物件的話，改一句 `observed` 的措辭就會讓證據失效。
+    // 那種紅燈與事實無關，而與事實無關的紅燈會被關掉。
+    const reworded = REAL.probes.map((probe) => ({ ...probe, observed: "換個說法" }));
+    const problems = checkEvidence({ ...REAL, probes: reworded }, currentFingerprint(LOCKFILE));
+    expect(kinds(problems)).not.toContain("derivation-mismatch");
   });
 });
 
@@ -245,10 +291,20 @@ describe("evaluate：「什麼都沒發生」不算被擋下", () => {
     expect(probes.find((probe) => probe.id === "dialog-no-violation")?.passed).toBe(false);
   });
 
-  it("對話框打開時注入了 <style> 元素 → 紅", () => {
+  it("對話框打開時多長出 <style> 元素 → 紅", () => {
     // reka-ui 若哪一版改成執行期注入樣式，會踩到這一條。
     const probes = evaluate(capture({ styleElementsDuringDialog: 1 }));
     expect(probes.find((probe) => probe.id === "dialog-no-violation")?.passed).toBe(false);
+  });
+
+  it("★ 看的是差值不是絕對值 —— 靜置就有 <style> 不代表對話框注入了", () => {
+    // 今天的產物靜置時是 0 個。但 Vite 只要開始內聯小 CSS，絕對值就不是 0，
+    // 而探針會報「<style> 1」讓人診斷成「reka-ui 開始注入樣式」——
+    // **錯的原因**，出現在一道全部價值都在「訊息講得出原因」的閘門上。
+    const probes = evaluate(
+      capture({ styleElementsBeforeDialog: 3, styleElementsDuringDialog: 3 }),
+    );
+    expect(probes.find((probe) => probe.id === "dialog-no-violation")?.passed).toBe(true);
   });
 });
 
@@ -272,6 +328,7 @@ describe("探針腳本與判定共用同一組常數", () => {
       "probeViolations",
       "dialogOpened",
       "dialogViolations",
+      "styleElementsBeforeDialog",
       "styleElementsDuringDialog",
       "userAgent",
     ]) {

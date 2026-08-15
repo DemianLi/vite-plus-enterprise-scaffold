@@ -187,7 +187,7 @@ export const GATES: readonly Gate[] = [
     command: "node tools/csp-verify/src/cli.ts --verify",
     evidence: "tools/csp-verify/evidence.json",
     negativeTest: "tools/csp-verify/tests/negative.test.ts",
-    note: "CSP 只有真的瀏覽器驗得了（happy-dom 與 jsdom 都沒實作 CSP），所以人跑一次、機器守有效期 —— 形狀比照 exit-drill。失效條件是**指紋**（CSP 政策字串 ＋ 七個會注入執行期 <style>／script 的相依版本），不是日曆：日曆過期每季紅一次而通常什麼都沒變，那種紅燈會被關掉。⚠️ 瀏覽器自己改版時指紋不會動 —— 證據檔記錄驗證當時的瀏覽器，但刻意不守它（Chromium 每四週一版）。",
+    note: "CSP 只有真的瀏覽器驗得了（happy-dom 與 jsdom 都沒實作 CSP），所以人跑一次、機器守有效期 —— 形狀比照 exit-drill。失效條件是**指紋**（CSP 政策字串 ＋ `FINGERPRINT_PACKAGES` 列的那些會注入執行期 <style>／script 的相依版本），不是日曆：日曆過期每季紅一次而通常什麼都沒變，那種紅燈會被關掉。`--verify` 會從原始觀測重算探針結論，手改 `passed` 不放行。⚠️ 瀏覽器自己改版時指紋不會動 —— 證據檔記錄驗證當時的瀏覽器，但刻意不守它（Chromium 每四週一版）。",
   },
   {
     id: "dependency-health",
