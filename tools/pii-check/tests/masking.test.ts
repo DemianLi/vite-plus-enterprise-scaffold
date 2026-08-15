@@ -79,6 +79,24 @@ describe("renderedExpressions：只看 template", () => {
     );
   });
 
+  it("🔴 v-text 也把值送進 DOM —— 第一版整個漏了", () => {
+    // `v-text` 沒有 `:`／`v-bind:`／`@` 任何一種前綴，於是
+    // `<td v-text="order.customerName" />` 會完整印出姓名而閘門全綠。
+    // `v-html` 有同樣的形狀，但它被 vue/no-v-html 擋著 —— v-text 沒有任何東西守。
+    expect(renderedExpressions(sfc(`<td v-text="order.customerName" />`))).toContain(
+      "order.customerName",
+    );
+    expect(check(`<td v-text="order.customerName" />`).violations).toHaveLength(1);
+  });
+
+  it("🔴 v-html 也算 —— 訊息要講對原因", () => {
+    expect(check(`<td v-html="order.customerName" />`).violations).toHaveLength(1);
+  });
+
+  it("🔴 單引號也算 —— :title='x' 是合法的 Vue", () => {
+    expect(check("<td :title='order.customerName'>x</td>").violations).toHaveLength(1);
+  });
+
   it("★ 不看 <script> —— 規則講的是呈現", () => {
     // 把 script 也納入只會逼人改個變數名繞過，而畫面照樣印出完整姓名。
     const source = sfc("<p>{{ masked }}</p>", "const masked = maskName(order.customerName);");
@@ -138,6 +156,45 @@ describe("★ 不該紅的時候不會紅", () => {
   it("空的 personalData 不產生任何事", () => {
     const result = checkSlice("demo", [], new Map([["a.vue", sfc("<p>{{ anything }}</p>")]]));
     expect(maskingProblems([result])).toEqual([]);
+  });
+});
+
+describe("🔴 mask 呼叫必須真的來自 @org/pii", () => {
+  /**
+   * `MASK_CALL` 認的是「叫做 maskXxx 的函式」——
+   * 一個本地定義、直接回傳原值的 `maskCustomer()` 完全符合。
+   *
+   * 原本的註解寫著「元件測試那一層會抓到寫錯的那種」，而那句話是假的：
+   * 元件測試掛的是合成元件，不是真的 `OrderList.vue`。
+   */
+  it("有 mask 呼叫但沒 import @org/pii → 紅", () => {
+    const source = sfc(
+      "<td>{{ maskCustomer(order.customerName) }}</td>",
+      "function maskCustomer(x: string) { return x; }",
+    );
+    const result = checkSlice("demo", ["customerName"], new Map([["a.vue", source]]));
+    expect(result.unsourcedMasks).toEqual(["a.vue"]);
+    expect(maskingProblems([result]).map((problem) => problem.kind)).toContain("mask-not-from-pii");
+  });
+
+  it("★ 有 import 就放行", () => {
+    const source = sfc(
+      "<td>{{ maskName(order.customerName) }}</td>",
+      'import { maskName } from "@org/pii";',
+    );
+    const result = checkSlice("demo", ["customerName"], new Map([["a.vue", source]]));
+    expect(maskingProblems([result])).toEqual([]);
+  });
+
+  it("★ 沒有 mask 呼叫的檔案不需要 import", () => {
+    const source = sfc("<td>{{ order.totalCents }}</td>");
+    const result = checkSlice("demo", ["customerName"], new Map([["a.vue", source]]));
+    expect(result.unsourcedMasks).toEqual([]);
+  });
+
+  it("真的 OrderList.vue 是從 @org/pii 匯入的", () => {
+    const source = readFileSync(join(ROOT, "features/order/src/views/OrderList.vue"), "utf8");
+    expect(source).toContain('from "@org/pii"');
   });
 });
 

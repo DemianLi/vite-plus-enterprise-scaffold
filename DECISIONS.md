@@ -2200,7 +2200,28 @@ pytest-cookies 的 `cookies.bake()` 也是同一個形狀：產到目錄、斷�
 
 這是 C47 那個洞的同一課：檢查要重新推導觀測，不是讀一份宣告。
 
-### 六、加了 happy-dom 與 @vue/test-utils —— 與 C47 拒絕 Playwright 不矛盾
+### 六、`api-surface` 看不見這次的破壞性變更，而那是它的結構限制
+
+把 `personalData` 加成 `Feature` 的**必填**欄位，是對 `@org/slice-kit` 的
+破壞性變更：下游任何一個既有切片都會編譯失敗。
+
+而 `tools/api-surface` **完全沒有說話** —— 它只報了 `@org/pii` 那 7 個新 export。
+原因是結構性的：`surface.json` 記的是「模組 → export **名稱**」，
+而在一個匯出的 interface 上加一個必填屬性，不會改變任何名稱。
+
+```json
+"@org/slice-kit": ["defineFeature", "registerFeatures"]
+```
+
+D12 的規則是「改 platform 的破壞性變更必須附 codemod」，而這是**第一個
+那個機制看不見的破壞性變更**。本 repo 的四個使用端都改好了，所以現況是一致的；
+但這個腳手架是拿來被複製的 —— 下游團隊升級 `slice-kit` 時只會拿到一個型別錯誤，
+沒有遷移路徑。
+
+不在這一輪修（那是 api-surface 的一次重做，要比對型別形狀而不只是名稱）。
+**記下來比默默吸收有價值**：它現在是 HANDOFF 上的一條。
+
+### 七、加了 happy-dom 與 @vue/test-utils —— 與 C47 拒絕 Playwright 不矛盾
 
 C47 才剛以「會把瀏覽器二進位拉進 `tools/supply-chain` 的盤點範圍」為由拒絕
 Playwright，這裡卻加了兩個測試相依。差別不是程度，是類別：**純 JS，沒有平台
@@ -2214,7 +2235,7 @@ Playwright，這裡卻加了兩個測試相依。差別不是程度，是類別�
 `environment` 用的是每支測試檔頂端的 `// @vitest-environment happy-dom`
 docblock，所以**沒有新增任何設定檔**，D2 的退出面沒有擴大。
 
-### 七、順手修掉一個對著例行變更喊事故的訊息
+### 八、順手修掉一個對著例行變更喊事故的訊息
 
 上面那次盤點本來是紅的，而它給的理由是：
 「清單相同但 integrity 或摘要有變 —— 同一個版本號拿到了不同的內容物，
@@ -2228,7 +2249,7 @@ C44 在 provenance 那邊已經把這條線畫對了（`integrity-changed` 是�
 `stale-record` 是例行）。這裡是同一條線，只是漏畫了。現在會分開講：
 非原生套件數變了就說變了幾個，數目相同而摘要變了才是那句要查的話。
 
-### 八、`[...value]` 拆的是碼點，不是字
+### 九、`[...value]` 拆的是碼點，不是字
 
 隱碼函式原本用展開運算子拆字串，lint 擋了下來，而它是對的。
 展開拆的是 Unicode 碼點：`José` 的分解形式是 5 個碼點 4 個字，

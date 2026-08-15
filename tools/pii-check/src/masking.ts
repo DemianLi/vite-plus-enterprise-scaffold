@@ -25,8 +25,23 @@
 /** 全部單層量詞：巢狀量詞會被 security/detect-unsafe-regex 擋（C19）。 */
 const TEMPLATE_BLOCK = /<template[^>]*>([\s\S]*)<\/template>/;
 const INTERPOLATION = /\{\{([^}]*)\}\}/g;
-/** `:prop="expr"` 與 `v-bind:prop="expr"`，以及 `@click="expr"`。 */
-const BOUND_ATTRIBUTE = /(?::|v-bind:|@)[\w.-]+="([^"]*)"/g;
+/**
+ * 所有把運算式的值送進 DOM 的屬性寫法。
+ *
+ * ── `v-text` 是一個真的繞道，而且第一版漏了 ────────────────────────
+ *
+ * 原本只認 `:prop`、`v-bind:prop`、`@event` 三種前綴。`v-text` 一個都不是：
+ *
+ *     <td v-text="order.customerName" />
+ *
+ * 完整姓名照樣進畫面，而這道閘門全綠。**`v-html` 有同樣的形狀，
+ * 但它被 Tier 2 的 `vue/no-v-html` 擋著 —— `v-text` 沒有任何東西守。**
+ * 這裡仍然收 `v-html`，為的是訊息講得出正確的原因，而不是讓人只看到
+ * 一條「不要用 v-html」的 lint。
+ *
+ * 引號兩種都收：`:title='x'` 是合法的 Vue，只認雙引號會留下同一類破口。
+ */
+const BOUND_ATTRIBUTE = /(?:(?::|v-bind:|@)[\w.-]+|v-text|v-html)\s*=\s*("[^"]*"|'[^']*')/g;
 /** 認得出來的隱碼呼叫。`@org/pii` 匯出的都以 mask 開頭。 */
 const MASK_CALL = /\bmask[A-Z]\w*\s*\(/;
 
@@ -78,7 +93,22 @@ export interface SliceMasking {
   readonly violations: readonly MaskingViolation[];
   /** 宣告了、而且真的出現在某個渲染運算式裡的欄位（不論有沒有隱碼）。 */
   readonly rendered: readonly string[];
+  /** 用了 mask 呼叫、卻沒有從 `@org/pii` 匯入的檔案。見 `PII_IMPORT`。 */
+  readonly unsourcedMasks: readonly string[];
 }
+
+/**
+ * `MASK_CALL` 認的是「叫做 maskXxx 的函式」，而那接受任何本地定義的同名函式 ——
+ * 包括一個直接回傳原值的 `maskCustomer()`。
+ *
+ * 原本寫著「元件測試那一層會抓到寫錯的那種」。**那句話當時是假的**：
+ * `features/order/tests/masking.test.ts` 掛的是一個合成元件，不是 `OrderList.vue`，
+ * 所以真的畫面上一個假 mask 函式不會被任何東西擋下。
+ *
+ * 所以補這一條：模板裡有 mask 呼叫的話，同一個檔案必須從 `@org/pii` 匯入。
+ * 它讓那個寬鬆的 regex 變得安全，而不是靠一個不存在的下游檢查。
+ */
+const PII_IMPORT = /from\s+["']@org\/pii["']/;
 
 /** 抽出所有會被渲染的運算式。回傳原文，訊息才指得出是哪一段。 */
 export function renderedExpressions(source: string): readonly string[] {
@@ -87,7 +117,9 @@ export function renderedExpressions(source: string): readonly string[] {
 
   const found: string[] = [];
   for (const match of template.matchAll(INTERPOLATION)) found.push((match[1] ?? "").trim());
-  for (const match of template.matchAll(BOUND_ATTRIBUTE)) found.push((match[1] ?? "").trim());
+  for (const match of template.matchAll(BOUND_ATTRIBUTE)) {
+    found.push((match[1] ?? "").slice(1, -1).trim());
+  }
   return found;
 }
 
@@ -127,8 +159,12 @@ export function mentionsField(expression: string, field: string): boolean {
  * 「同一個運算式裡有 mask 呼叫」是刻意寬鬆的判準：要精確判斷
  * `maskName(a.customerName)` 與 `foo(maskName(b), a.customerName)` 的差別，
  * 需要真的解析 JS 運算式，而那個複雜度換來的精確度，
- * 在一個「畫面上有沒有隱碼」的檢查上不值得 ——
- * **元件測試那一層會抓到寫錯的那種**，而它抓得比任何靜態分析都準。
+ * 在一個「畫面上有沒有隱碼」的檢查上不值得。
+ *
+ * ⚠️ 這裡原本寫著「元件測試那一層會抓到寫錯的那種」—— **那句話是假的**，
+ * 因為元件測試掛的是合成元件而不是真的 view。補償的是 `PII_IMPORT`：
+ * 有 mask 呼叫就必須從 `@org/pii` 匯入，於是這個寬鬆的判準至少
+ * 保證呼叫到的是那一份有測試、被 CODEOWNERS 管著的實作。
  */
 export function leaksField(expression: string, field: string): boolean {
   if (!mentionsField(expression, field)) return false;
@@ -142,9 +178,11 @@ export function checkSlice(
 ): SliceMasking {
   const violations: MaskingViolation[] = [];
   const rendered = new Set<string>();
+  const unsourcedMasks = new Set<string>();
 
   for (const [file, source] of templates) {
     for (const expression of renderedExpressions(source)) {
+      if (MASK_CALL.test(expression) && !PII_IMPORT.test(source)) unsourcedMasks.add(file);
       for (const field of declared) {
         if (!mentionsField(expression, field)) continue;
         rendered.add(field);
@@ -159,11 +197,17 @@ export function checkSlice(
     templatesExamined: templates.size,
     violations,
     rendered: [...rendered],
+    unsourcedMasks: [...unsourcedMasks],
   };
 }
 
 export interface MaskingProblem {
-  readonly kind: "leak" | "no-slices" | "declared-but-never-rendered" | "not-declared";
+  readonly kind:
+    | "leak"
+    | "no-slices"
+    | "declared-but-never-rendered"
+    | "not-declared"
+    | "mask-not-from-pii";
   readonly detail: string;
 }
 
@@ -186,6 +230,16 @@ export function maskingProblems(results: readonly SliceMasking[]): readonly Mask
           `${violation.file}：${result.slice} 宣告 "${violation.field}" 是個資，` +
           `但這段運算式直接把它渲染出去 —— \`${violation.expression}\`\n` +
           "      改法：用 @org/pii 的 maskName／maskEmail／maskPhone／maskNationalId 包起來。",
+      });
+    }
+
+    for (const file of result.unsourcedMasks) {
+      problems.push({
+        kind: "mask-not-from-pii",
+        detail:
+          `${file} 用了 maskXxx()，但這個檔案沒有從 @org/pii 匯入任何東西。\n` +
+          "      一個本地定義、直接回傳原值的 maskCustomer() 會讓這道閘門全綠 ——\n" +
+          "      隱碼函式必須是那一份被 CODEOWNERS 管著、有測試的實作。",
       });
     }
 
