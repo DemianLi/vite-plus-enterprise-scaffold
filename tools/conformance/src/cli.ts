@@ -39,7 +39,39 @@ import {
  * 讀同一份 contract.ts —— 兩者互為定義，不會各說各話。
  */
 
-const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
+/**
+ * 掃描的根目錄。預設是本 repo，`--root <dir>` 可以指到別處。
+ *
+ * ── 這個參數不是為了彈性，是為了讓這支工具能被反向測試 ──────────────
+ *
+ * 「該紅的時候會不會紅」只能靠**真的弄壞一個切片**來證明。
+ * 在寫死 ROOT 的版本下，那意味著就地竄改 `features/order` 再還原 ——
+ * 能動，但跑到一半被中斷 repo 就壞著，而且是安靜地壞。
+ *
+ * 有了 `--root`，反向測試可以把切片複製到暫存目錄再破壞副本：
+ * 中斷了最多留一個 temp 目錄，原始碼一個位元組都沒動過。
+ *
+ * 這是**為了可測試性去改正式工具的介面**，值得說清楚代價：
+ * 多一個參數、多一條解析路徑。換到的是這支 Tier 2 閘門
+ * 第一次有辦法證明自己有牙齒 —— 在那之前它只證明過「現況是綠的」。
+ *
+ * ⚠️ 刻意**不做**環境變數版本。env 會被繼承到子行程，
+ * 一個沒清乾淨的 `CONFORMANCE_ROOT` 會讓 CI 安靜地掃錯目錄然後回報通過。
+ * 明確的旗標做不到這件事。
+ */
+function parseRoot(argv: readonly string[]): string {
+  const at = argv.indexOf("--root");
+  if (at === -1) return resolve(fileURLToPath(import.meta.url), "../../../..");
+
+  const value = argv[at + 1];
+  if (value === undefined || value.startsWith("--")) {
+    console.error("--root 後面要接一個目錄");
+    process.exit(1);
+  }
+  return resolve(value);
+}
+
+const ROOT = parseRoot(process.argv.slice(2));
 const FEATURES_DIR = join(ROOT, "features");
 
 interface Violation {
