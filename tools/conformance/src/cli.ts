@@ -22,6 +22,8 @@ import {
   STORE_FORBIDDEN_IMPORTS,
   STORE_FORBIDDEN_LOCAL_MODULES,
   isTypeOnlyImportAt,
+  SLICE_DESIGN_SYSTEM_IMPORTS,
+  CSP_INCOMPATIBLE_MODULES,
 } from "@org/slice-kit/contract";
 
 /**
@@ -139,6 +141,109 @@ function checkRelativeEscapes(slicePath: string, slice: string): void {
  * 第 2 條為什麼是「禁 import」而不是「禁元件裡出現 useQuery」：
  * 前者是可精確判定的靜態事實，後者要語意分析。同一個取捨見 D4 第 3 層。
  */
+/**
+ * 抽出一段 import 敘述的**匯入子句**（`import` 與 `from` 之間那一段）。
+ *
+ * 第一版掃的是整份檔案有沒有出現那個識別字，結果**在定義這條規則的檔案上誤報**——
+ * `slice-kit/src/contract.ts` 把禁用名稱當資料列著，於是閘門指控契約本身違規。
+ *
+ * 那不是「加個例外把契約檔跳過」就好：那種修法會讓規則對任何「剛好提到這個名字」
+ * 的檔案繼續誤報，而一道會亂叫的閘門會被加上 skip，然後永遠不會拿掉。
+ * 正確的修法是只看**真的 import 敘述**。
+ */
+function importClauseBefore(source: string, specifierIndex: number): string | null {
+  const head = source.lastIndexOf("import", specifierIndex);
+  if (head === -1) return null;
+  const from = source.indexOf("from", head);
+  if (from === -1 || from > specifierIndex) return null;
+  return source.slice(head + "import".length, from);
+}
+
+/** 匯入子句裡有沒有這個具名匯入。用字串比對，不用動態正則（Tier 2 會擋）。 */
+function clauseImports(clause: string, name: string): boolean {
+  const isWordChar = (char: string | undefined): boolean =>
+    char !== undefined && /[A-Za-z0-9_$]/.test(char);
+
+  let at = clause.indexOf(name);
+  while (at !== -1) {
+    if (!isWordChar(clause[at - 1]) && !isWordChar(clause[at + name.length])) return true;
+    at = clause.indexOf(name, at + 1);
+  }
+  return false;
+}
+
+/**
+ * D15：切片不得自己長出一套設計系統。
+ *
+ * 擋的是 import 而不是「有沒有 components 目錄」—— 切片當然需要自己的呈現元件，
+ * 擋掉目錄只會逼大家把元件塞進 views/，規則變成純粹的騷擾。
+ * 真正要防的是繞過 `@org/ui` 自己拼基元：D4 禁止切片互依，
+ * 所以第二個團隊會再拼一次，兩套永遠不會收斂。
+ */
+function checkDesignSystemBoundary(slicePath: string, slice: string): void {
+  for (const file of collectSourceFiles(slicePath)) {
+    const source = readFileSync(file, "utf8");
+
+    for (const match of source.matchAll(IMPORT_SPECIFIER_PATTERN)) {
+      const specifier = match[1];
+      if (specifier === undefined || match.index === undefined) continue;
+      // 借型別不算耦合，理由同 store 的規則。
+      if (isTypeOnlyImportAt(source, match.index)) continue;
+
+      const banned = SLICE_DESIGN_SYSTEM_IMPORTS.find((name) => specifier === name);
+      if (banned === undefined) continue;
+
+      fail(
+        slice,
+        "繞過設計系統",
+        `${relative(slicePath, file)} 直接 import 了 "${banned}"`,
+        `一律走 @org/ui（D15）。要的元件那裡沒有，就把它加進 platform/ui ——` +
+          "那個 package 有 CODEOWNERS 與 api-surface 閘門，切片沒有。" +
+          "在切片裡自己拼一套，第二個團隊會再拼一次，而兩套永遠不會收斂",
+      );
+    }
+  }
+}
+
+/**
+ * D15：全 repo 禁止 CSP 不相容的模組。
+ *
+ * 目前只有一條：reka-ui 的 Splitter 會在拖曳時注入 <style> 元素，
+ * 被 style-src 'self' 擋掉。症狀是「游標沒變」這種沒有人會聯想到 CSP 的小毛病。
+ *
+ * 這條掃**整個 repo**（含 platform/），不是只掃切片 —— 因為 platform/ui 才是
+ * 最可能不小心用到它的地方。
+ */
+function checkCspIncompatibleImports(dir: string, label: string): void {
+  for (const file of collectSourceFiles(dir)) {
+    const contents = readFileSync(file, "utf8");
+
+    for (const match of contents.matchAll(IMPORT_SPECIFIER_PATTERN)) {
+      const specifier = match[1];
+      if (specifier === undefined || match.index === undefined) continue;
+
+      const rule = CSP_INCOMPATIBLE_MODULES.find((entry) => entry.specifier === specifier);
+      if (rule === undefined) continue;
+
+      const clause = importClauseBefore(contents, match.index);
+      if (clause === null) continue;
+
+      for (const name of rule.names) {
+        if (!clauseImports(clause, name)) continue;
+
+        fail(
+          label,
+          "CSP 不相容的元件",
+          `${relative(ROOT, file)} 匯入了 ${name}`,
+          `${rule.reason}。改用不需要它的版面，或把這條規則的改動當成` +
+            "「要不要為了它引入 per-request nonce」那場討論的入口" +
+            "（見 slice-kit 契約的 CSP_INCOMPATIBLE_MODULES）",
+        );
+      }
+    }
+  }
+}
+
 function checkSliceLayering(slicePath: string, slice: string): void {
   const composablesDir = join(slicePath, COMPOSABLES_DIR);
 
@@ -369,6 +474,9 @@ function checkSlice(dir: string, codeowners: string, sliceNames: ReadonlySet<str
   // ── D14：切片內部分層（元件只呈現）──────────────────────────────────
   checkSliceLayering(slicePath, slice);
 
+  // ── D15：不得繞過設計系統自己拼一套 ─────────────────────────────────
+  checkDesignSystemBoundary(slicePath, slice);
+
   // ── D12：必須有 owner ───────────────────────────────────────────────
   if (REQUIRE_CODEOWNERS_ENTRY && !codeowners.includes(`/features/${dir}/`)) {
     fail(
@@ -395,6 +503,13 @@ const slices = readdirSync(FEATURES_DIR).filter((entry) =>
 const sliceNames = new Set(slices.map(slicePackageName));
 
 for (const dir of slices) checkSlice(dir, codeowners, sliceNames);
+
+// D15：CSP 不相容的元件掃**整個 repo**，不是只掃切片 ——
+// platform/ui 才是最可能不小心用到 reka-ui Splitter 的地方。
+for (const layer of ["features", "platform", "apps"]) {
+  const dir = join(ROOT, layer);
+  if (existsSync(dir)) checkCspIncompatibleImports(dir, layer);
+}
 
 if (violations.length === 0) {
   console.log(`✓ 一致性檢查通過（${slices.length} 個切片）`);

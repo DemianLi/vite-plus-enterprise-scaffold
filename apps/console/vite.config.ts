@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from "vite-plus";
 import vue from "@vitejs/plugin-vue";
+import tailwindcss from "@tailwindcss/vite";
 import { assertNoUndeclaredEnv } from "@org/config";
 import { assertStaticCspCompatible, securityHeaders } from "@org/security-headers";
 
@@ -14,6 +15,14 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       vue(),
+
+      // D15 —— Tailwind v4。
+      //
+      // ⚠️ 這個 plugin **會改變建置產物**，所以它必須登記在
+      // tools/exit-drill/src/plugins.ts 的 DRILL_PLUGINS。沒登記的話，
+      // 退出演練會產生一份沒有它的設定、建置成功、寫下 result: "pass" ——
+      // 而產物是一個完全沒有樣式的應用（C36）。
+      tailwindcss(),
 
       // D11 —— 在 dev 就套用安全標頭（report-only）。
       //

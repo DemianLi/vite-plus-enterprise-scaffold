@@ -27,6 +27,18 @@ catalog:
   "@tanstack/vue-query": ^5.101.4
   "@vitejs/plugin-vue": ^6.0.8
 
+  # --- 樣式與 UI（D15）---
+  # reka-ui 是 headless 基元，Tailwind 負責樣式，元件原始碼在 platform/ui。
+  # ⚠️ @tailwindcss/vite 會改變建置產物 —— 它必須登記在 tools/exit-drill 的
+  # DRILL_PLUGINS，否則退出演練會產出一個沒有樣式的應用然後回報 pass（C36）。
+  reka-ui: ^2.10.3
+  tailwindcss: ^4.3.3
+  "@tailwindcss/vite": ^4.3.3
+  # cn() 用。刻意不裝 class-variance-authority —— 變體用純物件查表就夠，
+  # 少一個相依就是少一筆 SCA 範圍（與 D2 對 YAML parser 的同一條理由）。
+  clsx: ^2.1.1
+  tailwind-merge: ^3.4.1
+
   # --- 產生器（tools/slice-gen）---
   bingo: ^0.9.3
   zod: ^3.25.76

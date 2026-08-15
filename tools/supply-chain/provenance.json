@@ -2,8 +2,8 @@
   "capturedAt": "2026-08-15",
   "registry": "https://registry.npmjs.org",
   "totals": {
-    "slsa-provenance": 89,
-    "registry-signature": 32,
+    "slsa-provenance": 101,
+    "registry-signature": 43,
     "none": 0
   },
   "records": [
@@ -834,6 +834,174 @@
       "signatureKeyId": "SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA"
     },
     {
+      "id": "@tailwindcss/oxide-android-arm64@4.3.3",
+      "integrity": "sha512-Y85A2gmPSkl5Ve5qR86GL4HT509cFqQh1aes9p3sSkyTPwt0Pppf3GkwGe4JPACcRYjgJIEhQgM6dBClnr0NYw==",
+      "evidence": "slsa-provenance",
+      "license": "MIT",
+      "unpackedBytes": 2667931,
+      "tarballBytes": 1179884,
+      "declaredRepo": "git+https://github.com/tailwindlabs/tailwindcss.git",
+      "sourceRepo": "https://github.com/tailwindlabs/tailwindcss",
+      "gitCommit": "c2b24dd15fed1c59dd521bd86082f520c9f5ad0d",
+      "workflow": ".github/workflows/release.yml",
+      "builder": "https://github.com/actions/runner/github-hosted",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "@tailwindcss/oxide-darwin-arm64@4.3.3",
+      "integrity": "sha512-BiaWatpBcERQFDlOjRDpIVXuFK5PJez5SA4JMg6VYZdBYU+qKfV/vqjcIs+IYmtitf1xYQZTwXvU/8y4lfZUGw==",
+      "evidence": "slsa-provenance",
+      "license": "MIT",
+      "unpackedBytes": 2928452,
+      "tarballBytes": 1220732,
+      "declaredRepo": "git+https://github.com/tailwindlabs/tailwindcss.git",
+      "sourceRepo": "https://github.com/tailwindlabs/tailwindcss",
+      "gitCommit": "c2b24dd15fed1c59dd521bd86082f520c9f5ad0d",
+      "workflow": ".github/workflows/release.yml",
+      "builder": "https://github.com/actions/runner/github-hosted",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "@tailwindcss/oxide-darwin-x64@4.3.3",
+      "integrity": "sha512-fAeUqfV5ndhxRwai8cXGzdLvul9utWOmeTkv69unv4ZXixjn61Z+p9lCWdwOwA3TYboG3BwdVuN/RDjhBRl0mw==",
+      "evidence": "slsa-provenance",
+      "license": "MIT",
+      "unpackedBytes": 2668519,
+      "tarballBytes": 1192178,
+      "declaredRepo": "git+https://github.com/tailwindlabs/tailwindcss.git",
+      "sourceRepo": "https://github.com/tailwindlabs/tailwindcss",
+      "gitCommit": "c2b24dd15fed1c59dd521bd86082f520c9f5ad0d",
+      "workflow": ".github/workflows/release.yml",
+      "builder": "https://github.com/actions/runner/github-hosted",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "@tailwindcss/oxide-freebsd-x64@4.3.3",
+      "integrity": "sha512-iyf5bV6+wnAlflVeEy7R25dupxTNECZN5QMI0qNT6eT+EgaGdZcKhGkr5SdoaWiLJ3spLqIY9VCeSGrwmtg4kw==",
+      "evidence": "slsa-provenance",
+      "license": "MIT",
+      "unpackedBytes": 2976448,
+      "tarballBytes": 1242862,
+      "declaredRepo": "git+https://github.com/tailwindlabs/tailwindcss.git",
+      "sourceRepo": "https://github.com/tailwindlabs/tailwindcss",
+      "gitCommit": "c2b24dd15fed1c59dd521bd86082f520c9f5ad0d",
+      "workflow": ".github/workflows/release.yml",
+      "builder": "https://github.com/actions/runner/github-hosted",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "@tailwindcss/oxide-linux-arm-gnueabihf@4.3.3",
+      "integrity": "sha512-aAYUprJAJQWWbRrPvtjdroZ56Md+JM8pMiopS6xGEwDfLhqj+2ver2p4nU4Mb3CRqcMmNBjo8KkUgcxhkzVQGQ==",
+      "evidence": "slsa-provenance",
+      "license": "MIT",
+      "unpackedBytes": 2402217,
+      "tarballBytes": 1142922,
+      "declaredRepo": "git+https://github.com/tailwindlabs/tailwindcss.git",
+      "sourceRepo": "https://github.com/tailwindlabs/tailwindcss",
+      "gitCommit": "c2b24dd15fed1c59dd521bd86082f520c9f5ad0d",
+      "workflow": ".github/workflows/release.yml",
+      "builder": "https://github.com/actions/runner/github-hosted",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "@tailwindcss/oxide-linux-arm64-gnu@4.3.3",
+      "integrity": "sha512-nDxldcEENOxZRzC2uu9jrutZdAAQtb+8WWDCSnWL1zvBk1+FN+x6MtDViPB5AJMfttVCUhehGWus3XBPgatM/w==",
+      "evidence": "slsa-provenance",
+      "license": "MIT",
+      "unpackedBytes": 2650740,
+      "tarballBytes": 1173794,
+      "declaredRepo": "git+https://github.com/tailwindlabs/tailwindcss.git",
+      "sourceRepo": "https://github.com/tailwindlabs/tailwindcss",
+      "gitCommit": "c2b24dd15fed1c59dd521bd86082f520c9f5ad0d",
+      "workflow": ".github/workflows/release.yml",
+      "builder": "https://github.com/actions/runner/github-hosted",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "@tailwindcss/oxide-linux-arm64-musl@4.3.3",
+      "integrity": "sha512-Md44bD6veX/PC5iyF8cDVnw4HBIANZepRZZ7a8DQOvkfo5WUBwcp6iAuCUz23u+4SUkhJlD3eL7hNdW8ezd/kA==",
+      "evidence": "slsa-provenance",
+      "license": "MIT",
+      "unpackedBytes": 2668329,
+      "tarballBytes": 1181541,
+      "declaredRepo": "git+https://github.com/tailwindlabs/tailwindcss.git",
+      "sourceRepo": "https://github.com/tailwindlabs/tailwindcss",
+      "gitCommit": "c2b24dd15fed1c59dd521bd86082f520c9f5ad0d",
+      "workflow": ".github/workflows/release.yml",
+      "builder": "https://github.com/actions/runner/github-hosted",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "@tailwindcss/oxide-linux-x64-gnu@4.3.3",
+      "integrity": "sha512-tx7us1muwOKAKWao2v/GaafFeQboE6aj88vC6ziN2NCGcRm8gWUhwjzg+YdVB1e4boAtdtma4L43onunI6NS4w==",
+      "evidence": "slsa-provenance",
+      "license": "MIT",
+      "unpackedBytes": 2999135,
+      "tarballBytes": 1261862,
+      "declaredRepo": "git+https://github.com/tailwindlabs/tailwindcss.git",
+      "sourceRepo": "https://github.com/tailwindlabs/tailwindcss",
+      "gitCommit": "c2b24dd15fed1c59dd521bd86082f520c9f5ad0d",
+      "workflow": ".github/workflows/release.yml",
+      "builder": "https://github.com/actions/runner/github-hosted",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "@tailwindcss/oxide-linux-x64-musl@4.3.3",
+      "integrity": "sha512-SJxX60smvHgasZoBy11dX6YRjXJFovwWBoedhbQPOBzgFWBHGB+TVPWB9BxzR7TTxU8FQZAI2AyiNCMzFm8Img==",
+      "evidence": "slsa-provenance",
+      "license": "MIT",
+      "unpackedBytes": 3017516,
+      "tarballBytes": 1264267,
+      "declaredRepo": "git+https://github.com/tailwindlabs/tailwindcss.git",
+      "sourceRepo": "https://github.com/tailwindlabs/tailwindcss",
+      "gitCommit": "c2b24dd15fed1c59dd521bd86082f520c9f5ad0d",
+      "workflow": ".github/workflows/release.yml",
+      "builder": "https://github.com/actions/runner/github-hosted",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "@tailwindcss/oxide-wasm32-wasi@4.3.3",
+      "integrity": "sha512-jx1+rPhY/5Ympkktd656HBWEBLxP7dH06losBLjjf5vgCODXvi9KhtftWcMIwTFIDqBr7cRnQkdLnAG+IOlGvQ==",
+      "evidence": "slsa-provenance",
+      "license": "MIT",
+      "unpackedBytes": 11574189,
+      "tarballBytes": 1829808,
+      "declaredRepo": "git+https://github.com/tailwindlabs/tailwindcss.git",
+      "sourceRepo": "https://github.com/tailwindlabs/tailwindcss",
+      "gitCommit": "c2b24dd15fed1c59dd521bd86082f520c9f5ad0d",
+      "workflow": ".github/workflows/release.yml",
+      "builder": "https://github.com/actions/runner/github-hosted",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "@tailwindcss/oxide-win32-arm64-msvc@4.3.3",
+      "integrity": "sha512-3rc292Ca2ceK6Ulcc/bAVnTs/3nDtoPhyEKlgPv+yQJQi/JS/AMJlqzxvlDacL1nekbrcf6bTqp/jV4qgnPxNQ==",
+      "evidence": "slsa-provenance",
+      "license": "MIT",
+      "unpackedBytes": 2697400,
+      "tarballBytes": 1175634,
+      "declaredRepo": "git+https://github.com/tailwindlabs/tailwindcss.git",
+      "sourceRepo": "https://github.com/tailwindlabs/tailwindcss",
+      "gitCommit": "c2b24dd15fed1c59dd521bd86082f520c9f5ad0d",
+      "workflow": ".github/workflows/release.yml",
+      "builder": "https://github.com/actions/runner/github-hosted",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "@tailwindcss/oxide-win32-x64-msvc@4.3.3",
+      "integrity": "sha512-yJ0pwIVc/nYeGoV02WtsN8KYyLQv7kyI2wDnkezyJlGGjkd4QLwDGAwl47YpPJeuI0M0ObaXGSPjvWDPeTPggw==",
+      "evidence": "slsa-provenance",
+      "license": "MIT",
+      "unpackedBytes": 3191981,
+      "tarballBytes": 1287789,
+      "declaredRepo": "git+https://github.com/tailwindlabs/tailwindcss.git",
+      "sourceRepo": "https://github.com/tailwindlabs/tailwindcss",
+      "gitCommit": "c2b24dd15fed1c59dd521bd86082f520c9f5ad0d",
+      "workflow": ".github/workflows/release.yml",
+      "builder": "https://github.com/actions/runner/github-hosted",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
       "id": "@typescript/typescript-aix-ppc64@7.0.2",
       "integrity": "sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==",
       "evidence": "registry-signature",
@@ -1464,12 +1632,32 @@
       "signatureKeyId": "SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA"
     },
     {
+      "id": "lightningcss-android-arm64@1.32.0",
+      "integrity": "sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg==",
+      "evidence": "registry-signature",
+      "license": "MPL-2.0",
+      "unpackedBytes": 8904568,
+      "tarballBytes": 3623980,
+      "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
       "id": "lightningcss-android-arm64@1.33.0",
       "integrity": "sha512-gEpRTalKdosp4Bb8qWtc2iOgE5SeIHlpS1up9bFq2wAyYhl1UdTObYiHe98zEM9SQvSoqQZ1IQD0JNpg3Ml5pg==",
       "evidence": "registry-signature",
       "license": "MPL-2.0",
       "unpackedBytes": 8927616,
       "tarballBytes": 3632951,
+      "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "lightningcss-darwin-arm64@1.32.0",
+      "integrity": "sha512-RzeG9Ju5bag2Bv1/lwlVJvBE3q6TtXskdZLLCyfg5pt+HLz9BqlICO7LZM7VHNTTn/5PRhHFBSjk5lc4cmscPQ==",
+      "evidence": "registry-signature",
+      "license": "MPL-2.0",
+      "unpackedBytes": 8532867,
+      "tarballBytes": 3452138,
       "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
       "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
     },
@@ -1484,12 +1672,32 @@
       "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
     },
     {
+      "id": "lightningcss-darwin-x64@1.32.0",
+      "integrity": "sha512-U+QsBp2m/s2wqpUYT/6wnlagdZbtZdndSmut/NJqlCcMLTWp5muCrID+K5UJ6jqD2BFshejCYXniPDbNh73V8w==",
+      "evidence": "registry-signature",
+      "license": "MPL-2.0",
+      "unpackedBytes": 9961782,
+      "tarballBytes": 3860279,
+      "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
       "id": "lightningcss-darwin-x64@1.33.0",
       "integrity": "sha512-Z5UPAxzrjlWNNyGy6i65cJzzvgJ5D3T6wMvs+gWpY9d7qRhANrxqAp6LhxIgZhWEw18RfJTGcRxjuLIBr+m8XQ==",
       "evidence": "registry-signature",
       "license": "MPL-2.0",
       "unpackedBytes": 9969158,
       "tarballBytes": 3875799,
+      "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "lightningcss-freebsd-x64@1.32.0",
+      "integrity": "sha512-JCTigedEksZk3tHTTthnMdVfGf61Fky8Ji2E4YjUTEQX14xiy/lTzXnu1vwiZe3bYe0q+SpsSH/CTeDXK6WHig==",
+      "evidence": "registry-signature",
+      "license": "MPL-2.0",
+      "unpackedBytes": 10037481,
+      "tarballBytes": 3856640,
       "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
       "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
     },
@@ -1504,12 +1712,32 @@
       "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
     },
     {
+      "id": "lightningcss-linux-arm-gnueabihf@1.32.0",
+      "integrity": "sha512-x6rnnpRa2GL0zQOkt6rts3YDPzduLpWvwAF6EMhXFVZXD4tPrBkEFqzGowzCsIWsPjqSK+tyNEODUBXeeVHSkw==",
+      "evidence": "registry-signature",
+      "license": "MPL-2.0",
+      "unpackedBytes": 8445570,
+      "tarballBytes": 3531290,
+      "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
       "id": "lightningcss-linux-arm-gnueabihf@1.33.0",
       "integrity": "sha512-N7FVBe6iS24MlM6R/4RBTxGhQheZGs7tiQ9U32UtF75NzP5Q7xWPRqLBCKxlRQRk3rY1jCIPLzx7WzOhuUIRLQ==",
       "evidence": "registry-signature",
       "license": "MPL-2.0",
       "unpackedBytes": 8456386,
       "tarballBytes": 3536007,
+      "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "lightningcss-linux-arm64-gnu@1.32.0",
+      "integrity": "sha512-0nnMyoyOLRJXfbMOilaSRcLH3Jw5z9HDNGfT/gwCPgaDjnx0i8w7vBzFLFR1f6CMLKF8gVbebmkUN3fa/kQJpQ==",
+      "evidence": "registry-signature",
+      "license": "MPL-2.0",
+      "unpackedBytes": 8885133,
+      "tarballBytes": 3584504,
       "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
       "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
     },
@@ -1524,12 +1752,32 @@
       "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
     },
     {
+      "id": "lightningcss-linux-arm64-musl@1.32.0",
+      "integrity": "sha512-UpQkoenr4UJEzgVIYpI80lDFvRmPVg6oqboNHfoH4CQIfNA+HOrZ7Mo7KZP02dC6LjghPQJeBsvXhJod/wnIBg==",
+      "evidence": "registry-signature",
+      "license": "MPL-2.0",
+      "unpackedBytes": 8885288,
+      "tarballBytes": 3583220,
+      "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
       "id": "lightningcss-linux-arm64-musl@1.33.0",
       "integrity": "sha512-yiO5ROMuYQgXbC60yjZU5CYSFZGKXL0HFATXt9mHJn1+zW55oCtMI9NfcVhYLMFDL7gV7oBPon/EmMMGg2OvtQ==",
       "evidence": "registry-signature",
       "license": "MPL-2.0",
       "unpackedBytes": 8909864,
       "tarballBytes": 3592480,
+      "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "lightningcss-linux-x64-gnu@1.32.0",
+      "integrity": "sha512-V7Qr52IhZmdKPVr+Vtw8o+WLsQJYCTd8loIfpDaMRWGUZfBOYEJeyJIkqGIDMZPwPx24pUMfwSxxI8phr/MbOA==",
+      "evidence": "registry-signature",
+      "license": "MPL-2.0",
+      "unpackedBytes": 10056972,
+      "tarballBytes": 3848191,
       "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
       "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
     },
@@ -1544,6 +1792,16 @@
       "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
     },
     {
+      "id": "lightningcss-linux-x64-musl@1.32.0",
+      "integrity": "sha512-bYcLp+Vb0awsiXg/80uCRezCYHNg1/l3mt0gzHnWV9XP1W5sKa5/TCdGWaR/zBM2PeF/HbsQv/j2URNOiVuxWg==",
+      "evidence": "registry-signature",
+      "license": "MPL-2.0",
+      "unpackedBytes": 10052671,
+      "tarballBytes": 3846393,
+      "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
       "id": "lightningcss-linux-x64-musl@1.33.0",
       "integrity": "sha512-RYiYbkokw0trfKqqzfF55lginwEPrD3OJDfTuJzFs1MK6iFnDenaz1fqLLtX4ITG3OktJQXOeTaw1awrBAlZPw==",
       "evidence": "registry-signature",
@@ -1554,12 +1812,32 @@
       "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
     },
     {
+      "id": "lightningcss-win32-arm64-msvc@1.32.0",
+      "integrity": "sha512-8SbC8BR40pS6baCM8sbtYDSwEVQd4JlFTOlaD3gWGHfThTcABnNDBda6eTZeqbofalIJhFx0qKzgHJmcPTnGdw==",
+      "evidence": "registry-signature",
+      "license": "MPL-2.0",
+      "unpackedBytes": 8324209,
+      "tarballBytes": 3421578,
+      "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
       "id": "lightningcss-win32-arm64-msvc@1.33.0",
       "integrity": "sha512-1K+MPfLSFVpphzpdbfkhlWk6wBrTObBzS2T6db10PNOZgR9GoVsAWzwNyuhUYYbTp23j+4RrncfujZ4uAzXvwA==",
       "evidence": "registry-signature",
       "license": "MPL-2.0",
       "unpackedBytes": 8349809,
       "tarballBytes": 3429085,
+      "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
+      "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+    },
+    {
+      "id": "lightningcss-win32-x64-msvc@1.32.0",
+      "integrity": "sha512-Amq9B/SoZYdDi1kFrojnoqPLxYhQ4Wo5XiL8EVJrVsB8ARoC1PWW6VGtT0WKCemjy8aC+louJnjS7U18x3b06Q==",
+      "evidence": "registry-signature",
+      "license": "MPL-2.0",
+      "unpackedBytes": 9514088,
+      "tarballBytes": 3699964,
       "declaredRepo": "git+https://github.com/parcel-bundler/lightningcss.git",
       "signatureKeyId": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
     },

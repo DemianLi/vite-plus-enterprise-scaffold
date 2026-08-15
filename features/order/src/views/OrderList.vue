@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { UiButton } from "@org/ui";
 import { useOrderList } from "../composables/useOrderList.ts";
 import { useOrderFilterStore } from "../store.ts";
 
@@ -23,7 +24,10 @@ const currency = new Intl.NumberFormat("zh-TW", {
 
 <template>
   <section class="order-list">
-    <h1>{{ $t("order.title") }}</h1>
+    <header class="flex items-center justify-between gap-4">
+      <h1 class="text-xl font-semibold text-gray-900">{{ $t("order.title") }}</h1>
+      <UiButton variant="primary" size="sm">{{ $t("order.title") }}</UiButton>
+    </header>
 
     <p v-if="isPending">…</p>
 

@@ -1,0 +1,8 @@
+{
+  "extends": "@org/tsconfig/lib.json",
+  "compilerOptions": {
+    // 元件本身只需要瀏覽器型別，但 tests/ 要讀檔驗證樣式入口的宣告。
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src", "tests"]
+}

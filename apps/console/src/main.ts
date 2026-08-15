@@ -6,6 +6,10 @@ import { VueQueryPlugin } from "@tanstack/vue-query";
 import { registerFeatures } from "@org/slice-kit";
 import { config } from "@org/config";
 
+// D15 —— 設計系統的樣式入口。必須在應用自己的樣式之前載入，
+// 否則 Tailwind 的 base reset 會蓋掉元件的樣式而不是被它覆蓋。
+import "@org/ui/styles.css";
+
 import App from "./App.vue";
 import { features } from "./features.ts";
 

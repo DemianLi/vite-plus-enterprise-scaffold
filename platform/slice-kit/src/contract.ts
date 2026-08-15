@@ -179,6 +179,56 @@ export const BANNED_DIRECT_DEPENDENCIES = [
   "node-fetch",
 ] as const;
 
+/**
+ * D15：**全 repo 禁止 import reka-ui 的 Splitter。**
+ *
+ * ── 為什麼是這一個元件、而且是硬規則 ────────────────────────────────
+ *
+ * reka-ui 全套件唯一會 `document.createElement("style")` 的地方，是 Splitter
+ * 拖曳時的全域游標（`dist/utils/style.js` 的 `setGlobalCursorStyle`）。
+ * 而本 repo 的 CSP 是 `style-src 'self'`，**沒有 nonce** ——
+ * 那個 `<style>` 元素會被瀏覽器擋掉。
+ *
+ * 症狀是「拖曳時游標沒變成 col-resize」這種等級的小毛病，
+ * 沒有人會把它跟 CSP 聯想在一起，於是它會一直在那裡。
+ *
+ * 那段程式碼本身**支援 nonce**（`if (nonce) styleElement.nonce = nonce`），
+ * 所以理論上可以放行。但要供應 per-request nonce 就需要一個會改寫 HTML 的
+ * 中間層 —— 而 R6 的整個成本論證正是建立在「建置產物零 inline script，
+ * 靜態 CSP 標頭就夠」上面。為了一個分隔面板把那個級距推上去，不划算。
+ *
+ * 要用它的話，這條規則的改動就是那場討論的入口。
+ */
+export const CSP_INCOMPATIBLE_MODULES = [
+  {
+    specifier: "reka-ui",
+    /** 匯入這些名字才算違規。reka-ui 是單一入口，所以要看具名匯入。 */
+    names: ["SplitterGroup", "SplitterPanel", "SplitterResizeHandle"],
+    reason:
+      "Splitter 在拖曳時會注入 <style> 元素，被 style-src 'self' 擋掉。" +
+      "要放行需要 per-request nonce，而那會推翻 R6「靜態 CSP 標頭就夠」的成本論證",
+  },
+] as const;
+
+/**
+ * D15：切片不得直接使用設計系統的底層 —— 一律走 `@org/ui`。
+ *
+ * ── 為什麼擋的是 import 而不是 `src/components/` 目錄 ───────────────
+ *
+ * 第一版想擋「切片裡不准有 components 目錄」，那是錯的：切片當然需要
+ * 自己的呈現元件（一張只有訂單用得到的表格），擋掉它只會逼大家把元件
+ * 塞進 `views/`，規則變成純粹的騷擾。
+ *
+ * 真正要防的是**切片自己長出一套設計系統**。判準很精確：
+ * 有沒有直接碰 reka-ui 基元或 `cn()` 的底層。碰了就表示這個團隊在自己
+ * 拼元件，而 D4 禁止切片互依 —— 於是第二個團隊會再拼一次，
+ * 兩套永遠不會收斂，而且**兩邊各自看起來都是對的**。
+ *
+ * 這條與 D14 的 view 禁令是同一個形狀：擋的是「繞過既有的那一層」，
+ * 不是「不准有那個檔案」。
+ */
+export const SLICE_DESIGN_SYSTEM_IMPORTS = ["reka-ui", "clsx", "tailwind-merge"] as const;
+
 /** D6：所有版本必須走 catalog，否則共用 lockfile 下的 CVE 同步升級會有漏網。 */
 export const REQUIRE_CATALOG_PROTOCOL = true;
 

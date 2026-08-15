@@ -162,11 +162,34 @@ describe("splitDocuments", () => {
     expect(splitDocuments(single)).toEqual([single]);
   });
 
-  it("對真實的 pnpm-lock.yaml 拆出 19 + 449", () => {
-    const parts = splitDocuments(readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8"));
-    const counts = parts.map((p) => parseLockfile(p).packages.length);
-    // 這兩個數字是 C34 的核心證據：Trivy 只看到前者，看不到後者。
-    expect(counts).toEqual([19, 449]);
+  it("對真實的 pnpm-lock.yaml 拆出兩份，第二份遠大於第一份", () => {
+    // C34 的核心證據：Trivy 只看到第一份文件（套件管理器自己的 19 個），
+    // 看不到第二份（專案的幾百個）。
+    //
+    // ⚠️ **這裡刻意不寫死數字。** 第一版寫 `toEqual([19, 449])`，
+    // 於是 D15 加了幾個相依之後它就紅了 —— 而紅的原因與它要守的東西無關。
+    // 那種測試會被人改成新數字改到麻木，然後某天真的漏掉一份文件時，
+    // 大家也只是再改一次數字。
+    //
+    // 它要守的其實是**形狀**：恰好兩份、第一份是小的那個、
+    // 而且兩份加起來要等於整份 lockfile 解析出來的總數（沒有東西掉在中間）。
+    const text = readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8");
+    const parts = splitDocuments(text);
+    const counts = parts.map((part) => parseLockfile(part).packages.length);
+
+    expect(counts).toHaveLength(2);
+    expect(counts[0]).toBeGreaterThan(0);
+    // 專案的相依至少比套件管理器自己的多一個量級。差距若縮小到這個程度以下，
+    // 代表有一份文件被解析錯了 —— 那才是這支測試該叫的時候。
+    expect(counts[1]).toBeGreaterThan((counts[0] as number) * 10);
+
+    // 兩份的總和必須等於整份檔案的解析結果。
+    // 只比大小的話，「第二份少讀了一半」這種錯不會被抓到。
+    const whole = parseLockfile(text).packages.length;
+    const merged = (counts[0] as number) + (counts[1] as number);
+    // 有套件同時出現在兩份文件裡（detect-libc 就是），合併解析時只算一次。
+    expect(merged).toBeGreaterThanOrEqual(whole);
+    expect(merged - whole).toBeLessThan(10);
   });
 });
 

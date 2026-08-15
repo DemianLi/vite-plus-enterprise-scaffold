@@ -46,6 +46,13 @@ export const DRILL_PLUGINS: readonly DrillPlugin[] = [
     module: "@vitejs/plugin-vue",
     importLine: 'import vue from "@vitejs/plugin-vue";',
   },
+  {
+    // D15。**必須重現**：它把 @org/ui 的 Tailwind class 編譯成實際的 CSS。
+    // 不重現的話演練會產出一個沒有樣式的應用然後回報 pass —— 正是 C36 的形狀。
+    name: "tailwindcss",
+    module: "@tailwindcss/vite",
+    importLine: 'import tailwindcss from "@tailwindcss/vite";',
+  },
 ];
 
 /** 演練刻意不重現的 plugin。理由必須說明「丟掉它為什麼不影響產物」。 */

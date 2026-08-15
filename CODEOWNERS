@@ -11,6 +11,16 @@
 # 放寬它們不會讓任何測試變紅 —— 只會讓標準變低，所以由資安共同把關。
 /platform/security-headers/ @org/platform-maintainers @org/security
 /platform/bff-contract/     @org/platform-maintainers @org/security
+
+# ── platform/ui —— ⚠️ 這一列的 owner 尚未由組織指派（HANDOFF #14）─────
+#
+# 它是**唯一一個所有切片都依賴的 UI package**，所以它的 owner 等於
+# 「誰有權改變全公司產品的長相」。這不是技術問題。
+#
+# 目前暫掛 platform-maintainers 讓閘門能運作。若組織要另設設計系統小組，
+# 改這一列即可 —— 但**不能把它拿掉**：沒有 owner 的 platform 套件會讓
+# api-surface 的破壞性變更閘門沒有人回應，而它是全體切片的相依。
+/platform/ui/               @org/platform-maintainers
 /tools/bff-check/           @org/platform-maintainers @org/security
 
 # supply-chain 的家族分級表刻意寫在原始碼裡（而不是 JSON），為的就是這一列：
