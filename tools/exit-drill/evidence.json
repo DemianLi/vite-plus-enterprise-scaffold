@@ -12,5 +12,7 @@
   },
   "exitSurface": ["vite.config.ts", "apps/console/vite.config.ts"],
   "durationSeconds": 4,
+  "tests": 98,
+  "testFiles": 8,
   "note": "以上游 Vite/Vitest 重建 apps/console 與全部 platform、features 的測試，設定檔由本演練重新產生，應用程式原始碼一字未改。"
 }

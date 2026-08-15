@@ -12,6 +12,13 @@ import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { accountPlugins, DRILL_PLUGINS, DROPPED_PLUGINS, type ConfigSource } from "./plugins.ts";
+import {
+  checkDocumentedCounts,
+  parseTestCounts,
+  stripAnsi,
+  type DocumentSource,
+} from "./counts.ts";
 
 /**
  * D2 退出演練：證明應用程式原始碼不綁死在 vite-plus 上（R1 / R9）。
@@ -57,6 +64,12 @@ const EXIT_SURFACE = ["vite.config.ts", "apps/console/vite.config.ts"];
 /** 演練證據的有效期。超過就不再是「已驗證」，只是「曾經驗證過」。 */
 const FRESHNESS_DAYS = 120;
 
+/**
+ * 會引用演練成績的文件。新增引用的地方要一併加進來 ——
+ * 沒加的地方不受檢查，也就是會安靜地過期（見 `counts.ts` 的說明）。
+ */
+const DOCUMENTS_CITING_EVIDENCE = ["DECISIONS.md", "HANDOFF.md", "tools/exit-drill/README.md"];
+
 const SCAN_DIRS = ["apps", "features", "platform"];
 const EXTENSIONS = [".ts", ".tsx", ".js", ".mjs", ".vue"];
 const SKIP = new Set(["node_modules", "dist", ".git", "coverage"]);
@@ -77,6 +90,9 @@ interface Evidence {
   readonly upstream: Record<string, string>;
   readonly exitSurface: readonly string[];
   readonly durationSeconds: number;
+  /** 演練跑過的測試數。文件裡引用的那個數字，唯一的來源就是這裡（見 checkDocumentedCounts）。 */
+  readonly tests: number;
+  readonly testFiles: number;
   readonly note: string;
 }
 
@@ -124,6 +140,30 @@ function runStatic(): number {
   }
 
   console.log(`✓ D2 退出面未擴大（${EXIT_SURFACE.length} 個設定檔，應用原始碼零依賴）`);
+
+  const configs: ConfigSource[] = EXIT_SURFACE.filter((relative) =>
+    existsSync(join(ROOT, relative)),
+  ).map((relative) => ({ path: relative, source: readFileSync(join(ROOT, relative), "utf8") }));
+
+  const pluginErrors = accountPlugins(configs);
+  if (pluginErrors.length > 0) {
+    console.error("\n✗ 退出演練的 plugin 帳目對不上\n");
+    for (const error of pluginErrors) console.error(`  ✗ ${error}`);
+    console.error(
+      "\n  --full 會**重新產生**設定檔，plugin 清單寫死在 tools/exit-drill/src/plugins.ts 裡。\n" +
+        "  沒登記的 plugin 在演練裡等於不存在：演練照樣建置成功、照樣寫下 pass，\n" +
+        "  但產出的是一個少了那個 plugin 的應用 —— 而沒有人會發現，直到真的要退出的那天。\n\n" +
+        "  請在 plugins.ts 裡二選一登記（判準：這個 plugin 會不會改變建置產物？）：\n" +
+        "    · 會 → 加進 DRILL_PLUGINS，演練會真的裝它、真的註冊它\n" +
+        "    · 不會 → 加進 DROPPED_PLUGINS，並寫明丟掉它為什麼不影響產物\n\n" +
+        "  兩者都要走 PR —— 這一格的判斷正是退出保證的內容本身。\n",
+    );
+    return 1;
+  }
+
+  console.log(
+    `✓ plugin 帳目相符（重現 ${DRILL_PLUGINS.length}、明示丟棄 ${DROPPED_PLUGINS.length}）`,
+  );
   return checkFreshness();
 }
 
@@ -154,6 +194,33 @@ function checkFreshness(): number {
   }
 
   console.log(`✓ 退出演練證據有效（${evidence.lastRun}，${ageDays} 天前）`);
+
+  // 舊的 evidence.json 沒有 tests 欄位（C36 之前產生的）。那種情況跳過比較，
+  // 而不是拿 undefined 去比出一堆假紅燈 —— 下一次 --full 會自動補上。
+  if (typeof evidence.tests !== "number" || evidence.tests === 0) {
+    console.warn("⚠ evidence.json 沒有測試數，文件比對跳過。下次 --full 會補上。");
+    return 0;
+  }
+
+  const documents: DocumentSource[] = DOCUMENTS_CITING_EVIDENCE.filter((relative) =>
+    existsSync(join(ROOT, relative)),
+  ).map((relative) => ({ path: relative, source: readFileSync(join(ROOT, relative), "utf8") }));
+
+  const countErrors = checkDocumentedCounts(documents, evidence.tests);
+  if (countErrors.length > 0) {
+    console.error("\n✗ 文件引用的演練成績與證據不符\n");
+    for (const error of countErrors) console.error(`  ✗ ${error}`);
+    console.error(
+      "\n  這個數字是拿去跟採購與稽核講的話，而它被抄在好幾份文件裡。\n" +
+        "  每季重跑一次演練它就會變，於是那幾處同時變成錯的 ——\n" +
+        "  這個 repo 在「人抄下來的數字沒有人再推導一次」上已經栽了六次。\n\n" +
+        `  唯一的事實來源是 evidence.json 的 tests（目前 ${evidence.tests}）。\n` +
+        "  請把上列位置改成該數字；如果是演練本身該重跑，執行 vpr exit-drill。\n",
+    );
+    return 1;
+  }
+
+  console.log(`✓ 文件引用的演練成績與證據一致（${evidence.tests} 個測試，${documents.length} 份）`);
   return 0;
 }
 
@@ -223,9 +290,32 @@ function listWorkspacePackages(): WorkspacePackage[] {
   return packages;
 }
 
-function run(command: string, args: readonly string[], cwd: string): boolean {
-  const result = spawnSync(command, [...args], { cwd, stdio: "inherit" });
-  return result.status === 0;
+interface RunResult {
+  readonly ok: boolean;
+  /** stdout ＋ stderr 合併。演練要從 vitest 的摘要裡撈出測試數，見 parseTestCounts。 */
+  readonly output: string;
+}
+
+/**
+ * `capture` 只在需要解析輸出的那一步開啟。
+ *
+ * 預設 inherit，因為 `npm install` 會跑好幾分鐘 —— 擷取會讓它整段靜默，
+ * 卡住時完全看不出卡在哪。擷取的代價就是失去即時輸出，所以範圍愈小愈好。
+ *
+ * ⚠️ 擷取時**兩條都要接**：vitest 的摘要（`Tests  N passed`）寫在 **stderr**，
+ * 不是 stdout。第一版只接 stdout，於是撈不到數字 —— 而那個 bug 是被
+ * 「撈不到就當失敗」那條守衛擋下來的，不是被人看出來的。
+ */
+function run(command: string, args: readonly string[], cwd: string, capture = false): RunResult {
+  const stdio = capture ? "pipe" : "inherit";
+  const result = spawnSync(command, [...args], { cwd, stdio: ["inherit", stdio, stdio] });
+  if (!capture) return { ok: result.status === 0, output: "" };
+
+  const out = result.stdout?.toString() ?? "";
+  const err = result.stderr?.toString() ?? "";
+  process.stdout.write(out);
+  process.stderr.write(err);
+  return { ok: result.status === 0, output: `${out}\n${err}` };
 }
 
 function runFull(): number {
@@ -262,14 +352,19 @@ function runFull(): number {
   // 2. 產生**不含 vite-plus** 的設定：這就是 D2 所謂「可替換的驅動層」
   const aliasLiteral = JSON.stringify(aliases, null, 2);
 
+  // plugin 的 import 與註冊都由 DRILL_PLUGINS 推導，不是各寫一份。
+  // 兩邊分開寫的話，總有一天會有人只改到其中一邊，而少一個 plugin 的建置**不會報錯**。
+  const pluginImports = DRILL_PLUGINS.map((plugin) => `${plugin.importLine}\n`).join("");
+  const pluginCalls = DRILL_PLUGINS.map((plugin) => `${plugin.name}()`).join(", ");
+
   writeFileSync(
     join(workdir, "vite.config.mjs"),
     `import { defineConfig } from "vite";\n` +
-      `import vue from "@vitejs/plugin-vue";\n\n` +
-      `// 這份設定是退出演練自動產生的：上游 Vite、上游 plugin-vue，零 vite-plus。\n` +
+      pluginImports +
+      `\n// 這份設定是退出演練自動產生的：上游 Vite、上游 plugin，零 vite-plus。\n` +
       `export default defineConfig({\n` +
       `  root: "app",\n` +
-      `  plugins: [vue()],\n` +
+      `  plugins: [${pluginCalls}],\n` +
       `  resolve: { alias: ${aliasLiteral} },\n` +
       `  build: { outDir: "../dist", emptyOutDir: true, sourcemap: "hidden" },\n` +
       `});\n`,
@@ -305,8 +400,15 @@ function runFull(): number {
           // ⚠️ 這裡是**上游的 vite**，不是 catalog 裡被 alias 成
           // @voidzero-dev/vite-plus-core 的那個。整場演練的重點就在這一行。
           vite: UPSTREAM.vite,
-          "@vitejs/plugin-vue": UPSTREAM["@vitejs/plugin-vue"],
           vitest: UPSTREAM.vitest,
+          // plugin 的相依同樣由 DRILL_PLUGINS 推導：登記了卻沒裝，建置會炸得很難懂。
+          // 上游有對應版本就用上游的（那是演練要證明的東西），否則退回 catalog。
+          ...Object.fromEntries(
+            DRILL_PLUGINS.map((plugin) => [
+              plugin.module,
+              (UPSTREAM as Record<string, string>)[plugin.module] ?? dependency(plugin.module),
+            ]),
+          ),
         },
       },
       null,
@@ -316,9 +418,10 @@ function runFull(): number {
 
   // 3. 用 npm 安裝 —— 在專案目錄之外，devEngines 不適用（C8）
   const installed = run("npm", ["install", "--no-audit", "--no-fund", "--silent"], workdir);
-  const steps: [string, boolean][] = [["npm install", installed]];
+  const steps: [string, boolean][] = [["npm install", installed.ok]];
+  let counts: { tests: number; testFiles: number } | null = null;
 
-  if (installed) {
+  if (installed.ok) {
     // @org/tsconfig 必須跟著過去，否則所有 `extends: "@org/tsconfig/*.json"` 解析失敗。
     //
     // 這**不會**弱化本演練的論證：那個 package 是四份純 JSON，唯一與工具鏈沾邊的是
@@ -329,8 +432,22 @@ function runFull(): number {
       filter,
     });
 
-    steps.push(["vite build", run("npx", ["vite", "build"], workdir)]);
-    steps.push(["vitest run", run("npx", ["vitest", "run"], workdir)]);
+    steps.push(["vite build", run("npx", ["vite", "build"], workdir).ok]);
+
+    const tested = run("npx", ["vitest", "run"], workdir, true);
+    steps.push(["vitest run", tested.ok]);
+    counts = parseTestCounts(tested.output);
+
+    // 撈不到就當成失敗的一步，而不是安靜地寫下 tests: 0。
+    // 一個「通過但測試數是 0」的證據比沒有證據更糟：它看起來很正常。
+    if (tested.ok && counts === null) {
+      console.error("\n✗ vitest 通過了，卻撈不到測試數的摘要行 —— 可能是 reporter 格式變了。");
+      // 把實際看到的東西印出來。只說「撈不到」而不給輸出，下一個人得重跑一次
+      // 才能開始查 —— 而這一步要花幾分鐘。
+      console.error(`  實際擷取到 ${tested.output.length} 個字元，尾端 600 字元：`);
+      console.error(stripAnsi(tested.output).slice(-600));
+      steps.push(["撈取測試數", false]);
+    }
   }
 
   const passed = steps.every(([, ok]) => ok);
@@ -343,6 +460,8 @@ function runFull(): number {
     upstream: UPSTREAM,
     exitSurface: EXIT_SURFACE,
     durationSeconds,
+    tests: counts?.tests ?? 0,
+    testFiles: counts?.testFiles ?? 0,
     note:
       "以上游 Vite/Vitest 重建 apps/console 與全部 platform、features 的測試，" +
       "設定檔由本演練重新產生，應用程式原始碼一字未改。",
