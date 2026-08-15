@@ -18,6 +18,10 @@ import {
   VIEW_FORBIDDEN_LOCAL_MODULES,
   isValidComposableFile,
   composableFunctionName,
+  STORE_FILE,
+  STORE_FORBIDDEN_IMPORTS,
+  STORE_FORBIDDEN_LOCAL_MODULES,
+  isTypeOnlyImportAt,
 } from "@org/slice-kit/contract";
 
 /**
@@ -166,6 +170,52 @@ function checkSliceLayering(slicePath: string, slice: string): void {
           "composable 命名",
           `${COMPOSABLES_DIR}/${entry} 沒有匯出同名的 ${expected}`,
           `讓檔名與匯出的函式名一致（export function ${expected}）`,
+        );
+      }
+    }
+  }
+
+  // ── Pinia 只放「客戶端才是權威」的東西 ────────────────────────────────
+  //
+  // 判準：這份資料如果和伺服器不一致，誰是錯的？
+  // 客戶端是權威（篩選條件、選取的 id）→ Pinia；伺服器是權威 → TanStack Query。
+  // 「選取的那幾筆 Order 物件」兩者都不是，它是 join 出來的，存下來就是第二份快取。
+  //
+  // 禁 value import、放行 `import type` —— 見契約中 STORE_FORBIDDEN_IMPORTS 的說明。
+  const storePath = join(slicePath, STORE_FILE);
+  if (existsSync(storePath)) {
+    const source = readFileSync(storePath, "utf8");
+
+    for (const match of source.matchAll(IMPORT_SPECIFIER_PATTERN)) {
+      const specifier = match[1];
+      if (specifier === undefined || match.index === undefined) continue;
+      // 借型別不算耦合：`import type` 在 verbatimModuleSyntax 下會被完全抹除。
+      if (isTypeOnlyImportAt(source, match.index)) continue;
+
+      const forbidden = STORE_FORBIDDEN_IMPORTS.find((banned) => specifier === banned);
+      if (forbidden !== undefined) {
+        fail(
+          slice,
+          "store 存了伺服器狀態",
+          `${STORE_FILE} value import 了 "${forbidden}"`,
+          "Pinia 只放客戶端才是權威的東西（意圖、選取的 id）。伺服器狀態走 " +
+            `${COMPOSABLES_DIR}/use<Xxx>.ts（D14）。存進 store 等於做了第二份快取，` +
+            "它與 TanStack Query 那份的失效時機不同，而且不會有任何測試變紅",
+        );
+      }
+
+      if (!specifier.startsWith(".")) continue;
+      const resolved = resolve(dirname(storePath), specifier);
+      const localModule = relative(join(slicePath, "src"), resolved).replace(
+        /\.(ts|tsx|js|mjs)$/,
+        "",
+      );
+      if ((STORE_FORBIDDEN_LOCAL_MODULES as readonly string[]).includes(localModule)) {
+        fail(
+          slice,
+          "store 存了伺服器狀態",
+          `${STORE_FILE} value import 了資料存取模組 "${specifier}"`,
+          `只借型別的話請寫成 \`import type\`（那完全允許）。真的要取數請放到 ${COMPOSABLES_DIR}/`,
         );
       }
     }

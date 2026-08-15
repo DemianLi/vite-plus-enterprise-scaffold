@@ -351,6 +351,86 @@ review 裡被指出來的：
 不一致。**並驗過無偽陽性**：composable 自己 import `useQuery` 與 `api.ts` 是正確的，
 不得被誤擋。
 
+### D14 下半：Pinia 的界線
+
+補完 composable 之後，切片裡出現了**兩個**可以放狀態的位置，卻沒有規則說哪個放什麼。
+教科書級的失敗模式因此變得可能：在 store action 裡取數、把伺服器資料快取進 state。
+一旦有人這樣寫，同一份資料就有兩套快取（Pinia 一套、TanStack Query 一套），
+失效時機不同 —— 跟上半段要防的 queryKey 漂移是同一種病，只是換個位置發作。
+
+#### 判準
+
+> **這份資料如果和伺服器不一致，誰是錯的？**
+
+| 東西                        | 誰是權威                     | 去哪                         |
+| --------------------------- | ---------------------------- | ---------------------------- |
+| `Order[]` 本身              | 伺服器                       | TanStack Query（composable） |
+| **選取的訂單 id 清單**      | **客戶端**（伺服器沒有意見） | **Pinia**                    |
+| 「選取的那幾筆 Order 物件」 | 兩者都不是 —— 它是**推導**的 | 哪裡都不放，`computed`       |
+| 篩選條件 `status`／`page`   | 客戶端                       | Pinia                        |
+| 送出前的表單草稿            | 客戶端                       | Pinia 或元件本地             |
+
+一句話：**Pinia 存 id，不存 entity。**
+
+第三列是這條界線真正要擋的東西。`selectedOrders` 看起來像狀態，其實是
+`selectedIds` 與 query 資料的 join —— 存下來就是第二份快取。
+
+#### 執行面：禁 value import，放行 `import type`
+
+```ts
+import type { Order } from "./api.ts"; // ✓ 借型別
+import { fetchOrders } from "./api.ts"; // ✗ 呼叫伺服器
+import { useQuery } from "@tanstack/vue-query"; // ✗
+```
+
+這個區分不是為了方便而開的例外，它**精確可判定**，而依據是本 repo 的
+`verbatimModuleSyntax: true`：
+
+- `import type { X }` → 整句被抹除，沒有執行期效果
+- `import { type X }` → **仍會產出 `import "./api.ts"`**，模組實際被載入
+
+所以把後者算成 value import 是正確的，不是偽陽性。判定方式是從命中處往回找最近的
+`import`／`export`（單層量詞的正則，多行 import 也成立，不需要 parser）。
+
+這條規則的價值在於**讓錯誤寫不出來**：拿不到 `fetchOrders`、拿不到 `useQuery`，
+entity 就進不了 store。
+
+#### 反向測試
+
+七種情況，其中**三條偽陽性檢查比「該紅會紅」更重要** —— 誤擋 `import type` 的話，
+規則第一天就會被加例外，而加過一次例外的規則半年後就不再是規則：
+
+| 情況                                      | 期望 | 結果 |
+| ----------------------------------------- | ---- | ---- |
+| store value import `./api.ts`             | 紅   | ✓    |
+| store 直接用 `useQuery`                   | 紅   | ✓    |
+| store 直接用 `@org/http-client`           | 紅   | ✓    |
+| 多行 value import                         | 紅   | ✓    |
+| **`import type`（現況就長這樣）**         | 綠   | ✓    |
+| **多行 `import type`**                    | 綠   | ✓    |
+| **`import { type X }`**（模組真的被載入） | 紅   | ✓    |
+
+#### 順帶釐清的一件事
+
+這一節是從「腳手架裝 Pinia 是不是因為 Vite+ 沒有替代插件」這個問題長出來的。
+**那是層級混淆**：`vite-plus` 的相依只有 oxlint／oxfmt／tsgolint／vitest／core，
+指令只有 dev／build／test／lint／fmt／check／pack／run 這些，**不送任何程式碼進瀏覽器**。
+它取代的是 Vite、Vitest、ESLint、Prettier、turborepo 這一排建置期工具；
+Pinia 是執行期、會進 bundle 的東西。
+
+證據就在 `tools/exit-drill`：退出時要換的清單是 `{vite, vue, @vitejs/plugin-vue, vitest}`，
+**Pinia 不在裡面** —— 2026-08-15 實測退到上游 Vite 8.2.1，86 個測試全過，Pinia 一個字沒改。
+那條線就是 D2 的「可替換驅動層」邊界。
+
+不過這個問題有個真的部分：D14 上半段把伺服器狀態搬走之後，Pinia 只剩兩個各含
+一兩個 `ref` 的 store。**它現在的理由變了** —— 不再是「狀態管理方案」，
+而是「提供統一慣例，防止各團隊自己發明 singleton」。拿掉它的替代方案不是「沒有狀態管理」，
+是有人用 module-scope ref、有人用 `provide/inject`、有人用匯出的 `reactive({})`。
+
+（另一個已知的空白：`status`／`page` 其實更該放 `route.query`（可書籤、可分享、
+上一頁行為正確），而本 repo 目前完全沒用過 `route.query`。**刻意暫不處理** ——
+那會讓這兩個 store 變空，是另一個獨立的決定。）
+
 #### 術語附註
 
 提出這次 review 的說法是「後端的 vertical slice 在前端該叫 Feature-Driven + Composable」。
@@ -1233,12 +1313,12 @@ lockfile、SBOM、attestation 這類**給機器讀的中介檔**最容易出這�
 ### 驗證結果（全部實機執行）
 
 最新一次全套（2026-08-15）：**`vpr ready` exit 0**、122 檔案格式一致、
-63 檔案 0 errors 0 warnings、**202 tests / 15 檔案全過**、建置 110 modules 成功。
+63 檔案 0 errors 0 warnings、**211 tests / 15 檔案全過**、建置 110 modules 成功。
 
 | 項目                                  | 結果                                                                                                     |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `vp check`（Tier 1）                  | 0 errors 0 warnings，122 檔案格式一致                                                                    |
-| `vp run -r test`                      | **202 tests 全過**（15 個測試檔）                                                                        |
+| `vp run -r test`                      | **211 tests 全過**（15 個測試檔）                                                                        |
 | `eslint . --max-warnings=0`（Tier 2） | 0 problems                                                                                               |
 | 一致性檢查                            | 通過                                                                                                     |
 | 一致性檢查**反向測試**                | 故意破壞的切片 → **抓到 9 項違規，exit 1**                                                               |

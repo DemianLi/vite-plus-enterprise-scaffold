@@ -79,6 +79,76 @@ export const VIEW_FORBIDDEN_IMPORTS = ["@tanstack/vue-query", "@org/http-client"
 /** 元件也不得直接 import 同切片的資料存取模組（相對路徑，需另外判定）。 */
 export const VIEW_FORBIDDEN_LOCAL_MODULES = ["api"] as const;
 
+/** 切片內的 Pinia store。 */
+export const STORE_FILE = "src/store.ts";
+
+/**
+ * **Pinia 只放「客戶端才是權威」的東西。**
+ *
+ * 判準一句話：*這份資料如果和伺服器不一致，誰是錯的？*
+ *
+ *   伺服器是權威（`Order[]` 本身）              → TanStack Query，走 composable
+ *   客戶端是權威（篩選條件、選取的 id、草稿）   → Pinia
+ *   兩者都不是（「選取的那幾筆 Order 物件」）   → 哪裡都不放，composable 裡的 computed
+ *
+ * 濃縮成可以背的一句：**Pinia 存 id，不存 entity。**
+ *
+ * 第三類是這條界線真正要擋的東西。把 join 出來的結果存進 store，等於做了第二份
+ * 快取 —— 它與 TanStack Query 那份的失效時機不同，而且**不會有任何測試變紅**。
+ * 這跟 D14 上半段要防的 queryKey 漂移是同一種病，只是換個位置發作。
+ *
+ * ⚠️ 禁的是 **value import**，`import type` 完全允許：
+ *
+ *     import type { Order } from "./api.ts";     // ✓ 借型別，編譯期就消失
+ *     import { fetchOrders } from "./api.ts";    // ✗ 呼叫伺服器
+ *     import { useQuery } from "@tanstack/vue-query";  // ✗
+ *
+ * 這不是為了方便而開的例外，是語意上本來就不同 —— 而且本 repo 的
+ * `verbatimModuleSyntax: true` 讓這個區分**精確可判定**：
+ * `import type { X }` 會被完全抹除，`import { type X }` 仍會產出
+ * `import "./api.ts"`（模組實際被載入）。所以把後者算成 value import 是對的，
+ * 不是偽陽性。
+ *
+ * 這條規則的價值在於**讓錯誤寫不出來**：拿不到 `fetchOrders`、拿不到 `useQuery`，
+ * entity 就進不了 store。剩下的路徑（元件手動把資料塞進 store）明顯得多，
+ * code review 看得到。
+ */
+export const STORE_FORBIDDEN_IMPORTS = ["@tanstack/vue-query", "@org/http-client"] as const;
+
+/** store 也不得 value import 同切片的資料存取模組。 */
+export const STORE_FORBIDDEN_LOCAL_MODULES = ["api"] as const;
+
+/** 只認 `import type` / `export type` 開頭 —— 單層量詞，不會被 detect-unsafe-regex 擋。 */
+const TYPE_ONLY_HEAD = /^(?:import|export)\s+type\b/;
+
+/**
+ * 判定 `IMPORT_SPECIFIER_PATTERN` 的某一個命中是不是 type-only import。
+ *
+ * `matchIndex` 是那個命中的起點（指向 `from` / `import(` / `require(`），
+ * 從它往回找最近的 `import` 或 `export` 就是該敘述的開頭。
+ * 這種掃法對多行 import 也成立，而且不需要 parser。
+ *
+ * 三個刻意的判定：
+ *
+ *   `import type { X } from "…"`   → true（整句被抹除，沒有執行期效果）
+ *   `import { type X } from "…"`   → **false**。`verbatimModuleSyntax` 之下它仍會
+ *                                     產出 `import "…"`，模組實際被載入 —— 算成
+ *                                     value import 是對的，不是偽陽性
+ *   `import("…")`（動態）           → false。動態載入一定是執行期
+ *
+ * ⚠️ 已知限制：被註解掉的 import 也會被算進來（`// import { x } from "./api.ts"`）。
+ * 這與 D4 第 3 層的相對路徑檢查行為一致 —— 兩者都偏向嚴格，而偏嚴的代價是
+ * 偶爾要把註解改寫，偏鬆的代價是規則失效。
+ */
+export function isTypeOnlyImportAt(source: string, matchIndex: number): boolean {
+  const start = Math.max(
+    source.lastIndexOf("import", matchIndex),
+    source.lastIndexOf("export", matchIndex),
+  );
+  if (start < 0) return false;
+  return TYPE_ONLY_HEAD.test(source.slice(start, matchIndex));
+}
+
 /** 切片必須有測試。沒有測試的切片＝沒有人能安全重構的切片。 */
 export const TEST_GLOB = "tests/**/*.test.ts";
 

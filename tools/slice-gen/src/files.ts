@@ -152,11 +152,23 @@ export const ${camel}Keys = {
 import { computed, ref } from "vue";
 
 /**
- * 切片內的 Pinia store。
+ * 切片內的 Pinia store（D13 / D14）。
  *
  * store id 用 "${name}/" 命名空間前綴，且定義在切片內部 ——
  * **不得有全域 store 目錄**，那是三層架構最常見的破口：
  * 一旦出現，兩個切片就會開始共用狀態，邊界當場失效。
+ *
+ * ── 這裡只放「客戶端才是權威」的東西 ───────────────────────────────────
+ *
+ * 判準：*這份資料如果和伺服器不一致，誰是錯的？*
+ *
+ *   伺服器是權威（列表資料本身）  → composables/use${Pascal}List.ts
+ *   客戶端是權威（篩選、選取的 id）→ 這裡
+ *   兩者都不是（選取的那幾筆物件）→ 哪裡都不放，用 computed 推導
+ *
+ * 一句話：**存 id，不存 entity。**
+ * 一致性檢查會擋下 value import \`./api.ts\` 與 \`@tanstack/vue-query\`；
+ * \`import type\` 允許（在 verbatimModuleSyntax 下會被完全抹除，無執行期效果）。
  */
 export const use${Pascal}FilterStore = defineStore("${name}/filter", () => {
   const page = ref(1);

@@ -2,7 +2,12 @@ import { describe, it, expect } from "vitest";
 
 import { defineFeature, registerFeatures } from "../src/index.ts";
 import type { Feature } from "../src/index.ts";
-import { composableFunctionName, isValidComposableFile } from "../src/contract.ts";
+import {
+  IMPORT_SPECIFIER_PATTERN,
+  composableFunctionName,
+  isTypeOnlyImportAt,
+  isValidComposableFile,
+} from "../src/contract.ts";
 
 /**
  * D7 契約的執行期驗證。
@@ -142,5 +147,57 @@ describe("composable 命名（D14）", () => {
 
   it("由檔名推出應該匯出的函式名", () => {
     expect(composableFunctionName("useOrderList.ts")).toBe("useOrderList");
+  });
+});
+
+/**
+ * `isTypeOnlyImportAt` 是 D14 下半段唯一會誤傷人的地方。
+ *
+ * 誤擋 `import type` 的話，規則第一天就會被加例外 —— 而加過一次例外的規則，
+ * 半年後就不再是規則。所以偽陽性的測試比「該紅會紅」的測試更重要。
+ */
+describe("type-only import 判定（D14）", () => {
+  function firstSpecifierIndex(source: string): number {
+    // 用 matchAll 而不是 `new RegExp(PATTERN.source, "g")` —— 後者被 Tier 2 的
+    // `security/detect-non-literal-regexp` 擋下（實測，第 4 次有新程式碼撞上自己的
+    // 安全閘門，見 C19）。原本複製一份是為了避開共用 g-flag 正則的 lastIndex 狀態，
+    // 而 matchAll 本來就在內部複製，不會改動原 regex 的 lastIndex —— 更安全也更短。
+    const [match] = [...source.matchAll(IMPORT_SPECIFIER_PATTERN)];
+    if (match?.index === undefined) throw new Error("測試素材裡沒有 import");
+    return match.index;
+  }
+
+  const typeOnly = [
+    'import type { Order } from "./api.ts";',
+    'import type {\n  Order,\n  OrderQuery,\n} from "./api.ts";',
+    'export type { Order } from "./api.ts";',
+  ];
+
+  it.each(typeOnly)("認得 type-only import：%s", (source) => {
+    expect(isTypeOnlyImportAt(source, firstSpecifierIndex(source))).toBe(true);
+  });
+
+  const valueImports = [
+    'import { fetchOrders } from "./api.ts";',
+    'import {\n  fetchOrders,\n} from "./api.ts";',
+    'import { defineStore } from "pinia";',
+    // verbatimModuleSyntax 之下這句仍會產出 `import "./api.ts"` —— 模組真的被載入，
+    // 所以算成 value import 是正確的，不是偽陽性。
+    'import { type Order } from "./api.ts";',
+  ];
+
+  it.each(valueImports)("認得 value import：%s", (source) => {
+    expect(isTypeOnlyImportAt(source, firstSpecifierIndex(source))).toBe(false);
+  });
+
+  it("前面有其他 import 時，判定的是自己那一句", () => {
+    const source = 'import { defineStore } from "pinia";\nimport type { Order } from "./api.ts";\n';
+    const second = source.lastIndexOf('from "./api.ts"');
+    expect(isTypeOnlyImportAt(source, second)).toBe(true);
+  });
+
+  it("動態 import 一律算執行期", () => {
+    const source = 'const mod = await import("./api.ts");';
+    expect(isTypeOnlyImportAt(source, firstSpecifierIndex(source))).toBe(false);
   });
 });
