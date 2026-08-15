@@ -1,0 +1,70 @@
+packages:
+  - apps/*
+  - features/*
+  - platform/*
+  - tools/*
+
+# D6 — catalog 是共用 lockfile 下唯一能讓 CVE 全 repo 同步升級的機制。
+# 一律以 catalog: 引用；任何直接寫死版本的 package.json 會被一致性檢查擋下。
+catalogMode: prefer
+
+catalog:
+  # --- 工具鏈（由 vite-plus 鎖定，勿手動改）---
+  "@types/node": ^24
+  typescript: ^7.0.2
+  vite: npm:@voidzero-dev/vite-plus-core@0.2.9
+  vite-plus: 0.2.9
+  # ⚠️ 必須與 vite-plus 內部鎖定的版本**完全一致**。vite-plus 把 vitest 釘死在
+  # 精確版本（=4.1.10），此處若用 ^ 範圍或不同版本，node_modules 會出現兩份 vitest，
+  # 測試會以難以診斷的方式失敗（型別對不上、mock 失效）。升 vite-plus 時要同步改這行。
+  vitest: 4.1.10
+
+  # --- 應用層選型（D13）---
+  vue: ^3.5.41
+  vue-router: ^5.2.0
+  pinia: ^4.0.3
+  vue-i18n: ^11.4.8
+  "@tanstack/vue-query": ^5.101.4
+  "@vitejs/plugin-vue": ^6.0.8
+
+  # --- 產生器（tools/slice-gen）---
+  bingo: ^0.9.3
+  zod: ^3.25.76
+
+  # --- Tier 2 安全閘門（D5）。僅 CI 使用，不進 runtime bundle ---
+  eslint: ^10.8.1
+  eslint-plugin-security: ^4.0.1
+  eslint-plugin-no-unsanitized: ^4.1.5
+  eslint-plugin-vue: ^10.10.0
+  typescript-eslint: ^8.67.0
+  vue-eslint-parser: ^10.4.1
+
+overrides:
+  vite: "catalog:"
+
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: "*"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# D6 — 供應鏈治理：build script 允許清單
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# postinstall 是 npm 生態第一大供應鏈攻擊面。pnpm >= 11 預設全部拒絕，
+# 這份清單是唯一的開孔 —— 每一筆都是 PR 上看得見的一行 diff，必須寫明理由。
+#
+# 此處刻意「不」在 .npmrc 設 ignore-scripts=true：那會連本清單一併封鎖，
+# 使允許機制失效（那才是真的沒有 build script，包括必要的那些）。
+#
+# 新增流程：先看該套件的 install script 實際做什麼，再決定。
+#   pnpm why <pkg>              # 誰把它拉進來的
+#   vp pm why <pkg>             # 同上，經 vp 抽象層
+#
+allowBuilds:
+  # vue-demi：由 @tanstack/vue-query 間接引入。
+  # 其 postinstall 僅在自身 package 目錄內切換 Vue 2 / Vue 3 的進入點檔案，
+  # 不觸網、不寫 package 目錄外的檔案。不執行則 import 會解析失敗。
+  # 審查人：@org/platform-maintainers｜審查日：2026-08-15
+  vue-demi: true

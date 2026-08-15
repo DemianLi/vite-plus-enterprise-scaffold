@@ -1,0 +1,21 @@
+{
+  "name": "@org/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tier 2 安全閘門：只裝安全與邊界規則，與 oxlint 零重疊",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "dependencies": {
+    "eslint-plugin-no-unsanitized": "catalog:",
+    "eslint-plugin-security": "catalog:",
+    "eslint-plugin-vue": "catalog:",
+    "typescript": "6.0.3",
+    "typescript-eslint": "catalog:",
+    "vue-eslint-parser": "catalog:"
+  },
+  "peerDependencies": {
+    "eslint": "catalog:"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@org/bff-mock",
+  "version": "0.0.0",
+  "private": true,
+  "description": "開發用 BFF 參考實作：通過 @org/bff-contract，讓 vp dev 能走完整條 D8 路徑",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "node src/cli.ts",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@org/bff-contract": "workspace:*",
+    "@org/security-headers": "workspace:*"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

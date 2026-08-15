@@ -1,0 +1,25 @@
+{
+  "name": "@org/http-client",
+  "version": "0.0.0",
+  "private": true,
+  "description": "唯一允許的對外請求出口：同源 BFF、httpOnly cookie、double-submit CSRF",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@org/bff-contract": "workspace:*",
+    "@org/config": "workspace:*"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

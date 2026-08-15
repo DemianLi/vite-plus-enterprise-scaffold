@@ -1,0 +1,21 @@
+{
+  "name": "@org/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "公開設定的唯一出口，含 VITE_ 環境變數的編譯期公開性閘門",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

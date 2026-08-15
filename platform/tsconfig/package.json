@@ -1,0 +1,18 @@
+{
+  "name": "@org/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "description": "共用 TypeScript 設定基底",
+  "files": [
+    "base.json",
+    "app.json",
+    "lib.json",
+    "node.json"
+  ],
+  "exports": {
+    "./base.json": "./base.json",
+    "./app.json": "./app.json",
+    "./lib.json": "./lib.json",
+    "./node.json": "./node.json"
+  }
+}

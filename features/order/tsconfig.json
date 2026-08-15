@@ -1,0 +1,4 @@
+{
+  "extends": "@org/tsconfig/lib.json",
+  "include": ["src", "tests"]
+}

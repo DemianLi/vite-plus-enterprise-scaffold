@@ -1,0 +1,18 @@
+{
+  "name": "@org/exit-drill",
+  "version": "0.0.0",
+  "private": true,
+  "description": "D2 退出演練：證明應用原始碼不綁死在 vite-plus 上（R1 / R9）",
+  "bin": {
+    "exit-drill": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "check": "vp check"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

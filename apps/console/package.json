@@ -1,0 +1,35 @@
+{
+  "name": "@org/console",
+  "version": "0.0.0",
+  "private": true,
+  "description": "管理主控台外殼：路由組裝、環境設定、composition root",
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview",
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@org/config": "workspace:*",
+    "@org/feature-order": "workspace:*",
+    "@org/feature-shipment": "workspace:*",
+    "@org/slice-kit": "workspace:*",
+    "@tanstack/vue-query": "catalog:",
+    "pinia": "catalog:",
+    "vue": "catalog:",
+    "vue-i18n": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@org/security-headers": "workspace:*",
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

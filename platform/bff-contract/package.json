@@ -1,0 +1,19 @@
+{
+  "name": "@org/bff-contract",
+  "version": "0.0.0",
+  "private": true,
+  "description": "D8 同源中間層的可執行契約：驗收既有 gateway，或作為新建 BFF 的規格（R6）",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "vp check"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

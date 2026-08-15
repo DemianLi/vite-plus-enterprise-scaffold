@@ -1,0 +1,75 @@
+# D2 退出演練（R1／R9）
+#
+# 每季實際把應用退回上游 Vite 建一次、跑一次測試，並更新帶日期的證據。
+#
+# ── 為什麼是獨立的 workflow ──────────────────────────────────────────
+#
+# 它連外網裝上游套件、耗時分鐘級，而且**會修改 repo 內容**（evidence.json）。
+# 這三件事都不該混進 PR 閘門。Tier 2 只驗證那份證據還新鮮，不負責產生它。
+#
+# ── 為什麼是每季，不是每次 PR ────────────────────────────────────────
+#
+# 這場演練驗的是「工具鏈可以換掉」，那個性質不會因為某個 PR 改了一支元件而改變 ——
+# 會改變它的是「有人開始在原始碼裡 import vite-plus」，而那由 Tier 2 的靜態檢查
+#（node tools/exit-drill/src/cli.ts）每次 PR 都擋。
+#
+# 換句話說：便宜的那一半跑得很勤，貴的那一半跑得剛好夠證明它還成立。
+
+name: D2 退出演練（每季）
+
+on:
+  schedule:
+    # 每季第一天 03:00 UTC。與 120 天的證據有效期對得上，留有餘裕。
+    - cron: "0 3 1 1,4,7,10 *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      # 見 tier1-quality.yml 對這一步的說明（DECISIONS.md C8）。
+      - name: Bootstrap Vite+
+        working-directory: ${{ runner.temp }}
+        run: |
+          npx --yes --package vite-plus@0.2.9 \
+            vp -C "$GITHUB_WORKSPACE" install --frozen-lockfile
+
+      # 演練本身在 os.tmpdir() 裡用 npm 裝上游 vite/vitest ——
+      # 在專案目錄內跑 npm 會被 devEngines 以 EBADDEVENGINES 擋下（C8）。
+      - name: 執行完整退出演練
+        run: node tools/exit-drill/src/cli.ts --full
+
+      # 證據要進版控才算控制措施。這裡上傳成 artifact，並在摘要裡貼出來，
+      # 由 platform maintainer 開 PR 把 evidence.json 併回 main。
+      #
+      # ⚠️ 刻意**不讓 CI 直接 push**：一個能寫 main 的 workflow token，
+      # 本身就是一條需要向資安解釋的攻擊路徑，而這裡省下的只是一次 PR。
+      - name: 上傳演練證據
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: exit-drill-evidence
+          path: tools/exit-drill/evidence.json
+          retention-days: 400
+
+      - name: 摘要
+        if: always()
+        run: |
+          {
+            echo '## D2 退出演練結果'
+            echo '```json'
+            cat tools/exit-drill/evidence.json
+            echo '```'
+            echo '請由 platform maintainer 開 PR 將 evidence.json 併回 main。'
+          } >> "$GITHUB_STEP_SUMMARY"

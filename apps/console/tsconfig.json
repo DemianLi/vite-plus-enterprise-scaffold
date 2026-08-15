@@ -1,0 +1,9 @@
+{
+  "extends": "@org/tsconfig/app.json",
+  "compilerOptions": {
+    // vite.config.ts 在 Node 環境執行（讀 process.env、呼叫 loadEnv），
+    // 因此這個 package 同時需要瀏覽器與 Node 的型別。
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src", "vite.config.ts"]
+}

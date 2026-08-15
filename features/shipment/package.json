@@ -1,0 +1,29 @@
+{
+  "name": "@org/feature-shipment",
+  "version": "0.0.0",
+  "private": true,
+  "description": "出貨管理",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@org/http-client": "workspace:*",
+    "@org/slice-kit": "workspace:*",
+    "@tanstack/vue-query": "catalog:",
+    "pinia": "catalog:",
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

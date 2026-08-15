@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      D11：CSP 由 BFF 在回應標頭注入 nonce 後下發，不寫在這裡。
+      meta 標籤形式的 CSP 無法使用 nonce，也無法設定 frame-ancestors。
+
+      **政策內容不重複寫在這裡。** 唯一的定義在 @org/security-headers 的
+      BASE_DIRECTIVES，由 BFF、vite dev 中介層、測試三方共用。
+
+      這不是潔癖：政策同時存在兩個地方，兩者會在半年內各說各話，而且沒有人會
+      發現 —— CSP 放寬是靜默的，症狀只有「某天被滲透測試開單」。這份註解初版
+      確實抄了一份策略字串在這裡，正是 C17 要消滅的那個失敗模式。
+
+      上線分兩階段（buildSecurityHeaders 的 reportOnly 參數）：先 Report-Only
+      跑 1–2 週收 violation，收斂後再切 enforce。直接上 enforce 通常三天後被回滾，
+      然後 CSP 在該團隊永遠不會再被提起。
+    -->
+    <title>Console</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

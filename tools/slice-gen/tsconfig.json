@@ -1,0 +1,7 @@
+{
+  "extends": "@org/tsconfig/node.json",
+  "compilerOptions": {
+    "resolveJsonModule": true
+  },
+  "include": ["src", "bin", "tests"]
+}

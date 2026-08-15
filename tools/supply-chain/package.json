@@ -1,0 +1,21 @@
+{
+  "name": "@org/supply-chain",
+  "version": "0.0.0",
+  "private": true,
+  "description": "供應鏈盤點：原生二進位清單、mirror 清單、來源證明（R2 / R3 / R4 / R5 / R8）",
+  "bin": {
+    "supply-chain": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,76 @@
+# Tier 1 — 品質（D10）
+#
+# 目標：快到開發者願意等。允許快取、允許 affected 過濾。
+# 這一層**不放任何安全檢查** —— 安全走 tier2-security.yml，理由見該檔開頭。
+
+name: Tier 1 — 品質
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 品質檢查可以被新的 push 取消：舊的結果已無意義。
+# （Tier 2 刻意相反，見該檔。）
+concurrency:
+  group: tier1-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # vite-plus 要求 ^20.19.0 || ^22.18.0 || >=24.11.0
+          node-version: "24"
+
+      # ── Bootstrap ────────────────────────────────────────────────────
+      # 全新 checkout 沒有 node_modules，因此也沒有 vp。
+      # 必須從**專案目錄之外**執行 npx，再用 -C 指回專案 ——
+      # 在專案目錄內執行會被本專案的 devEngines.packageManager: pnpm
+      # 以 EBADDEVENGINES 直接拒絕（此路徑已於本機實測，見 DECISIONS.md C8）。
+      #
+      # 內部 registry 環境下，這一步是第一個會斷的地方（R3／R5）：
+      # 需設定 npm_config_registry 與 NODE_EXTRA_CA_CERTS。
+      - name: Bootstrap Vite+
+        working-directory: ${{ runner.temp }}
+        run: |
+          npx --yes --package vite-plus@0.2.9 \
+            vp -C "$GITHUB_WORKSPACE" install --frozen-lockfile
+
+      # ── 任務快取 ─────────────────────────────────────────────────────
+      # Tier 1 的主要提速手段。`vp run` 沒有 changed-since 過濾器，
+      # 靠快取命中跳過未變動的任務（本機實測 4/5 命中）。
+      - name: Restore Vite task cache
+        id: task-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: node_modules/.vite/task-cache
+          key: vite-task-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            vite-task-${{ runner.os }}-${{ runner.arch }}-
+
+      # ── 檢查 ─────────────────────────────────────────────────────────
+      - name: 格式、lint、型別（oxfmt + oxlint + tsgolint）
+        run: ./node_modules/.bin/vp check
+
+      - name: 測試
+        run: ./node_modules/.bin/vp run -r test
+
+      - name: 建置
+        run: ./node_modules/.bin/vp run -r build
+
+      - name: Save Vite task cache
+        if: success()
+        uses: actions/cache/save@v6
+        with:
+          path: node_modules/.vite/task-cache
+          key: ${{ steps.task-cache.outputs.cache-primary-key }}

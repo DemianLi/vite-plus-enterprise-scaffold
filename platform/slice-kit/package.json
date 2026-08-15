@@ -1,0 +1,25 @@
+{
+  "name": "@org/slice-kit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "切片契約：defineFeature 型別、命名空間驗證、composition root 組裝",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./src/contract.ts"
+  },
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

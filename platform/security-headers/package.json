@@ -1,0 +1,21 @@
+{
+  "name": "@org/security-headers",
+  "version": "0.0.0",
+  "private": true,
+  "description": "CSP 與安全標頭的單一事實來源，供 BFF、dev server、測試共用",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

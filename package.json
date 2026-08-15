@@ -1,0 +1,41 @@
+{
+  "name": "@org/monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp run console#dev",
+    "bff": "node platform/bff-mock/src/cli.ts",
+    "check": "vp check",
+    "test": "vp run -r test",
+    "build": "vp run -r build",
+    "conformance": "node tools/conformance/src/cli.ts",
+    "bff-check": "vp run -F @org/bff-check test",
+    "gate": "node tools/conformance/src/cli.ts && node tools/api-surface/src/cli.ts && node tools/exit-drill/src/cli.ts && node tools/supply-chain/src/cli.ts && eslint . --max-warnings=0",
+    "exit-drill": "node tools/exit-drill/src/cli.ts --full",
+    "ready": "vp check && vp run -r test && vp run -r build && vpr gate",
+    "api-surface": "node tools/api-surface/src/cli.ts",
+    "supply-chain": "node tools/supply-chain/src/cli.ts",
+    "sca-dossier": "node tools/supply-chain/src/cli.ts --dossier",
+    "mirror-manifest": "node tools/supply-chain/src/cli.ts --manifest",
+    "airgap": "node tools/supply-chain/src/cli.ts --airgap"
+  },
+  "devDependencies": {
+    "@org/eslint-config": "workspace:*",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.21.0",
+      "onFail": "download"
+    }
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "packageManager": "pnpm@11.21.0"
+}

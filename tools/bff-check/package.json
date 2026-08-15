@@ -1,0 +1,24 @@
+{
+  "name": "@org/bff-check",
+  "version": "0.0.0",
+  "private": true,
+  "description": "對既有 gateway 或參考實作執行 @org/bff-contract 的驗收（R6）",
+  "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@org/bff-contract": "workspace:*",
+    "@org/bff-mock": "workspace:*",
+    "@org/security-headers": "workspace:*"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

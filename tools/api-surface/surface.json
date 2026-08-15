@@ -1,0 +1,61 @@
+{
+  "surface": {
+    "@org/bff-contract": [
+      "API_PREFIX",
+      "CONTRACT_ITEMS",
+      "CSRF_COOKIE",
+      "CSRF_COOKIE_FORBIDDEN_ATTRIBUTES",
+      "CSRF_HEADER",
+      "DEFAULT_ENDPOINTS",
+      "DEFAULT_SESSION_COOKIE",
+      "SAFE_METHODS",
+      "SESSION_COOKIE_ALLOWED_SAMESITE",
+      "SESSION_COOKIE_REQUIRED_ATTRIBUTES",
+      "SESSION_COOKIE_REQUIRED_PATH",
+      "describeContract",
+      "endpointsFromEnv",
+      "findSetCookie",
+      "isCleared",
+      "parseSetCookie"
+    ],
+    "@org/bff-mock": ["createBffMock", "startBffMock"],
+    "@org/config": ["assertNoUndeclaredEnv", "config"],
+    "@org/eslint-config": ["default"],
+    "@org/http-client": ["ForbiddenError", "HttpError", "UnauthenticatedError", "http"],
+    "@org/security-headers": [
+      "BASE_DIRECTIVES",
+      "FORBIDDEN_VALUES",
+      "OTHER_SECURITY_HEADERS",
+      "UNSAFE_INLINE_ALLOWED_IN",
+      "assertStaticCspCompatible",
+      "buildCsp",
+      "buildSecurityHeaders",
+      "findStaticCspViolations",
+      "formatStaticCspViolations",
+      "securityHeaders"
+    ],
+    "@org/slice-kit": ["defineFeature", "registerFeatures"],
+    "@org/slice-kit/contract": [
+      "ALLOWED_VERSION_PROTOCOLS",
+      "BANNED_DIRECT_DEPENDENCIES",
+      "IMPORT_SPECIFIER_PATTERN",
+      "LAYERS",
+      "REQUIRED_FILES",
+      "REQUIRE_CATALOG_PROTOCOL",
+      "REQUIRE_CODEOWNERS_ENTRY",
+      "RUNTIME_TEMPLATE_FORBIDDEN",
+      "SLICE_PACKAGE_PREFIX",
+      "SOURCE_EXTENSIONS",
+      "TEST_GLOB",
+      "isValidSliceDir",
+      "slicePackageName"
+    ]
+  },
+  "codemods": [
+    {
+      "name": "rename-feature-kit-to-slice-kit",
+      "removes": [],
+      "reason": "C5：平台契約套件原名 @org/feature-kit 與切片的 @org/feature-* 命名撞號，被自己的邊界規則誤判。此遷移發生在本基準建立之前，因此 removes 為空；保留登記是為了讓 codemod 檔案的存在受檢查保護，並作為 D12 流程的範例。"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+# 大規模機械性格式化 commit 的清單 —— `git blame` 會跳過這些。
+#
+# 為什麼這個檔案現在就存在（D13）：
+# 格式化工具（oxfmt）被 vite-plus 鎖死在 =0.62.0。哪天退出 vp，會產生一次
+# 動到每個檔案的全 repo reformat，毀掉 git blame 的追溯能力 —— 而該能力在
+# 稽核與事故調查時有實質價值。
+#
+# 緩解手段必須在「需要它之前」就備妥：等到真要 reformat 那天才補，
+# 全員本機的 git config 是收不齊的。腳手架的 setup 腳本會自動執行：
+#
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# 用法：把大規模格式化 commit 的完整 SHA 加在下面，一行一個，附註說明。
+#
+# 範例：
+# 8f2a1c9e4b7d3a6f5e8c2b1d9a4f7e3c6b5d8a2f  chore: 全 repo 改用 oxfmt 0.62

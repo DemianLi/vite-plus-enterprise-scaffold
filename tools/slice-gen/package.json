@@ -1,0 +1,32 @@
+{
+  "name": "@org/slice-gen",
+  "version": "0.0.0",
+  "private": true,
+  "description": "產生一個符合契約的 vertical slice",
+  "keywords": [
+    "vite-plus-generator"
+  ],
+  "bin": "./bin/index.ts",
+  "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check",
+    "dev": "node bin/index.ts"
+  },
+  "dependencies": {
+    "@org/slice-kit": "workspace:*",
+    "bingo": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

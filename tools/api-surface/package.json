@@ -1,0 +1,15 @@
+{
+  "name": "@org/api-surface",
+  "version": "0.0.0",
+  "private": true,
+  "description": "platform/ 公開 API 表面快照與破壞性變更偵測（D12）",
+  "bin": {
+    "api-surface": "./src/cli.ts"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

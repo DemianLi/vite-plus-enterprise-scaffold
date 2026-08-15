@@ -1,0 +1,34 @@
+# 擁有權對照（D12）。一致性檢查會驗證每個 features/* 都在此有條目 ——
+# 沒有 owner 的切片＝沒人負責的切片。
+
+# ── platform/ 由跨團隊抽調的 maintainer 把關（D12）────────────────────
+# 任何人都能提 PR，但需 maintainer 核准。目的是既不製造瓶頸、也不放任無主。
+# breaking change 必須附 codemod，並由提出者在同一 PR 跑完全 repo。
+/platform/                  @org/platform-maintainers
+/tools/                     @org/platform-maintainers
+
+# 這三處定義的是安全行為本身（CSP 政策、認證與 CSRF 契約），不是一般平台程式碼。
+# 放寬它們不會讓任何測試變紅 —— 只會讓標準變低，所以由資安共同把關。
+/platform/security-headers/ @org/platform-maintainers @org/security
+/platform/bff-contract/     @org/platform-maintainers @org/security
+/tools/bff-check/           @org/platform-maintainers @org/security
+
+# supply-chain 的家族分級表刻意寫在原始碼裡（而不是 JSON），為的就是這一列：
+# 一個新的原生工具鏈進到建置環境時，分類必須是一次**被資安看過**的變更。
+# 這裡也放著 inventory.json / provenance.json 兩份基線 —— 它們是拿給稽核看的東西。
+/tools/supply-chain/        @org/platform-maintainers @org/security
+/pnpm-workspace.yaml        @org/platform-maintainers
+/vite.config.ts             @org/platform-maintainers
+/eslint.config.js           @org/platform-maintainers @org/security
+/.npmrc                     @org/platform-maintainers @org/security
+
+# Tier 2 的三條規則（不快取、不過濾、有時間觸發）是刻意的，不是疏漏。
+# 任何放寬都必須經資安核可 —— 理由寫在該檔開頭。
+/.github/workflows/         @org/platform-maintainers @org/security
+
+# ── 垂直切片：一片一個負責團隊 ─────────────────────────────────────────
+/features/order/            @org/team-fulfillment
+/features/shipment/         @org/team-logistics
+
+# ── 應用外殼 ─────────────────────────────────────────────────────────
+/apps/console/              @org/team-platform-ui
