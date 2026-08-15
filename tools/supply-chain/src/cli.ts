@@ -14,6 +14,7 @@ import {
   type FamilyTier,
   type Inventory,
 } from "./inventory.ts";
+import { checkHealth, parseRegistry, type HealthFile, type HealthProblem } from "./health.ts";
 import {
   attestationUrl,
   decodeProvenance,
@@ -61,6 +62,12 @@ const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const LOCKFILE = join(ROOT, "pnpm-lock.yaml");
 const INVENTORY_PATH = join(ROOT, "tools/supply-chain/inventory.json");
 const PROVENANCE_PATH = join(ROOT, "tools/supply-chain/provenance.json");
+const HEALTH_PATH = join(ROOT, "tools/supply-chain/dependency-health.json");
+
+const HEALTH_FIX =
+  "node tools/supply-chain/src/cli.ts --capture-health\n" +
+  "         ⚠️ 這一步要連得到 registry.npmjs.org，與 --capture 同一條限制：\n" +
+  "         在還連得到公網的那一側跑完，產物隨變更一起進封閉環境。";
 
 /**
  * 原生家族的分級。**新家族出現時閘門會擋下來，逼一次人工分類。**
@@ -458,6 +465,130 @@ function checkSbom(sbomPath: string, inventory: Inventory): Failure[] {
   return [];
 }
 
+/**
+ * 外部直接相依：所有 package.json 明寫的相依，扣掉 workspace 內部套件。
+ *
+ * ⚠️ 從 package.json 推導而不是從 lockfile：lockfile 裡是**整棵樹**（519 個），
+ * 而「我們選了什麼」問的是我們自己寫下來的那些。用 lockfile 會把
+ * 「vue 的某個間接相依停止維護」也算成我們的選擇 —— 那不是我們能決定的事，
+ * 而那類問題屬於 Trivy 的漏洞掃描，不屬於這裡。
+ */
+function directDependencies(): readonly string[] {
+  const names = new Set<string>();
+
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (entry.name !== "package.json") continue;
+
+      const pkg = JSON.parse(readFileSync(full, "utf8")) as {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
+      for (const name of Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })) {
+        if (!name.startsWith("@org/")) names.add(name);
+      }
+    }
+  };
+
+  walk(ROOT);
+  return [...names].sort(compareStrings);
+}
+
+/**
+ * 已經有人看過並寫下理由的例外。
+ *
+ * 寫在原始碼裡而不是 JSON：接受一個停止維護的相依、或接受一個非標準授權，
+ * 都是**判斷**，而且是那種三個月後沒有人記得為什麼的判斷。
+ * 每一筆都要有理由與日期，否則它會變成一份只增不減的抑制清單。
+ */
+const HEALTH_ACKNOWLEDGEMENTS: Readonly<Record<string, string>> = {
+  /**
+   * clsx@2.1.1，最後穩定版 2024-04-23。**接受。**
+   *
+   * 它是一個 239 bytes、零相依、只做字串串接的工具。「兩年沒發版」在這種
+   * 套件上是「做完了」而不是「被放棄了」—— 而這正是維護度啟發式最典型的
+   * 偽陽性：兩者從發版紀錄上長得一模一樣。
+   *
+   * ⚠️ 接受的理由不是「它看起來還好」，是**退場成本近乎零**：
+   * 真的出事的話，把 `platform/ui/src/utils/cn.ts` 裡那一行換成自己寫的
+   * 三行迴圈就結束了。這一筆的有效期綁在那個前提上 ——
+   * 哪天 clsx 被用在更深的地方，這一列要重新評估。
+   *
+   * 審查人：@org/platform-maintainers｜審查日：2026-08-16
+   */
+  clsx: "239 bytes 的零相依工具，兩年沒發版是「做完了」；退場成本近乎零（cn.ts 一行）",
+
+  /**
+   * eslint-plugin-no-unsanitized@4.1.5 是 **MPL-2.0**（Mozilla）。**不擋 CI，但已升級給法務。**
+   *
+   * ⚠️ 這一筆是這道閘門第一次跑就撈到的，而且它揭露的不只是一個套件 ——
+   * **`vpr sca-dossier` 的〈授權分佈〉只涵蓋那 144 個原生二進位。**
+   * 一個純 JS 的 MPL-2.0 直接相依對那份申請書是完全隱形的，
+   * 而 HANDOFF #4 的 MPL-2.0 清單寫的是「lightningcss-* 」—— 從來沒有這一個。
+   *
+   * 處置比照 lightningcss（同樣是 MPL-2.0、同樣只在建置期）：不擋 CI，
+   * 因為它是 ESLint plugin，**不進任何交付產物**，而 MPL-2.0 是檔案層級
+   * 弱著作權。但多數企業授權政策會標記它，所以先講而不是等它被掃出來。
+   *
+   * 審查人：@org/platform-maintainers｜審查日：2026-08-16｜已列入 HANDOFF #4
+   */
+  "eslint-plugin-no-unsanitized":
+    "MPL-2.0（Mozilla）。建置期 ESLint plugin，不進交付產物；已列入 HANDOFF #4 交法務",
+};
+
+function checkDependencyHealth(): Failure[] {
+  if (!existsSync(HEALTH_PATH)) {
+    return [
+      {
+        title: "沒有 dependency-health.json",
+        detail:
+          "沒有任何東西在看「我們裝的東西還有沒有人在維護、授權有沒有被改掉」。\n" +
+          "    這一項在 2026-08-16 之前完全不存在 —— 不是壞掉，是從來沒有。",
+        fix: HEALTH_FIX,
+      },
+    ];
+  }
+
+  const file = JSON.parse(readFileSync(HEALTH_PATH, "utf8")) as HealthFile;
+  const problems = checkHealth(file, directDependencies(), HEALTH_ACKNOWLEDGEMENTS, Date.now());
+  if (problems.length === 0) return [];
+
+  const byKind = new Map<HealthProblem["kind"], string[]>();
+  for (const problem of problems) {
+    byKind.set(problem.kind, [...(byKind.get(problem.kind) ?? []), problem.detail]);
+  }
+
+  const failures: Failure[] = [];
+  const titles: Record<HealthProblem["kind"], string> = {
+    "stale-capture": "相依健康度的擷取結果已過期",
+    "roster-drift": "相依名單與擷取結果對不上",
+    unmaintained: "有相依看起來已經沒有人在維護",
+    "license-review": "有相依的授權需要人看一眼",
+  };
+
+  for (const [kind, details] of byKind) {
+    failures.push({
+      title: titles[kind],
+      detail: details.join("\n    "),
+      fix:
+        kind === "license-review"
+          ? "把實際發佈的 tarball 裡那份授權讀出來 —— registry 的 metadata 字串不是授權本身。\n" +
+            "         確認可接受後，在 HEALTH_ACKNOWLEDGEMENTS 加一列並寫明理由與日期。"
+          : kind === "unmaintained"
+            ? "決定要換掉它還是接受風險。接受的話在 HEALTH_ACKNOWLEDGEMENTS 加一列並寫明理由與日期 ——\n" +
+              "         那一列會出現在 PR 上，而那正是重點。"
+            : HEALTH_FIX,
+    });
+  }
+  return failures;
+}
+
 function runGate(): number {
   const inventory = readInventory();
   const failures = [
@@ -468,6 +599,7 @@ function runGate(): number {
     ...checkBuildScripts(inventory),
     ...checkFrozenLockfile(),
     ...checkBuildOnlyScope(),
+    ...checkDependencyHealth(),
   ];
 
   if (failures.length === 0) {
@@ -605,6 +737,48 @@ async function runCapture(): Promise<number> {
       `僅發佈簽章 ${totals["registry-signature"]}、無證據 ${totals.none}`,
   );
   if (totals.none > 0) console.log("  ⚠ 有套件連發佈簽章都沒有，SCA 例外申請書必須單獨列出它們");
+  return 0;
+}
+
+/**
+ * `--capture-health`：擷取外部直接相依的維護狀態與授權。
+ *
+ * 24 個套件、24 次 registry 往返 —— 比 `--capture` 的 288 次便宜一個量級，
+ * 因為問的是不同的問題：`--capture` 要的是每個原生二進位的來源證明，
+ * 這裡要的是「我們自己選的那些東西還活著嗎」。
+ *
+ * ⚠️ 抓的是**完整 packument**（不帶版本），因為判定要用 `time` 欄位算發版
+ * 活躍度。`--capture` 抓的是單一版本的 packument，那裡面沒有 `time`。
+ */
+async function runCaptureHealth(): Promise<number> {
+  const names = directDependencies();
+  console.log(`擷取 ${names.length} 個外部直接相依的維護狀態與授權…`);
+
+  const now = Date.now();
+  const records = [];
+  for (const name of names) {
+    const document = await fetchJson(`https://registry.npmjs.org/${name}`);
+    const facts = parseRegistry(document, now);
+    if (facts === null) {
+      console.error(`✗ ${name}：registry 回應解析不出來 —— 擷取中止，不寫出半份檔案`);
+      return 1;
+    }
+    records.push(facts);
+  }
+
+  const file: HealthFile = {
+    capturedAt: new Date(now).toISOString().slice(0, 10),
+    registry: "https://registry.npmjs.org",
+    records,
+  };
+  writeFileSync(HEALTH_PATH, serialise(file));
+
+  const problems = checkHealth(file, names, HEALTH_ACKNOWLEDGEMENTS, now);
+  console.log(`✓ 已寫入 dependency-health.json（${records.length} 筆）`);
+  if (problems.length > 0) {
+    console.log(`  ⚠ ${problems.length} 項需要處理 —— 下一次跑閘門會紅：`);
+    for (const problem of problems) console.log(`    ${problem.detail}`);
+  }
   return 0;
 }
 
@@ -1086,6 +1260,7 @@ async function main(): Promise<number> {
     }
     return 1;
   }
+  if (args.includes("--capture-health")) return runCaptureHealth();
   if (args.includes("--recapture-safe")) return runRecaptureSafe();
   if (args.includes("--capture")) return runCapture();
   if (args.includes("--manifest")) return runManifest();
