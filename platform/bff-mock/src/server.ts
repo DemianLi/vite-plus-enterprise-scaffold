@@ -102,6 +102,18 @@ const DEMO_ORDERS = [
   { id: "ORD-1004", customerName: "黃詩涵", totalCents: 8_900, status: "cancelled" },
 ] as const;
 
+/**
+ * 示範用的出貨單。
+ *
+ * 補這一份的理由與 `DEMO_ORDERS` 不完全一樣：D15 把設計系統落到
+ * `features/shipment` 之後，那個切片的 `UiButton`／`UiDialog` 在跑起來的
+ * 應用裡**根本到不了** —— `/api/shipment` 不存在，畫面永遠停在 isError 分支。
+ *
+ * 閘門會綠、測試會過、chunk 帳目也是真的，但第二個參考切片的 D15 採用
+ * 是**看不到的**。那正是 C39 在訂單那邊抓到的同一件事，只是換一個切片。
+ */
+const DEMO_SHIPMENTS = [{ id: "SHP-2001" }, { id: "SHP-2002" }, { id: "SHP-2003" }] as const;
+
 function csrfCookieValue(token: string): string {
   // 刻意**不加** HttpOnly：double-submit 的前提就是前端讀得到這支。
   // 偷到它沒有用 —— 真正的 session 仍是 HttpOnly。
@@ -247,6 +259,13 @@ export function createBffMock(options: BffMockOptions = {}) {
       const filtered =
         status === null ? DEMO_ORDERS : DEMO_ORDERS.filter((o) => o.status === status);
       json(res, 200, { items: filtered, total: filtered.length });
+      return;
+    }
+
+    // 同上，也不是契約的一部分。少了它，features/shipment 的對話框在跑起來的
+    // 應用裡永遠打不開 —— 而那正是 D15 在第二個切片上唯一看得見的證據。
+    if (path === "/api/shipment" && method === "GET") {
+      json(res, 200, { items: DEMO_SHIPMENTS, total: DEMO_SHIPMENTS.length });
       return;
     }
 

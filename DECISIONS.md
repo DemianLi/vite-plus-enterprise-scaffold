@@ -1892,13 +1892,15 @@ exit 1。而 `features/order` **沒有**紅 —— 規則會分辨，不是全�
 把它們搬進 repo 需要先加固 —— 它們會就地竄改原始碼再還原，
 跑到一半被中斷 repo 就壞著。已知的待辦。）
 
-### 八、途中撈到的兩件別的事
+### 八、途中撈到的三件別的事
 
 **一、我自己的測試犯了它在防的錯。** 寫了
 `expect(store).not.toMatch(/OrderHistoryItem/)`，當場被自己的模板打臉 ——
 store 的註解裡就寫著「這裡刻意不放 `OrderHistoryItem` 物件」。
 **提到一個名字和使用它是兩回事**，這正是 `tools/conformance` 的
-`importClauseBefore()` 在處理的同一件事（C37）。
+`importClauseBefore()` 在處理的同一件事
+（見 `tools/conformance/src/cli.ts` 該函式上方的註解 —— 那個教訓當時只留在
+原始碼裡，沒有進到這份文件，所以我在這裡又踩了一次）。
 改成比對實際形狀（一個持有 entity 的 `ref<...Item`）。
 
 **二、`api-surface --update` 產出的檔案過不了 `vp check`。**
@@ -1912,6 +1914,24 @@ store 的註解裡就寫著「這裡刻意不放 `OrderHistoryItem` 物件」。
 
 這個教訓 `tools/slice-gen/src/files.ts` 早就寫下來了（「那道 fmt 才是保證」），
 只是當時沒有人想到同一件事會在另一支工具再發生一次。
+
+**三、把 `@org/ui` 加進 `features/shipment` 之後，它在跑起來的應用裡到不了。**
+BFF mock 只有 `/api/orders`（C39 補的），沒有 `/api/shipment` ——
+那個切片的畫面永遠停在 `isError` 分支，新加的 `UiButton`／`UiDialog`
+**一次都不會被渲染**。
+
+閘門會綠、測試會過、chunk 帳目也是真的，但第二個參考切片的 D15 採用
+是看不到的。**這正是 C39 在訂單那邊抓到的同一件事，只是換一個切片** ——
+而我差一點就用「已對齊」把它送出去。
+
+補上 `DEMO_SHIPMENTS` 與端點，實測（登入後）：
+
+```
+/api/shipment → 200 {"items":[{"id":"SHP-2001"},…],"total":3}
+/api/nope     → 404 {"error":"not_found"}
+```
+
+第二行是對照組 —— 沒有它，200 也可能只是 router 無差別回應。
 
 ### 這條規則**擋不住**什麼
 
