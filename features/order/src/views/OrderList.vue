@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { UiButton } from "@org/ui";
+import { computed } from "vue";
+import { UiButton, UiDialog } from "@org/ui";
 import { useOrderList } from "../composables/useOrderList.ts";
 import { useOrderFilterStore } from "../store.ts";
 
@@ -15,6 +16,21 @@ import { useOrderFilterStore } from "../store.ts";
 const filter = useOrderFilterStore();
 const { orders, isPending, isError, error } = useOrderList(() => filter.query);
 
+/**
+ * 被選取的那一筆 —— **從列表推導，不從 store 讀**（D14）。
+ *
+ * store 只存 id。把 Order 物件也存進去就是第二份快取：列表重新整理之後
+ * 對話框裡還是舊資料，而且不會有任何測試變紅。
+ */
+const selected = computed(() => orders.value.find((order) => order.id === filter.selectedId));
+
+const isOpen = computed({
+  get: () => selected.value !== undefined,
+  set: (open: boolean) => {
+    if (!open) filter.select(null);
+  },
+});
+
 const currency = new Intl.NumberFormat("zh-TW", {
   style: "currency",
   currency: "TWD",
@@ -26,7 +42,6 @@ const currency = new Intl.NumberFormat("zh-TW", {
   <section class="order-list">
     <header class="flex items-center justify-between gap-4">
       <h1 class="text-xl font-semibold text-gray-900">{{ $t("order.title") }}</h1>
-      <UiButton variant="primary" size="sm">{{ $t("order.title") }}</UiButton>
     </header>
 
     <p v-if="isPending">…</p>
@@ -47,6 +62,7 @@ const currency = new Intl.NumberFormat("zh-TW", {
           <th>Customer</th>
           <th>Total</th>
           <th>Status</th>
+          <th />
         </tr>
       </thead>
       <tbody>
@@ -55,9 +71,39 @@ const currency = new Intl.NumberFormat("zh-TW", {
           <td>{{ order.customerName }}</td>
           <td>{{ currency.format(order.totalCents / 100) }}</td>
           <td>{{ $t(`order.status.${order.status}`) }}</td>
+          <td>
+            <UiButton size="sm" @click="filter.select(order.id)">
+              {{ $t("order.detail") }}
+            </UiButton>
+          </td>
         </tr>
       </tbody>
     </table>
+
+    <!--
+      對話框的內容由 `selected` 推導。它是 D14 那條「存 id 不存 entity」
+      在畫面上的樣子：store 裡只有一個字串。
+    -->
+    <UiDialog
+      v-model:open="isOpen"
+      :title="$t('order.detail')"
+      :description="$t('order.detailDescription')"
+    >
+      <dl v-if="selected" class="grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
+        <dt class="text-(--color-muted)">#</dt>
+        <dd>{{ selected.id }}</dd>
+        <dt class="text-(--color-muted)">Customer</dt>
+        <dd>{{ selected.customerName }}</dd>
+        <dt class="text-(--color-muted)">Total</dt>
+        <dd>{{ currency.format(selected.totalCents / 100) }}</dd>
+        <dt class="text-(--color-muted)">Status</dt>
+        <dd>{{ $t(`order.status.${selected.status}`) }}</dd>
+      </dl>
+
+      <template #close>
+        <UiButton>{{ $t("order.close") }}</UiButton>
+      </template>
+    </UiDialog>
   </section>
 </template>
 

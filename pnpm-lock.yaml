@@ -708,6 +708,22 @@ importers:
         specifier: 'catalog:'
         version: 7.0.2
 
+  tools/csp-verify:
+    dependencies:
+      '@org/security-headers':
+        specifier: workspace:*
+        version: link:../../platform/security-headers
+    devDependencies:
+      '@org/tsconfig':
+        specifier: workspace:*
+        version: link:../../platform/tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.3
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+
   tools/exit-drill:
     devDependencies:
       '@org/tsconfig':

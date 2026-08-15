@@ -30,12 +30,25 @@ export const useOrderFilterStore = defineStore("order/filter", () => {
   const status = ref<Order["status"] | undefined>(undefined);
   const page = ref(1);
 
+  /**
+   * 使用者點開了哪一筆。**存 id，不存 Order 物件**（D14）。
+   *
+   * 存物件的話就是做了第二份快取：它與 TanStack Query 那份的失效時機不同，
+   * 於是「列表已經重新整理、但對話框裡還是舊金額」——
+   * 而且不會有任何測試變紅。要顯示的那筆用 computed 從列表推導。
+   */
+  const selectedId = ref<string | null>(null);
+
   const query = computed(() => ({ status: status.value, page: page.value }));
+
+  function select(id: string | null): void {
+    selectedId.value = id;
+  }
 
   function setStatus(next: Order["status"] | undefined): void {
     status.value = next;
     page.value = 1; // 換條件時回到第一頁，否則會停在不存在的分頁。
   }
 
-  return { status, page, query, setStatus };
+  return { status, page, query, selectedId, select, setStatus };
 });
