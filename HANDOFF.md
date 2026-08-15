@@ -210,7 +210,17 @@ Tier 1 一次就綠；Tier 2 首跑紅，抓到三個本機看不到的問題，
 1. **bootstrap 步驟**在內部 registry 下需設 `npm_config_registry` 與 `NODE_EXTRA_CA_CERTS`
    （公網環境驗不出來，因為它預設就通）
 2. **SBOM／SCA 工具**目前用 Trivy。若貴組織用 Blackduck／Snyk，這兩步要換 ——
-   交付稽核的必須是**稽核認可的那個工具**的輸出
+   交付稽核的必須是**稽核認可的那個工具**的輸出。
+   **換工具時務必先驗這兩件事**（Trivy 兩件都中了，見 C33／C34）：
+
+   | 要驗什麼                              | Trivy 的情況                           |
+   | ------------------------------------- | -------------------------------------- |
+   | 會不會把 dev 相依整批抑制掉？         | **會**。預設抑制 → SBOM 0 個 component |
+   | 讀不讀得到多文件的 `pnpm-lock.yaml`？ | **讀不到**。只解第一份 → 只看到 19 個  |
+
+   驗法不必靠人記得：閘門裡的 `vpr supply-chain --verify-sbom` 會比對
+   SBOM 的 component 數與 lockfile 的套件數，任一種失明都會變紅。
+   **換工具時保留這道檢查，比換對工具更重要。**
 
 **12 — `platform-codemod` 標籤自動核准**要在 GitHub repo 設定裡開。
 沒有它，codemod 產生的機械性改動會卡在各團隊的 CODEOWNERS 核准上。
