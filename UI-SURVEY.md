@@ -203,7 +203,8 @@ exact `1.32.0`，而 `vite-plus-core` 要 `^1.33.0`，範圍不相交、無法�
 
 ```bash
 # 授權、發版活躍度、直接相依
-node tools/ui-survey/src/cli.ts --registry
+# 已移至 tools/supply-chain 並重新瞄準到實際相依（D16 / C45）
+node tools/supply-chain/src/cli.ts --capture-health
 
 # 執行期 <style> 注入探測
 node tools/ui-survey/src/cli.ts --csp

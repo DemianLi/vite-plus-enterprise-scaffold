@@ -7,6 +7,9 @@
     "supply-chain": "./src/cli.ts"
   },
   "type": "module",
+  "exports": {
+    "./health": "./src/health.ts"
+  },
   "scripts": {
     "test": "vp test",
     "check": "vp check"

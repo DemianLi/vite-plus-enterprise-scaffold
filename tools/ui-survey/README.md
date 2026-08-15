@@ -18,7 +18,9 @@ UI／樣式選型的市調工具。產出 [`UI-SURVEY.md`](../../UI-SURVEY.md) �
 ## 三個子命令
 
 ```bash
-node tools/ui-survey/src/cli.ts --registry   # 授權、發版活躍度、直接相依
+# 授權與發版活躍度已移至 tools/supply-chain（D16）——
+# 它掃的是**實際安裝的直接相依**，不是候選名單：
+node tools/supply-chain/src/cli.ts --capture-health
 node tools/ui-survey/src/cli.ts --csp        # 執行期 <style> 注入探測
 node tools/ui-survey/src/cli.ts --sca        # 供應鏈增量
 ```
