@@ -144,19 +144,23 @@ jobs:
           output: sbom.cdx.json
           scanners: license,vuln
 
+      # 上傳**排在檢查之前**，而且 if: always()。SBOM 有問題的時候正是最需要
+      # 拿到那份檔案的時候 —— 把上傳放在檢查後面，一失敗就沒有證據可看，
+      # 只能靠猜。（第一次就是這樣：檢查紅了，artifact 沒上傳，無從診斷。）
+      - name: 上傳 SBOM
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cdx.json
+          retention-days: 90
+
       # 產出不等於有內容。這一步比對 SBOM 的 component 數與 lockfile 的套件數 ——
       # 兩個獨立來源數同一份檔案，差太多就是有一邊瞎了。
       # 少了這道檢查，「掃描器看不到任何套件」會以綠燈的形式通過，
       # 而稽核收到的是一份看起來很正常的空 SBOM。
       - name: SBOM 完整性檢查
         run: node tools/supply-chain/src/cli.ts --verify-sbom sbom.cdx.json
-
-      - name: 上傳 SBOM
-        uses: actions/upload-artifact@v7
-        with:
-          name: sbom-cyclonedx
-          path: sbom.cdx.json
-          retention-days: 90
 
       # ── 相依性漏洞（D13 修補 SLA：critical 3 天／high 14 天）────────
       - name: SCA 漏洞掃描
