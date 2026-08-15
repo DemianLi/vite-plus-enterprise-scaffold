@@ -335,6 +335,82 @@ function checkBuildOnlyScope(): Failure[] {
   ];
 }
 
+/**
+ * SBOM 完整性檢查 —— `--verify-sbom <path>`，跑在 CI 產出 SBOM 之後。
+ *
+ * ── 為什麼需要這一條 ────────────────────────────────────────────────────
+ *
+ * 首次在 GitHub Actions 上實跑時，Tier 2 全綠、SBOM 上傳成功、SARIF 上傳成功，
+ * 而那份 SBOM 裡有 **0 個 component**。原因在 Trivy 的第二行 log：
+ *
+ *     INFO  Suppressing dependencies for development and testing.
+ *     INFO  Number of language-specific files  num=1
+ *
+ * 它讀到了 lockfile，然後把套件**全部當成 devDependency 抑制掉**。
+ * 對一般應用專案那是合理預設；對**腳手架**則是災難性的 —— 這個 repo 的
+ * 工具鏈本來就全是 dev 相依，而 R2／R3／R8 講的 121 個原生二進位正是它們。
+ *
+ * 後果不是「掃描漏了一些東西」，是 **D13 的修補 SLA 由一個掃描 0 個套件的
+ * 閘門把關，結構上永遠不可能變紅**。而且沒有任何一處會告訴你 ——
+ * 綠燈、成功上傳、稽核收到一份看起來很正常的空 SBOM。
+ *
+ * 修法有兩層：`--include-dev-deps` 修掉今天這個症狀；這支檢查修掉那**一整類**
+ * 問題 —— 任何讓掃描器看不到套件的原因（parser 不支援新版 lockfile 格式、
+ * 掃描路徑寫錯、工具換版改了預設值）都會在這裡變紅。
+ *
+ * 判準是「兩個獨立來源對同一份 lockfile 的計數不得差太多」：
+ * 本工具直接數 `pnpm-lock.yaml`，SBOM 由掃描器產生，兩邊差距過大就是有一邊瞎了。
+ */
+const SBOM_MIN_RATIO = 0.5;
+
+function checkSbom(sbomPath: string, inventory: Inventory): Failure[] {
+  if (!existsSync(sbomPath)) {
+    return [
+      {
+        title: `找不到 SBOM：${sbomPath}`,
+        detail: "掃描步驟沒有產出檔案。綠燈但沒有 SBOM，比紅燈更糟。",
+        fix: "檢查產出 SBOM 的步驟是否被跳過（前面的步驟失敗會讓它靜默跳過）",
+      },
+    ];
+  }
+
+  const sbom = JSON.parse(readFileSync(sbomPath, "utf8")) as {
+    components?: readonly unknown[];
+  };
+  const counted = sbom.components?.length ?? 0;
+  const expected = inventory.totals.packages;
+  const floor = Math.floor(expected * SBOM_MIN_RATIO);
+
+  if (counted === 0) {
+    return [
+      {
+        title: "SBOM 是空的 —— 掃描器一個套件都沒看到",
+        detail:
+          `lockfile 有 ${expected} 個套件，SBOM 有 0 個。\n` +
+          "    最常見的原因：掃描器把整個相依樹當成 devDependency 抑制掉了\n" +
+          "    （腳手架的工具鏈本來就全是 dev 相依）。實際發生過，見 C33。\n" +
+          "    **這代表漏洞掃描結果毫無意義，而它會回綠燈。**",
+        fix: "Trivy 加 --include-dev-deps（或 TRIVY_INCLUDE_DEV_DEPS=true）；其他工具找對應選項",
+      },
+    ];
+  }
+
+  if (counted < floor) {
+    return [
+      {
+        title: "SBOM 的套件數明顯少於 lockfile",
+        detail:
+          `lockfile ${expected} 個，SBOM 只有 ${counted} 個（低於 ${Math.round(SBOM_MIN_RATIO * 100)}% 門檻）。\n` +
+          "    兩個獨立來源數同一份 lockfile 不該差這麼多 —— 有一邊看不到東西。",
+        fix: "確認掃描器支援本專案的 lockfile 版本與格式，以及有沒有抑制某類相依",
+      },
+    ];
+  }
+
+  console.log(`✓ SBOM：${counted} 個 component（lockfile ${expected} 個，門檻 ${floor}）`);
+  return [];
+}
+
 function runGate(): number {
   const inventory = readInventory();
   const failures = [
@@ -844,6 +920,23 @@ async function main(): Promise<number> {
       `✓ inventory.json 已更新：${inventory.totals.packages} 個套件、${inventory.totals.native} 個原生二進位、${inventory.totals.families} 個家族`,
     );
     return 0;
+  }
+  const sbomFlag = args.indexOf("--verify-sbom");
+  if (sbomFlag >= 0) {
+    const path = args[sbomFlag + 1];
+    if (path === undefined) {
+      console.error("--verify-sbom 需要一個檔案路徑");
+      return 1;
+    }
+    const failures = checkSbom(resolve(path), readInventory());
+    if (failures.length === 0) return 0;
+    console.error("\nSBOM 檢查未通過：\n");
+    for (const failure of failures) {
+      console.error(`  ✗ ${failure.title}`);
+      console.error(`    ${failure.detail}`);
+      console.error(`    修法：${failure.fix}\n`);
+    }
+    return 1;
   }
   if (args.includes("--capture")) return runCapture();
   if (args.includes("--manifest")) return runManifest();

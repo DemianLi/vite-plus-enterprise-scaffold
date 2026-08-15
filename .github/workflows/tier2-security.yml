@@ -126,14 +126,30 @@ jobs:
       # 選 Trivy 是因為它原生讀 pnpm-lock.yaml 並能輸出 CycloneDX。
       # ⚠️ 若貴組織的 SCA 是 Blackduck／Snyk，這兩步要換成對應工具 ——
       # 交付給稽核的必須是稽核認可的那個工具的輸出。
+      #
+      # ⚠️⚠️ TRIVY_INCLUDE_DEV_DEPS 是**必要的，不是調校**。少了它，Trivy 會印一行
+      # 「Suppressing dependencies for development and testing」然後產出一份
+      # **0 個 component** 的 SBOM —— 而整個 job 仍然全綠。
+      # 這個 repo 是腳手架：工具鏈（含 R2 那 121 個原生二進位）全都是 dev 相依，
+      # 抑制掉它們等於什麼都沒掃。實際發生過，見 DECISIONS.md 的 C33。
+      # 換掉 Trivy 時，對應工具也要找到等效選項，並保留下面那道 SBOM 檢查。
       - name: 產出 SBOM（CycloneDX）
         uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_INCLUDE_DEV_DEPS: "true"
         with:
           scan-type: fs
           scan-ref: .
           format: cyclonedx
           output: sbom.cdx.json
           scanners: license,vuln
+
+      # 產出不等於有內容。這一步比對 SBOM 的 component 數與 lockfile 的套件數 ——
+      # 兩個獨立來源數同一份檔案，差太多就是有一邊瞎了。
+      # 少了這道檢查，「掃描器看不到任何套件」會以綠燈的形式通過，
+      # 而稽核收到的是一份看起來很正常的空 SBOM。
+      - name: SBOM 完整性檢查
+        run: node tools/supply-chain/src/cli.ts --verify-sbom sbom.cdx.json
 
       - name: 上傳 SBOM
         uses: actions/upload-artifact@v7
@@ -145,6 +161,10 @@ jobs:
       # ── 相依性漏洞（D13 修補 SLA：critical 3 天／high 14 天）────────
       - name: SCA 漏洞掃描
         uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          # 同上：少了這行，這道閘門掃 0 個套件、永遠回綠燈，
+          # 而 D13 的「critical 3 天／high 14 天」SLA 就是靠它把關的。
+          TRIVY_INCLUDE_DEV_DEPS: "true"
         with:
           scan-type: fs
           scan-ref: .
