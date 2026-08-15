@@ -16,6 +16,7 @@
     "ready": "vp check && vp run -r test && vp run -r build && vpr gate",
     "api-surface": "node tools/api-surface/src/cli.ts",
     "supply-chain": "node tools/supply-chain/src/cli.ts",
+    "capture-health": "node tools/supply-chain/src/cli.ts --capture-health",
     "sca-dossier": "node tools/supply-chain/src/cli.ts --dossier",
     "mirror-manifest": "node tools/supply-chain/src/cli.ts --manifest",
     "airgap": "node tools/supply-chain/src/cli.ts --airgap",

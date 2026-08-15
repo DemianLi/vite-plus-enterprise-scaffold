@@ -93,12 +93,3 @@ export const SCA_SCENARIOS: readonly { readonly label: string; readonly add: rea
     },
     { label: "vuetify", add: ["vuetify@^4.1.9"] },
   ];
-
-/** 常見的寬鬆授權。不在這份清單上的都會被標出來給法務看，包含「沒有宣告」。 */
-export const COMMON_LICENSES: readonly string[] = [
-  "MIT",
-  "ISC",
-  "Apache-2.0",
-  "BSD-3-Clause",
-  "BSD-2-Clause",
-];

@@ -4,8 +4,11 @@ import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+// 授權判定的單一事實來源在 tools/supply-chain —— 它同時被閘門用來看**實際安裝的**
+// 相依（D16 / C45）。這裡不再自己留一份，兩份清單一定會漂。
+import { licenseNeedsReview } from "@org/supply-chain/health";
+
 import { CANDIDATES, SCA_BASELINE, SCA_SCENARIOS } from "./candidates.ts";
-import { licenseNeedsReview, looksUnmaintained, parseRegistry } from "./registry.ts";
 import { assessCsp, VERDICT_LABEL, type CspProbe } from "./csp.ts";
 
 /**
@@ -21,9 +24,8 @@ import { assessCsp, VERDICT_LABEL, type CspProbe } from "./csp.ts";
  * 而且這些數字**會過期**：授權會變（PrimeVue 就在 2026-06-28 變了）、
  * 專案會停止維護、供應鏈成本會隨版本改變。重新評估時重跑，不要重讀。
  *
- * ── 三個子命令 ──────────────────────────────────────────────────────
+ * ── 兩個子命令 ──────────────────────────────────────────────────────
  *
- *   --registry  授權、發版活躍度、直接相依（讀 npm registry）
  *   --csp       下載 tarball，找執行期 <style> 注入（本 repo 的決勝軸）
  *   --sca       lockfile-only 解析，算出各方案的供應鏈增量
  *
@@ -45,56 +47,6 @@ function fetchJson(url: string): unknown {
 function registryUrl(name: string): string {
   return `${NPM_REGISTRY}/${name.replace("/", "%2F")}`;
 }
-
-// ── --registry ────────────────────────────────────────────────────────
-
-function runRegistry(): number {
-  console.log("\n── 授權與維護狀態（只計穩定版）──\n");
-  let flagged = 0;
-
-  for (const candidate of CANDIDATES) {
-    let facts;
-    try {
-      facts = parseRegistry(fetchJson(registryUrl(candidate.name)), Date.now());
-    } catch (error) {
-      console.log(`  ${candidate.name.padEnd(18)} 取數失敗：${(error as Error).message}`);
-      continue;
-    }
-    if (facts === null) {
-      console.log(`  ${candidate.name.padEnd(18)} registry 文件缺少必要欄位`);
-      continue;
-    }
-
-    const marks: string[] = [];
-    if (licenseNeedsReview(facts.license)) {
-      marks.push("授權需人工確認");
-      flagged += 1;
-    }
-    if (looksUnmaintained(facts)) {
-      marks.push("12 個月零穩定版");
-      flagged += 1;
-    }
-
-    console.log(
-      `  ${facts.name.padEnd(18)} ${facts.latest.padEnd(10)} ${facts.license.padEnd(28)}` +
-        ` ${String(facts.stableReleasesPerYear).padStart(3)} 版/年` +
-        `  最後 ${facts.lastStableAt}` +
-        `  ${String(facts.directDependencies).padStart(3)} deps` +
-        `  ${facts.unpackedMB.padStart(6)} MB` +
-        (marks.length > 0 ? `  ⚠️ ${marks.join("、")}` : ""),
-    );
-    if (candidate.eliminated !== undefined) console.log(`      淘汰：${candidate.eliminated}`);
-  }
-
-  console.log(
-    `\n  ${flagged} 項需要人看。「授權需人工確認」不等於不能用 —— ` +
-      "它的意思是**去把實際發佈的 tarball 裡那份讀出來**，\n" +
-      "  因為 registry 欄位與 GitHub 上的 LICENSE 都可能與實際發佈的內容不一致（PrimeVue 即是）。\n",
-  );
-  return 0;
-}
-
-// ── --csp ─────────────────────────────────────────────────────────────
 
 function collect(dir: string, test: (path: string) => boolean, found: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -271,13 +223,11 @@ function runSca(): number {
 
 function main(): number {
   const args = process.argv.slice(2);
-  if (args.includes("--registry")) return runRegistry();
   if (args.includes("--csp")) return runCsp();
   if (args.includes("--sca")) return runSca();
 
   console.log(
     "用法（全部需要公網，刻意不進 gate）：\n" +
-      "  node tools/ui-survey/src/cli.ts --registry   授權與維護狀態\n" +
       "  node tools/ui-survey/src/cli.ts --csp        執行期 <style> 注入探測\n" +
       "  node tools/ui-survey/src/cli.ts --sca        供應鏈增量\n\n" +
       "調查結論見 UI-SURVEY.md，決策見 DECISIONS.md 的 D15。\n" +
