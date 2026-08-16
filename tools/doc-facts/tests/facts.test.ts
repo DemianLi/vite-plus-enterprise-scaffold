@@ -158,6 +158,30 @@ describe("★ 新登記的樣式不得誤判鄰近的句子", () => {
     });
   }
 
+  it("🔴 第 23 項裡講「修好之前」的那兩句**不得**被 action-refs 守著", () => {
+    /**
+     * 同一個數字（17）在第 23 項出現三次，但只有一次講的是現況。
+     * 另外兩句 —— 摘要表那條刪除線、以及問題陳述裡列著 `@v7` 範例的那句 ——
+     * 描述的是**修好之前**的狀態。
+     *
+     * 加第 18 個引用時，那兩句不會變成錯的；把它們改成 18 才會。
+     * 那是「守它等於要求改寫歷史」，與 DECISIONS.md 不進守備範圍同一條理由。
+     *
+     * 這條與下一條是同一種判斷的兩個形狀：那邊是「數字推導不出來」，
+     * 這邊是「句子講的是過去式」。兩種都會讓閘門變成在要求人改寫事實。
+     */
+    const fact = FACTS.find((candidate) => candidate.id === "action-refs") as Fact;
+    const past = [
+      "| 23  | 平台（CI）   | ~~17 處引用全用可移動的標籤~~ **已全部釘 SHA ＋ 加閘門（2026-08-16）**",
+      "**修好之前，17 處引用全部以標籤釘住**：`actions/checkout@v7`、`actions/setup-node@v7`、",
+    ];
+    for (const line of past) {
+      for (const citation of fact.citations) {
+        expect(citation.exec(line), `誤守過去式：${line.slice(0, 30)}`).toBeNull();
+      }
+    }
+  });
+
   it("🔴 CODEOWNERS 的「22 條 Unknown owner」**不得**被當成條目數守著", () => {
     /**
      * 這是這一輪最重要的一格，也是它被降級的理由。
