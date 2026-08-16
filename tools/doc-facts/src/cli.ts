@@ -82,7 +82,7 @@ function main(): number {
   for (const problem of problems) console.error(`  [${problem.kind}] ${problem.detail}`);
   console.error(
     "\n  這些數字是拿去跟採購與資安講的話。每次相依變動它們就會變，\n" +
-      "  而這個 repo 在「人抄下來的數字沒有人再推導一次」上已經栽了七次。\n" +
+      "  而這個 repo 在「人抄下來的數字沒有人再推導一次」上一再栽跟頭。\n" +
       "  請把上列位置改成推導出來的值；句子被改寫的話，同步更新 src/facts.ts 的樣式。",
   );
   return 1;

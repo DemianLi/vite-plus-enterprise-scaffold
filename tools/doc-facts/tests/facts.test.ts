@@ -11,7 +11,7 @@ import { FACTS, checkFacts, handoffItemCount, type Fact } from "../src/facts.ts"
  *
  * 這道閘門判錯的兩個方向都會讓它失效，而且方式相反：
  *
- *   - 漏報：數字過期而沒人發現 —— 那正是它存在的理由，已經栽了七次
+ *   - 漏報：數字過期而沒人發現 —— 那正是它存在的理由，已經栽過不只一次
  *   - 誤報：對著子集的數字亂叫（HANDOFF 有「8 個原生二進位」是授權實測的那一批）
  *     於是有人把它從 workflow 拿掉
  *
