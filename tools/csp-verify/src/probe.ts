@@ -1,4 +1,13 @@
-import { INJECTED_STYLE_COLOR, STYLE_ATTRIBUTE_COLOR } from "./evidence.ts";
+/**
+ * 兩個探針用的顏色。**故意是任何設計系統都不會用的值** ——
+ * 若期望顏色剛好等於元素本來的顏色，「沒有變化」與「注入被擋」會長得一樣，
+ * 而探針會在什麼都沒發生的情況下報成功。
+ *
+ * ⚠️ 原本住在 evidence.ts，與判定函式共用同一組常數。那個檔案隨
+ * --verify 一起移除了（見 C52），所以搬過來 —— 現在沒有第二處引用它們。
+ */
+const INJECTED_STYLE_COLOR = "rgb(1, 2, 3)";
+const STYLE_ATTRIBUTE_COLOR = "rgb(4, 5, 6)";
 
 /**
  * 貼進瀏覽器 console 跑的探針腳本。

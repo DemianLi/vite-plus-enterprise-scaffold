@@ -26,7 +26,6 @@ function makeFeature(overrides: Partial<Feature> = {}): Feature {
     menu: [{ labelKey: "order.title", routeName: "order/list" }],
     // §11 II ⑨ 的宣告是必填的。它在這裡出現，本身就是那條規則的證據：
     // 少了它就是型別錯誤，而不是一個靜靜通過的預設值。
-    personalData: [],
     ...overrides,
   };
 }
@@ -100,7 +99,6 @@ describe("registerFeatures 組裝", () => {
     permissions: ["billing:read"],
     i18n: { "zh-TW": { billing: { title: "帳務" } } },
     menu: [{ labelKey: "billing.title", routeName: "billing/list", order: 5 }],
-    personalData: [],
   });
 
   it("合併多個切片的路由", () => {

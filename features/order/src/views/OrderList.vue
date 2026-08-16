@@ -70,10 +70,9 @@ const currency = new Intl.NumberFormat("zh-TW", {
         <tr v-for="order in orders" :key="order.id">
           <td>{{ order.id }}</td>
           <!--
-            §11 II ⑨ —— 客戶姓名在列表上一律隱碼。
-            這條規則防的是內部人員（客服、營運）在日常作業畫面上看到完整個資，
-            不是防使用者看自己的資料。宣告在 src/index.ts 的 personalData，
-            由 tools/pii-check --masking 靜態驗證、由元件測試證明真的沒渲染出去。
+            客戶姓名在列表上隱碼。防的是內部人員（客服、營運）在日常作業畫面上
+            看到完整個資，不是防使用者看自己的資料。
+            ⚠️ 強制它的靜態閘門已移除（C52）—— 這裡是**慣例，不是機制**。
           -->
           <td>{{ maskName(order.customerName) }}</td>
           <td>{{ currency.format(order.totalCents / 100) }}</td>

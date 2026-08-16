@@ -14,11 +14,6 @@ export default defineFeature({
   routes,
 
   permissions: ["shipment:read"],
-
-  // §11 II ⑨ —— 空陣列是一個**答案**，不是一個省略。
-  // 出貨單目前只呈現單號（識別的是貨不是人）。哪天加上收件人姓名或地址，
-  // 就要寫進這裡，而 tools/pii-check 會接著要求那些欄位走隱碼。
-  personalData: [],
   i18n: {
     "zh-TW": {
       shipment: {

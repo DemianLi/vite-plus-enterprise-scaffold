@@ -4,8 +4,6 @@ import { mount } from "@vue/test-utils";
 import { defineComponent, h } from "vue";
 import { maskName } from "@org/pii";
 
-import feature from "../src/index.ts";
-
 /**
  * §11 II ⑨ 的**執行期層**：宣告為個資的欄位，渲染出來真的看不到完整值。
  *
@@ -22,7 +20,9 @@ import feature from "../src/index.ts";
  * 「林○○」與「林佳蓉」可以同時出現在畫面上（例如列表遮了、明細沒遮）。
  *
  * 真正該斷言的是**完整值在整份 HTML 裡不存在**。
- * 這是 #5 那個洞的同一課：檢查要重新推導觀測，不是讀一份宣告。
+ *
+ * ⚠️ 靜態層（`pii-check --masking`）已移除（C52）—— 現在**沒有東西**保證
+ * 新加的欄位會走遮罩，這支測試只涵蓋它自己掛的那個元件。
  */
 
 /** 刻意不用示範資料裡的名字：測試不該依賴另一個檔案的內容。 */
@@ -85,17 +85,5 @@ describe("渲染結果裡找不到完整姓名", () => {
     const wrapper = mount(OrderRow, { props: { customerName: LATIN_NAME } });
     expect(wrapper.html()).not.toContain(LATIN_NAME);
     expect(wrapper.html()).not.toContain("Nakamura");
-  });
-});
-
-describe("切片的宣告與實作對得上", () => {
-  it("order 宣告了 customerName 是個資", () => {
-    expect(feature.personalData).toContain("customerName");
-  });
-
-  it("★ personalData 是必填的 —— 空陣列是答案，沒寫不是", () => {
-    // 型別已經擋住「沒寫」，這條釘住的是它**確實是型別的一部分**：
-    // 哪天有人把它改成選填，這裡會紅。
-    expect(Array.isArray(feature.personalData)).toBe(true);
   });
 });

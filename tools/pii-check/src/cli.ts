@@ -4,19 +4,22 @@ import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { scanRepo } from "./scan.ts";
-import { checkSlice, maskingProblems, parsePersonalData, type SliceMasking } from "./masking.ts";
 
 /**
- * 個資的兩條現行義務，兩條在此之前都是零覆蓋。
+ * §11 II ⑥ —— 測試環境不得使用真實個人資料。
  *
  * 用法：
- *   node tools/pii-check/src/cli.ts             §11 II ⑥ 測試環境不得用真個資
- *   node tools/pii-check/src/cli.ts --masking   §11 II ⑨ 畫面上的個資必須隱碼
+ *   node tools/pii-check/src/cli.ts             掃描並在有發現時回傳非零
  *   node tools/pii-check/src/cli.ts --root DIR  掃另一個目錄（反向測試用）
  *
- * 偵測範圍與它的邊界寫在 `src/detect.ts` 與 `src/masking.ts` 的檔頭。
- * 簡短版：⑥ **抓得到有校驗碼的識別碼，抓不到姓名**；
- * ⑨ 這裡只是靜態層，執行期那一層是切片自己的元件測試。
+ * 偵測範圍與它的邊界寫在 `src/detect.ts` 的檔頭 ——
+ * 簡短版：**抓得到有校驗碼的識別碼，抓不到姓名。**
+ *
+ * ⚠️ 曾經還有一個 `--masking` 模式守 §11 II ⑨（宣告為個資的欄位必須隱碼）。
+ * 已移除 —— 它要求每個新切片宣告 `personalData`、而宣告的欄位在 `.vue` 裡
+ * 必須包 `maskXxx()`，那是加一個切片時最重的一道摩擦。
+ * `platform/pii` 的遮罩函式仍然在、`OrderList.vue` 也仍然呼叫它 ——
+ * **遮罩還在，只是沒有機制強制。**（見 DECISIONS 的 C52）
  */
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
@@ -52,64 +55,6 @@ function parseRoot(argv: readonly string[]): string {
   return resolve(value);
 }
 
-/** 每個切片的 `.vue` 檔案，key 是 repo 相對路徑（訊息要指得出是哪一個檔）。 */
-function templatesOf(root: string, slice: string): Map<string, string> {
-  const directory = join(root, "features", slice, "src");
-  const templates = new Map<string, string>();
-  for (const path of listFiles(directory)) {
-    if (!path.endsWith(".vue")) continue;
-    templates.set(relative(root, path), readFileSync(path, "utf8"));
-  }
-  return templates;
-}
-
-function runMasking(root: string): number {
-  const slices = readdirSync(join(root, "features")).filter((entry) =>
-    statSync(join(root, "features", entry)).isDirectory(),
-  );
-
-  const results: SliceMasking[] = [];
-  const undeclared: string[] = [];
-
-  for (const slice of slices) {
-    const index = join(root, "features", slice, "src/index.ts");
-    const declared = parsePersonalData(readFileSync(index, "utf8"));
-    if (declared === null) {
-      undeclared.push(relative(root, index));
-      continue;
-    }
-    results.push(checkSlice(slice, declared, templatesOf(root, slice)));
-  }
-
-  const problems = [
-    ...undeclared.map((file) => ({
-      kind: "not-declared" as const,
-      detail:
-        `${file} 讀不到字面的 personalData 陣列。\n` +
-        "      它是必填的：`personalData: []` 是一個答案，沒寫則代表沒有人想過這件事。\n" +
-        "      而且必須是字面陣列 —— 算出來的宣告，review 看不出這個切片碰了哪些個資。",
-    })),
-    ...maskingProblems(results),
-  ];
-
-  const fields = results.reduce((total, result) => total + result.declared.length, 0);
-  const templates = results.reduce((total, result) => total + result.templatesExamined, 0);
-
-  if (problems.length === 0) {
-    console.log(
-      "✓ 宣告為個資的欄位在畫面上都走了隱碼\n" +
-        `  ${results.length} 個切片、${fields} 個宣告欄位、${templates} 個模板。\n` +
-        "  ⚠️ 這是靜態層：它證明原始碼裡寫了 mask，不證明渲染結果真的被遮住。\n" +
-        "     後者由切片自己的元件測試證明（features/*/tests）。",
-    );
-    return 0;
-  }
-
-  console.error(`✗ §11 II ⑨ 檢查未通過：${problems.length} 項\n`);
-  for (const problem of problems) console.error(`  [${problem.kind}] ${problem.detail}`);
-  return 1;
-}
-
 function runScan(root: string): number {
   const files = listFiles(root).map((path) => relative(root, path));
   const report = scanRepo(files, (path) => readFileSync(join(root, path), "utf8"));
@@ -135,8 +80,4 @@ function runScan(root: string): number {
   return 1;
 }
 
-const ROOT_ARG = parseRoot(process.argv.slice(2));
-if (process.argv.slice(2).includes("--masking")) {
-  process.exit(runMasking(ROOT_ARG));
-}
-process.exit(runScan(ROOT_ARG));
+process.exit(runScan(parseRoot(process.argv.slice(2))));
