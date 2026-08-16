@@ -2,6 +2,7 @@
   "name": "@org/monorepo",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vp run console#dev",
