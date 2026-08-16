@@ -29,6 +29,15 @@ export interface SampleOptions {
   readonly tags: readonly string[];
 }
 
+/**
+ * 字面值聯集。**這一條是 2026-08-17 加的，補的是一個真的漏了的形狀。**
+ *
+ * 它的每個成員都是 string，於是 `getPropertiesOfType` 會回傳整套
+ * `String.prototype` —— 修掉之前 `@org/ui#UiVariant` 就是這樣記成 123 行的
+ * `charAt`／`blink`／`fontcolor`，而 union 本身一個字都沒有記到。
+ */
+export type SampleMode = "read" | "write";
+
 export interface SampleTable {
   readonly [key: string]: number;
 }

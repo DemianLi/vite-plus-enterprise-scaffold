@@ -5,10 +5,12 @@ import { createI18n } from "vue-i18n";
 import { VueQueryPlugin } from "@tanstack/vue-query";
 import { registerFeatures } from "@org/slice-kit";
 import { config } from "@org/config";
+import { createUiTheme } from "@org/ui";
 
-// D15 —— 設計系統的樣式入口。必須在應用自己的樣式之前載入，
-// 否則 Tailwind 的 base reset 會蓋掉元件的樣式而不是被它覆蓋。
-import "@org/ui/styles.css";
+// 這個案子的樣式入口。它自己第一行才是 `@import "@org/ui/styles.css"` ——
+// D15 的基礎版型仍然先載入（Tailwind 的 base reset 必須在元件樣式之前），
+// 差別是各案的代幣覆寫現在有地方可放，不必去改 platform/ui（HANDOFF #24）。
+import "./styles.css";
 
 import App from "./App.vue";
 import { features } from "./features.ts";
@@ -77,10 +79,35 @@ const i18n = createI18n({
 
 document.title = config.appTitle;
 
+/**
+ * 元件形狀的覆寫（HANDOFF #24 的第二條軸）。
+ *
+ * 代幣換得掉值，換不掉**組合** —— 這個案子的預設按鈕不要外框，改成淺底色。
+ * 那不是任何一個代幣，它是 `VARIANTS.secondary` 那一整條字串。
+ *
+ * ⚠️ 類別字串必須寫在 `.ts` 或 `.vue` 裡。`platform/ui` 的 `@source` 只掃這兩種
+ * 副檔名，搬進 JSON 或環境變數的話 Tailwind **掃不到、也不會報錯**，
+ * 產出的 CSS 少掉這些類別而建置全綠。同樣是示範，開新案子時照需求改。
+ *
+ * ⚠️ **這個示範刻意保留了外框。** 第一版寫的是
+ * `"bg-surface-hover text-fg hover:bg-surface-ghost-hover"` —— 拿掉
+ * `border-control border-line`，用一層很淡的底色當邊界。那在**文字**對比上
+ * 沒問題，但元件的**邊界**對比只有約 1.05:1，而 WCAG 1.4.11（非文字對比）
+ * 要求 3:1。
+ *
+ * 那正是 HANDOFF #22 點名「靜態閘門看不見」的四個行為面缺口之一 ——
+ * 也就是說沒有任何東西會為此變紅。而這份 app 是每個案子 fork 的起點，
+ * 一個示範用的覆寫不該順便示範一個無障礙缺陷。
+ */
+const uiTheme = createUiTheme({
+  variants: { secondary: "border-control border-accent bg-surface text-fg hover:bg-surface-hover" },
+});
+
 createApp(App)
   .use(createPinia())
   .use(router)
   .use(i18n)
   .use(VueQueryPlugin)
+  .use(uiTheme)
   .provide("features", registered)
   .mount("#app");

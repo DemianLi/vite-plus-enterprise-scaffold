@@ -3860,6 +3860,175 @@ package.json（A1），所以它跑在**每次 PR**。
 
 ---
 
+### C65 — 設計系統的接縫：三條軸做了兩條，而做的過程撞出三個既有的洞（2026-08-17）
+
+HANDOFF #24 要兌現的是 C62 那句產品要求 ——「一套基礎版型，各案可以換
+**配色**或 **component 形狀**或**互動方式**」。#24 量到的起點是三條軸裡
+只有一條有接縫，而它覆蓋三分之一。
+
+這一輪做完前兩條。**第三條刻意沒做**，理由在第七節。
+
+#### 一、代幣分兩層，而且那個間接是活的
+
+```css
+--color-brand-600: oklch(…); /* 色票：純粹的顏色，不帶用途 */
+--color-accent: var(--color-brand-600); /* 語意：用途，值指向色票 */
+```
+
+實測（2026-08-17）：**Tailwind 把 `var(--color-brand-600)` 原樣寫進 `:root`，
+不在建置期求值。** 於是 app 端只覆寫色票時，所有指向它的語意代幣跟著變。
+
+這給各案兩種粒度：換整套品牌就覆寫色票，只換一個用途就覆寫語意。
+少了這一層，各案只能一格一格追 —— 那正是 #24 量到的狀態。
+
+順帶量到的三件事，都影響了寫法：
+
+- `--radius-control` 生成 `rounded-control`，`--color-muted` 生成 `text-muted`。
+  **所有命名空間都一樣**（`--shadow-*`／`--font-weight-*`／`--border-width-*`／
+  `--spacing-*` 全試過）。所以 `rounded-(--radius-control)` 與
+  `text-(--color-muted)` 那種寫法是不一致，不是必要 —— 兩處都改掉了。
+- 語意層可以引用 Tailwind 的**內建**色階（`var(--color-gray-900)`），
+  而且 Tailwind 會把被引用到的內建色階一起寫進 `:root`。所以這次轉換
+  **不改變任何一個像素**：元件本來就用 `gray-900`，現在只是多繞一層名字。
+- 唯一刻意改變的畫面：danger 的 hover 從 `brightness-95` 改成
+  `--color-danger-hover`。濾鏡是**衍生**而不是宣告 —— 深色底時它會往錯的
+  方向走，而且各案換不掉。三種 hover 策略（代幣／調色盤／濾鏡）收斂成一種。
+
+#### 二、`text-white` 是這裡最容易漏掉的一格
+
+它不長得像調色盤，所以看起來不像缺口。但各案把 `--color-accent` 換成
+淺色時，primary 按鈕上那行白字**會直接消失**，而沒有任何閘門會說話。
+
+所以它不是 `--color-white` 的別名，而是 `--color-on-accent`／`--color-on-danger`：
+有了這個名字，換色的人才知道還有一格要換。
+
+同一節的另外兩個命名判斷：
+
+- `bg-black/40` → `bg-overlay/40`。**色相在代幣、不透明度留在元件** ——
+  `--color-overlay-40` 那種代幣會讓每換一次濃淡就多一格。
+- ghost 的 hover 底色叫 `--color-surface-ghost-hover`，**刻意帶 variant 的名字**。
+  它與 `--color-surface-hover` 是不同的值（ghost 沒有邊框，需要更強的對比），
+  而取一個假的語意名（"subtle"？"wash"？）只會讓換的人猜錯。
+
+#### 三、尺寸刻意不代幣化
+
+`h-8 px-3 text-sm` 留成內建 spacing。判準是 C62 那句話裡的分界：
+「一套基礎的**版型**」要集中，「配色／形狀／互動」才是各案要換的。
+
+代幣化高度與內距會長出 `--spacing-control-sm-padding` 這種名字，
+而真正想換尺寸的案子要換的是**整條規則**，不是其中一個數字。
+那條路由 `createUiTheme({ sizes })` 提供 —— 這是 D16 的兩軸判準。
+
+#### 四、擴充點只能替換，不能新增，而那個限制有代價
+
+`createUiTheme({ variants: { secondary: "…" } })` 整條替換一個 variant 的
+class 字串。**不開放新增 variant 名稱**：`variant` 是 prop 型別，
+開放任意字串等於讓打錯字靜靜退回預設樣式。
+
+⚠️ 代價要寫清楚：真的要第五個 variant 就是 `platform/ui` 的 PR，
+而 `api-surface` 會把它判成**破壞性變更**。那不是誤判 —— 下游只要有自己的
+`Record<UiVariant, …>`（`VARIANTS` 就是一張）或窮舉的 `switch`，
+加一個成員他們當場編不過。判準只有一條：下游會不會編不過。
+
+⚠️ 另一條寫進 `theme.ts` 檔頭的限制：**覆寫的 class 字串必須寫在 `.ts` 或
+`.vue` 裡**。`@source` 只掃這兩種副檔名，搬進 JSON 或環境變數的話
+Tailwind 掃不到、**也不會報錯**。所以那個介面收的是字串字面值，
+不是「可以從任何地方載入的設定」。
+
+#### 五、閘門必須真的建置，而它自己成了自己要量的東西
+
+`tools/theme-verify` 兩半：靜態（元件不准出現原始顏色）＋建置（同一份
+fixture 建兩次，比對兩份 CSS）。
+
+建置那一半非做不可，因為 Tailwind 的失敗模式是**建置成功、CSS 甚至變大、
+但裡面什麼都沒有**。而比對的必須是**解析後**的值：`--color-accent` 的宣告
+文字在覆寫前後一個字都不會變。
+
+⚠️ 這支工具在自己身上踩了兩次同一個坑：
+
+第一版把要檢查的選擇器寫死在 `cli.ts`。`@source` 掃 `.ts`，**而 Tailwind
+連註解一起掃** —— 於是那幾條規則被這支工具自己的原始碼餵活了。
+實測：把元件裡的用法整條刪掉，檢查照樣全綠。
+
+改寫時留下一句「不要把選擇器寫死在這裡」的**警告**，而那句警告裡就寫著
+那個選擇器。**警告的那句話讓它警告的事情發生了。**
+
+現在候選先用元件的實際用法濾一遍。六條斷言裡五條實測會紅，逐條列在
+`tools/theme-verify/README.md`。
+
+#### 六、C55 的乾跑：15 → 0，而 #24 記的 16 也是對的
+
+先量再接閘門。轉換前 15 處原始顏色（`UiButton` 12、`UiDialog` 3），
+轉換後 0。#24 記的是「16 處顏色宣告」—— 兩個數字都對：那 16 處裡有 1 處
+（`text-(--color-muted)`）當時已經是語意層，不算違規。**15 ＝ 16 − 1。**
+
+#### 七、為什麼互動那條軸留著
+
+它要動的是 `tools/api-surface/src/shape.ts` 的 `SFC_UNSUPPORTED` ——
+不同的工具、不同的爆炸半徑、自己的反向測試。#24 警告的是**宣稱**接縫完整，
+不是分兩次交付。所以：#24 仍然開著，三軸表裡互動仍然是 ❌，
+`theme-verify` 的綠燈訊息與 README 都明寫「第三條不在這裡」。
+
+#### 八、做的過程撞出三個既有的洞
+
+**（a）`platform/ui` 沒有宣告 `tailwindcss`，一路靠 app 剛好有。**
+`src/styles/index.css` 寫著 `@import "tailwindcss"`，而那個解析發生在
+`platform/ui/src/styles/` —— 在 `apps/console` 的建置裡成立，換一個
+消費者就不成立。conformance 的幽靈依賴檢查**只看 JS/TS 的 import**，
+CSS 的 `@import` 完全在範圍外。已補上 peer ＋ dev 宣告；那條檢查的
+CSS 盲區記在 HANDOFF #26。
+
+**（b）`api-surface` 把字面值聯集展開成 `String.prototype`。**
+`type UiVariant = "primary" | …` 的每個成員都是 string，於是
+`getPropertiesOfType` 回傳整套 String 方法 —— 記錄下來的是 **123 行的
+`charAt`／`blink`／`fontcolor`，而 union 本身一個字都沒有記到**。
+
+也就是說那道守衛是裝飾品：把 `"primary" | "secondary"` 改成 `"primary"`，
+記錄下來的形狀**完全一樣**。與 `.vue` 的 shim 同一種瞎法，只是這次發生在
+一個**看起來已經記了很多東西**的條目上 —— 123 行的成員清單讓它比真正
+有守的條目更像有守。
+
+修法是一行判斷：非物件型別在展開成員**之前**攔下來，改印聯集成員。
+這條界線在同一份檔案裡已經寫過兩次（`walkNamedTypes`、`carriesSignatures`
+都寫著「字面量與陣列往下走會撞到 String / Array 自己的方法」），只有
+`typeShape` 漏了。修完之後既有條目**零變動**，而拿掉一個 union 成員從
+「毫無反應」變成「破壞性變更」。fixture 加了一個字面值聯集，三條測試釘住。
+
+> ⚠️ 中途還踩了一次：第一版改成 `typeToString(declared)`，而那對帶 aliasSymbol
+> 的型別回傳的是**別名的名字**（`{"kind":"type","type":"UiVariant"}`）——
+> 一個把自己的名字當成自己形狀的條目。改名抓得到，改內容抓不到。
+
+**（c）`vp check` 不對 `.vue` 做型別檢查。**
+發現方式是想用型別層的等式（`Exact<typeof props.variant, UiVariant>`）把
+兩份 union 釘在一起，而它**什麼都沒檢查**。實測：
+`const broken: number = "顯然是字串"` 放在 `.vue` 裡是 **0 errors**，
+同一行放在 `.ts` 裡是 **1 error**。
+
+於是 6 個 `.vue`（含 `platform/ui` 全部元件與應用外殼）**沒有任何型別檢查
+在跑**，`api-surface` 抽 props 形狀是唯一看得到它們的東西 —— 而那支工具
+存在的理由，正是 `declare module "*.vue"` 讓 checker 看不見元件。
+兩件事是同一個根。這一項超出 #24 的範圍（要接 vue-tsc，而它與 TS 7 ／
+tsgolint 的關係要自己查一遍），記成 HANDOFF #26。
+
+改用**讀原始碼比對**的測試：`defineProps` 的字面值、`UiVariant`、`VARIANTS`
+的鍵三份必須一致，任何一邊多或少一個成員都紅（實測過）。
+
+> 而 `defineProps` 保持字面值、不用別名，本身也是一個決定：換成別名之後
+> `api-surface` 的基準檔會退化成 `選填 UiVariant`，**union 少一個成員就
+> 看不見了**。拿「少寫一次」換一道變弱的閘門是不划算的。
+
+#### 九、順帶：本 repo 的 SAST 在自己身上開了三槍，三槍都是對的
+
+`palette.ts` 第一版把三個色階清單 `join("|")` 拼進 `new RegExp`，
+吃到 `detect-non-literal-regexp` ×3 與 `detect-unsafe-regex` ×1；
+`css.ts` 的 `var()` 解析吃到 `detect-unsafe-regex`。
+
+沒有加豁免。前者改成切詞＋查表（類別名稱的結構本來就是固定的，
+不需要正則），後者把 fallback 的拆解移出正則。
+**一道跑在 CI 上的檢查掛在自己的正則上，是最難解釋的那種故障。**
+
+---
+
 ## 實作順序
 
 依賴關係決定順序，不是重要性。

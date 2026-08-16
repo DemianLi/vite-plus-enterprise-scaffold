@@ -590,6 +590,70 @@ describe("這些重構不該讓形狀漂移", () => {
     expect(result.output).not.toContain("破壞性變更");
   });
 
+  it("🔴 字面值聯集少一個成員 → 破壞性", () => {
+    /**
+     * ⚠️ **修掉之前，這個改動是完全看不見的。**
+     *
+     * `type SampleMode = "read" | "write"` 的每個成員都是 string，於是
+     * `getPropertiesOfType` 回傳整套 `String.prototype`。實測：`@org/ui` 的
+     * `UiVariant` 被記成 123 行的 `charAt`／`blink`／`fontcolor`，
+     * 而 union 本身一個字都沒有記到 —— 拿掉 `"ghost"`，形狀字串完全一樣。
+     *
+     * 那正是這支工具在 `.vue` 的 shim 上踩過的同一種瞎法，只是這次發生在
+     * 一個**看起來已經記了很多東西**的條目上：123 行的成員清單讓它
+     * 比真正有守的條目更像有守。
+     */
+    const result = runFixture((source) =>
+      source.replace(
+        'export type SampleMode = "read" | "write";',
+        'export type SampleMode = "read";',
+      ),
+    );
+    expect(result.red).toBe(true);
+    expect(result.output).toContain("破壞性變更");
+    expect(result.output).toContain("SampleMode");
+    expect(result.output).toContain("write");
+  });
+
+  it("🔴 字面值聯集**加**一個成員 → 也是破壞性", () => {
+    /**
+     * 直覺會說這該是「相容」—— 既有消費端傳的值仍然合法。**但那只看了輸入端。**
+     *
+     * 聯集同時是輸出端的形狀：下游只要有一張 `Record<SampleMode, …>`
+     * （`@org/ui` 的 `VARIANTS` 就是），或一個窮舉的 `switch`，
+     * 加一個成員他們**當場編不過**。判準只有一條 —— 下游會不會編不過 ——
+     * 而這裡答案是會。
+     *
+     * 記下來是因為它有代價：`UiVariant` 加第五個 variant 要走 D12 登記。
+     * 那個代價是對的（所有案子都會拿到那個 variant，該有人看過），
+     * 但沒寫下來的話，第一個踩到的人會以為是閘門壞了。
+     */
+    const result = runFixture((source) =>
+      source.replace(
+        'export type SampleMode = "read" | "write";',
+        'export type SampleMode = "read" | "write" | "zzAppend";',
+      ),
+    );
+    expect(result.red).toBe(true);
+    expect(result.output).toContain("破壞性變更");
+    expect(result.output).toContain("zzAppend");
+  });
+
+  it("★ 聯集記的是成員，不是它自己的名字", () => {
+    /**
+     * `typeToString` 對帶 aliasSymbol 的型別回傳**別名的名字**，
+     * 所以第一版修法記出來的是 `{"kind":"type","type":"SampleMode"}` ——
+     * 一個把自己的名字當成自己形狀的條目。改名抓得到（鍵變了），
+     * 改內容抓不到，而改內容才是破壞下游的那一種。
+     */
+    const dir = sandbox();
+    cpSync(pristineFixture, dir, { recursive: true });
+    const baseline = JSON.parse(readFileSync(join(dir, "surface.json"), "utf8")) as Baseline;
+    const shapes = Object.values(baseline.surface)[0] as Record<string, ExportShape>;
+
+    expect(shapes["SampleMode"]?.type).toBe('"read" | "write"');
+  });
+
   it("🔴 公開簽章引用私有型別 → 紅，而且要指名是哪一個", () => {
     /**
      * 這是整個設計的前置條件。`typeToString` 對具名型別一律印名字，

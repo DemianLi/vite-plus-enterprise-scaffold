@@ -1,0 +1,10 @@
+/*
+ * 基準：只 import 設計系統，**不覆寫任何東西**。
+ *
+ * 這一份是反向測試的另一半 —— 它與 override.css 的唯一差別就是那個
+ * `@theme` 區塊。兩份建置出來一模一樣的話，代表覆寫沒有生效，而
+ * 「沒有生效」在 Tailwind 是**建置成功、CSS 還變大**的那種失敗
+ *（見 platform/ui/tests/styles.test.ts 的檔頭）。
+ */
+
+@import "@org/ui/styles.css";

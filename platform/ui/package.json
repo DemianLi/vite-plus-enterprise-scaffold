@@ -21,9 +21,13 @@
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "tailwindcss": "catalog:"
   }
 }

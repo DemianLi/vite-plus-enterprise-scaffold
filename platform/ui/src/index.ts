@@ -28,3 +28,14 @@
 export { default as UiButton } from "./components/UiButton.vue";
 export { default as UiDialog } from "./components/UiDialog.vue";
 export { cn } from "./utils/cn.ts";
+
+/**
+ * 各案客製的擴充點（HANDOFF #24）。
+ *
+ * ⚠️ `UI_THEME` 這個 injection key **刻意不在這裡匯出**：唯一的入口是
+ * `createUiTheme()`，因為只有它擋得掉空覆寫與空字串（見 theme.ts）。
+ * 直接 `app.provide(UI_THEME, …)` 會繞過那兩條，而繞過去的症狀是
+ * 「按鈕變成一個看不見但點得到的方塊」。
+ */
+export { createUiTheme } from "./theme.ts";
+export type { UiSize, UiThemeOverride, UiVariant } from "./theme.ts";

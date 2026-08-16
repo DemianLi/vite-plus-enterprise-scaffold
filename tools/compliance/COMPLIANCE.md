@@ -13,8 +13,8 @@
 ## 一眼看完
 
 - 腳手架欠、而且**完全沒有東西在守**的條號：**1**
-- 存在但**沒有證明過自己會紅**的閘門：**5 / 16**
-- 對不到任何條號的閘門：**4**（不是違規，見下方說明）
+- 存在但**沒有證明過自己會紅**的閘門：**5 / 17**
+- 對不到任何條號的閘門：**5**（不是違規，見下方說明）
 
 ## 條號 → 閘門
 
@@ -61,7 +61,7 @@
 ## 閘門 → 證據
 
 標 ▷ 的是**提案者**而不是閘門：它不擋任何東西，所以「反向測試」對它不適用，
-上面那個 5／16 的分子與分母都不含它。
+上面那個 5／17 的分子與分母都不含它。
 
 | 閘門                | 檢查什麼                                                                                                       | 進版控的證據                                | 反向測試                                         |
 | ------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------ |
@@ -70,6 +70,7 @@
 | `api-surface`       | platform/ 公開 API 的破壞性變更：export 名稱＋**型別形狀**（D12）                                              | `tools/api-surface/surface.json`            | `tools/api-surface/tests/negative.test.ts`       |
 | `supply-chain`      | 相依盤點、原生家族分類、tarball digest 與 lockfile 綁定（R2–R5／R8）                                           | `tools/supply-chain/provenance.json`        | **❌ 無**                                        |
 | `exit-drill`        | D2 退出面靜態檢查、plugin 帳目、**測試相依帳目**、演練證據新鮮度（120 天）                                     | `tools/exit-drill/evidence.json`            | **❌ 無**                                        |
+| `theme-verify`      | 設計系統接縫：元件只准用語意代幣（靜態）＋ 各案覆寫代幣真的會進到產物（建置兩次比對）（D15／C62）              | **（無）**                                  | `tools/theme-verify/tests/palette.test.ts`       |
 | `eslint-security`   | no-unsanitized、eslint-plugin-security、vue/no-v-html（D5 的安全那一半）                                       | **（無）**                                  | **❌ 無**                                        |
 | `a11y-lint`         | Vue 模板的靜態無障礙檢查：原生元素與屬性（缺 alt、缺 label、角色錯用、只有滑鼠事件）                           | **（無）**                                  | `platform/eslint-config/tests/a11y.test.ts`      |
 | `trivy-sca`         | 相依套件的 HIGH／CRITICAL 漏洞，PR ＋ 每日 21:00 UTC 排程                                                      | **（無）**                                  | **❌ 無**                                        |
@@ -95,6 +96,8 @@
   parseLockfile／buildInventory 有零件測試，但**沒有一條**測「把 provenance 弄髒之後 CLI 會不會 exit 1」。
 - **`exit-drill`** — `node tools/exit-drill/src/cli.ts`  
   有零件測試。⚠️ 2026-08-16 加了第三項「測試相依帳目」（C64），而且是補一個**真的已經發生**的洞：完整演練每季才跑一次，`happy-dom` 從 PR #15 起就沒被安裝、演練從那時起就是壞的，19 個 PR 沒有人知道。該項已實測會紅（注入未登記的 devDependency → exit 1）。⚠️ 這一欄仍記 null：那是整道閘門四項的總和，而證據新鮮度守衛自己仍未被證明過會紅 —— 只證明了其中一項就把整格標成已證明，正是這張表最該擋下的事。
+- **`theme-verify`** — `node tools/theme-verify/src/cli.ts`  
+  2026-08-17 加（HANDOFF #24）。守的是 C62 那句產品要求的**前兩條軸** —— 配色與 component 形狀；**第三條（互動方式）完全不在範圍**，它被 `api-surface` 的 `SFC_UNSUPPORTED` 主動擋著。綠燈的意思是「兩條軸實測可換」，不是「設計系統可換」。⚠️ 建置那一半（比對兩份產出的 CSS）是真的跑 Tailwind，因為它的失敗模式是**建置成功、CSS 還變大、但一個 utility 都沒有** —— 只讀 CSS 檔驗不到。六條斷言裡五條實測會紅，逐條列在 `tools/theme-verify/README.md`；「覆寫零附帶影響」那條未測，破壞它得改 Tailwind 本身。⚠️ `negativeTest` 只指到靜態那一半的零件測試；建置那一半的紅燈是手動實測的，沒有自動化的反向測試 —— 兩次真建置放進單元測試會讓這道閘門的成本翻倍。
 - **`eslint-security`** — `./node_modules/.bin/eslint . --max-warnings=0`  
   存在的首要理由是 oxlint 沒有 vue/no-v-html —— Vue 專案最主要的 XSS 入口。
 - **`a11y-lint`** — `./node_modules/.bin/eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0`  
@@ -135,6 +138,7 @@
 分開列的理由是避免下一次有人把它們當成法定義務再論證一次。
 
 - **`exit-drill`** — D2 退出面靜態檢查、plugin 帳目、**測試相依帳目**、演練證據新鮮度（120 天）
+- **`theme-verify`** — 設計系統接縫：元件只准用語意代幣（靜態）＋ 各案覆寫代幣真的會進到產物（建置兩次比對）（D15／C62）
 - **`a11y-lint`** — Vue 模板的靜態無障礙檢查：原生元素與屬性（缺 alt、缺 label、角色錯用、只有滑鼠事件）
 - **`gitleaks`** — 機密掃描，fetch-depth: 0 以涵蓋被後續 commit 蓋掉的機密
 - **`doc-facts`** — 現況文件引用的數字，與 repo 內部事實來源推導出來的一致（事實來源與守哪幾份文件見 doc-facts 的 FACTS／GUARDED）

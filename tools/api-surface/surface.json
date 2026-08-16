@@ -471,6 +471,10 @@
         "kind": "function",
         "type": "(...inputs: ClassValue[]) => string"
       },
+      "createUiTheme": {
+        "kind": "function",
+        "type": "(override: UiThemeOverride) => Plugin"
+      },
       "UiButton": {
         "kind": "component",
         "members": [
@@ -488,6 +492,21 @@
           "open?: boolean",
           "title: string"
         ]
+      },
+      "UiSize": {
+        "kind": "type",
+        "type": "\"md\" | \"sm\""
+      },
+      "UiThemeOverride": {
+        "kind": "type",
+        "members": [
+          "sizes?: Readonly<Partial<Record<UiSize, string>>> | undefined",
+          "variants?: Readonly<Partial<Record<UiVariant, string>>> | undefined"
+        ]
+      },
+      "UiVariant": {
+        "kind": "type",
+        "type": "\"danger\" | \"ghost\" | \"primary\" | \"secondary\""
       }
     }
   },
