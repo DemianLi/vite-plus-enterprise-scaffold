@@ -215,7 +215,7 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │   ├── ui/                   共用 UI 元件層
 │   ├── pii/                  個資欄位的標註與遮罩基礎設施
 │   ├── tsconfig/             共用 TypeScript 設定
-│   └── eslint-config/        Tier 2 用的 ESLint 安全規則集
+│   └── eslint-config/        兩份 ESLint 設定：Tier 2 安全規則集，與 Tier 1 的無障礙規則集
 │
 ├── tools/                    建置與治理腳本。每一支都是一道會失敗的閘門
 │   ├── conformance/          切片邊界一致性檢查（宣告依賴＋相對路徑逃逸）
@@ -246,10 +246,10 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 
 ## 兩層檢查
 
-|                       | 內容                         | 指令       | 何時跑                    |
-| --------------------- | ---------------------------- | ---------- | ------------------------- |
-| **Tier 1 — 品質**     | oxlint + oxfmt + 型別檢查    | `vp check` | 本機、pre-commit、每次 PR |
-| **Tier 2 — 安全閘門** | 一致性檢查 + ESLint 安全規則 | `vpr gate` | 每次 PR **＋ 每日排程**   |
+|                       | 內容                                       | 指令                   | 何時跑                    |
+| --------------------- | ------------------------------------------ | ---------------------- | ------------------------- |
+| **Tier 1 — 品質**     | oxlint + oxfmt + 型別檢查 + 無障礙靜態檢查 | `vp check`、`vpr a11y` | 本機、pre-commit、每次 PR |
+| **Tier 2 — 安全閘門** | 一致性檢查 + ESLint 安全規則               | `vpr gate`             | 每次 PR **＋ 每日排程**   |
 
 > 指令刻意**不用** `pnpm run` / `npx`：本專案不保證環境有全域 pnpm，
 > 而 `npx` 會被 `devEngines` 擋下。`vpr` 是 vite-plus 的 script runner，
@@ -267,7 +267,7 @@ Tier 2 刻意**全量、不快取、不經 `vp`**。原因是安全掃描的結�
 
 | Workflow                                                     | 內容                                                                                                 | 快取              | 觸發                     |
 | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- | ----------------- | ------------------------ |
-| [`tier1-quality.yml`](.github/workflows/tier1-quality.yml)   | `vp check` / test / build                                                                            | ✅ 任務快取       | PR、push to main         |
+| [`tier1-quality.yml`](.github/workflows/tier1-quality.yml)   | `vp check` / test / build / **無障礙靜態檢查**                                                       | ✅ 任務快取       | PR、push to main         |
 | [`tier2-security.yml`](.github/workflows/tier2-security.yml) | 一致性檢查 / API 表面 / BFF 契約 / 退出面 / **供應鏈盤點** / ESLint 安全規則 / gitleaks / SBOM / SCA | ❌ **一格都沒有** | PR **＋ 每日 21:00 UTC** |
 | [`exit-drill.yml`](.github/workflows/exit-drill.yml)         | D2 退出演練（上游 Vite 實際重建一次）                                                                | ❌                | **每季** + 手動          |
 
@@ -383,7 +383,7 @@ D2 選了「可替換的驅動層」，而那張保單**是被實測過的**，�
 
 ## 供應鏈：拿去給資安與平台團隊的三份文件
 
-腳手架帶進來的東西比想像的多：**563 個套件，其中 144 個是平台限定的原生二進位，
+腳手架帶進來的東西比想像的多：**565 個套件，其中 144 個是平台限定的原生二進位，
 分屬 12 個家族**（不只 `vite-plus` —— TypeScript 7 自己就是原生執行檔，
 `lightningcss` 是 MPL-2.0）。
 
@@ -423,6 +423,12 @@ pnpm 那一步**（要設在機器層級），而**封閉環境無法就地升�
   但 SCA 例外申請書必須把它分開列 —— `vpr sca-dossier` 已經這麼做。
 - 22 個 `@yuku-*` 在 registry 上**沒有 license 欄位**。上層套件宣告 MIT、同一個 repo，
   但工具刻意不代填 —— 需要法務確認或請上游補。
+- **無障礙只守得到靜態可查的那一半，而那一半在這種寫法下幾乎是空的。**
+  `vpr a11y` 對本 repo 的正常結果是**零個發現**，那不代表頁面可用：規則比對的是
+  原生元素與屬性，而本 repo 的互動幾乎都包在元件裡（`UiButton`／`RouterLink`／
+  `DialogRoot`），元件對它們是透明的。實測同一批 `.vue` 用人眼讀出四個真缺陷、
+  它一個都沒報（那四個已修）。看不見的那一類具名列在
+  [HANDOFF 第 22 項](HANDOFF.md)，要哪個等級以 RFP 為準。
 
 ---
 

@@ -18,6 +18,8 @@ export default defineFeature({
     "zh-TW": {
       shipment: {
         title: "出貨管理",
+        // 只給輔具用的字串，畫面上看不到（見 ShipmentList.vue 的 live region）。
+        loading: "載入出貨資料中",
         empty: "目前沒有資料",
         detail: "明細",
         detailDescription: "這一筆的完整內容",
@@ -27,6 +29,7 @@ export default defineFeature({
     en: {
       shipment: {
         title: "Shipment",
+        loading: "Loading shipments",
         empty: "No data",
         detail: "Detail",
         detailDescription: "Full contents of this record",

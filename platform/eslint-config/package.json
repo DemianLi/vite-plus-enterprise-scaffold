@@ -2,18 +2,30 @@
   "name": "@org/eslint-config",
   "version": "0.0.0",
   "private": true,
-  "description": "Tier 2 安全閘門：只裝安全與邊界規則，與 oxlint 零重疊",
+  "description": "兩份互不相干的 ESLint 設定：`.` 是 Tier 2 安全閘門（只裝安全與邊界規則，與 oxlint 零重疊），`./a11y` 是無障礙靜態閘門（Tier 1）",
   "type": "module",
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./a11y": "./src/a11y.js"
+  },
+  "scripts": {
+    "test": "vp test"
   },
   "dependencies": {
     "eslint-plugin-no-unsanitized": "catalog:",
     "eslint-plugin-security": "catalog:",
     "eslint-plugin-vue": "catalog:",
+    "eslint-plugin-vuejs-accessibility": "catalog:",
     "typescript": "6.0.3",
     "typescript-eslint": "catalog:",
     "vue-eslint-parser": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   },
   "peerDependencies": {
     "eslint": "catalog:"

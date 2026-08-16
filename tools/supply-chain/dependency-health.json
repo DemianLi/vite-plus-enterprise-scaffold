@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-15",
+  "capturedAt": "2026-08-16",
   "registry": "https://registry.npmjs.org",
   "records": [
     {
@@ -89,6 +89,14 @@
       "publishedAt": "2026-07-20",
       "stableReleasesPerYear": 11,
       "lastStableAt": "2026-07-20"
+    },
+    {
+      "name": "eslint-plugin-vuejs-accessibility",
+      "latest": "2.6.0",
+      "license": "MIT",
+      "publishedAt": "2026-08-10",
+      "stableReleasesPerYear": 3,
+      "lastStableAt": "2026-08-10"
     },
     {
       "name": "happy-dom",

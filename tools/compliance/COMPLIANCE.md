@@ -13,8 +13,8 @@
 ## 一眼看完
 
 - 腳手架欠、而且**完全沒有東西在守**的條號：**1**
-- 存在但**沒有證明過自己會紅**的閘門：**5 / 15**
-- 對不到任何條號的閘門：**3**（不是違規，見下方說明）
+- 存在但**沒有證明過自己會紅**的閘門：**5 / 16**
+- 對不到任何條號的閘門：**4**（不是違規，見下方說明）
 
 ## 條號 → 閘門
 
@@ -61,7 +61,7 @@
 ## 閘門 → 證據
 
 標 ▷ 的是**提案者**而不是閘門：它不擋任何東西，所以「反向測試」對它不適用，
-上面那個 5／15 的分子與分母都不含它。
+上面那個 5／16 的分子與分母都不含它。
 
 | 閘門                | 檢查什麼                                                                                                       | 進版控的證據                                | 反向測試                                         |
 | ------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------ |
@@ -71,6 +71,7 @@
 | `supply-chain`      | 相依盤點、原生家族分類、tarball digest 與 lockfile 綁定（R2–R5／R8）                                           | `tools/supply-chain/provenance.json`        | **❌ 無**                                        |
 | `exit-drill`        | D2 退出面靜態檢查、plugin 帳目、演練證據新鮮度（120 天）                                                       | `tools/exit-drill/evidence.json`            | **❌ 無**                                        |
 | `eslint-security`   | no-unsanitized、eslint-plugin-security、vue/no-v-html（D5 的安全那一半）                                       | **（無）**                                  | **❌ 無**                                        |
+| `a11y-lint`         | Vue 模板的靜態無障礙檢查：原生元素與屬性（缺 alt、缺 label、角色錯用、只有滑鼠事件）                           | **（無）**                                  | `platform/eslint-config/tests/a11y.test.ts`      |
 | `trivy-sca`         | 相依套件的 HIGH／CRITICAL 漏洞，PR ＋ 每日 21:00 UTC 排程                                                      | **（無）**                                  | **❌ 無**                                        |
 | `trivy-sbom`        | CycloneDX SBOM 產出，並比對 component 數與 lockfile 套件數                                                     | **（無）**                                  | `tools/supply-chain/tests/sbom-negative.test.ts` |
 | `sast`              | 跨函式的汙點傳遞（路由參數 → DOM sink）與執行期組程式碼 —— lint 看不到的那一類                                 | **（無）**                                  | `.semgrep/rules.ts`                              |
@@ -96,6 +97,8 @@
   有零件測試。證據新鮮度守衛的模式是對的，但守衛自己沒被證明過會紅。
 - **`eslint-security`** — `./node_modules/.bin/eslint . --max-warnings=0`  
   存在的首要理由是 oxlint 沒有 vue/no-v-html —— Vue 專案最主要的 XSS 入口。
+- **`a11y-lint`** — `./node_modules/.bin/eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0`  
+  ⚠️ 這道閘門對本 repo 的正常結果是**零個發現，而模板是有缺陷的**。它比對的是原生元素與屬性，而本 repo 的互動幾乎都包在元件裡（UiButton／RouterLink／DialogRoot）—— 元件對它是透明的。實測：同一批 `.vue` 用人眼讀出四個真缺陷（表格沒有 caption、`<th />` 是空的、載入狀態沒有 live region、`<nav>` 沒有可及名稱），它一個都沒報；那四個已在加這道閘門的同一個 PR 修掉。所以它覆蓋的是**靜態可查的那一半**，看不見的那一類具名列在 HANDOFF 第 22 項 —— 不要用這個綠燈取代它。反向測試拿一份故意寫壞的 SFC，斷言**每一條被啟用的規則都確實對它開火**（比的是規則 ID 的集合，不是數量、也不是 exit code）；另有一條比對「repo 裡有幾個 `.vue`」與「閘門掃到幾個」，因為「掃到零個」與「什麼都沒掃到」在 CI 上長得一模一樣。⚠️ 要哪個等級、驗收怎麼判，**以 RFP 為準**，這裡與工具設定裡都刻意不寫死。
 - **`trivy-sca`** — `aquasecurity/trivy-action（.github/workflows/tier2-security.yml）`  
   唯一直接對得上 §11 II ③ 的閘門。兩個已知失明模式（C33／C34）現在由 `trivy-sbom` 的反向測試守著，而**設定漂移**（少一行 TRIVY_INCLUDE_DEV_DEPS、拿掉 exit-code）也有測試釘住。⚠️ 但仍未證明「Trivy 發現 CVE 時 CI 會紅」—— 那需要一份帶已知 CVE 的 fixture，而那種 fixture 會在 CVE 被修掉的那天因為錯誤的理由變綠。這一格刻意留白。
 - **`trivy-sbom`** — `node tools/supply-chain/src/cli.ts --verify-sbom sbom.cdx.json`  
@@ -132,6 +135,7 @@
 分開列的理由是避免下一次有人把它們當成法定義務再論證一次。
 
 - **`exit-drill`** — D2 退出面靜態檢查、plugin 帳目、演練證據新鮮度（120 天）
+- **`a11y-lint`** — Vue 模板的靜態無障礙檢查：原生元素與屬性（缺 alt、缺 label、角色錯用、只有滑鼠事件）
 - **`gitleaks`** — 機密掃描，fetch-depth: 0 以涵蓋被後續 commit 蓋掉的機密
 - **`doc-facts`** — 現況文件引用的數字，與 repo 內部事實來源推導出來的一致（事實來源與守哪幾份文件見 doc-facts 的 FACTS／GUARDED）
 

@@ -145,10 +145,15 @@ function main(): number {
   const problems = checkFacts(documents, truth);
 
   if (problems.length === 0) {
-    // 句子數也印出來：HANDOFF 第 18 項刻意不寫死這兩個數字，改成叫人跑這一行。
+    // 樣式數也印出來：HANDOFF 第 18 項刻意不寫死這兩個數字，改成叫人跑這一行。
+    //
+    // ⚠️ 印的是**樣式數**不是句子數，而這兩個不再相等：`packages` 有一條樣式
+    // 刻意同時咬住 HANDOFF 裡兩句一樣的話（見 facts.ts 該條的註解）。
+    // 原本這裡寫「N 個句子」—— 一個在講「數字要對得上來源」的工具，
+    // 自己印了一個對不上的數字。
     const citations = FACTS.reduce((total, fact) => total + fact.citations.length, 0);
     console.log(
-      `✓ 文件裡的數字與事實來源一致（${FACTS.length} 個事實、${citations} 個句子、${documents.length} 份文件）\n` +
+      `✓ 文件裡的數字與事實來源一致（${FACTS.length} 個事實、${citations} 個引用樣式、${documents.length} 份文件）\n` +
         // 檔名從 GUARDED 印出來，不手寫 —— 加第三份的那天，
         // 四個地方寫著「只守 README 與 HANDOFF」的句子同時變成假的。
         `  守的是：${GUARDED.join("、")}\n` +

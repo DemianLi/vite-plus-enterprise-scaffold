@@ -122,6 +122,11 @@
         "kind": "names-only"
       }
     },
+    "@org/eslint-config/a11y": {
+      "default": {
+        "kind": "names-only"
+      }
+    },
     "@org/http-client": {
       "ForbiddenError": {
         "kind": "class",

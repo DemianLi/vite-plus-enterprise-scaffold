@@ -28,24 +28,33 @@ const isOpen = computed({
     if (!open) filter.select(null);
   },
 });
+
+/** 要公告給輔具的狀態訊息鍵。理由與 OrderList.vue 的同名 computed 一致。 */
+const statusKey = computed<string | null>(() => {
+  if (isPending.value) return "shipment.loading";
+  if (items.value.length === 0) return "shipment.empty";
+  return null;
+});
 </script>
 
 <template>
   <section>
     <h1 class="text-xl font-semibold text-gray-900">{{ $t("shipment.title") }}</h1>
 
-    <p v-if="isPending">…</p>
-
     <!--
+      與 OrderList.vue 同一個處理，理由也一樣（見該檔 statusKey 的註解）：
+      live region 必須在文字變化之前就在 DOM 裡，所以沒有狀態時這裡是一個
+      空的 <p role="status">，而不是把元素整個拿掉。
+
       錯誤訊息一律以文字插值輸出，絕不使用 v-html。
       伺服器回傳的內容可能含使用者輸入，v-html 會讓它變成 XSS 入口。
       這條由 Tier 2 的 vue/no-v-html 強制（oxlint 沒有該規則）。
     -->
-    <p v-else-if="isError" role="alert">{{ error?.message }}</p>
+    <p v-if="isError" role="alert">{{ error?.message }}</p>
 
-    <p v-else-if="items.length === 0">{{ $t("shipment.empty") }}</p>
+    <p v-else role="status">{{ statusKey === null ? "" : $t(statusKey) }}</p>
 
-    <ul v-else class="mt-4 flex flex-col gap-2">
+    <ul v-if="items.length > 0" class="mt-4 flex flex-col gap-2">
       <li v-for="item in items" :key="item.id" class="flex items-center justify-between gap-4">
         <span>{{ item.id }}</span>
         <UiButton size="sm" @click="filter.select(item.id)">
