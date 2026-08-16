@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
+import { builtinModules } from "node:module";
 import { join, resolve, relative, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -318,6 +319,138 @@ function checkCspIncompatibleImports(dir: string, label: string): void {
   }
 }
 
+/**
+ * 幽靈依賴：**程式碼 import 了某個套件，而這個 package 的 `package.json` 沒宣告它**。
+ *
+ * ── 為什麼本機與 CI 都看不出來 ──────────────────────────────────────
+ *
+ * pnpm 的嚴格 `node_modules` 通常會擋，但有三條繞過路徑：workspace 根目錄的
+ * 提升、`vite.config.ts` 的 alias、以及被別的套件間接帶進來的相依。
+ * 三條都只在**這台機器的安裝結果**下成立，而檢查讀的是宣告，不是安裝結果。
+ *
+ * 症狀因此是最難回推的那種：本機綠、CI 綠，**乾淨重建時才爆**。
+ * 而「乾淨重建」在這個腳手架有三個發生地點，其中第三個寫在契約裡：
+ * 退出演練、單獨發佈、以及**機關端依原始碼重建 —— 那是驗收現場**。
+ *
+ * ── 掃的範圍：`features`／`platform`／`apps`，且**不含 `tests/`** ──────
+ *
+ * 兩個排除都是先乾跑量出來的，不是憑感覺畫的：
+ *
+ *   - **`tools/*` 不掃**：產生器與 codemod 的本職就是**把程式碼當資料拿著**
+ *     （`slice-gen` 的模板、`codemods` 的 fixture、`conformance` 自己的反向
+ *     測試）。乾跑在 `tools/` 底下噴出 20 幾條，全部是偽陽性。而且它們是
+ *     開發期工具，不隨產物交付 —— 掃它們是拿誤報換零收益。
+ *   - **`tests/` 不掃**：同一個理由的小號。測試檔會用樣板字串**組出**一段
+ *     假的原始碼餵給被測物，那些 `import ... from "pinia"` 是資料不是相依。
+ *
+ * ⚠️ 代價要說清楚：**測試檔裡的幽靈依賴這條規則看不到。** 那是刻意的取捨，
+ * 而它可以接受的理由是失敗方向不同 —— 測試少一個相依會**當場跑不起來**，
+ * 不會安靜地混到驗收那天。真正致命的是 `src/` 那一半，而那一半守住了。
+ *
+ * 一道會誤報的閘門第一天就會被加上例外，然後例外永遠不會拿掉（見 C41）。
+ * 寧可範圍窄而準，也不要寬而吵。
+ */
+const BLOCK_COMMENT = /\/\*[^]*?\*\//g;
+const LINE_COMMENT = /^[ \t]*\/\/.*$/gm;
+
+/**
+ * 剝掉註解再掃。
+ *
+ * 不剝的話這條規則會**在定義規則的那份檔案上誤報**：`slice-kit/src/contract.ts`
+ * 的 JSDoc 裡有 `import { useQuery } from "@tanstack/vue-query";` 當範例
+ * （那正是它在解釋哪些 import 該被擋）。乾跑時它是第一個亮起來的。
+ *
+ * 與 `importClauseBefore` 是同一個坑的第二次 —— 差別只在這次乾跑先撞到，
+ * 而不是等閘門上線之後被人回報。
+ */
+function stripComments(source: string): string {
+  return source.replace(BLOCK_COMMENT, "").replace(LINE_COMMENT, "");
+}
+
+/** npm 套件名的單一段（scope 或 name）。刻意單層量詞，理由見契約的 C19 註解。 */
+const PACKAGE_NAME_SEGMENT = /^[a-z0-9._-]+$/;
+
+function isPackageName(name: string): boolean {
+  if (!name.startsWith("@")) return PACKAGE_NAME_SEGMENT.test(name);
+  const slash = name.indexOf("/");
+  if (slash === -1) return false;
+  return (
+    PACKAGE_NAME_SEGMENT.test(name.slice(1, slash)) &&
+    PACKAGE_NAME_SEGMENT.test(name.slice(slash + 1))
+  );
+}
+
+const BUILTIN_MODULES = new Set(builtinModules);
+
+/**
+ * import 指定字串 → 要在 `package.json` 裡找的套件名。不是套件的回 `null`。
+ *
+ * `@org/slice-kit/contract` 要收斂成 `@org/slice-kit`：**子路徑匯入的是同一個
+ * 套件**，不收斂的話這條規則會對每一個合法的子路徑匯入亂叫。
+ *
+ * ⚠️ 含冒號的一律放行（`node:fs`、`virtual:*`、`data:`、`http:`）。
+ * 內建模組**兩種寫法都要放行** —— 只擋 `node:` 前綴的話，一個裸寫的
+ * `import { join } from "path"` 會被報成幽靈依賴，而那是完全合法的。
+ */
+function packageOfSpecifier(specifier: string): string | null {
+  if (specifier.startsWith(".") || specifier.startsWith("/")) return null;
+  if (specifier.includes(":")) return null;
+
+  const slash = specifier.indexOf("/");
+  const name = specifier.startsWith("@")
+    ? specifier.split("/").slice(0, 2).join("/")
+    : slash === -1
+      ? specifier
+      : specifier.slice(0, slash);
+
+  if (BUILTIN_MODULES.has(name)) return null;
+  if (!isPackageName(name)) return null;
+  return name;
+}
+
+const TESTS_SEGMENT = `${sep}tests${sep}`;
+
+function checkPhantomDependencies(packageDir: string, label: string): void {
+  const pkgPath = join(packageDir, "package.json");
+  if (!existsSync(pkgPath)) return;
+
+  const pkg = readJson(pkgPath);
+  const declared = new Set<string>([
+    ...Object.keys((pkg["dependencies"] as Record<string, string> | undefined) ?? {}),
+    ...Object.keys((pkg["devDependencies"] as Record<string, string> | undefined) ?? {}),
+    ...Object.keys((pkg["peerDependencies"] as Record<string, string> | undefined) ?? {}),
+  ]);
+
+  // 自我參照（`@org/ui` 內部匯入 `@org/ui/xxx`）不是幽靈依賴。
+  const own = pkg["name"];
+  if (typeof own === "string") declared.add(own);
+
+  // ⚠️ 這裡**刻意不把 workspace 根目錄的 package.json 併進來**。
+  // 根目錄的宣告正是「提升」這條繞過路徑的來源 —— 併進來的話，
+  // 這條規則會對它最該抓的那一種情況回報綠燈。
+  const reported = new Set<string>();
+
+  for (const file of collectSourceFiles(packageDir)) {
+    if (file.includes(TESTS_SEGMENT)) continue;
+    const source = stripComments(readFileSync(file, "utf8"));
+
+    for (const match of source.matchAll(IMPORT_SPECIFIER_PATTERN)) {
+      const name = packageOfSpecifier(match[1] ?? "");
+      if (name === null || declared.has(name) || reported.has(name)) continue;
+      reported.add(name);
+
+      fail(
+        label,
+        "幽靈依賴",
+        `${relative(ROOT, file)} 匯入了 "${name}"，但 ${relative(ROOT, pkgPath)} 沒有宣告它`,
+        `把 "${name}" 加進該 package.json 的 dependencies 或 devDependencies。` +
+          "現在能跑是靠 workspace 根目錄的提升或間接相依 —— " +
+          "那在乾淨重建（退出演練、單獨發佈、機關端依原始碼重建）時不成立",
+      );
+    }
+  }
+}
+
 function checkSliceLayering(slicePath: string, slice: string): void {
   const composablesDir = join(slicePath, COMPOSABLES_DIR);
 
@@ -586,6 +719,18 @@ for (const dir of slices) checkSlice(dir, codeowners, sliceNames);
 for (const layer of ["features", "platform", "apps"]) {
   const dir = join(ROOT, layer);
   if (existsSync(dir)) checkCspIncompatibleImports(dir, layer);
+}
+
+// 幽靈依賴：**逐 package** 檢查，不是逐層 —— 因為比對的對象是
+// 「這個 package 自己的 package.json」，而每一層底下有很多個。
+for (const layer of ["features", "platform", "apps"]) {
+  const dir = join(ROOT, layer);
+  if (!existsSync(dir)) continue;
+  for (const entry of readdirSync(dir)) {
+    const packageDir = join(dir, entry);
+    if (!statSync(packageDir).isDirectory()) continue;
+    checkPhantomDependencies(packageDir, `${layer}/${entry}`);
+  }
 }
 
 if (violations.length === 0) {
