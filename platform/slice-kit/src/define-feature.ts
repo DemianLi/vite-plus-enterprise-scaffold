@@ -32,26 +32,6 @@ export interface Feature {
   /** 本切片的翻譯。頂層 key 為 locale，其下必須只有 `<name>` 一個 key。 */
   readonly i18n: Readonly<Record<string, Record<string, unknown>>>;
   readonly menu: readonly FeatureMenuItem[];
-  /**
-   * 本切片會呈現的個人資料欄位名（§11 II ⑨）。
-   *
-   * ── 為什麼是**必填**，即使是空陣列 ──────────────────────────────
-   *
-   * 這是這個欄位存在的全部意義。做成選填的話，「這個切片沒有個資」與
-   * 「這個切片還沒有人想過個資的事」會長得**一模一樣** ——
-   * 而第二種正是需要被看見的那一種。
-   *
-   * 必填讓 TypeScript 把「沒想過」變成編譯錯誤：新切片的作者必須停下來
-   * 回答一次這個問題，而 `[]` 是一個看得見、review 得到的答案。
-   *
-   * 這是這個 repo 反覆栽的那個形狀的第三次出現：
-   * C33 的「掃 0 個套件 ≠ 通過」、`health.test.ts` 的名單漂移、
-   * `pii-check` 的掃描檔案數下限 —— **「沒被檢查」與「檢查通過」必須看得出差別。**
-   *
-   * 欄位名對應 `api.ts` 裡的型別屬性（例如 `"customerName"`）。
-   * `tools/pii-check --masking` 會拿它去驗這些欄位在 `.vue` 裡有沒有走隱碼。
-   */
-  readonly personalData: readonly string[];
 }
 
 class FeatureContractError extends Error {

@@ -82,12 +82,6 @@ export const RETENTION_EVIDENCE: readonly EvidenceFile[] = [
     retention: "version-control",
   },
   {
-    path: "tools/csp-verify/evidence.json",
-    maintainedBy: "csp-verify",
-    proves: "CSP enforce 的瀏覽器實測結果與當時的指紋（§11 II ⑦ 執行期那一層）",
-    retention: "version-control",
-  },
-  {
     path: "tools/api-surface/surface.json",
     maintainedBy: "api-surface",
     proves: "platform 公開 API 表面的基線 —— 系統變更安全性的治理面（§11 II ⑦）",

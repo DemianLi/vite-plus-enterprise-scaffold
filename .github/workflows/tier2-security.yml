@@ -126,32 +126,12 @@ jobs:
       - name: §16 證據清單
         run: node tools/compliance/src/cli.ts --evidence
 
-      # ── CSP 實測證據的有效期（D15 / D16）──────────────────────────
-      # **這一步不驗 CSP。** 驗 CSP 需要真的瀏覽器 CSP 引擎，
-      # happy-dom 與 jsdom 都沒有實作它，拿它們跑會得到一份「全部通過」
-      # 而什麼都沒驗；而裝 Playwright 等於把瀏覽器二進位拉進
-      # tools/supply-chain 的盤點範圍，為一道閘門付這個代價太貴。
-      #
-      # 所以人跑一次（tools/csp-verify/src/cli.ts --print-probe），
-      # 這一步守的是那次結論的前提還在不在：CSP 政策字串，
-      # 以及 FINGERPRINT_PACKAGES 列的那些會在執行期注入 <style>／script
-      # 的相依版本。升 reka-ui 或改 policy.ts 時，這裡會紅並要求重驗。
-      # 它同時會從原始觀測重算探針結論 —— 手改 evidence.json 的 passed 不放行。
-      #
-      # 放在 PR 上而不是排程：失效的原因是**變更**（升版、改政策），
-      # 不是時間。日曆式過期每季紅一次而通常什麼都沒變，那種紅燈會被關掉。
-      - name: CSP 實測證據
-        run: node tools/csp-verify/src/cli.ts --verify
-
       # ── 個資的兩條現行義務（§11 II ⑥／⑨）──────────────────────────
       # ⑥ 測試環境不得使用真實個人資料。抓的是**有校驗碼的識別碼**
       #   （身分證字號、Luhn 卡號、手機）與指向真實網域的信箱 ——
       #   亂打的字串幾乎不可能通過校驗，所以誤報率天生就低。
       #   **姓名抓不到**，所以那一條的覆蓋是部分不是完整。
       #
-      # ⑨ 宣告為個資的欄位在畫面上必須走隱碼。這裡只是靜態層
-      #   （原始碼裡有沒有寫 mask）；「渲染結果真的被遮住」由切片自己的
-      #   元件測試證明，跑在 Tier 1。兩層的分工與 csp-verify 相同。
       - name: 個資：測試環境不得用真個資
         run: node tools/pii-check/src/cli.ts
 

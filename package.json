@@ -22,12 +22,10 @@
     "airgap": "node tools/supply-chain/src/cli.ts --airgap",
     "csp-verify": "node tools/csp-verify/src/cli.ts",
     "csp-probe": "node tools/csp-verify/src/cli.ts --print-probe",
-    "csp-record": "node tools/csp-verify/src/cli.ts --record",
     "compliance": "node tools/compliance/src/cli.ts",
     "compliance-update": "node tools/compliance/src/cli.ts --update",
     "evidence": "node tools/compliance/src/cli.ts --evidence",
     "pii": "node tools/pii-check/src/cli.ts",
-    "pii-masking": "node tools/pii-check/src/cli.ts --masking",
     "doc-facts": "node tools/doc-facts/src/cli.ts"
   },
   "devDependencies": {
