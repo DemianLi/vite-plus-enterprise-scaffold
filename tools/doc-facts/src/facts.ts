@@ -47,7 +47,15 @@ export interface Fact {
   /** 權威來源，寫給讀訊息的人看。 */
   readonly source: string;
   /**
-   * 引用這個事實的句子。每個樣式必須**恰好一個**捕獲群組，就是那個數字。
+   * 引用這個事實的句子。兩條硬性要求，**兩條都由 `facts.test.ts` 釘住**：
+   *
+   *   1. **恰好一個捕獲群組**，就是那個數字。兩個群組的話 `match[1]`
+   *      可能不是它，而比對會安靜地錯。
+   *   2. **不得帶 `g` 旗標。** 這些是模組層級的共用物件，而底下用的是
+   *      `exec`；帶 `g` 的 regex 會在物件上累積 `lastIndex`，於是同一個
+   *      樣式跑到第二行時從中間開始比對 —— 症狀是**時有時無地漏掉命中**，
+   *      看起來像文件沒問題。（`HEADING` 確實帶 `g`，但它只餵給
+   *      `matchAll`，那是安全的用法。）
    *
    * 刻意全是單層量詞（C19：security/detect-unsafe-regex）。
    */
@@ -176,13 +184,21 @@ export function checkFacts(
       continue;
     }
 
-    let cited = 0;
+    // ⚠️ 計數是**逐個樣式**的，不是逐個事實。
+    //
+    // 第一版是後者，而那讓這個機制的一半失效：`families` 同時被 README 與
+    // HANDOFF 引用，刪掉 HANDOFF 那一句之後總數仍然是 1，閘門照樣綠 ——
+    // 也就是說「改寫句子會變成紅燈」只在**最後一個**引用被改寫時才成立。
+    //
+    // 一個對不到任何東西的樣式，就是一個不再守著任何東西的樣式。
+    const hits = new Map<RegExp, number>(fact.citations.map((citation) => [citation, 0]));
+
     for (const document of documents) {
       for (const line of document.source.split("\n")) {
         for (const citation of fact.citations) {
           const match = citation.exec(line);
           if (match === null) continue;
-          cited += 1;
+          hits.set(citation, (hits.get(citation) ?? 0) + 1);
           const claimed = Number(match[1]);
           if (claimed === expected) continue;
           problems.push({
@@ -196,12 +212,14 @@ export function checkFacts(
       }
     }
 
-    if (cited === 0) {
+    for (const [citation, count] of hits) {
+      if (count > 0) continue;
       problems.push({
         kind: "never-cited",
         detail:
-          `事實 ${fact.id}（${fact.describe}）在被守的文件裡一個引用都找不到。\n` +
-          "      句子被改寫了，還是那段被刪了？登記的樣式對不到東西的話，這條就等於沒在守。",
+          `事實 ${fact.id}（${fact.describe}）的其中一個樣式對不到任何句子：\n` +
+          `      ${citation.source}\n` +
+          "      句子被改寫了，還是那段被刪了？對不到東西的樣式就是不再守著任何東西。",
       });
     }
   }

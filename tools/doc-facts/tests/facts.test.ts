@@ -52,6 +52,19 @@ describe("checkFacts：該紅的時候會紅", () => {
     expect(problems.map((problem) => problem.kind)).toContain("never-cited");
   });
 
+  it("🔴 多個樣式時，只要有一個對不到就紅 —— 不是「至少有一個對得到」", () => {
+    // 第一版是逐個事實計數，於是一個事實有兩個引用時，刪掉其中一句
+    // 總數仍然是 1，閘門照樣綠 —— 這個機制的一半當場失效。
+    const twoWays: Fact = {
+      ...FACT,
+      citations: [/共 (\d+) 個示範/, /另一句寫 (\d+) 個/],
+    };
+    const problems = checkFacts(docs("這裡共 5 個示範。"), { demo: 5 }, [twoWays]);
+    const stale = problems.filter((problem) => problem.kind === "never-cited");
+    expect(stale).toHaveLength(1);
+    expect(stale[0]?.detail).toContain("另一句寫");
+  });
+
   it("🔴 事實來源讀不出值 → 紅", () => {
     const problems = checkFacts(docs("這裡共 5 個示範。"), {}, [FACT]);
     expect(problems.map((problem) => problem.kind)).toContain("never-cited");
@@ -130,6 +143,17 @@ describe("登記表本身", () => {
         const groups = citation.source.split("(").length - 1;
         const nonCapturing = citation.source.split("(?").length - 1;
         expect(groups - nonCapturing, `${fact.id}: ${citation.source}`).toBe(1);
+      }
+    }
+  });
+
+  it("★ 沒有任何樣式帶 g 旗標", () => {
+    // 這些是模組層級的共用物件，而 checkFacts 用的是 exec。帶 g 的 regex
+    // 會在物件上累積 lastIndex，於是同一個樣式跑到第二行時從中間開始比對 ——
+    // 症狀是時有時無地漏掉命中，看起來像文件沒問題。
+    for (const fact of FACTS) {
+      for (const citation of fact.citations) {
+        expect(citation.flags, `${fact.id}: ${citation.source}`).not.toContain("g");
       }
     }
   });
