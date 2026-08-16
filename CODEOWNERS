@@ -15,6 +15,30 @@
 # 本 repo 2026-08-15 實測：**22 條全部 Unknown owner**（見 DECISIONS 的 C40）。
 # 刻意不做成 CI 閘門 —— 那需要 GitHub API，會因為 token 權限與速率限制而變紅，
 # 而不是因為真的有問題（與 tools/ui-survey 不進 gate 是同一條理由）。
+#
+# ⚠️ ── 但佔位符只是三層落差裡的中間那層（2026-08-16，C63）─────────────
+#
+# 把 @org 換掉**不會**讓這份檔案開始生效。距離生效有三道關：
+#
+#   1. 分支保護的「Require review from Code Owners」——**本 repo 沒開**。
+#      實測 `gh api repos/<owner>/<repo>/branches/main/protection`
+#      回 `404 Branch not protected`。沒有它，這整份檔案只是自動指派
+#      reviewer 的清單，不擋任何東西。
+#
+#   2. owner 是佔位符（上面那一段）。
+#
+#   3. **同一列上多個 owner ＝ 任一核准即可，不是兩個都要。**
+#      GitHub 官方文件原文：「When reviews from code owners are required,
+#      an approval from *any* of the owners is sufficient.」
+#
+# 第 3 層直接打到下面那 12 條寫著「由資安共同把關」「必須經資安核可」的規則 ——
+# 在原生行為下，platform-maintainers 一個人核准就滿足了，資安不會被要求。
+# 那 12 條寫的是**意圖**，不是 GitHub 會強制的事。請照意圖執行，
+# 或參照 HANDOFF #25 的三條出路（開分支保護／拆目錄／外掛檢查）。
+#
+# ⚠️ 「那就把 @a @b 拆成兩行」**行不通**：最後一條匹配的規則獨贏，
+#    前面那條的 owner 會被**取代**而不是合併。原生要強制兩方核准，
+#    唯一的辦法是**兩條不同路徑各有不同 owner** —— 拆的是目錄，不是行。
 
 # ── platform/ 由跨團隊抽調的 maintainer 把關（D12）────────────────────
 # 任何人都能提 PR，但需 maintainer 核准。目的是既不製造瓶頸、也不放任無主。
@@ -28,22 +52,34 @@
 /platform/bff-contract/     @org/platform-maintainers @org/security
 /tools/bff-check/           @org/platform-maintainers @org/security
 
-# ── platform/ui 刻意**沒有**獨立條目 ─────────────────────────────────
+# ── platform/ui 由 /platform/ 通則涵蓋。這是決定，不是還沒決定 ────────
 #
-# 它已經被上面的 `/platform/` 通則涵蓋（platform-maintainers）。
-# 再寫一條 `/platform/ui/ @org/platform-maintainers` 是**完全等價的 no-op**，
-# 而一個 no-op 配上一段說明，讀起來會像「這裡做過一個決定」—— 它沒有。
-#（第一版就是那樣寫的，見 C40。）
+# ✅ HANDOFF #14 已於 2026-08-16 結案：**維持通則，不加獨立條目**（C62）。
 #
-# 真正待決的問題在 HANDOFF #14，而且它比「誰來當 owner」更具體：
+# ⚠️ 這一段以前寫的是「真正待決的問題在 HANDOFF #14」。已經不是了。
+#    決定的結果剛好是「檔案不變」，所以**唯一能分辨「決定不動」與
+#    「還沒決定」的東西就是這段字**。C40 記的是相反方向的同一個錯：
+#    一個 no-op 配上說明，讀起來像做過決定。這次是做了決定而檔案沒變。
 #
-#   **設計系統與應用外殼，是不是同一個團隊的事？**
+# 為什麼不加：
 #
-# 因為候選已經在這份檔案裡了 —— 最下面的 `@org/team-platform-ui` 擁有
-# `/apps/console/`。同一組人接手 `platform/ui` 是最省事的答案；
-# 但那等於把「全公司產品長什麼樣」交給維護單一應用外殼的團隊。
+#   一、`/platform/` 通則已經是業界講的 hybrid 模型。上面那段
+#       「由跨團隊抽調的 maintainer 把關（D12）」底下的
+#       「任何人都能提 PR，但需 maintainer 核准；既不製造瓶頸、也不放任無主」
+#       就是「核心團隊當平台而不是守門員」的原話。不必在它上面再疊一層。
 #
-# 要獨立 owner 的話，在這裡加一列就是了 —— 但**要加就要是真的決定**。
+#   二、交給 `@org/team-platform-ui`（下面擁有 /apps/console/ 的那個）會
+#       **取代** platform-maintainers，不是疊加。而且方向是反的：
+#       platform/* 是跨案共用、會發成內部套件的東西，apps/console 是逐案的。
+#
+#   三、雙簽（`/platform/ui/ @org/platform-maintainers @org/design`）買不到
+#       共簽 —— 見檔頭第 3 層。它只會多一個自動 reviewer，
+#       配上一段讀起來像有兩道關卡的註解。
+#
+# ⚠️ 這個決定**買不到什麼，寫在 C62 第五節**：無障礙的歸屬清楚了
+#    （platform-maintainers），但職能沒有 —— 那是一個平台工程角色，
+#    不是設計角色。#22 那四個行為面缺口現在沒有具名的人在看。
+#    要買回來的方式是組織裡真的有設計職能，不是在這裡加一列。
 
 # supply-chain 的家族分級表刻意寫在原始碼裡（而不是 JSON），為的就是這一列：
 # 一個新的原生工具鏈進到建置環境時，分類必須是一次**被資安看過**的變更。
