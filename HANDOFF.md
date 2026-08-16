@@ -105,8 +105,8 @@
 ./node_modules/.bin/vpr exit-drill    # 每季一次，證據進版控
 ```
 
-最後一次（2026-08-15）：退到上游 **Vite 8.2.1** 建置成功、上游 Vitest **108 個測試全過**、
-**應用程式原始碼一字未改**、耗時 5 秒。證據在
+最後一次（2026-08-16）：退到上游 **Vite 8.2.1** 建置成功、上游 Vitest **146 個測試全過**、
+**應用程式原始碼一字未改**、耗時 6 秒。證據在
 [`tools/exit-drill/evidence.json`](tools/exit-drill/evidence.json)。
 
 > 說法的差別：不是「我們押注在 beta 上，出事再說」，

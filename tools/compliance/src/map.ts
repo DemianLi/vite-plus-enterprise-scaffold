@@ -160,11 +160,11 @@ export const GATES: readonly Gate[] = [
   {
     id: "exit-drill",
     kind: "gate",
-    what: "D2 退出面靜態檢查、plugin 帳目、演練證據新鮮度（120 天）",
+    what: "D2 退出面靜態檢查、plugin 帳目、**測試相依帳目**、演練證據新鮮度（120 天）",
     command: "node tools/exit-drill/src/cli.ts",
     evidence: "tools/exit-drill/evidence.json",
     negativeTest: null,
-    note: "有零件測試。證據新鮮度守衛的模式是對的，但守衛自己沒被證明過會紅。",
+    note: "有零件測試。⚠️ 2026-08-16 加了第三項「測試相依帳目」（C64），而且是補一個**真的已經發生**的洞：完整演練每季才跑一次，`happy-dom` 從 PR #15 起就沒被安裝、演練從那時起就是壞的，19 個 PR 沒有人知道。該項已實測會紅（注入未登記的 devDependency → exit 1）。⚠️ 這一欄仍記 null：那是整道閘門四項的總和，而證據新鮮度守衛自己仍未被證明過會紅 —— 只證明了其中一項就把整格標成已證明，正是這張表最該擋下的事。",
   },
   {
     id: "eslint-security",

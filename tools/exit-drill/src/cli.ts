@@ -15,7 +15,14 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { accountPlugins, DRILL_PLUGINS, DROPPED_PLUGINS, type ConfigSource } from "./plugins.ts";
 import {
+  accountTestDependencies,
+  DRILL_TEST_DEPENDENCIES,
+  DROPPED_TEST_DEPENDENCIES,
+  type ManifestDevDependencies,
+} from "./dependencies.ts";
+import {
   checkDocumentedCounts,
+  DOCUMENTS_CITING_EVIDENCE,
   parseTestCounts,
   stripAnsi,
   type DocumentSource,
@@ -65,11 +72,7 @@ const EXIT_SURFACE = ["vite.config.ts", "apps/console/vite.config.ts"];
 /** 演練證據的有效期。超過就不再是「已驗證」，只是「曾經驗證過」。 */
 const FRESHNESS_DAYS = 120;
 
-/**
- * 會引用演練成績的文件。新增引用的地方要一併加進來 ——
- * 沒加的地方不受檢查，也就是會安靜地過期（見 `counts.ts` 的說明）。
- */
-const DOCUMENTS_CITING_EVIDENCE = ["DECISIONS.md", "HANDOFF.md", "tools/exit-drill/README.md"];
+// 受守的文件清單住在 counts.ts —— 與比對邏輯放在一起，測試才驗得到它（C64）。
 
 const SCAN_DIRS = ["apps", "features", "platform"];
 const EXTENSIONS = [".ts", ".tsx", ".js", ".mjs", ".vue"];
@@ -165,7 +168,65 @@ function runStatic(): number {
   console.log(
     `✓ plugin 帳目相符（重現 ${DRILL_PLUGINS.length}、明示丟棄 ${DROPPED_PLUGINS.length}）`,
   );
+
+  const dependencyErrors = accountTestDependencies(reachableManifests());
+  if (dependencyErrors.length > 0) {
+    console.error("\n✗ 退出演練的測試相依帳目對不上\n");
+    for (const error of dependencyErrors) console.error(`  ✗ ${error}`);
+    console.error(
+      "\n  --full 的最後一步是 `vitest run`，而它跑在一個由演練**重新產生**的\n" +
+        "  package.json 上。沒登記的測試相依在那裡等於不存在：測試起不來，\n" +
+        "  而錯誤訊息是 ERR_MODULE_NOT_FOUND，看起來像環境壞了。\n\n" +
+        "  ⚠️ 這**已經真的發生過**：happy-dom 與 @vue/test-utils 隨 masking.test.ts\n" +
+        "  一起進來，演練從那一刻起就是壞的，而完整演練每季才跑一次 ——\n" +
+        "  所以這道檢查留在靜態這一半，讓它在加相依的那個 PR 上就紅。\n\n" +
+        "  請在 tools/exit-drill/src/dependencies.ts 裡二選一登記\n" +
+        "（判準：測試跑起來需要它，而它不是被替換掉的工具鏈本身？）：\n" +
+        "    · 需要 → 加進 DRILL_TEST_DEPENDENCIES，演練會真的裝它\n" +
+        "    · 不需要 → 加進 DROPPED_TEST_DEPENDENCIES，並寫明由誰提供、\n" +
+        "      或為什麼不裝它演練仍然成立（「用不到」不算理由）\n",
+    );
+    return 1;
+  }
+
+  console.log(
+    `✓ 測試相依帳目相符（安裝 ${DRILL_TEST_DEPENDENCIES.length}、` +
+      `明示不裝 ${DROPPED_TEST_DEPENDENCIES.length}）`,
+  );
   return checkFreshness();
+}
+
+/**
+ * 從 `apps/console` 走得到的每一份 manifest 的 devDependencies。
+ *
+ * ⚠️ 這裡的範圍必須等於**演練實際複製並跑測試的那一批**，不只是「跟
+ * `runtimeDependencies` 一樣」。目前三者剛好重合（`runFull` 也已收斂到可達集合），
+ * 但真正的不變式是前者：**帳目要涵蓋會被跑到的每一份 package.json**。
+ *
+ * 寫成「跟 runtimeDependencies 一致」的話，哪天有人放寬了複製範圍卻沒放寬帳目，
+ * 同一類失敗就會回來 —— 而它上一次的樣子是 `Cannot find package 'eslint'`，
+ * 因為複製的是全部套件、安裝的只有可達的那些。
+ */
+function reachableManifests(): readonly ManifestDevDependencies[] {
+  const packages = listWorkspacePackages();
+  const byName = new Map(packages.map((pkg) => [pkg.name, pkg]));
+  const paths = ["apps/console/package.json"];
+
+  for (const name of reachableWorkspacePackages(packages)) {
+    const pkg = byName.get(name);
+    if (pkg !== undefined) paths.push(`${pkg.dir.slice(ROOT.length + 1)}/package.json`);
+  }
+
+  const manifests: ManifestDevDependencies[] = [];
+  for (const path of paths) {
+    const full = join(ROOT, path);
+    if (!existsSync(full)) continue;
+    const parsed = JSON.parse(readFileSync(full, "utf8")) as {
+      devDependencies?: Record<string, string>;
+    };
+    manifests.push({ path, devDependencies: parsed.devDependencies ?? {} });
+  }
+  return manifests;
 }
 
 function checkFreshness(): number {
@@ -486,8 +547,39 @@ function runFull(): number {
   cpSync(join(ROOT, "apps/console"), join(workdir, "app"), { recursive: true, filter });
   rmSync(join(workdir, "app/vite.config.ts"), { force: true });
 
-  const packages = listWorkspacePackages();
+  const allPackages = listWorkspacePackages();
   const aliases: { find: string; replacement: string }[] = [];
+
+  /**
+   * ⚠️ 只複製**從 `apps/console` 走得到的**套件，不是全部 platform／features。
+   *
+   * 第一版複製全部，於是有兩個集合不一致：跑測試的是全部，安裝相依的只有可達的。
+   * 那個落差安靜了很久，直到 `platform/eslint-config` 有了第一支測試（v0.7.0 的
+   * `a11y.test.ts`）—— 它 `import { ESLint } from "eslint"`，而演練不會裝 eslint。
+   *
+   * 而那一個**修不掉**：`@org/eslint-config` 的 `dependencies` 裡有
+   * `typescript-eslint`（peer `typescript >=4.8.4 <6.1.0`）與自己釘死的
+   * `typescript: 6.0.3`（C2）—— 它存在的理由就是 typescript-eslint 不肯跑在 TS 7 上。
+   * 一個以「換上游工具鏈」為前提的演練，永遠裝不起那個 package 的相依。
+   *
+   * 所以它不是一個待補的洞，是**依建構就在退出保證之外**：
+   * 可達性（從應用走得到）就是「屬於這個應用」的定義，而 lint 設定與 BFF mock
+   * 都不是應用的一部分 —— 退出 vite-plus 之後，你的 eslint 設定不需要用上游
+   * Vite 建得起來。它們的測試仍然由 `vp run -r test` 跑，只是不在這場演練裡。
+   *
+   * 判準因此不寫成清單，而是推導：**可達＝在保證內**。差集會被印出來（見下），
+   * 這樣「哪些不在保證內」不會變成一個沒有人記得的預設值。
+   */
+  const reachable = new Set(reachableWorkspacePackages(allPackages));
+  const packages = allPackages.filter((pkg) => reachable.has(pkg.name));
+  const excluded = allPackages.filter((pkg) => !reachable.has(pkg.name)).map((pkg) => pkg.name);
+
+  console.log(
+    `演練範圍：${packages.length} 個可達套件` +
+      (excluded.length === 0
+        ? "（platform／features 全數在保證內）\n"
+        : `；${excluded.length} 個不在退出保證內：${excluded.join("、")}\n`),
+  );
 
   for (const pkg of packages) {
     const target = join(workdir, "packages", pkg.name.replace("@org/", ""));
@@ -567,6 +659,11 @@ function runFull(): number {
               (UPSTREAM as Record<string, string>)[plugin.module] ?? dependency(plugin.module),
             ]),
           ),
+          // 測試專用的純 JS 相依。演練的最後一步是 `vitest run`，而
+          // runtimeDependencies() 刻意只收 dependencies —— 那個判斷是對的
+          //（devDependencies 裡裝的正是被替換掉的工具鏈），但它漏了「測試
+          // 自己也有相依」這一類。帳目與理由在 dependencies.ts。
+          ...Object.fromEntries(DRILL_TEST_DEPENDENCIES.map((name) => [name, dependency(name)])),
         },
       },
       null,
@@ -637,6 +734,27 @@ function runFull(): number {
 
   writeFileSync(EVIDENCE_PATH, `${JSON.stringify(evidence, null, 2)}\n`);
   rmSync(workdir, { recursive: true, force: true });
+
+  /**
+   * 寫完立刻交給 formatter 收尾。
+   *
+   * `JSON.stringify(_, null, 2)` 的排版與 oxfmt 不一致，於是**每一次跑演練都會
+   * 產出一個過不了 `vp check` 的檔案** —— 而下一行就印著「請一併提交」。
+   *
+   * 這件事在這裡特別荒謬：evidence.json 是**每季由 maintainer 手動開 PR**
+   * 併回 main 的（CI 刻意不給 push main 的 token）。也就是說那個人每一季
+   * 都會撞到一次「照工具說的做，然後 CI 紅」。
+   *
+   * ⚠️ 這是同一個教訓的**第三次**：`tools/slice-gen/src/files.ts` 寫過
+   *（「那道 fmt 才是保證」），`tools/api-surface/src/cli.ts` 又寫過一次，
+   * 而這裡漏了。讓 formatter 當唯一權威，不要手工去猜它的規則。
+   */
+  const formatted = spawnSync("vp", ["fmt", EVIDENCE_PATH], { cwd: ROOT, encoding: "utf8" });
+  if (formatted.status !== 0) {
+    console.error("✗ 證據已寫入，但格式化失敗 —— 直接 commit 會讓 `vp check` 變紅：");
+    console.error(formatted.stderr || formatted.stdout || String(formatted.error));
+    return 1;
+  }
 
   console.log(
     `\n${passed ? "✓" : "✗"} 退出演練${passed ? "通過" : "失敗"}（${durationSeconds} 秒）`,

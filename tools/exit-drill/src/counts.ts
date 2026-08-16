@@ -88,6 +88,53 @@ const CLAIM = /(\d+)\s*(?:個測試|tests)\s*全過/g;
 const DRILL_CONTEXT = "上游";
 
 /**
+ * 講**第一次**那場演練的句子不比對。
+ *
+ * ── 為什麼需要這個例外 ──────────────────────────────────────────────
+ *
+ * 這道閘門原本要求每一句「退到上游⋯N 個測試全過」都等於 `evidence.json`。
+ * 那對「最後一次跑出什麼」是對的，對**歷史紀錄**是錯的：
+ * DECISIONS 有一段寫著「2026-08-15 首次實測結果：⋯上游 Vitest 108 個測試全過，
+ * 全程 5 秒」——那是那一天真的發生的事。演練重跑之後把它改成新數字，
+ * 等於**要求改寫歷史**，而那正是 `tools/doc-facts` 明白拒絕守 DECISIONS.md 的理由。
+ *
+ * 2026-08-16 重跑時這個衝突真的發生了（108 → 146），六處引用同時變紅，
+ * 其中四處是敘述、一處是歷史。
+ *
+ * ── 為什麼「首次」是安全的錨點 ──────────────────────────────────────
+ *
+ * 因為**「首次」與「最後一次」互斥**：跑過兩次以上時，講首次的句子必然
+ * 不是在講現況；只跑過一次時，兩個數字本來就相等。所以這個例外不會
+ * 放掉任何一句真的在宣稱現況的話 —— 它只放掉明說自己在講第一次的那些。
+ *
+ * ⚠️ 它**不是**一個通用的「不想被守就加這幾個字」的出口。要寫的是
+ * 「首次實測」這個具體事件，不是「當時」「那時候」這類模糊詞。
+ */
+const HISTORICAL = "首次實測";
+
+/**
+ * 會引用演練成績、而且**受這道閘門檢查**的文件。
+ *
+ * ⚠️ **`DECISIONS.md` 於 2026-08-16 移出（C64）。** 不是因為它不重要，
+ * 是因為它扛錯了東西：那裡原本有四處抄著演練成績，而它是一份**有日期的
+ * 決策日誌**。重跑演練（108 → 146）時那四處同時變紅，而把它們改成新數字
+ * 會讓「2026-08-15 實測⋯」變成假的 —— **要求改寫歷史**。
+ *
+ * 那四處的論點本來就不需要那個數字（「Pinia 一個字沒改」才是重點），已拿掉；
+ * 唯一真的在記錄歷史的那一句由上面的 `HISTORICAL` 豁免。
+ *
+ * 這與 `tools/doc-facts` 拒絕守 DECISIONS.md 是同一條判準，只是那邊守套件數、
+ * 這邊守測試數。
+ *
+ * ⚠️ 住在這裡而不是 `cli.ts`：`cli.ts` 最後一行是 top-level `process.exit`，
+ * 測試一 import 就會被殺掉。清單放在純模組裡，測試才驗得到它。
+ */
+export const DOCUMENTS_CITING_EVIDENCE: readonly string[] = [
+  "HANDOFF.md",
+  "tools/exit-drill/README.md",
+];
+
+/**
  * 文件裡宣稱的演練測試數。
  *
  * **取捨**：沒寫「上游」的演練成績會被漏掉（召回率的損失），換來零誤報。
@@ -98,7 +145,7 @@ const DRILL_CONTEXT = "上游";
 export function findDocumentedTestCounts(source: string): readonly number[] {
   const found: number[] = [];
   for (const line of source.split("\n")) {
-    if (!line.includes(DRILL_CONTEXT)) continue;
+    if (!line.includes(DRILL_CONTEXT) || line.includes(HISTORICAL)) continue;
     for (const match of line.matchAll(CLAIM)) found.push(Number(match[1]));
   }
   return found;
