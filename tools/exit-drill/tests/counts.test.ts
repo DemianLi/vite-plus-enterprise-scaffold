@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { checkDocumentedCounts, findDocumentedTestCounts, parseTestCounts } from "../src/counts.ts";
+import {
+  checkDocumentedCounts,
+  DOCUMENTS_CITING_EVIDENCE,
+  findDocumentedTestCounts,
+  parseTestCounts,
+} from "../src/counts.ts";
 
 /**
  * 演練成績的文件比對（見 `src/counts.ts` 的說明）。
@@ -54,7 +59,7 @@ describe("findDocumentedTestCounts", () => {
   });
 
   it("同一份文件裡的多處都抓得到", () => {
-    // 實際情況就是這樣：DECISIONS.md 一份裡就有 6 處。
+    // 實際情況就是這樣：2026-08-16 那次重跑，光 DECISIONS.md 一份裡就有 6 處同時變紅。
     const source = "退到上游 86 個測試全過\n上游 Vitest 98 tests 全過\n上游 86 個測試全過";
     expect(findDocumentedTestCounts(source)).toEqual([86, 98, 86]);
   });
@@ -81,6 +86,22 @@ describe("findDocumentedTestCounts —— 不可以誤報的", () => {
   it("引用歷史錯誤值的句子不算（C36 就有一句）", () => {
     const source = "演練的成績（「86 個測試全過、耗時 4 秒」）被手抄在好幾處";
     expect(findDocumentedTestCounts(source)).toEqual([]);
+  });
+
+  it("★ 明說在講「首次實測」的句子不算 —— 那是歷史，不是現況", () => {
+    // 2026-08-16 重跑（108 → 146）時逼出來的：DECISIONS 有一句記著第一次跑出
+    // 什麼，把它改成新數字等於**要求改寫歷史**，而那正是 doc-facts 拒絕守
+    // DECISIONS.md 的同一條理由。
+    const source = "產物大小一致），首次實測時上游 Vitest **108 個測試全過**，原始碼未改";
+    expect(findDocumentedTestCounts(source)).toEqual([]);
+  });
+
+  it("★ 但「上游⋯全過」少了那個標記就照樣要被咬到", () => {
+    // 這一條是上面那個放寬的反向測試。少了它，「首次實測」會變成一個
+    // 「不想被守就加這四個字」的萬用出口 —— 而閘門的出口一旦好用，
+    // 三個月後每一句都會有那四個字。
+    const source = "產物大小一致），實測時上游 Vitest **108 個測試全過**，原始碼未改";
+    expect(findDocumentedTestCounts(source)).toEqual([108]);
   });
 });
 
@@ -116,12 +137,14 @@ describe("checkDocumentedCounts", () => {
   });
 });
 
+const GUARDED = DOCUMENTS_CITING_EVIDENCE;
+
 describe("真實文件與真實證據", () => {
-  it("三份文件目前引用的數字都與 evidence.json 一致", () => {
+  it("受守的文件目前引用的數字都與 evidence.json 一致", () => {
     // 拿真檔案測。只測人造字串的話，這支測試會在 CI 上一直綠，
     // 而文件早就和證據脫節了 —— 那正是這道檢查要防的東西。
     const evidence = JSON.parse(readFileSync(join(ROOT, "tools/exit-drill/evidence.json"), "utf8"));
-    const documents = ["DECISIONS.md", "HANDOFF.md", "tools/exit-drill/README.md"].map((path) => ({
+    const documents = GUARDED.map((path) => ({
       path,
       source: readFileSync(join(ROOT, path), "utf8"),
     }));
@@ -129,8 +152,8 @@ describe("真實文件與真實證據", () => {
     expect(checkDocumentedCounts(documents, evidence.tests)).toEqual([]);
   });
 
-  it("三份文件確實各自都有引用（否則這道檢查等於沒在看）", () => {
-    for (const path of ["DECISIONS.md", "HANDOFF.md", "tools/exit-drill/README.md"]) {
+  it("受守的文件確實各自都有引用（否則這道檢查等於沒在看）", () => {
+    for (const path of GUARDED) {
       const found = findDocumentedTestCounts(readFileSync(join(ROOT, path), "utf8"));
       expect(found.length, `${path} 沒有任何「N 個測試全過」`).toBeGreaterThan(0);
     }

@@ -69,7 +69,7 @@
 | `bff-check`         | D8 同源中間層的 15 條行為契約（cookie 屬性、CSRF、401／403）                                                   | **（無）**                                  | `tools/bff-check/tests/negative.test.ts`         |
 | `api-surface`       | platform/ 公開 API 的破壞性變更：export 名稱＋**型別形狀**（D12）                                              | `tools/api-surface/surface.json`            | `tools/api-surface/tests/negative.test.ts`       |
 | `supply-chain`      | 相依盤點、原生家族分類、tarball digest 與 lockfile 綁定（R2–R5／R8）                                           | `tools/supply-chain/provenance.json`        | **❌ 無**                                        |
-| `exit-drill`        | D2 退出面靜態檢查、plugin 帳目、演練證據新鮮度（120 天）                                                       | `tools/exit-drill/evidence.json`            | **❌ 無**                                        |
+| `exit-drill`        | D2 退出面靜態檢查、plugin 帳目、**測試相依帳目**、演練證據新鮮度（120 天）                                     | `tools/exit-drill/evidence.json`            | **❌ 無**                                        |
 | `eslint-security`   | no-unsanitized、eslint-plugin-security、vue/no-v-html（D5 的安全那一半）                                       | **（無）**                                  | **❌ 無**                                        |
 | `a11y-lint`         | Vue 模板的靜態無障礙檢查：原生元素與屬性（缺 alt、缺 label、角色錯用、只有滑鼠事件）                           | **（無）**                                  | `platform/eslint-config/tests/a11y.test.ts`      |
 | `trivy-sca`         | 相依套件的 HIGH／CRITICAL 漏洞，PR ＋ 每日 21:00 UTC 排程                                                      | **（無）**                                  | **❌ 無**                                        |
@@ -94,7 +94,7 @@
 - **`supply-chain`** — `node tools/supply-chain/src/cli.ts`  
   parseLockfile／buildInventory 有零件測試，但**沒有一條**測「把 provenance 弄髒之後 CLI 會不會 exit 1」。
 - **`exit-drill`** — `node tools/exit-drill/src/cli.ts`  
-  有零件測試。證據新鮮度守衛的模式是對的，但守衛自己沒被證明過會紅。
+  有零件測試。⚠️ 2026-08-16 加了第三項「測試相依帳目」（C64），而且是補一個**真的已經發生**的洞：完整演練每季才跑一次，`happy-dom` 從 PR #15 起就沒被安裝、演練從那時起就是壞的，19 個 PR 沒有人知道。該項已實測會紅（注入未登記的 devDependency → exit 1）。⚠️ 這一欄仍記 null：那是整道閘門四項的總和，而證據新鮮度守衛自己仍未被證明過會紅 —— 只證明了其中一項就把整格標成已證明，正是這張表最該擋下的事。
 - **`eslint-security`** — `./node_modules/.bin/eslint . --max-warnings=0`  
   存在的首要理由是 oxlint 沒有 vue/no-v-html —— Vue 專案最主要的 XSS 入口。
 - **`a11y-lint`** — `./node_modules/.bin/eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0`  
@@ -134,7 +134,7 @@
 
 分開列的理由是避免下一次有人把它們當成法定義務再論證一次。
 
-- **`exit-drill`** — D2 退出面靜態檢查、plugin 帳目、演練證據新鮮度（120 天）
+- **`exit-drill`** — D2 退出面靜態檢查、plugin 帳目、**測試相依帳目**、演練證據新鮮度（120 天）
 - **`a11y-lint`** — Vue 模板的靜態無障礙檢查：原生元素與屬性（缺 alt、缺 label、角色錯用、只有滑鼠事件）
 - **`gitleaks`** — 機密掃描，fetch-depth: 0 以涵蓋被後續 commit 蓋掉的機密
 - **`doc-facts`** — 現況文件引用的數字，與 repo 內部事實來源推導出來的一致（事實來源與守哪幾份文件見 doc-facts 的 FACTS／GUARDED）
