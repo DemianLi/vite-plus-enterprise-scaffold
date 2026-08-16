@@ -85,21 +85,21 @@
 ### 逐道註記
 
 - **`conformance`** — `node tools/conformance/src/cli.ts`  
-  23 條反向測試，破壞的是複製到暫存目錄的副本，repo 原始碼不被動到。⚠️ 幽靈依賴那條（2026-08-16 加）**刻意不掃 `tools/*` 與 `tests/`** —— 產生器與測試的本職就是把程式碼當資料拿著，乾跑時那兩處噴出 20 幾條全數偽陽性。範圍窄而準，勝過寬而吵。
+  反向測試破壞的是複製到暫存目錄的副本，repo 原始碼不被動到。⚠️ 幽靈依賴那條（2026-08-16 加）**刻意不掃 `tools/*` 與 `tests/`** —— 產生器與測試的本職就是把程式碼當資料拿著，乾跑時那兩處噴出 20 幾條全數偽陽性。範圍窄而準，勝過寬而吵。
 - **`bff-check`** — `./node_modules/.bin/vitest run --root tools/bff-check`  
-  9 條反向測試，用改寫回應的 proxy 破壞行為而非程式碼，實作改寫法也不會失效。
+  反向測試用改寫回應的 proxy 破壞行為而非程式碼，實作改寫法也不會失效。
 - **`api-surface`** — `node tools/api-surface/src/cli.ts`  
-  11 條反向測試。破壞的是**基準檔的副本**（`--baseline`），platform 的原始碼不用動 —— 對閘門而言「基準說有、現況沒有」與真的刪掉一個 export 完全等價。其中三條驗 codemod 這個合法出口沒有被繞過，也沒有被誤擋。
+  反向測試破壞的是**基準檔的副本**（`--baseline`），platform 的原始碼不用動 —— 對閘門而言「基準說有、現況沒有」與真的刪掉一個 export 完全等價。另有幾條驗 codemod 這個合法出口沒有被繞過，也沒有被誤擋。
 - **`supply-chain`** — `node tools/supply-chain/src/cli.ts`  
-  46 條零件測試（parseLockfile／buildInventory），但沒有一條測「把 provenance 弄髒之後 CLI 會不會 exit 1」。
+  parseLockfile／buildInventory 有零件測試，但**沒有一條**測「把 provenance 弄髒之後 CLI 會不會 exit 1」。
 - **`exit-drill`** — `node tools/exit-drill/src/cli.ts`  
-  39 條零件測試。證據新鮮度守衛的模式是對的，但守衛自己沒被證明過會紅。
+  有零件測試。證據新鮮度守衛的模式是對的，但守衛自己沒被證明過會紅。
 - **`eslint-security`** — `./node_modules/.bin/eslint . --max-warnings=0`  
   存在的首要理由是 oxlint 沒有 vue/no-v-html —— Vue 專案最主要的 XSS 入口。
 - **`trivy-sca`** — `aquasecurity/trivy-action（.github/workflows/tier2-security.yml）`  
-  唯一直接對得上 §11 II ③ 的閘門。兩個已知失明模式（C33／C34）現在由 `trivy-sbom` 的 15 條反向測試守著，而**設定漂移**（少一行 TRIVY_INCLUDE_DEV_DEPS、拿掉 exit-code）也有測試釘住。⚠️ 但仍未證明「Trivy 發現 CVE 時 CI 會紅」—— 那需要一份帶已知 CVE 的 fixture，而那種 fixture 會在 CVE 被修掉的那天因為錯誤的理由變綠。這一格刻意留白。
+  唯一直接對得上 §11 II ③ 的閘門。兩個已知失明模式（C33／C34）現在由 `trivy-sbom` 的反向測試守著，而**設定漂移**（少一行 TRIVY_INCLUDE_DEV_DEPS、拿掉 exit-code）也有測試釘住。⚠️ 但仍未證明「Trivy 發現 CVE 時 CI 會紅」—— 那需要一份帶已知 CVE 的 fixture，而那種 fixture 會在 CVE 被修掉的那天因為錯誤的理由變綠。這一格刻意留白。
 - **`trivy-sbom`** — `node tools/supply-chain/src/cli.ts --verify-sbom sbom.cdx.json`  
-  15 條反向測試，兩個已知失明模式各有一條：SBOM 0 個 component（C33）、只有 20 個（C34 只解第一份 YAML 文件）。⚠️ SBOM 仍只上傳為 artifact（保留 90 天）、沒有進版控 —— 而 §16 要的是 5 年。
+  反向測試涵蓋兩個已知失明模式，各有一條：SBOM 0 個 component（C33）、只有 20 個（C34 只解第一份 YAML 文件）。⚠️ SBOM 仍只上傳為 artifact（保留 90 天）、沒有進版控 —— 而 §16 要的是 5 年。
 - **`sast`** — `semgrep scan --config .semgrep/rules.yml --exclude .semgrep（.github/workflows/tier2-security.yml）`  
   ⚠️ **這不是交給機關的那份 SAST 報告** —— 那份由第三方或機關指定的商用工具產出，是標案交付物。這裡是開發當下的前置過濾器：把「驗收前才知道」變成「開發當下就知道」。規則自寫而非用公開規則集，是實測決定的（C56）：拿故意寫壞的 fixture 去測，p/xss、p/security-audit、p/owasp-top-ten、p/default 四組共 210 條規則**全部命中 0**，兩條自寫規則命中 2 —— 公開規則集的重心在伺服器端，Vue SPA 的瀏覽器端 DOM 汙點流覆蓋得最薄。反向測試就是 `rules.ts` 本身（semgrep 的 fixture 格式），含一條對照組：同一個汙點來源流進 `textContent` 不得被報，否則「看到 route.query 就報」的爛規則也會通過。⚠️ `semgrep --test` 在**找不到 fixture 時回傳 0**，所以 workflow 有兩道防呆：`No unit tests found` 要紅，且輸出必須有真的「N/N tests passed」數字。
 - **`gitleaks`** — `gitleaks/gitleaks-action（.github/workflows/tier2-security.yml）`  

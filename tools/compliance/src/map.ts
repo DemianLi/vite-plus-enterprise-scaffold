@@ -19,6 +19,25 @@
  * 所以這一欄**允許是 null**，而且 null 會照樣印在表上。一份把洞藏起來的
  * 對照表比沒有對照表更危險：空的那一格至少誠實，假的那一列會讓人以為有守。
  *
+ * ── ⚠️ `note` 裡不寫測試條數（2026-08-16）─────────────────────────────
+ *
+ * 這一節是被上面那句話自己抓到的。
+ *
+ * 原本六個 `note` 都以「N 條反向測試」開頭。實測之後：**五個是對的，
+ * 一個是錯的** —— 而錯的那個是 supply-chain 的「46 條」。也就是上面那句
+ * 「『我們有 46 條測試』不是答案」拿來當反例的數字，**正好就是這個檔案
+ * 自己寫在下面、而且是六個裡唯一錯掉的那一個**。
+ *
+ * 對的那五個是**碰巧**：沒有任何東西在維持它們。它們會在下次有人加一條
+ * 測試的時候安靜地變錯，而 `note` 是印在交給稽核的那張表上的。
+ *
+ * 靜態數 `it(` 不能用：好幾支測試用 `for` 迴圈產生案例，數出來會少算 ——
+ * 一個**低估自己**的數字比高估更容易被相信。
+ *
+ * 所以拿掉數詞，照 C53：**沒有事實來源的計數不要寫**。留下來的是這一欄
+ * 真正該回答的東西 —— **那些測試破壞的是什麼、涵蓋了哪些失明模式**。
+ * 「零」是例外，它留著：`supply-chain` 的「沒有一條測…」正是這一欄的重點。
+ *
  * ── 為什麼不是每一條法規都該有閘門 ──────────────────────────────────
  *
  * §11 II 的防火牆、入侵偵測、防毒，是後端與基礎設施的事。把它們列成
@@ -106,7 +125,7 @@ export const GATES: readonly Gate[] = [
     command: "node tools/conformance/src/cli.ts",
     evidence: null,
     negativeTest: "tools/conformance/tests/negative.test.ts",
-    note: "23 條反向測試，破壞的是複製到暫存目錄的副本，repo 原始碼不被動到。⚠️ 幽靈依賴那條（2026-08-16 加）**刻意不掃 `tools/*` 與 `tests/`** —— 產生器與測試的本職就是把程式碼當資料拿著，乾跑時那兩處噴出 20 幾條全數偽陽性。範圍窄而準，勝過寬而吵。",
+    note: "反向測試破壞的是複製到暫存目錄的副本，repo 原始碼不被動到。⚠️ 幽靈依賴那條（2026-08-16 加）**刻意不掃 `tools/*` 與 `tests/`** —— 產生器與測試的本職就是把程式碼當資料拿著，乾跑時那兩處噴出 20 幾條全數偽陽性。範圍窄而準，勝過寬而吵。",
   },
   {
     id: "bff-check",
@@ -115,7 +134,7 @@ export const GATES: readonly Gate[] = [
     command: "./node_modules/.bin/vitest run --root tools/bff-check",
     evidence: null,
     negativeTest: "tools/bff-check/tests/negative.test.ts",
-    note: "9 條反向測試，用改寫回應的 proxy 破壞行為而非程式碼，實作改寫法也不會失效。",
+    note: "反向測試用改寫回應的 proxy 破壞行為而非程式碼，實作改寫法也不會失效。",
   },
   {
     id: "api-surface",
@@ -124,7 +143,7 @@ export const GATES: readonly Gate[] = [
     command: "node tools/api-surface/src/cli.ts",
     evidence: "tools/api-surface/surface.json",
     negativeTest: "tools/api-surface/tests/negative.test.ts",
-    note: "11 條反向測試。破壞的是**基準檔的副本**（`--baseline`），platform 的原始碼不用動 —— 對閘門而言「基準說有、現況沒有」與真的刪掉一個 export 完全等價。其中三條驗 codemod 這個合法出口沒有被繞過，也沒有被誤擋。",
+    note: "反向測試破壞的是**基準檔的副本**（`--baseline`），platform 的原始碼不用動 —— 對閘門而言「基準說有、現況沒有」與真的刪掉一個 export 完全等價。另有幾條驗 codemod 這個合法出口沒有被繞過，也沒有被誤擋。",
   },
   {
     id: "supply-chain",
@@ -133,7 +152,7 @@ export const GATES: readonly Gate[] = [
     command: "node tools/supply-chain/src/cli.ts",
     evidence: "tools/supply-chain/provenance.json",
     negativeTest: null,
-    note: "46 條零件測試（parseLockfile／buildInventory），但沒有一條測「把 provenance 弄髒之後 CLI 會不會 exit 1」。",
+    note: "parseLockfile／buildInventory 有零件測試，但**沒有一條**測「把 provenance 弄髒之後 CLI 會不會 exit 1」。",
   },
   {
     id: "exit-drill",
@@ -142,7 +161,7 @@ export const GATES: readonly Gate[] = [
     command: "node tools/exit-drill/src/cli.ts",
     evidence: "tools/exit-drill/evidence.json",
     negativeTest: null,
-    note: "39 條零件測試。證據新鮮度守衛的模式是對的，但守衛自己沒被證明過會紅。",
+    note: "有零件測試。證據新鮮度守衛的模式是對的，但守衛自己沒被證明過會紅。",
   },
   {
     id: "eslint-security",
@@ -160,7 +179,7 @@ export const GATES: readonly Gate[] = [
     command: "aquasecurity/trivy-action（.github/workflows/tier2-security.yml）",
     evidence: null,
     negativeTest: null,
-    note: "唯一直接對得上 §11 II ③ 的閘門。兩個已知失明模式（C33／C34）現在由 `trivy-sbom` 的 15 條反向測試守著，而**設定漂移**（少一行 TRIVY_INCLUDE_DEV_DEPS、拿掉 exit-code）也有測試釘住。⚠️ 但仍未證明「Trivy 發現 CVE 時 CI 會紅」—— 那需要一份帶已知 CVE 的 fixture，而那種 fixture 會在 CVE 被修掉的那天因為錯誤的理由變綠。這一格刻意留白。",
+    note: "唯一直接對得上 §11 II ③ 的閘門。兩個已知失明模式（C33／C34）現在由 `trivy-sbom` 的反向測試守著，而**設定漂移**（少一行 TRIVY_INCLUDE_DEV_DEPS、拿掉 exit-code）也有測試釘住。⚠️ 但仍未證明「Trivy 發現 CVE 時 CI 會紅」—— 那需要一份帶已知 CVE 的 fixture，而那種 fixture 會在 CVE 被修掉的那天因為錯誤的理由變綠。這一格刻意留白。",
   },
   {
     id: "trivy-sbom",
@@ -169,7 +188,7 @@ export const GATES: readonly Gate[] = [
     command: "node tools/supply-chain/src/cli.ts --verify-sbom sbom.cdx.json",
     evidence: null,
     negativeTest: "tools/supply-chain/tests/sbom-negative.test.ts",
-    note: "15 條反向測試，兩個已知失明模式各有一條：SBOM 0 個 component（C33）、只有 20 個（C34 只解第一份 YAML 文件）。⚠️ SBOM 仍只上傳為 artifact（保留 90 天）、沒有進版控 —— 而 §16 要的是 5 年。",
+    note: "反向測試涵蓋兩個已知失明模式，各有一條：SBOM 0 個 component（C33）、只有 20 個（C34 只解第一份 YAML 文件）。⚠️ SBOM 仍只上傳為 artifact（保留 90 天）、沒有進版控 —— 而 §16 要的是 5 年。",
   },
   {
     id: "sast",
