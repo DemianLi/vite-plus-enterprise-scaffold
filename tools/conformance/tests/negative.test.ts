@@ -274,6 +274,115 @@ describe("D4 / D6 / D12：切片邊界與治理", () => {
   });
 });
 
+/**
+ * 幽靈依賴 —— 這一組的 ★ 比「該紅」那兩條更難寫，也更重要。
+ *
+ * 這條規則的失敗模式**不是漏抓，是亂叫**：它掃的是每一個裸模組名，而原始碼裡
+ * 「長得像 import 但不是相依」的東西比想像多得多（JSDoc 範例、測試用的樣板
+ * 字串、Node 內建的裸寫法、子路徑匯入）。乾跑時光是 `tools/` 底下就噴了 20 幾條，
+ * 一條都不是真的。
+ *
+ * 所以下面五條 ★ 各釘住一種偽陽性來源。少了它們，這道閘門會在上線第一週被
+ * 加上例外，然後例外永遠不會拿掉。
+ */
+describe("幽靈依賴：import 了但 package.json 沒宣告", () => {
+  const GHOST = 'import { cloneDeep } from "lodash-es";';
+
+  it("切片 import 了沒宣告的套件 → 紅", () => {
+    const root = makeSandbox();
+    patch(root, STORE, STORE_ANCHOR, `${GHOST}\n${STORE_ANCHOR}`);
+
+    const result = runConformance(root);
+    expect(result.red, result.output).toBe(true);
+    expect(result.output).toContain("幽靈依賴");
+    expect(result.output).toContain("lodash-es");
+  });
+
+  /**
+   * ⚠️ **這一條是整組的核心。**
+   *
+   * 「本機跑得起來」最常見的原因就是那個套件宣告在 workspace 根目錄、被提升到
+   * 共用的 `node_modules`。如果檢查把根目錄的宣告也算進來，它會在**它唯一該抓
+   * 的那種情況**上回報綠燈 —— 一道剛好對自己的目標失明的閘門。
+   */
+  it("只宣告在 workspace 根 package.json → 仍然紅（提升正是這條規則存在的理由）", () => {
+    const root = makeSandbox();
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ name: "sandbox", devDependencies: { "lodash-es": "^4.17.21" } }),
+    );
+    patch(root, STORE, STORE_ANCHOR, `${GHOST}\n${STORE_ANCHOR}`);
+
+    const result = runConformance(root);
+    expect(result.red, result.output).toBe(true);
+    expect(result.output).toContain("幽靈依賴");
+  });
+
+  it("★ 子路徑匯入不得被誤擋（@org/slice-kit/contract 就是 @org/slice-kit）", () => {
+    const root = makeSandbox();
+    patch(
+      root,
+      STORE,
+      STORE_ANCHOR,
+      `import { SOURCE_EXTENSIONS } from "@org/slice-kit/contract";\n${STORE_ANCHOR}`,
+    );
+
+    const result = runConformance(root);
+    expect(result.output).not.toContain("幽靈依賴");
+    expect(result.red, result.output).toBe(false);
+  });
+
+  /**
+   * ★ 兩種寫法都要驗。只擋 `node:` 前綴的實作會放過裸寫的 `from "path"`，
+   * 而那是完全合法的匯入 —— 那種誤報會落在每一個寫 Node 腳本的人身上。
+   */
+  it("★ Node 內建模組的兩種寫法都不得被誤擋", () => {
+    const root = makeSandbox();
+    patch(
+      root,
+      STORE,
+      STORE_ANCHOR,
+      `import { join } from "node:path";\nimport { sep } from "path";\n${STORE_ANCHOR}`,
+    );
+
+    const result = runConformance(root);
+    expect(result.output).not.toContain("幽靈依賴");
+  });
+
+  /**
+   * ★ 註解裡的 import 範例。這不是假想的情況：`slice-kit/src/contract.ts` 的
+   * JSDoc 就用 `import { useQuery } from "@tanstack/vue-query"` 當反例，
+   * 而它是乾跑時第一個亮起來的偽陽性。
+   */
+  it("★ 註解裡的 import 範例不得被誤擋", () => {
+    const root = makeSandbox();
+    patch(root, STORE, STORE_ANCHOR, `/** 範例：${GHOST} */\n// ${GHOST}\n${STORE_ANCHOR}`);
+
+    const result = runConformance(root);
+    expect(result.output).not.toContain("幽靈依賴");
+    expect(result.red, result.output).toBe(false);
+  });
+
+  /**
+   * ★ `tests/` 不掃，而這條把那個取捨變成可執行的斷言。
+   *
+   * 它同時是一份**限制聲明**：測試檔裡真正的幽靈依賴這條規則看不到。
+   * 那可以接受，因為測試少一個相依會當場跑不起來，不會安靜地混到驗收那天 ——
+   * 但不可以假裝它被守著。這條測試改綠為紅的那天，代表取捨被改了。
+   */
+  it("★ tests/ 裡把原始碼當字串資料的不得被誤擋", () => {
+    const root = makeSandbox();
+    writeFileSync(
+      join(root, "features/order/tests/fixture.test.ts"),
+      `const source = \`${GHOST}\`;\nexport { source };\n`,
+    );
+
+    const result = runConformance(root);
+    expect(result.output).not.toContain("幽靈依賴");
+    expect(result.red, result.output).toBe(false);
+  });
+});
+
 describe("repo 本身沒有被動到", () => {
   /**
    * 這條看似多餘，但它釘住的正是搬這支測試進 repo 的**唯一理由**：

@@ -102,11 +102,11 @@ export const GATES: readonly Gate[] = [
   {
     id: "conformance",
     kind: "gate",
-    what: "切片契約、分層邊界、設計系統採用、擁有權（D4／D9／D12／D14／D15）",
+    what: "切片契約、分層邊界、設計系統採用、擁有權、幽靈依賴（D4／D9／D12／D14／D15）",
     command: "node tools/conformance/src/cli.ts",
     evidence: null,
     negativeTest: "tools/conformance/tests/negative.test.ts",
-    note: "17 條反向測試，破壞的是複製到暫存目錄的副本，repo 原始碼不被動到。",
+    note: "23 條反向測試，破壞的是複製到暫存目錄的副本，repo 原始碼不被動到。⚠️ 幽靈依賴那條（2026-08-16 加）**刻意不掃 `tools/*` 與 `tests/`** —— 產生器與測試的本職就是把程式碼當資料拿著，乾跑時那兩處噴出 20 幾條全數偽陽性。範圍窄而準，勝過寬而吵。",
   },
   {
     id: "bff-check",
