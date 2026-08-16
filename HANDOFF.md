@@ -959,6 +959,12 @@ ESLint 的 `security` 外掛與 `vue/no-v-html` 擋的是**單點樣式**
 | `<nav>` 沒有可及名稱、沒有略過導覽的連結        | 同上                                             | ✅   |
 | `UiButton` 只放 `<slot />`，圖示按鈕無可及名稱  | 要看的是**呼叫端**，不是元件本身                 | ❌   |
 
+> ⚠️ 修法用到本 repo 第一次出現的 `sr-only` / `focus:not-sr-only`。
+> **有去 `apps/console/dist/assets/*.css` 確認它們真的被產出來**，沒有靠
+> 建置 exit 0 —— Tailwind 掃不到來源時建置會成功、CSS 還會變大，
+> 但裡面一個 utility 都沒有（見 `platform/ui/src/styles/index.css` 的檔頭）。
+> 那種失敗的樣子是表格上多出兩段本來該隱形的文字，而文件仍然寫著「已修」。
+
 原因不神秘，而且是實測出來的：那 23 條比對的是**原生元素與屬性**，
 而本 repo 的互動幾乎都包在元件裡（`UiButton`、`RouterLink`、`DialogRoot`）——
 `<UiButton @click>` 與空的 `<RouterLink></RouterLink>` 實測都不會紅。

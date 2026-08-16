@@ -82,10 +82,14 @@ describe("無障礙閘門的規則確實會開火", () => {
   });
 
   it("★ 沒有剖析錯誤 —— 一個剖析不了的檔案，23 條規則會一起安靜", async () => {
-    // `src/a11y.js` 設了 `parserOptions.parser: false`（不剖析 `<script>`），
-    // 而 fixture 的腳本區塊寫的是 TS 專屬語法。少了這條，有人把設定改回
-    // TypeScript 剖析器、或那個選項在升級時失效，都不會有東西變紅 ——
-    // 只會變成「一條規則都沒命中」，而那與「沒有問題」長得一模一樣。
+    // fixture 的 `<script setup lang="ts">` 寫的是 TS 專屬語法，而
+    // `src/a11y.js` 設了 `parserOptions.parser: false`（不剖析 `<script>`）。
+    // 那個選項失效、掉回 espree 的話，整個檔案剖析失敗 → 一條規則都不命中，
+    // 而那與「沒有問題」在 CI 上長得一模一樣。這條就是擋那個。
+    //
+    // ⚠️ 它**不**擋「有人改成 tseslint.parser」—— 那樣剖析得起來，
+    // 這條照樣綠。要知道那件事有沒有發生，去看 `src/a11y.js` 的註解
+    //（那裡寫著改回去會把 C2 的 TypeScript 6.0.3 釘子重新綁上來）。
     const result = await lintFixture();
     const fatal = result.messages.filter((message) => message.fatal === true);
     expect(fatal.map((message) => message.message)).toEqual([]);

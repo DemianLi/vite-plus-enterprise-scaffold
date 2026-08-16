@@ -3452,6 +3452,19 @@ error），跑在 Tier 1，本機是 `vpr a11y`。
 什麼」才從一句常識變成一份有證據的清單**。一道剛裝上去就對著一批有缺陷的
 程式碼回綠燈的閘門，如果沒有人去讀那批程式碼，會被當成「我們的無障礙沒問題」。
 
+⚠️ 修法引進了本 repo 第一次使用的 `sr-only` / `focus:not-sr-only`，而
+`platform/ui/src/styles/index.css` 開頭花了 20 行在講同一件事：**Tailwind
+掃不到來源時，建置會成功、CSS 還會變大，但裡面一個 utility 都沒有**。
+所以沒有靠 `vp build` exit 0 就相信 —— 直接去 `apps/console/dist/assets/*.css`
+grep 過：`.sr-only`、`focus\:not-sr-only:focus` 與四個 `focus:` 變體全部在。
+沒有那一步的話，失敗的樣子是表格上多出兩段本來該隱形的文字，而三份文件
+仍然寫著「已修」。
+
+略過導覽的那個連結也在瀏覽器裡跑過一次：平時是 1×1 且 `clip-path: inset(50%)`，
+取得焦點後變成 128×40、白底、`clip-path: none`；啟用之後 `document.activeElement`
+變成 `<main id="main">`、網址加上 `#main`、**router 不受影響**（那個 hash-only
+的 history entry 沒有讓 view 重繪）。最後這件事本來只是推測。
+
 其中 live region 那一項值得單獨記：正確的修法不是「加 `aria-live`」，
 是**元素要在文字變化之前就已經在 DOM 裡**。原本的 `<p v-if="isPending">…</p>`
 元素與文字同時出現，視覺上完全正確，輔具那邊很可能一個字都沒有。
@@ -3498,7 +3511,11 @@ TypeScript 6.0.3」。
 「N 個套件全帶 sha512」（沒有尾巴的 `integrity`），而登記的樣式只咬得到
 有 `integrity` 的那一句。**那個數字從來沒有被守過。**
 
-已把樣式放寬到同時咬住兩句。順帶兩件同species 的：`tools/conformance` 的
+已把樣式放寬到同時咬住兩句，**並補一條測試釘住那個放寬**。後半段是必要的：
+把 `integrity` 加回樣式裡的話，`citations.length` 不變、never-cited 也不會紅
+（另一句仍然對得到），那個洞會安靜地回來，而這一節還寫著它已經補好了。
+
+順帶兩件同 species 的：`tools/conformance` 的
 註解裡也抄著同一個數字（改成不寫數量 —— `doc-facts` 只守 `.md`），
 以及 `doc-facts` 自己的示意註解裡躺著六個過期數字（改成寫 `N`）。
 
