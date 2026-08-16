@@ -36,6 +36,7 @@ function deriveTruth(handoff: string): Record<string, number> {
     native: inventoryTotals["native"] as number,
     families: inventoryTotals["families"] as number,
     "no-slsa": provenanceTotals["registry-signature"] as number,
+    slsa: provenanceTotals["slsa-provenance"] as number,
     "handoff-items": handoffItemCount(handoff),
   };
 }
@@ -51,8 +52,10 @@ function main(): number {
   const problems = checkFacts(documents, truth);
 
   if (problems.length === 0) {
+    // 句子數也印出來：HANDOFF 第 18 項刻意不寫死這兩個數字，改成叫人跑這一行。
+    const citations = FACTS.reduce((total, fact) => total + fact.citations.length, 0);
     console.log(
-      `✓ 文件裡的數字與事實來源一致（${FACTS.length} 個事實、${documents.length} 份文件）\n` +
+      `✓ 文件裡的數字與事實來源一致（${FACTS.length} 個事實、${citations} 個句子、${documents.length} 份文件）\n` +
         "  ⚠️ 只守 README 與 HANDOFF。DECISIONS.md 是有日期的決策日誌 ——\n" +
         "     「C24 當時是 467 個套件」陳述的是歷史，守它等於要求改寫歷史。",
     );

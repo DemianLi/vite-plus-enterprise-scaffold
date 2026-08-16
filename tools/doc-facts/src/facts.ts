@@ -38,6 +38,20 @@
  * 所以每個事實登記的是**它被引用的那幾個句子**。改寫句子會讓樣式對不上，
  * 而那會變成 `never-cited` 的紅燈 —— 失敗方向是安全的：
  * 它逼人回來確認那句話還在不在，而不是靜靜地不再守它。
+ *
+ * ── 摘要表是最先被讀的，卻是最後被登記的（2026-08-16 補）─────────────
+ *
+ * 第一版登記的是**內文**裡的句子。出初版送人工審查前重掃一次，發現
+ * `HANDOFF.md` 開頭那張〈先看這張表〉有三個數字過期得很嚴重：
+ *
+ *     121 個二進位 → 實際 144    32 個只有簽章 → 實際 43
+ *     鏡像 467 個套件 → 實際 563
+ *
+ * 而這道閘門一直是綠的 —— 因為那三句話從來沒有被登記過。
+ *
+ * 這比內文過期糟得多：摘要表是拿去開會投影的那一頁，也是採購與資安
+ * **唯一會讀完**的一頁。教訓不是「再多登記幾句」，是**登記的順序反了** ——
+ * 新增引用時，先問「這句話會不會被單獨拿出去用」，會的話優先登記。
  */
 
 export interface Fact {
@@ -68,10 +82,17 @@ export const FACTS: readonly Fact[] = [
     describe: "lockfile 裡的套件總數",
     source: "tools/supply-chain/inventory.json → totals.packages",
     citations: [
-      // README：「腳手架帶進來的東西比想像的多：**467 個套件，其中…」
+      // README：「腳手架帶進來的東西比想像的多：**563 個套件，其中…」
       /\*\*(\d+) 個套件，其中/,
-      // HANDOFF：「- 467 個套件全帶 sha512 integrity」
+      // HANDOFF：「- 563 個套件全帶 sha512 integrity」
       /(\d+) 個套件全帶 sha512 integrity/,
+      // ⬇ 以下三句是 2026-08-16 補的，見本檔「摘要表是最先被讀的」一節。
+      // HANDOFF 摘要表第 5 列：「內部 registry 鏡像 **563 個**套件」
+      /鏡像 \*\*(\d+) 個\*\*套件/,
+      // HANDOFF 第 5–7 節的指令註解：「# 563 筆，含 sha512，可直接餵給鏡像工具」
+      /(\d+) 筆，含 sha512/,
+      // HANDOFF 交付表：「563 筆鏡像清單，含 sha512」
+      /(\d+) 筆鏡像清單/,
     ],
   },
   {
@@ -83,6 +104,8 @@ export const FACTS: readonly Fact[] = [
       /(\d+) 個原生二進位裡有/,
       /核准 \*\*(\d+) 個平台原生二進位/,
       /那 (\d+) 個在安裝時不執行任何腳本/,
+      // HANDOFF 摘要表第 2 列：「原生工具鏈的**政策性**例外（144 個二進位）」
+      /例外（(\d+) 個二進位）/,
     ],
   },
   {
@@ -95,7 +118,27 @@ export const FACTS: readonly Fact[] = [
     id: "no-slsa",
     describe: "只有發佈簽章、沒有 SLSA provenance 的原生二進位數",
     source: "tools/supply-chain/provenance.json → totals['registry-signature']",
-    citations: [/\*\*(\d+) 個沒有 SLSA provenance\*\*/],
+    citations: [
+      /\*\*(\d+) 個沒有 SLSA provenance\*\*/,
+      // HANDOFF 摘要表第 3 列：「接受 43 個只有發佈簽章的佐證」
+      /接受 (\d+) 個只有發佈簽章的佐證/,
+      // HANDOFF 第 2–3 節：「43 個只有 npm 發佈簽章（可驗發佈者…）」
+      /(\d+) 個只有 npm 發佈簽章/,
+      // 同節的警語：「43 個沒有 provenance 的那批含全部 20 個 …」
+      /(\d+) 個沒有 provenance 的那批/,
+    ],
+  },
+  {
+    id: "slsa",
+    describe: "有 SLSA provenance 的原生二進位數",
+    /**
+     * 與 `no-slsa` 是同一份 JSON 的另一半。分成兩個事實而不是一個，
+     * 是因為文件裡**兩個數字都出現**（「101 個有／43 個只有簽章」），
+     * 而只守其中一個的話，另一個過期時整句話讀起來仍然像對的 ——
+     * 那比兩個都不守更糟，因為它有一半是真的。
+     */
+    source: "tools/supply-chain/provenance.json → totals['slsa-provenance']",
+    citations: [/(\d+) 個有 SLSA provenance/],
   },
   {
     id: "handoff-items",

@@ -114,7 +114,11 @@ describe("交接用的表格", () => {
 
   it("🔴 到不了五年的那一份要標得出來", () => {
     // sbom.cdx.json 是唯一一份，而它是結構限制不是疏漏。
-    // 表格裡不標的話，交接對象會以為八份都由 git 保存。
+    // 表格裡不標的話，交接對象會以為整份清單都由 git 保存。
+    //
+    // ⚠️ 刻意不寫「以為 N 份都由 git 保存」——第一版寫了「八份」，
+    // 而 C52 拿掉 csp-verify 的證據檔之後那個數字就錯了。
+    // 註解裡的手寫計數沒有任何東西在守，寫了就是在等它過期。
     const table = renderEvidenceManifest(RETENTION_EVIDENCE);
     expect(table).toContain("CI artifact（90 天）⚠️");
     expect(table).toContain("sbom.cdx.json");

@@ -59,8 +59,11 @@ describe("隱碼函式本身", () => {
  * 因為與個資無關的理由而壞掉 —— 然後有人把它跳過。
  *
  * ⚠️ 代價要說清楚：這樣就**不是**在測 `OrderList.vue` 本身。
- * 守住 `OrderList.vue` 的是靜態層（`pii-check --masking` 讀它的 template）。
- * 兩層加起來才是完整的：靜態層看得到每一個模板，這一層證明遮罩真的會遮。
+ *
+ * 原本守住 `OrderList.vue` 的是靜態層（`pii-check --masking` 讀它的 template），
+ * 兩層加起來才完整：靜態層看得到每一個模板，這一層證明遮罩真的會遮。
+ * **靜態層已隨 C52 移除** —— 所以現在只剩這一層，而它只涵蓋這個替身元件。
+ * `OrderList.vue` 有沒有繼續呼叫 `maskName()`，靠 review。
  */
 const OrderRow = defineComponent({
   props: { customerName: { type: String, required: true } },
