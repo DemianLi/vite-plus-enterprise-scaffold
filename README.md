@@ -46,8 +46,9 @@
   build script 預設全封鎖、CSP 以資料形式由三方共用。**每一條都有測試釘住**。
 - **驅動層可替換，而且被實測過** — `vpr exit-drill` 會用上游 Vite/Vitest 實際重建一次，
   證據進版控，拿得出去給稽核看。
-- **`platform/` 的 breaking change 必須附 codemod** — `tools/api-surface` 列舉實際 export
-  與基準比對，**移除或改名就讓閘門失敗**。
+- **`platform/` 的 breaking change 必須附 codemod** — `tools/api-surface` 比對每個進入點的
+  **型別形狀**（連 interface 成員、class 建構子、`.vue` 的 props 都算），
+  **移除、改名、或改變形狀就讓閘門失敗**。
 - **供應鏈是產生的，不是寫的** — SCA 例外申請書、含 sha512 的鏡像清單、封閉網路前置條件，
   三份文件由 `pnpm-lock.yaml` 推導。
 - **文件裡的數字被機器核對** — `tools/doc-facts` 逐句比對現況型文件的數字與事實來源，
@@ -218,7 +219,7 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │
 ├── tools/                    建置與治理腳本。每一支都是一道會失敗的閘門
 │   ├── conformance/          切片邊界一致性檢查（宣告依賴＋相對路徑逃逸）
-│   ├── api-surface/          platform/* 的實際 export 與基準比對，改名即失敗
+│   ├── api-surface/          platform/* 的型別形狀與基準比對，改名或改形狀即失敗
 │   ├── codemods/             breaking change 必附的遷移腳本
 │   ├── slice-gen/            切片產生器（vp create slice）
 │   ├── bff-check/            對參考實作或真實 gateway 驗收 D8 契約
