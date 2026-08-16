@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { CONTRACT_ITEMS } from "@org/bff-contract";
 
 import { FACTS, checkFacts, handoffItemCount, type DocumentSource } from "./facts.ts";
 
@@ -38,6 +40,69 @@ function readJson(relative: string): Record<string, unknown> {
   return JSON.parse(readFileSync(join(ROOT, relative), "utf8")) as Record<string, unknown>;
 }
 
+/**
+ * workspace 樣式底下的 package 數。
+ *
+ * 樣式從 `pnpm-workspace.yaml` 讀，不寫死目錄清單 —— 加一個新的頂層層級時，
+ * 這個數字要跟著動，而不是安靜地少算一整層。
+ */
+function workspacePackageCount(): number {
+  const manifest = readFileSync(join(ROOT, "pnpm-workspace.yaml"), "utf8");
+  const globs = [...manifest.matchAll(/^\s*-\s*([\w./-]+)\/\*\s*$/gm)].map((match) => match[1]);
+
+  let total = 0;
+  for (const glob of globs) {
+    if (glob === undefined) continue;
+    const dir = join(ROOT, glob);
+    for (const entry of readdirSync(dir)) {
+      const candidate = join(dir, entry);
+      if (!statSync(candidate).isDirectory()) continue;
+      try {
+        statSync(join(candidate, "package.json"));
+        total += 1;
+      } catch {
+        // 沒有 package.json 的目錄不是 workspace 成員。
+      }
+    }
+  }
+  return total;
+}
+
+const USES = /^\s*-?\s*uses:\s*(\S+)/gm;
+
+/** workflow 裡的 action 引用。回傳「引用處數」與「不重複 action 數」兩個。 */
+function actionCounts(): { refs: number; distinct: number } {
+  const dir = join(ROOT, ".github/workflows");
+  const names = new Set<string>();
+  let refs = 0;
+
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith(".yml") && !file.endsWith(".yaml")) continue;
+    const source = readFileSync(join(dir, file), "utf8");
+    for (const match of source.matchAll(USES)) {
+      const reference = match[1];
+      if (reference === undefined) continue;
+      refs += 1;
+      names.add(reference.split("@")[0] ?? reference);
+    }
+  }
+  return { refs, distinct: names.size };
+}
+
+/**
+ * CODEOWNERS 的條目數 —— 非註解、非空白的行。
+ *
+ * ⚠️ 這**不是**文件原本寫的那個 22。那個數字是 `gh api …/codeowners/errors`
+ * 回報的無效條目數，是 GitHub 的判定，不是 repo 裡數得出來的東西
+ *（實測 C40 量到 22 的那個 commit，本地是 14 條條目、21 個 owner 引用）。
+ * 可推導的只有條目數，所以守的是它，理由寫在 facts.ts 的 codeowners-entries。
+ */
+function codeownersEntryCount(): number {
+  return readFileSync(join(ROOT, "CODEOWNERS"), "utf8")
+    .split("\n")
+    .filter((line) => line.trim().length > 0 && !line.trimStart().startsWith("#")).length;
+}
+
 function deriveTruth(handoff: string): Record<string, number> {
   const inventory = readJson("tools/supply-chain/inventory.json");
   const provenance = readJson("tools/supply-chain/provenance.json");
@@ -47,6 +112,7 @@ function deriveTruth(handoff: string): Record<string, number> {
     string,
     Record<string, unknown>
   >;
+  const actions = actionCounts();
 
   return {
     packages: inventoryTotals["packages"] as number,
@@ -60,6 +126,11 @@ function deriveTruth(handoff: string): Record<string, number> {
       (total, entry) => total + Object.keys(entry).length,
       0,
     ),
+    "contract-items": CONTRACT_ITEMS.length,
+    "workspace-packages": workspacePackageCount(),
+    "action-refs": actions.refs,
+    "distinct-actions": actions.distinct,
+    "codeowners-entries": codeownersEntryCount(),
   };
 }
 

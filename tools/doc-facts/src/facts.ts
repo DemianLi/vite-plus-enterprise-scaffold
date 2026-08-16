@@ -198,6 +198,93 @@ export const FACTS: readonly Fact[] = [
     source: "tools/api-surface/surface.json → surface 各進入點的鍵數總和",
     citations: [/個進入點／(\d+) 個 export）/],
   },
+  {
+    id: "contract-items",
+    describe: "D8 中間層的可執行契約條目數",
+    /**
+     * 引用最多的一個（5 句），而且兩份文件的**交付表**裡各有一句 ——
+     * 那是拿去跟後端／gateway 團隊對規格的那一格。
+     */
+    source: "platform/bff-contract 的 CONTRACT_ITEMS",
+    citations: [
+      // HANDOFF：「它必須做到什麼（13 條可執行契約）」
+      /（(\d+) 條可執行契約）/,
+      // HANDOFF 交付表：「D8 中間層的 13 條驗收條目」
+      /D8 中間層的 (\d+) 條驗收條目/,
+      // README 資料夾結構：「中間層必須做到什麼（13 條契約條目）」
+      /（(\d+) 條契約條目）/,
+      // README：「全綠代表這一層滿足 D8。13 條契約條目、可覆寫的 env…」
+      /D8。(\d+) 條契約條目/,
+      // README 交付表：「13 條中間層契約條目、可覆寫的 env…」
+      /(\d+) 條中間層契約條目/,
+    ],
+  },
+  {
+    id: "workspace-packages",
+    describe: "workspace 內的 package 數",
+    source: "pnpm-workspace.yaml 的 packages 樣式底下的 package.json 數",
+    citations: [/底下 (\d+) 個 workspace 套件/],
+  },
+  {
+    id: "action-refs",
+    describe: "workflow 裡 `uses:` 的引用處數",
+    /**
+     * ⚠️ 登記這一筆的當下，被引用的兩句都是錯的（寫 16，實際 17）——
+     * 而它們是 2026-08-16 才寫下的，寫的人（同一個）當時沒有數。
+     *
+     * 更麻煩的是**同一個詞被用來指兩件事**：「16 個 action」講的是引用處，
+     * 「8 個 action」講的是不重複的 action。已把句子改成「N 處引用」與
+     * 「N 個 action」，這兩個事實才分得開。
+     *
+     * ⚠️ **第 23 項裡另外兩句寫著同一個數字，但它們刻意不登記** ——
+     * 「~~17 處引用全用可移動的標籤~~」（摘要表，刪除線）與
+     * 「17 處引用全部以標籤釘住：`actions/checkout@v7`…」（問題陳述）
+     * 講的是**修好之前**的狀態。加第 18 個引用時，那兩句不會變成錯的；
+     * 把它們改成 18 才會 —— 那是「守它等於要求改寫歷史」，
+     * 與 DECISIONS.md 不進守備範圍是同一條理由。
+     *
+     * 這條界線與 CODEOWNERS 那一筆是同一種判斷，只是換了個形狀：那邊是
+     * 「數字推導不出來」，這邊是「句子講的是過去式」。
+     */
+    source: ".github/workflows/*.yml 裡的 `uses:` 行數",
+    citations: [
+      // HANDOFF 第 23 節：「8 個 action（17 處引用）全部改成 commit SHA」——
+      // 這一句講的是**現況**，所以只有它被登記。
+      /（(\d+) 處引用）/,
+    ],
+  },
+  {
+    id: "distinct-actions",
+    describe: "workflow 引用到的不重複 action 數",
+    source: ".github/workflows/*.yml 裡 `uses:` 去掉 @ 版本後的不重複值",
+    citations: [/\*\*(\d+) 個 action（/],
+  },
+  {
+    id: "codeowners-entries",
+    describe: "CODEOWNERS 的條目數",
+    /**
+     * 這一筆是**降級**來的，而降級本身是這次掃描的主要發現。
+     *
+     * 文件原本四處寫著「22 條全部是 Unknown owner」。那個 22 來自
+     * `gh api …/codeowners/errors` —— **GitHub 的輸出，不是 repo 裡的數字**。
+     * 實測它與本地任何一種算法都對不上：C40 量到 22 的那個 commit，檔案是
+     * 14 條條目、21 個 owner 引用。
+     *
+     * 而那句話用現在式寫在〈先看這張表〉第 15 列（「採用的第一步」）。
+     * 它現在是 20 條 —— 也就是那句話在被引用得最多的那一頁上是錯的。
+     *
+     * 處理方式照第 18 項自己的判準：**可推導的那半（條目數）登記起來，
+     * 不可推導的那半（GitHub 判定幾條無效）留在文件裡但標上量測日期**，
+     * 不要讓它看起來像被守著的。
+     */
+    source: "CODEOWNERS 裡非註解、非空白的行數",
+    citations: [
+      // HANDOFF 摘要表第 15 列：「現在 20 條條目全是 @org/* 佔位符」
+      /現在 (\d+) 條條目全是/,
+      // HANDOFF 第 15 節：「CODEOWNERS 裡的 20 條條目全部是佔位符」
+      /裡的 (\d+) 條條目全部是佔位符/,
+    ],
+  },
 ];
 
 /**

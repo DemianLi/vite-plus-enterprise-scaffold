@@ -812,6 +812,10 @@ importers:
         version: 7.0.2
 
   tools/doc-facts:
+    dependencies:
+      '@org/bff-contract':
+        specifier: workspace:*
+        version: link:../../platform/bff-contract
     devDependencies:
       '@org/tsconfig':
         specifier: workspace:*
