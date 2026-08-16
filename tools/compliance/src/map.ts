@@ -235,6 +235,15 @@ export const GATES: readonly Gate[] = [
     note: "第一次跑就抓到 10 處過期，包括 README 那句「這些數字**全部由 pnpm-lock.yaml 推導**，不是抄的」—— 它們正是抄的。⚠️ 刻意**不守 DECISIONS.md**：那是有日期的決策日誌，「C24 當時是 467 個套件」陳述的是歷史，守它等於要求回頭改寫歷史。登記的是**整句樣式**而不是「任何 N 個 X」，因為 HANDOFF 裡的 8／22 個原生二進位是子集不是總數 —— 句子被改寫會變成 never-cited 的紅燈，失敗方向是安全的。",
   },
   {
+    id: "evidence-manifest",
+    kind: "gate",
+    what: "§16 證據清單與現實一致：宣告的檔案都在，且每一份都有閘門在維護",
+    command: "node tools/compliance/src/cli.ts --evidence",
+    evidence: null,
+    negativeTest: "tools/compliance/tests/evidence.test.ts",
+    note: "它產出的是**交接用的那張表**，不是保存期政策 —— 後者是組織文件。雙向驗：宣告了但檔案不在（清單指向空氣，對方以為有東西可歸檔）、閘門有證據檔但清單沒收（漏一份而沒有人會發現）。第一次跑就抓到對照表**低估**了自己：supply-chain 實際維護兩份基線，而 Gate.evidence 只記得住一份。",
+  },
+  {
     id: "compliance",
     kind: "gate",
     what: "本對照表本身：映射與檔案系統一致、且沒有列在說謊",
@@ -356,12 +365,12 @@ export const CONTROLS: readonly Control[] = [
   },
   {
     article: "§16",
-    requirement: "軌跡資料與安全維護計畫執行證據，保存五年",
+    requirement: "個資處理紀錄、機器軌跡資料、安全維護計畫執行證據，保存五年",
     scope: "process",
-    gates: [],
-    coverage: "none",
-    owed: true,
-    note: "evidence.json 與 provenance.json 進了版控（git 歷史本身就是保存），但**沒有一份是為 §16 設計的**，也沒有寫下保存期政策。SBOM 目前是 90 天 artifact —— 差 5 年很遠。",
+    gates: ["evidence-manifest"],
+    coverage: "partial",
+    owed: false,
+    note: "條文要保存的有**三類**，而前兩類（個資的蒐集處理利用紀錄、自動化機器設備的軌跡資料）在資料庫、後端與基礎設施 —— 前端連摸都摸不到。只有第三類有交集，而交集的形狀是**產出物**不是政策。⚠️ 這一格原本寫著「腳手架欠一份保存期政策」，查完條文之後那句話是錯的 —— 誰歸檔、存哪、銷毀排程是組織文件。與 §11 II ⑦ 那次高估是同一個毛病的鏡像：一個把覆蓋說得太好，一個把責任攬得太多，而第二種還會讓人去做不該腳手架做的事。7 份證據進版控（git 歷史即保存），**唯一到不了五年的是 sbom.cdx.json** —— GitHub 的 artifact 上限 90 天，那是結構限制，兩條出路都是組織的決定。",
   },
   {
     article: "§18",

@@ -198,13 +198,22 @@ describe(
       expect(result.output).toContain("一致");
     });
 
-    it("把「未證明」改成「已證明」 → 紅", () => {
+    it("把「比較難看的那一格」改成「已證明」 → 紅", () => {
       const path = generateInto(makeSandbox());
       const before = readFileSync(path, "utf8");
 
       // 這正是最可能發生的手改：某一格看起來不好看，就改掉它。
-      expect(before).toContain("❌ 未證明");
-      writeFileSync(path, before.replace("❌ 未證明", "✅ 已證明"));
+      //
+      // ⚠️ 刻意**不寫死**「❌ 未證明」。第一版寫死了，然後在補完 §16 的
+      // 那天整張表不再有任何一格是「未證明」—— 於是這條測試因為
+      // 「找不到要破壞的東西」而紅，而訊息看起來像閘門壞了。
+      //
+      // 一條會因為 repo 變好而失敗的測試，下一個人只會把它刪掉。
+      // 改成從輸出裡挑一個「比已證明差」的標記，兩種都沒有才是真的該紅。
+      const worse = ["❌ 未證明", "◐ 部分"].find((mark) => before.includes(mark));
+      expect(worse, "表上沒有任何一格低於「已證明」—— 這條測試失去了破壞對象").toBeDefined();
+
+      writeFileSync(path, before.replace(worse as string, "✅ 已證明"));
 
       const result = runCli(["--file", path]);
       expect(result.red, `仍然綠燈 —— 這張表擋不住手改\n${result.output}`).toBe(true);
