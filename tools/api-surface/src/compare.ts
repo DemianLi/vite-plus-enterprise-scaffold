@@ -220,9 +220,10 @@ function compareShape(
       module,
       symbol,
       kind: "shape",
-      // `value` 是純資料（沒有任何呼叫簽章）。它的字面型別跟著內容跑，
-      // 判成破壞性會讓每次改一條設定常數都要寫 codemod —— 理由見 shape.ts
-      // 的 carriesSignatures。
+      // `value` 走到這裡代表它連成員都列不出來 —— 字面量、陣列、tuple。
+      // 那類型別是內容的投影，判成破壞性會讓每次改一條設定常數都要寫
+      // 一份不存在的 codemod（C57）。**有結構的物件不在這裡**：它們由
+      // shape.ts 的 objectMembers 記成成員，走上面那條嚴格路徑。
       severity: before.kind === "value" ? "compatible" : "breaking",
       detail: `型別變了：\`${before.type}\` → \`${after.type}\``,
     },

@@ -45,6 +45,15 @@ export class SampleError extends Error {
 
 export const SAMPLE_LIMIT = 10;
 
+/**
+ * 匿名物件形態的常數。它**不是**純資料：拿掉一個欄位，每個讀那個欄位的
+ * 消費端都編不過。所以它記的是成員，不是一個型別字串（見 objectMembers）。
+ */
+export const SAMPLE_DEFAULTS = {
+  retries: 3,
+  label: "sample",
+} as const;
+
 export function makeSample(options: SampleOptions): SampleTable {
   const scratch: InternalOnly = { scratch: options.id };
   return { [scratch.scratch]: options.retries ?? SAMPLE_LIMIT };

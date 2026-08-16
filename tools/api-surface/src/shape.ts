@@ -41,7 +41,7 @@ import {
 
 /** 一個 export 的形狀。`members` 存在時比對走成員層級，否則比對 `type` 字串。 */
 export interface ExportShape {
-  readonly kind: "type" | "class" | "component" | "function" | "value" | "names-only";
+  readonly kind: "type" | "class" | "component" | "object" | "function" | "value" | "names-only";
   /** 成員，格式 `name: type` 或 `name?: type`。**永遠排序過** —— 見下。 */
   readonly members?: readonly string[];
   /** 整體型別字串。沒有成員的 export（常數、函式、陣列）只有這個。 */
@@ -422,6 +422,38 @@ function resolveAlias(checker: Checker, symbol: ApiSymbol): ApiSymbol {
     : symbol;
 }
 
+/**
+ * 匿名物件形態的**值** —— `config`、`LAYERS`、`http` 這種 —— 也要記成員。
+ *
+ * ── 為什麼不能讓它們走「純資料」那條寬鬆路 ──────────────────────────
+ *
+ * 沒有成員可比的 export 只剩一個型別字串，而字串變了要判成破壞性還是相容，
+ * 是靠「它帶不帶呼叫簽章」決定的（見 carriesSignatures）。那個判準對
+ * `API_PREFIX = "/api"` 是對的：字面型別跟著內容跑，不是編不過的來源。
+ *
+ * 但它對 `config` 是錯的。`config` 沒有任何呼叫簽章，會被歸成純資料，
+ * 於是**拿掉 `appTitle` 會被判成相容** —— 而每一個讀 `config.appTitle` 的
+ * 消費端都當場編不過。這與「判準只有一條：下游會不會編不過」直接矛盾。
+ *
+ * 所以匿名物件改記成員，走嚴格比對。留在寬鬆那一側的只剩真正的資料形態：
+ * 字面量、陣列、tuple —— 它們的型別確實是內容的投影，正是那段理由涵蓋的。
+ *
+ * 帶呼叫簽章的（函式）不走這裡：它們沒有屬性可列，型別字串本身就是形狀。
+ */
+function objectMembers(checker: Checker, type: Type): string[] | undefined {
+  if (!type.isObjectType() || checker.isArrayType(type) || checker.isTupleType(type)) return;
+  const symbol = type.getAliasSymbol() ?? type.getSymbol();
+  if (symbol !== undefined && isTypeDeclaration(symbol)) return;
+  if (checker.getSignaturesOfType(type, SignatureKind.Call).length > 0) return;
+  if (checker.getSignaturesOfType(type, SignatureKind.Construct).length > 0) return;
+
+  const members = [
+    ...checker.getPropertiesOfType(type).map((prop) => memberOf(checker, prop)),
+    ...indexMembers(checker, type),
+  ];
+  return members.length > 0 ? sortMembers(members) : undefined;
+}
+
 function shapeOf(
   checker: Checker,
   root: string,
@@ -448,6 +480,8 @@ function shapeOf(
 
   const type = typeOf(checker, symbol);
   walkNamedTypes(checker, root, type, referenced, seen);
+  const members = objectMembers(checker, type);
+  if (members !== undefined) return { kind: "object", members };
   return {
     kind: carriesSignatures(checker, type, new Set()) ? "function" : "value",
     type: checker.typeToString(type, undefined, PRINT),

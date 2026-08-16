@@ -561,6 +561,35 @@ describe("這些重構不該讓形狀漂移", () => {
     expect(result.output).not.toContain("破壞性變更");
   });
 
+  it("🔴 匿名物件常數少了一個欄位 → 破壞性，不是相容", () => {
+    /**
+     * 「沒有呼叫簽章的 export 算純資料、型別變了只算相容」這條寬鬆規則，
+     * 一開始把 `config`（一個 getter 物件）也算了進去 —— 於是拿掉
+     * `config.appTitle` 會被判成相容，而每個讀它的地方都編不過。
+     *
+     * 那與「判準只有一條：下游會不會編不過」直接矛盾，也是這支工具剛剛
+     * 才在 `UiButton.vue` 修掉的同一種毛病：**一句不成立的保護聲明**。
+     * 現在匿名物件改記成員，寬鬆那一側只剩字面量、陣列、tuple。
+     */
+    const result = runFixture((source) =>
+      source.replace('  retries: 3,\n  label: "sample",', '  label: "sample",'),
+    );
+    expect(result.red).toBe(true);
+    expect(result.output).toContain("破壞性變更");
+    expect(result.output).toContain("retries");
+  });
+
+  it("★ 字面量常數的值變了 → 相容（寬鬆那一側只剩這種）", () => {
+    // 常數的字面型別跟著內容跑，那不是編不過的來源。判成破壞性的話，
+    // 每改一條設定就要人寫一份不存在的 codemod，而那種紅燈會被關掉。
+    const result = runFixture((source) =>
+      source.replace("export const SAMPLE_LIMIT = 10;", "export const SAMPLE_LIMIT = 25;"),
+    );
+    expect(result.red).toBe(true);
+    expect(result.output).toContain("相容變更");
+    expect(result.output).not.toContain("破壞性變更");
+  });
+
   it("🔴 公開簽章引用私有型別 → 紅，而且要指名是哪一個", () => {
     /**
      * 這是整個設計的前置條件。`typeToString` 對具名型別一律印名字，

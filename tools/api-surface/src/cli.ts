@@ -37,6 +37,16 @@ import {
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const PLATFORM_DIR = join(ROOT, "platform");
 const CODEMODS_DIR = join(ROOT, "tools/codemods");
+/**
+ * 基準檔格式版本。
+ *
+ * ⚠️ **改變「記什麼」就要動這個數字。** 例如把某一類 export 從
+ * 「一個型別字串」改成「一列成員」，比對出來會是一堆 `種類從 X 變成 Y` ——
+ * 全部被判成破壞性，而它們一個都不是：`platform/` 沒有變，變的是這支工具。
+ *
+ * 那種紅燈沒有合法出口（沒有 codemod 可寫），所以升版號才是正解：
+ * 版本對不上時 surface 整份重建，diff 一次看完。
+ */
 const BASELINE_VERSION = 2;
 
 /**

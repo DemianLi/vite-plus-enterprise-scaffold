@@ -144,12 +144,20 @@ Tier 2 的三條規則——不快取、不做 affected 過濾、必須有時間
 
 > **breaking change 必須附 codemod，且由提出者在同一個 PR 跑完全 repo。**
 
-這條規則有機制強制：[`tools/api-surface`](tools/api-surface) 會匯入每個 `platform/*`
-套件、列舉實際 export 並與已提交的基準比對。**移除或改名就讓閘門失敗**，
-除非基準已登記對應的 codemod。
+這條規則有機制強制：[`tools/api-surface`](tools/api-surface) 用 TypeScript 的
+checker 抽出每個 `platform/*` 進入點的**型別形狀**，與已提交的基準比對。
+**移除、改名、或改變形狀就讓閘門失敗**，除非基準已登記對應的 codemod。
+
+「形狀」的意思是連 `interface` 的成員、class 的建構子、`.vue` 元件的 props
+都在比對範圍內——在一個匯出的 interface 上加一個必填欄位，下游每一個
+既有切片都會編譯失敗，而那正是這道閘門要抓的東西。判準只有一條：
+**下游會不會編不過。**
 
 做不到 codemod 的改動，就不是 breaking change，是**新 API**——新增 export、
-把舊的標 `@deprecated` 保留一個 release 週期。
+新增選填成員、把舊的標 `@deprecated` 保留一個 release 週期。
+
+⚠️ 隨之而來的一條限制：**公開簽章不得引用沒有 `export` 的型別**。
+理由與實測寫在 `tools/api-surface/src/shape.ts`；補救是加一個 `export`。
 
 流程與寫 codemod 的三條硬規則見 [tools/codemods](tools/codemods)。
 

@@ -113,8 +113,8 @@
         "type": "(env: Record<string, string>) => void"
       },
       "config": {
-        "kind": "value",
-        "type": "{ readonly appTitle: string; readonly apiBasePath: string; readonly buildSha: string; }"
+        "kind": "object",
+        "members": ["apiBasePath: string", "appTitle: string", "buildSha: string"]
       }
     },
     "@org/eslint-config": {
@@ -137,8 +137,14 @@
         ]
       },
       "http": {
-        "kind": "function",
-        "type": "{ readonly get: <T>(path: string, options?: RequestOptions | undefined) => Promise<T>; readonly post: <T>(path: string, json?: unknown, options?: RequestOptions | undefined) => Promise<T>; readonly put: <T>(path: string, json?: unknown, options?: RequestOptions | undefined) => Promise<T>; readonly patch: <T>(path: string, json?: unknown, options?: RequestOptions | undefined) => Promise<T>; readonly delete: <T>(path: string, options?: RequestOptions | undefined) => Promise<T>; }"
+        "kind": "object",
+        "members": [
+          "delete: <T>(path: string, options?: RequestOptions | undefined) => Promise<T>",
+          "get: <T>(path: string, options?: RequestOptions | undefined) => Promise<T>",
+          "patch: <T>(path: string, json?: unknown, options?: RequestOptions | undefined) => Promise<T>",
+          "post: <T>(path: string, json?: unknown, options?: RequestOptions | undefined) => Promise<T>",
+          "put: <T>(path: string, json?: unknown, options?: RequestOptions | undefined) => Promise<T>"
+        ]
       },
       "HttpError": {
         "kind": "class",
@@ -382,8 +388,13 @@
         "type": "(dir: string) => boolean"
       },
       "LAYERS": {
-        "kind": "value",
-        "type": "{ readonly apps: \"apps\"; readonly features: \"features\"; readonly platform: \"platform\"; readonly tools: \"tools\"; }"
+        "kind": "object",
+        "members": [
+          "apps: \"apps\"",
+          "features: \"features\"",
+          "platform: \"platform\"",
+          "tools: \"tools\""
+        ]
       },
       "REQUIRE_CATALOG_PROTOCOL": {
         "kind": "value",
