@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { CONTROLS, FUTURE, GATES, REGULATION } from "./map.ts";
 import { blockingGates, owedGaps, render, unprovenGates } from "./render.ts";
 import { verifyMap } from "./verify.ts";
+import { RETENTION_EVIDENCE, renderEvidenceManifest, verifyEvidence } from "./evidence.ts";
 
 /**
  * 法遵對照表：產生、並在每次 CI 驗它沒有說謊。
@@ -121,6 +122,31 @@ function reportMapErrors(): number {
 
 function main(): number {
   const argv = process.argv.slice(2);
+
+  // ── §16 證據清單 ──────────────────────────────────────────────────
+  if (argv.includes("--evidence")) {
+    const problems = verifyEvidence(RETENTION_EVIDENCE, (path) => existsSync(join(ROOT, path)));
+    if (problems.length > 0) {
+      console.error(`✗ §16 證據清單與現實不符：${problems.length} 項\n`);
+      for (const problem of problems) console.error(`  [${problem.kind}] ${problem.detail}`);
+      return 1;
+    }
+
+    console.log(renderEvidenceManifest(RETENTION_EVIDENCE));
+    console.log(
+      "\n⚠️ §16 要求業者保存五年的有三類，這份清單只涵蓋第三類" +
+        "（落實執行安全維護計畫之證據）。\n" +
+        "   個資的蒐集處理利用紀錄與自動化機器設備的軌跡資料在後端與基礎設施，" +
+        "前端碰不到。\n\n" +
+        "⚠️ sbom.cdx.json 是 CI artifact，GitHub 上限 90 天 —— **結構上到不了五年**。\n" +
+        "   要滿足 §16 只有兩條路，兩條都是組織的決定：進版控，" +
+        "或由組織的保存系統定期取走。\n\n" +
+        "⚠️ 版控的那幾份跟著 repo 走。repo 被刪或歷史被重寫，證據就沒了 ——" +
+        "那也是組織要接的風險。",
+    );
+    return 0;
+  }
+
   const baseline = parseFile(argv);
 
   // ── --update 先寫再驗，順序是刻意的 ────────────────────────────────
