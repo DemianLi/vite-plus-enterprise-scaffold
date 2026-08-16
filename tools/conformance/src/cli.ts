@@ -456,8 +456,10 @@ function checkPhantomDependencies(packageDir: string, label: string): void {
  *
  * ── 為什麼這一條住在一致性檢查裡 ────────────────────────────────────
  *
- * 這個 repo 對 npm 相依做到：563 個套件全帶 sha512、`--frozen-lockfile` 安裝、
- * tarball digest 進版控且每次 gate 比對、144 個原生二進位逐一分佐證等級。
+ * 這個 repo 對 npm 相依做到：每一個套件都帶 sha512、`--frozen-lockfile` 安裝、
+ * tarball digest 進版控且每次 gate 比對、原生二進位逐一分佐證等級。
+ *（這裡刻意不寫數量 —— `doc-facts` 只守 `.md`，寫在原始碼註解裡的數字
+ * 沒有任何東西會在它過期時說話，而它一定會過期。）
  *
  * 而在這條規則存在之前，**執行那整套論證的 CI 自己是用標籤釘的**。
  * `actions/checkout@v7` 的 `v7` 是一個可以被發佈者移動的指標：重指之後

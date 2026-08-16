@@ -19,7 +19,13 @@ export default defineFeature({
     "zh-TW": {
       order: {
         title: "訂單管理",
+        // ⚠️ loading／tableCaption／rowActions 這三個鍵只給輔具用，畫面上看不到
+        //（見 OrderList.vue）。它們**必須是翻譯字串**，不能寫死在模板裡 ——
+        // 一個只有中文的 aria-label 對切到英文的使用者就是一段噪音。
+        loading: "載入訂單中",
         empty: "目前沒有符合條件的訂單",
+        tableCaption: "訂單列表，依篩選條件顯示",
+        rowActions: "操作",
         status: { pending: "處理中", shipped: "已出貨", cancelled: "已取消" },
         cancel: "取消訂單",
         detail: "訂單明細",
@@ -30,7 +36,10 @@ export default defineFeature({
     en: {
       order: {
         title: "Orders",
+        loading: "Loading orders",
         empty: "No orders match the current filter",
+        tableCaption: "Orders matching the current filter",
+        rowActions: "Actions",
         status: { pending: "Pending", shipped: "Shipped", cancelled: "Cancelled" },
         cancel: "Cancel order",
         detail: "Order detail",

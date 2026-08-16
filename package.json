@@ -12,7 +12,7 @@
     "build": "vp run -r build",
     "conformance": "node tools/conformance/src/cli.ts",
     "bff-check": "vp run -F @org/bff-check test",
-    "gate": "node tools/conformance/src/cli.ts && node tools/api-surface/src/cli.ts && node tools/exit-drill/src/cli.ts && node tools/supply-chain/src/cli.ts && node tools/compliance/src/cli.ts && eslint . --max-warnings=0",
+    "gate": "node tools/conformance/src/cli.ts && node tools/api-surface/src/cli.ts && node tools/exit-drill/src/cli.ts && node tools/supply-chain/src/cli.ts && node tools/compliance/src/cli.ts && eslint . --max-warnings=0 && eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0",
     "exit-drill": "node tools/exit-drill/src/cli.ts --full",
     "ready": "vp check && vp run -r test && vp run -r build && vpr gate",
     "api-surface": "node tools/api-surface/src/cli.ts",
@@ -27,7 +27,8 @@
     "compliance-update": "node tools/compliance/src/cli.ts --update",
     "evidence": "node tools/compliance/src/cli.ts --evidence",
     "pii": "node tools/pii-check/src/cli.ts",
-    "doc-facts": "node tools/doc-facts/src/cli.ts"
+    "doc-facts": "node tools/doc-facts/src/cli.ts",
+    "a11y": "eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0"
   },
   "devDependencies": {
     "@org/eslint-config": "workspace:*",

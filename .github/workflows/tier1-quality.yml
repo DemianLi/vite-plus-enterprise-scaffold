@@ -68,6 +68,26 @@ jobs:
       - name: 建置
         run: ./node_modules/.bin/vp run -r build
 
+      # ── 無障礙靜態檢查（HANDOFF 第 22 項）─────────────────────────────
+      #
+      # 為什麼在 Tier 1 而不是 Tier 2：Tier 2 的三條規則（不快取、不過濾、
+      # 要有時間觸發）只有一個理由 —— 安全掃描的結果會隨時間失效。
+      # **無障礙不會。** 沒有新公布的 CVE 會讓一個有 alt 的 img 變成沒有 alt，
+      # 所以放進 Tier 2 只會讓那三條規則多一個不適用的例外。
+      #
+      # ⚠️ **這一步對本 repo 的正常結果是零個發現，而模板是有缺陷的。**
+      # 它比對的是原生元素與屬性，而本 repo 的互動幾乎都包在元件裡
+      #（UiButton、RouterLink、DialogRoot）—— 元件對這 23 條規則是透明的。
+      # 實測：同一批 .vue 用人眼讀出四個真缺陷，這 23 條一個都沒報。
+      # 綠燈的意思是「靜態可查的那一半沒問題」，不是「頁面可用」。
+      # 看不見的那一類具名列在 HANDOFF 第 22 項。
+      #
+      # 「掃到零個」與「什麼都沒掃到」在這裡長得一模一樣，所以有一條測試
+      #（platform/eslint-config/tests/a11y.test.ts）在比對「repo 裡有幾個
+      # .vue」與「閘門掃到幾個」。那條測試跑在上面的「測試」步驟裡。
+      - name: 無障礙靜態檢查
+        run: ./node_modules/.bin/eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0
+
       - name: Save Vite task cache
         if: success()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6

@@ -173,6 +173,16 @@ export const GATES: readonly Gate[] = [
     note: "存在的首要理由是 oxlint 沒有 vue/no-v-html —— Vue 專案最主要的 XSS 入口。",
   },
   {
+    id: "a11y-lint",
+    kind: "gate",
+    what: "Vue 模板的靜態無障礙檢查：原生元素與屬性（缺 alt、缺 label、角色錯用、只有滑鼠事件）",
+    command:
+      "./node_modules/.bin/eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0",
+    evidence: null,
+    negativeTest: "platform/eslint-config/tests/a11y.test.ts",
+    note: "⚠️ 這道閘門對本 repo 的正常結果是**零個發現，而模板是有缺陷的**。它比對的是原生元素與屬性，而本 repo 的互動幾乎都包在元件裡（UiButton／RouterLink／DialogRoot）—— 元件對它是透明的。實測：同一批 `.vue` 用人眼讀出四個真缺陷（表格沒有 caption、`<th />` 是空的、載入狀態沒有 live region、`<nav>` 沒有可及名稱），它一個都沒報；那四個已在加這道閘門的同一個 PR 修掉。所以它覆蓋的是**靜態可查的那一半**，看不見的那一類具名列在 HANDOFF 第 22 項 —— 不要用這個綠燈取代它。反向測試拿一份故意寫壞的 SFC，斷言**每一條被啟用的規則都確實對它開火**（比的是規則 ID 的集合，不是數量、也不是 exit code）；另有一條比對「repo 裡有幾個 `.vue`」與「閘門掃到幾個」，因為「掃到零個」與「什麼都沒掃到」在 CI 上長得一模一樣。⚠️ 要哪個等級、驗收怎麼判，**以 RFP 為準**，這裡與工具設定裡都刻意不寫死。",
+  },
+  {
     id: "trivy-sca",
     kind: "gate",
     what: "相依套件的 HIGH／CRITICAL 漏洞，PR ＋ 每日 21:00 UTC 排程",

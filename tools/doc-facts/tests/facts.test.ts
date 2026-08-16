@@ -111,6 +111,28 @@ describe("★ 子集的數字不得被誤判成總數", () => {
     const line = "例如 `darwin-x64` 是 10 個套件、49 MB。";
     for (const citation of packages.citations) expect(citation.exec(line)).toBeNull();
   });
+
+  it("★ 「N 個套件全帶 sha512」的兩種寫法都要被咬到", () => {
+    // HANDOFF 有兩句一模一樣的宣稱，只有一句帶尾巴的「integrity」：
+    // 第 5–7 節的條列，以及第 23 項對照表的表格欄位。
+    //
+    // 原本的樣式要求那個尾巴，於是**表格裡那個數字從來沒有被守過** ——
+    // 2026-08-16 改套件數時才發現（C60）。放寬之後兩句都咬得到。
+    //
+    // ⚠️ 這條測的是「放寬」本身。少了它，有人把 `integrity` 加回樣式裡，
+    // `citations.length` 不變、never-cited 也不會紅（另一句仍然對得到），
+    // 於是那個洞會安靜地回來 —— 而這次連 C60 都寫著它已經補好了。
+    const packages = FACTS.find((fact) => fact.id === "packages") as Fact;
+    const bothForms = [
+      "- 565 個套件全帶 sha512 integrity，CI 以 `--frozen-lockfile` 安裝",
+      "| 565 個套件全帶 sha512                 | 標籤              |",
+    ];
+
+    for (const line of bothForms) {
+      const matched = packages.citations.some((citation) => citation.exec(line) !== null);
+      expect(matched, `沒有任何樣式咬得到：${line}`).toBe(true);
+    }
+  });
 });
 
 describe("★ 新登記的樣式不得誤判鄰近的句子", () => {

@@ -26,8 +26,45 @@ const router = createRouter({
   routes: [{ path: "/", redirect: registered.routes[0]?.path ?? "/" }, ...registered.routes],
 });
 
-// 翻譯訊息由各切片自帶、在此合併（D7）。
-// defineFeature 已驗過每片的 i18n 只含自己的命名空間，所以合併不可能互相覆蓋。
+/**
+ * 外殼自己的翻譯字串。
+ *
+ * ⚠️ 這個命名空間**只為了無障礙而存在**：`App.vue` 上那幾個「只給輔具看的」
+ * 字串（導覽區域的名稱、跳至主要內容）不屬於任何一個切片，但它們必須是
+ * 翻譯字串 —— 一個寫死中文的 `aria-label` 對切到英文的使用者就是一段噪音，
+ * 而且畫面上看不到，所以不會有人回報。
+ */
+const SHELL_MESSAGES: Readonly<Record<string, Record<string, unknown>>> = {
+  "zh-TW": { shell: { nav: "主要導覽", skipToContent: "跳至主要內容" } },
+  en: { shell: { nav: "Main navigation", skipToContent: "Skip to main content" } },
+};
+
+/**
+ * 切片的訊息（D7 由 registerFeatures 合併）再併上外殼自己的。
+ *
+ * `defineFeature` 已驗過每片的 i18n 只含自己的命名空間，所以切片之間不會互相
+ * 覆蓋 —— 但**它管不到外殼**。名叫 `shell` 的切片會安靜地被這裡蓋掉，
+ * 症狀是「某幾個字變成 key」，而那種問題查起來要很久。所以撞名直接丟例外。
+ */
+function withShellMessages(
+  featureMessages: Readonly<Record<string, Record<string, unknown>>>,
+): Record<string, Record<string, unknown>> {
+  const merged: Record<string, Record<string, unknown>> = {};
+
+  for (const locale of new Set([...Object.keys(featureMessages), ...Object.keys(SHELL_MESSAGES)])) {
+    const fromFeatures = featureMessages[locale] ?? {};
+    if ("shell" in fromFeatures) {
+      throw new Error(
+        `有切片佔用了 "shell" 這個 i18n 命名空間（locale: ${locale}）。` +
+          "那是應用外殼保留的名字；請把該切片改名，或改用切片自己的名稱當命名空間。",
+      );
+    }
+    merged[locale] = { ...fromFeatures, ...SHELL_MESSAGES[locale] };
+  }
+
+  return merged;
+}
+
 const i18n = createI18n({
   legacy: false,
   locale: "zh-TW",
@@ -35,7 +72,7 @@ const i18n = createI18n({
   // vue-i18n 的 messages 型別是由字面值推導的巢狀結構，無法表達「切片在執行期
   // 合併而成」這件事。registerFeatures 的回傳型別已保證它是
   // Record<locale, Record<featureName, ...>>，此處的斷言只是跨過型別推導的限制。
-  messages: registered.messages as Record<string, Record<string, string>>,
+  messages: withShellMessages(registered.messages) as Record<string, Record<string, string>>,
 });
 
 document.title = config.appTitle;

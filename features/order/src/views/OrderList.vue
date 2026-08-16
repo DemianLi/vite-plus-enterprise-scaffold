@@ -32,6 +32,24 @@ const isOpen = computed({
   },
 });
 
+/**
+ * 要公告給輔具的狀態訊息鍵，沒有的話是 `null`。
+ *
+ * ⚠️ 這支 computed 存在的理由是 **live region 的時序**，不是版面：
+ * `aria-live` 的元素必須在文字變化**之前**就已經在 DOM 裡，瀏覽器才會朗讀。
+ * 原本寫的是 `<p v-if="isPending">…</p>` —— 元素與文字同時出現，視覺上完全
+ * 正確，但輔具那邊很可能一個字都沒有。回傳 `null` 時模板仍然渲染一個空的
+ * `role="status"`，那個空元素就是這件事的重點。
+ *
+ * ⚠️ 這一類缺陷**無障礙靜態閘門看不見**（見 platform/eslint-config/src/a11y.js）。
+ * 原本那行 `<p v-if="isPending">…</p>` 連同一個 U+2026 當內容，23 條規則零命中。
+ */
+const statusKey = computed<string | null>(() => {
+  if (isPending.value) return "order.loading";
+  if (orders.value.length === 0) return "order.empty";
+  return null;
+});
+
 const currency = new Intl.NumberFormat("zh-TW", {
   style: "currency",
   currency: "TWD",
@@ -45,25 +63,39 @@ const currency = new Intl.NumberFormat("zh-TW", {
       <h1 class="text-xl font-semibold text-gray-900">{{ $t("order.title") }}</h1>
     </header>
 
-    <p v-if="isPending">…</p>
-
     <!--
+      錯誤走 role="alert"、其餘狀態走 role="status"：alert 會打斷輔具當下的
+      朗讀，而「查詢失敗」屬於要立刻知道的那一類；載入中與查無資料不是。
+
       錯誤訊息一律以文字插值輸出，絕不使用 v-html。
       伺服器回傳的錯誤內容可能含使用者輸入，v-html 會讓它變成 XSS 入口。
       這條由 Tier 2 的 vue/no-v-html 強制（oxlint 沒有該規則）。
     -->
-    <p v-else-if="isError" role="alert">{{ error?.message }}</p>
+    <p v-if="isError" role="alert">{{ error?.message }}</p>
 
-    <p v-else-if="orders.length === 0">{{ $t("order.empty") }}</p>
+    <!-- 沒有狀態時這裡是一個空的 <p>，而它必須留著 —— 理由見 statusKey 的註解。 -->
+    <p v-else role="status">{{ statusKey === null ? "" : $t(statusKey) }}</p>
 
-    <table v-else>
+    <table v-if="orders.length > 0">
+      <!--
+        caption 與最後一欄的表頭都是 sr-only：畫面上不變，但用表格模式瀏覽的
+        輔具使用者才知道自己在哪張表、最後一欄是什麼。
+        原本最後一欄是 `<th />` —— 一個朗讀出來是空白的表頭。
+      -->
+      <caption class="sr-only">
+        {{
+          $t("order.tableCaption")
+        }}
+      </caption>
       <thead>
         <tr>
-          <th>#</th>
-          <th>Customer</th>
-          <th>Total</th>
-          <th>Status</th>
-          <th />
+          <th scope="col">#</th>
+          <th scope="col">Customer</th>
+          <th scope="col">Total</th>
+          <th scope="col">Status</th>
+          <th scope="col">
+            <span class="sr-only">{{ $t("order.rowActions") }}</span>
+          </th>
         </tr>
       </thead>
       <tbody>
