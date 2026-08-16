@@ -242,6 +242,8 @@ export const GATES: readonly Gate[] = [
     evidence: null,
     negativeTest: "tools/compliance/tests/evidence.test.ts",
     note: "它產出的是**交接用的那張表**，不是保存期政策 —— 後者是組織文件。雙向驗：宣告了但檔案不在（清單指向空氣，對方以為有東西可歸檔）、閘門有證據檔但清單沒收（漏一份而沒有人會發現）。第一次跑就抓到對照表**低估**了自己：supply-chain 實際維護兩份基線，而 Gate.evidence 只記得住一份。",
+  },
+  {
     id: "sast",
     kind: "gate",
     what: "源碼檢測：taint（路由參數流進 DOM sink）、執行期組程式碼、個資離開畫面",
