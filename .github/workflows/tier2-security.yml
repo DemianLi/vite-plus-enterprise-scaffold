@@ -194,7 +194,7 @@ jobs:
       - name: "SAST 規則的反向測試（fixture 的 ruleid:／ok: 標記）"
         run: |
           docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src \
-            semgrep/semgrep:1.145.0 semgrep --test --config .semgrep .semgrep \
+            semgrep/semgrep:1.145.0 semgrep --test --config .semgrep \
             | tee semgrep-test.log
           # ⚠️ semgrep 在**找不到測試**時印一行字然後回傳 0。
           # 第一版的 fixture 放在子目錄裡，配對不上 —— 於是這道「反向測試」
