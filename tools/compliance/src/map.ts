@@ -226,6 +226,15 @@ export const GATES: readonly Gate[] = [
     note: "在它之前，整個腳手架能在升級**之後**告訴你什麼壞了，卻沒有一個東西會說「該升了」。⚠️ 它不擋任何東西，所以「證明過會紅」對它不適用（見 GateKind）。安全邊界在 `--recapture-safe`：升級 PR 造成的不同步可自動重擷，但 integrity-changed 一律拒絕 —— 那是事故不是升級。",
   },
   {
+    id: "doc-facts",
+    kind: "gate",
+    what: "README 與 HANDOFF 引用的數字，與 inventory.json／provenance.json 推導出來的一致",
+    command: "node tools/doc-facts/src/cli.ts",
+    evidence: null,
+    negativeTest: "tools/doc-facts/tests/facts.test.ts",
+    note: "第一次跑就抓到 10 處過期，包括 README 那句「這些數字**全部由 pnpm-lock.yaml 推導**，不是抄的」—— 它們正是抄的。⚠️ 刻意**不守 DECISIONS.md**：那是有日期的決策日誌，「C24 當時是 467 個套件」陳述的是歷史，守它等於要求回頭改寫歷史。登記的是**整句樣式**而不是「任何 N 個 X」，因為 HANDOFF 裡的 8／22 個原生二進位是子集不是總數 —— 句子被改寫會變成 never-cited 的紅燈，失敗方向是安全的。",
+  },
+  {
     id: "compliance",
     kind: "gate",
     what: "本對照表本身：映射與檔案系統一致、且沒有列在說謊",

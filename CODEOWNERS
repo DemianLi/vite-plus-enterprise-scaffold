@@ -65,6 +65,9 @@
 # 「留幾個字」是拿去回答稽核的那個數字。
 /tools/pii-check/           @org/platform-maintainers @org/security
 /platform/pii/              @org/platform-maintainers @org/security
+# facts.ts 決定「哪些數字有人在守」。從登記表拿掉一條，那個數字就從此
+# 可以自由漂移 —— 而它們是拿去跟採購與資安講的話。
+/tools/doc-facts/           @org/platform-maintainers
 
 /pnpm-workspace.yaml        @org/platform-maintainers
 /vite.config.ts             @org/platform-maintainers
