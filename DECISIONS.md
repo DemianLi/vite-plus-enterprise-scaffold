@@ -3098,6 +3098,97 @@ Node 內建的**兩種寫法**（只擋 `node:` 前綴會放過裸寫的 `from "
 
 ---
 
+### C56 — SAST 接上了，而 C54 給的做法被實測推翻（2026-08-16）
+
+C54 第六節建議「不要自寫汙點規則，改用 semgrep 的公開規則集」，理由是
+**前置過濾器的成敗指標是與商用工具的命中重疊率，而自寫規則撞上的機率低**。
+
+那個推理聽起來合理。**它是錯的**，而且錯得很乾脆。
+
+#### 一、乾跑量出來的數字
+
+照 C55 立下的規矩，先在 scratchpad 的 venv 裝 semgrep，拿一份**故意寫壞的**
+fixture 去測（`route.query` → `innerHTML`、open redirect、`new Function`、
+字串型 `setTimeout`）：
+
+| 規則集             | 載入規則數 | 對 fixture 的命中 |
+| ------------------ | ---------- | ----------------- |
+| `p/xss`            | 12         | **0**             |
+| `p/security-audit` | 22         | **0**             |
+| `p/owasp-top-ten`  | 76         | **0**             |
+| `p/default`        | 210        | **0**             |
+| PR #18 的自寫規則  | 2          | **2**             |
+
+不是「載入失敗」——semgrep 明確報告 `Rules run: N`、`Parsed lines: ~100%`。
+**規則跑了，就是不報。**
+
+原因不神祕：公開規則集的重心在伺服器端樣板與框架，Vue SPA 的**瀏覽器端
+DOM 汙點流**是它們覆蓋得最薄的一塊。而匿名使用的註冊表還只給子集
+（semgrep 自己提示 `semgrep login for additional free rules`）。
+
+**教訓不是「公開規則集沒用」，是我用「上游維護的比較好」這種一般性推理
+取代了測量。** C55 才剛把「先乾跑再接線」寫下來，這次照做，然後被打臉的
+是我自己的建議——這正是那條規矩存在的價值。
+
+#### 二、附帶的好處：自寫規則是釘住的
+
+註冊表的 `p/xxx` 是**會移動的指標**。上游改規則不需要任何 commit，
+而那會讓一個一行沒改的 PR 變紅。對一個會擋 CI 的步驟，那是 D16 裡
+最差的比率：每次要人付、而且付的理由指不到任何 diff。
+
+#### 三、blocker 1 的真正原因：配對方式，不是 fixture 命名
+
+`semgrep --test` 必須 **`cd` 進規則目錄**、且 `--config` 指向**目錄**。
+從 repo 根目錄下 `--test --config .semgrep` 配對不上——**而它不會報錯**，
+它印 `No unit tests found` 然後回傳 0。
+
+實測（1.136.0）三種情況：
+
+| 情況                   | exit                            |
+| ---------------------- | ------------------------------- |
+| 正常                   | 0，印 `2/2: ✓ All tests passed` |
+| **fixture 不見**       | **0**，印 `No unit tests found` |
+| 規則的 sink 被拿掉一個 | 1                               |
+
+所以防呆留著，而且變成**兩道**：`No unit tests found` 要紅，**且**輸出必須
+有真的「N/N tests passed」數字。少了第二道，任何讓 semgrep 靜默的改動
+都會再度變成綠燈。
+
+#### 四、fixture 自己踩了兩個坑，兩個都值得留著
+
+- 檔頭的說明文字裡寫了 `ruleid:` 這個關鍵字，semgrep 把**註解裡的說明**
+  當成真的標記去解析，報 `rule id mismatch`。**那其實是好消息**：
+  它證明標記真的有在被讀。改法是說明裡不寫出那兩個關鍵字
+- fixture 原本照真實寫法 `import { useRoute } from "vue-router"`，
+  tsc 報 `Cannot find module`（`.semgrep/` 不是 package，沒有相依宣告）。
+  **那個錯是對的**，不該用排除去消音——改成自己 `declare` 一個 stub，
+  fixture 變成零相依。semgrep 的比對不解析模組，測到的東西一模一樣
+
+#### 五、ESLint 與 oxlint 獨立確認了 fixture 是真的壞程式碼
+
+加排除之前，`no-unsanitized/property` 與 `no-implied-eval` **各自抓到它**。
+兩個與 semgrep 無關的工具同意這份 fixture 有問題——也就是說反向測試測的
+不是一個假想的壞例子。這件事寫進 `eslint.config.js` 與 `vite.config.ts`
+的註解裡，因為那兩處的排除單獨看起來像在關掉安全檢查。
+
+⚠️ 順帶一個小坑：oxlint 的規則名要帶 plugin 前綴。寫 `no-implied-eval`
+只會把它從 error **降成 warning**，看起來像生效了；而寫
+`typescript/no-eval`（不存在）會讓整個 lint 設定建不起來，連掃都不開始。
+
+#### 六、`p/default` 報的 26 條不是白跑的，但它們屬於另一個題目
+
+程式碼層級一條都沒有，**全部是 CI 與供應鏈衛生**，最大的一群是
+`github-actions-mutable-action-tag`（16 條）。查證屬實：本 repo 的 16 個
+GitHub Action 全部以標籤釘住，而這個 repo 對 npm 相依做到 sha512＋
+`--frozen-lockfile`＋digest 進版控。
+
+**供應鏈的論證停在 npm 邊界，而執行那套論證的 CI 這一層是敞開的。**
+
+記成 HANDOFF 第 23 項，**刻意不夾帶進 SAST 那個 PR**：它是 16 行 workflow
+改動、影響每一次 CI 執行，而「要不要相信 GitHub 自家帳號」是一個信任決定。
+
+---
+
 ## 實作順序
 
 依賴關係決定順序，不是重要性。

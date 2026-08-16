@@ -172,6 +172,16 @@ export const GATES: readonly Gate[] = [
     note: "15 條反向測試，兩個已知失明模式各有一條：SBOM 0 個 component（C33）、只有 20 個（C34 只解第一份 YAML 文件）。⚠️ SBOM 仍只上傳為 artifact（保留 90 天）、沒有進版控 —— 而 §16 要的是 5 年。",
   },
   {
+    id: "sast",
+    kind: "gate",
+    what: "跨函式的汙點傳遞（路由參數 → DOM sink）與執行期組程式碼 —— lint 看不到的那一類",
+    command:
+      "semgrep scan --config .semgrep/rules.yml --exclude .semgrep（.github/workflows/tier2-security.yml）",
+    evidence: null,
+    negativeTest: ".semgrep/rules.ts",
+    note: "⚠️ **這不是交給機關的那份 SAST 報告** —— 那份由第三方或機關指定的商用工具產出，是標案交付物。這裡是開發當下的前置過濾器：把「驗收前才知道」變成「開發當下就知道」。規則自寫而非用公開規則集，是實測決定的（C56）：拿故意寫壞的 fixture 去測，p/xss、p/security-audit、p/owasp-top-ten、p/default 四組共 210 條規則**全部命中 0**，兩條自寫規則命中 2 —— 公開規則集的重心在伺服器端，Vue SPA 的瀏覽器端 DOM 汙點流覆蓋得最薄。反向測試就是 `rules.ts` 本身（semgrep 的 fixture 格式），含一條對照組：同一個汙點來源流進 `textContent` 不得被報，否則「看到 route.query 就報」的爛規則也會通過。⚠️ `semgrep --test` 在**找不到 fixture 時回傳 0**，所以 workflow 有兩道防呆：`No unit tests found` 要紅，且輸出必須有真的「N/N tests passed」數字。",
+  },
+  {
     id: "gitleaks",
     kind: "gate",
     what: "機密掃描，fetch-depth: 0 以涵蓋被後續 commit 蓋掉的機密",
@@ -268,10 +278,10 @@ export const CONTROLS: readonly Control[] = [
     article: "§11 II ③",
     requirement: "定期檢測並因應系統漏洞所造成之威脅",
     scope: "frontend",
-    gates: ["trivy-sca", "trivy-sbom", "supply-chain", "dependency-health", "renovate"],
+    gates: ["trivy-sca", "trivy-sbom", "supply-chain", "dependency-health", "renovate", "sast"],
     coverage: "partial",
     owed: true,
-    note: "這一條有兩半：**檢測**由 Trivy 做（每日 21:00 UTC 排程 —— 沒有它，三個月沒人動的專案就三個月沒掃過），**因應**由 Renovate 提出（D13 的 critical 3 天／high 14 天 SLA 要有人真的去升，才是 SLA）。⚠️ 仍只涵蓋**相依套件**：自己寫的程式碼沒有 SAST，而 eslint 的安全規則不是漏洞掃描器。",
+    note: "這一條有兩半：**檢測**由 Trivy 做（每日 21:00 UTC 排程 —— 沒有它，三個月沒人動的專案就三個月沒掃過），**因應**由 Renovate 提出（D13 的 critical 3 天／high 14 天 SLA 要有人真的去升，才是 SLA）。⚠️ 這一格原本寫著「自己寫的程式碼沒有 SAST」—— **2026-08-16 起不再成立**（見 `sast` 閘門）。但覆蓋仍是 partial 而不是 full，而且理由要說清楚：repo 裡的 semgrep 是**前置過濾器**，只有兩條規則、守的是汙點傳遞與執行期組程式碼；真正要交付的源碼掃描報告由第三方或機關指定的商用工具產出。**把這一格標成 full 就是重演 §11 II ⑦ 那次高估。**",
   },
   {
     article: "§11 II ④",

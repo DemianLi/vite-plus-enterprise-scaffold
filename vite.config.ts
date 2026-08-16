@@ -42,6 +42,25 @@ export default defineConfig({
 
     overrides: [
       {
+        // ── SAST 規則的 fixture ────────────────────────────────────
+        // `.semgrep/rules.ts` 裡的程式碼是**故意寫壞的**，用來證明
+        // semgrep 的規則真的會命中（見該檔案的檔頭）。它不進任何建置。
+        //
+        // ⚠️ 加這條之前，oxlint 的 no-implied-eval 與 ESLint 的
+        // no-unsanitized/property 各自獨立地抓到了它 —— 那正好確認
+        // 這份 fixture 是真的壞程式碼，不是一個假想的壞例子。
+        // ⚠️ 規則名要帶 plugin 前綴。不帶的話它從 error 降成 warning
+        // 而不是關掉 —— 看起來像生效了，其實只是換一種顏色。
+        files: [".semgrep/**"],
+        rules: {
+          "no-eval": "off",
+          "no-implied-eval": "off",
+          // ⚠️ 只有這一條有 typescript/ 版本；寫 `typescript/no-eval` 會讓
+          // 整個 lint 設定建不起來（Rule not found），連掃都不會開始。
+          "typescript/no-implied-eval": "off",
+        },
+      },
+      {
         // ── D4 邊界防護第 2 層 ─────────────────────────────────────
         // 第 1 層（manifest）與第 3 層（相對路徑逃逸）在 tools/conformance，
         // 跑 Tier 2、繞不過。這一層跑本機，讓最常見的違規在編輯器裡當場現形。
