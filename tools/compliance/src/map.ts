@@ -239,11 +239,11 @@ export const GATES: readonly Gate[] = [
   {
     id: "doc-facts",
     kind: "gate",
-    what: "現況文件引用的數字，與 inventory.json／provenance.json 推導出來的一致（守哪幾份見 doc-facts 的 GUARDED）",
+    what: "現況文件引用的數字，與 repo 內部事實來源推導出來的一致（事實來源與守哪幾份文件見 doc-facts 的 FACTS／GUARDED）",
     command: "node tools/doc-facts/src/cli.ts",
     evidence: null,
     negativeTest: "tools/doc-facts/tests/facts.test.ts",
-    note: "第一次跑就抓到 10 處過期，包括 README 那句「這些數字**全部由 pnpm-lock.yaml 推導**，不是抄的」—— 它們正是抄的。⚠️ 刻意**不守 DECISIONS.md**：那是有日期的決策日誌，「C24 當時是 467 個套件」陳述的是歷史，守它等於要求回頭改寫歷史。登記的是**整句樣式**而不是「任何 N 個 X」，因為 HANDOFF 裡的 8／22 個原生二進位是子集不是總數 —— 句子被改寫會變成 never-cited 的紅燈，失敗方向是安全的。",
+    note: "第一次跑就抓到 10 處過期，包括 README 那句「這些數字**全部由 pnpm-lock.yaml 推導**，不是抄的」—— 它們正是抄的。⚠️ 刻意**不守 DECISIONS.md**：那是有日期的決策日誌，「C24 當時是 467 個套件」陳述的是歷史，守它等於要求回頭改寫歷史。登記的是**整句樣式**而不是「任何 N 個 X」，因為 HANDOFF 裡的 8／22 個原生二進位是子集不是總數 —— 句子被改寫會變成 never-cited 的紅燈，失敗方向是安全的。2026-08-16 第二輪擴大時，補登記的當下又有兩個數字是錯的，其中一個是**同一天寫下的** —— 而登記還逼出一個歧義：「N 個 action」在兩處分別指引用處與不重複 action，兩個事實共用一個講法就沒有樣式分得開它們（C59）。",
   },
   {
     id: "evidence-manifest",

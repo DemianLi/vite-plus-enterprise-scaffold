@@ -113,6 +113,67 @@ describe("★ 子集的數字不得被誤判成總數", () => {
   });
 });
 
+describe("★ 新登記的樣式不得誤判鄰近的句子", () => {
+  /**
+   * 2026-08-16 的第二輪擴大：契約條目、workspace 套件、action 引用處、
+   * 不重複 action、CODEOWNERS 條目。
+   *
+   * 這五筆有一個共同的風險：它們的量詞（「條」「個」「處」）在這幾份文件裡
+   * 到處都是。樣式寫寬一點就會對著別的正確數字亂叫，而一道會亂叫的閘門
+   * 會被拿掉 —— 這一組驗的就是那件事。
+   */
+  const NEARBY: Record<string, readonly string[]> = {
+    "contract-items": [
+      "| **本 repo 自寫的 2 條** | 2          | **2** |",
+      "**反向測試 6 條**，其中 4 條標 ★（驗「不該紅的時候不會紅」）。",
+      "`p/default`（semgrep 的公開規則集）對本 repo 報了 26 條。",
+    ],
+    "workspace-packages": [
+      "另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。",
+      "`vpr capture-health` 補上：它掃的是 24 個**外部直接相依**，",
+    ],
+    "action-refs": [
+      "> 22 個原生二進位（每個約 4 MB）進入我們的建置環境",
+      "例如 `darwin-x64` 是 10 個套件、49 MB。",
+    ],
+    "distinct-actions": [
+      "授權疑慮已解除：`vite-plus`、core、8 個原生二進位的 `license` 欄位實測皆為 MIT。",
+      "- 核准 **144 個平台原生二進位、12 個家族**的例外。",
+    ],
+    "codeowners-entries": [
+      "本 repo 2026-08-15 實測：**22 條全部 Unknown owner**（見 C40）。",
+      "| **MPL-2.0** | `lightningcss-*` 22 個（兩個版本）",
+    ],
+  };
+
+  for (const [id, lines] of Object.entries(NEARBY)) {
+    it(`★ ${id} 的樣式不碰那幾句`, () => {
+      const fact = FACTS.find((candidate) => candidate.id === id) as Fact;
+      expect(fact, `登記表裡沒有 ${id}`).toBeDefined();
+      for (const line of lines) {
+        for (const citation of fact.citations) {
+          expect(citation.exec(line), `${id} 誤判：${line.slice(0, 34)}`).toBeNull();
+        }
+      }
+    });
+  }
+
+  it("🔴 CODEOWNERS 的「22 條 Unknown owner」**不得**被當成條目數守著", () => {
+    /**
+     * 這是這一輪最重要的一格，也是它被降級的理由。
+     *
+     * 那個 22 來自 `gh api …/codeowners/errors` —— GitHub 的判定。實測 C40
+     * 量到 22 的那個 commit，本地是 14 條條目、21 個 owner 引用：**三個數字
+     * 互不相等**，也就是說它推導不出來。硬守它只能靠人再抄一次期望值（A1）。
+     *
+     * 現在守的是條目數，而那句歷史測量必須留在文件裡且不被碰到。
+     */
+    const fact = FACTS.find((candidate) => candidate.id === "codeowners-entries") as Fact;
+    const history = "本 repo 2026-08-15 實測：**22 條全部 Unknown owner**（見 C40）。";
+    for (const citation of fact.citations) expect(citation.exec(history)).toBeNull();
+  });
+});
+
 describe("handoffItemCount：合併標題要展開", () => {
   it("`## 5–7.` 算三項", () => {
     expect(handoffItemCount("## 1.\n## 5–7.\n")).toBe(4);
