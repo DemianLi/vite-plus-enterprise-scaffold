@@ -23,7 +23,7 @@ import { GATES } from "./map.ts";
  *
  * 交接時需要的是一句「這幾個檔案就是你們要放進保存排程的東西」。
  * 手寫那份清單的話，它會在下一個工具加進來的時候過期 —— 這個 repo 在
- * 「人抄下來的東西沒有人再推導一次」上已經栽了七次（見 tools/doc-facts）。
+ * 「人抄下來的東西沒有人再推導一次」上一再栽跟頭（列舉見 tools/doc-facts）。
  */
 
 export type Retention =
