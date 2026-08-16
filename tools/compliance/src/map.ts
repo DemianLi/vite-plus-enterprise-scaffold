@@ -90,6 +90,9 @@ export interface Control {
    * 顯示「✅ 已證明」—— 但它守的是「CODEOWNERS 有條目」，法條要的是
    * 「權限設定並定期檢視」。而且目前那 22 條全是 Unknown owner。
    *
+   * ⚠️ 2026-08-16 又查出那道落差是**三層**不是一層（C63）——「換掉佔位符」
+   * 只拆掉中間那層。細節在該列的 note，不在這裡重寫一次。
+   *
    * **有閘門、閘門也會紅、法條仍然沒被滿足** —— 這三件事同時為真，
    * 而只有一欄的表沒辦法講出來。那正是這張表最該擋下的那種假象。
    */
@@ -373,7 +376,7 @@ export const CONTROLS: readonly Control[] = [
     gates: ["conformance"],
     coverage: "partial",
     owed: true,
-    note: "⚠️ **這一列是「有閘門、閘門也會紅、法條仍然沒被滿足」的樣本。** conformance 守的是「CODEOWNERS 有條目」，法條要的是權限設定與定期檢視；而目前那 22 條全是 Unknown owner（HANDOFF #15）—— 存在不等於生效，本機看不出來，只有 GitHub 知道。",
+    note: "⚠️ **這一列是「有閘門、閘門也會紅、法條仍然沒被滿足」的樣本。** conformance 守的是「CODEOWNERS 有條目」，法條要的是權限設定與定期檢視。而「有條目」距離「有生效」有**三層**（2026-08-16 查證，C63／HANDOFF #25）：① 分支保護的 require_code_owner_reviews 沒開（實測 404 Branch not protected）；② owner 全是 @org/* 佔位符，GitHub 判 Unknown owner（HANDOFF #15）；③ 同一列多個 owner 是**任一核准即可**，所以那 12 條「資安共同把關」在原生行為下不強制資安。⚠️ 做完 #15 只拆掉第 ② 層 —— 三層都在，本機一層都看不出來。",
   },
   {
     article: "§15",

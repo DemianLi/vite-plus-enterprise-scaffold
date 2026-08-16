@@ -72,10 +72,21 @@ Tailwind v4 的自動來源偵測**刻意跳過 node_modules**，而 monorepo �
 
 ## 擁有權
 
-⚠️ **CODEOWNERS 目前暫掛 `@org/platform-maintainers`，尚未由組織正式指派**（HANDOFF #14）。
+✅ **`@org/platform-maintainers`（由 `/platform/` 通則涵蓋）。已於 2026-08-16
+正式決定，不再是暫掛** —— HANDOFF #14、`DECISIONS.md` 的 C62。
 
 它是唯一一個所有切片都依賴的 UI package，owner 等於
 「誰有權改變全公司產品的長相」—— 那不是技術問題。
+
+⚠️ **這個決定沒有買到的東西**：歸屬清楚了，**設計與無障礙的職能沒有**。
+`platform-maintainers` 是平台工程角色。HANDOFF #22 那四個行為面缺口
+（焦點順序、對比度、標題階層、只靠顏色傳達狀態）靜態閘門看不見，
+而現在也沒有具名的人在看。在 CODEOWNERS 加一列**買不回來** ——
+同一列多個 owner 是「任一核准即可」，見 HANDOFF #25。
+
+⚠️ **各案要換配色／形狀／互動的話，接縫現在只有三分之一**（HANDOFF #24）：
+元件裡 16 處顏色宣告只有 5 處走 `@theme` 代幣，而預設的 `secondary` variant
+一個代幣都沒用。**不要假設換得掉。**（推導那個數字的指令附在該項裡。）
 
 ## 開發
 
