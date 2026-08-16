@@ -69,6 +69,10 @@
 # 可以自由漂移 —— 而它們是拿去跟採購與資安講的話。
 /tools/doc-facts/           @org/platform-maintainers
 
+# 規則放寬是靜默的：刪一條規則不會有任何東西變紅。
+/.semgrep/                  @org/platform-maintainers @org/security
+/tools/sast/                @org/platform-maintainers @org/security
+
 /pnpm-workspace.yaml        @org/platform-maintainers
 /vite.config.ts             @org/platform-maintainers
 /eslint.config.js           @org/platform-maintainers @org/security

@@ -1,0 +1,21 @@
+{
+  "name": "@org/sast",
+  "version": "0.0.0",
+  "private": true,
+  "description": "產生的 SAST 規則與切片契約的同步檢查（規則本體在 .semgrep/）",
+  "bin": {
+    "sast": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

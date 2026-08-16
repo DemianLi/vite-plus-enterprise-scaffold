@@ -1,0 +1,26 @@
+# 產生的檔案，不要手改。
+# 事實來源：features/*/src/index.ts 的 personalData（§11 II ⑨）。
+# 重新產生：node tools/sast/src/cli.ts --update
+#
+# 目前宣告為個資的欄位：
+#   order: customerName
+rules:
+  - id: personal-data-leaves-the-screen
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      宣告為個資的欄位被送進 log／localStorage／URL query。
+      三者的共同點是個資會離開畫面而且留下來：log 通常進第三方錯誤追蹤
+      （跨境傳輸）、localStorage 登出也不會消失、URL query 會進瀏覽器歷史、
+      Referer 標頭與沿途每一個 access log。
+      要記錄的話請先用 @org/pii 的 maskXxx() 處理。
+    pattern-either:
+      - pattern: console.$METHOD($$$A, $X.customerName, $$$B)
+      - pattern: console.$METHOD($X.customerName)
+      - pattern: localStorage.setItem($$$K, $X.customerName)
+      - pattern: sessionStorage.setItem($$$K, $X.customerName)
+      - pattern: $PARAMS.set($$$K, $X.customerName)
+      - pattern: $PARAMS.append($$$K, $X.customerName)
+    paths:
+      exclude:
+        - "**/tests/**"

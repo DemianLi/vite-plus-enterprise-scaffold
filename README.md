@@ -51,7 +51,7 @@ platform/    技術底座。slice-kit / http-client / config / security-headers 
              bff-contract / bff-mock / ui / pii / tsconfig / eslint-config
 tools/       建置與治理腳本。conformance / api-surface / codemods / slice-gen /
              bff-check / exit-drill / supply-chain / csp-verify /
-             compliance / pii-check / doc-facts / ui-survey
+             compliance / pii-check / doc-facts / sast / ui-survey
 ```
 
 依賴方向**只准單向**：`apps → features → platform`。

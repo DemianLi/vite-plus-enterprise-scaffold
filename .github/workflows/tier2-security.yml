@@ -168,6 +168,48 @@ jobs:
       - name: 文件數字與事實來源一致
         run: node tools/doc-facts/src/cli.ts
 
+      # ── SAST（源碼檢測）────────────────────────────────────────────
+      #
+      # ⚠️ **這不是要交給稽核的那份 SAST 報告。** 源碼檢測與弱點掃描由專業
+      # 廠商執行，那份報告才是稽核要的東西。這裡是**開發當下**的守衛：
+      # 讓廠商報告上少幾條，而不是取代它。
+      #
+      # 因此規則偏向高精準、低噪音 —— 一道在開發流程裡亂叫的閘門會被關掉，
+      # 而被關掉的閘門連「少幾條」都做不到。
+      #
+      # 與 oxlint／ESLint 零重疊也是刻意的：lint 看單一節點，
+      # 這裡只放 taint（資料怎麼流過好幾個函式）與「哪些欄位是個資」——
+      # 後者的知識只存在於本 repo 的 Feature.personalData 裡，
+      # 任何通用掃描器都不會知道。
+      #
+      # ⚠️ semgrep 是 Python 工具，**不在 pnpm-lock.yaml 裡** ——
+      # tools/supply-chain 的盤點看不到它。它以 pinned action 進來，
+      # 而那是一個獨立於本 repo 供應鏈論證之外的信任決定（見 HANDOFF）。
+      - name: SAST 規則與切片契約同步
+        run: node tools/sast/src/cli.ts
+
+      # 先驗規則本身會不會命中，再拿規則去掃 repo。
+      # 順序是刻意的：一組壞掉的規則掃出零個發現，看起來與「沒有問題」
+      # 一模一樣 —— 這個 repo 已經栽過那個形狀七次。
+      - name: "SAST 規則的反向測試（fixture 的 ruleid:／ok: 標記）"
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src \
+            semgrep/semgrep:1.145.0 semgrep --test --config .semgrep .semgrep/fixtures
+
+      - name: SAST 掃描
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src \
+            semgrep/semgrep:1.145.0 semgrep scan --config .semgrep \
+              --error --sarif --output semgrep.sarif \
+              --exclude .semgrep/fixtures
+
+      - name: 上傳 SAST 結果到 Code Scanning
+        if: always() && hashFiles('semgrep.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
       # ── 安全 lint（D5）─────────────────────────────────────────────
       # 只裝安全規則，與 oxlint 零重疊。存在的首要理由是 oxlint 沒有
       # vue/no-v-html —— Vue 專案最主要的 XSS 入口。
