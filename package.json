@@ -26,7 +26,8 @@
     "compliance": "node tools/compliance/src/cli.ts",
     "compliance-update": "node tools/compliance/src/cli.ts --update",
     "pii": "node tools/pii-check/src/cli.ts",
-    "pii-masking": "node tools/pii-check/src/cli.ts --masking"
+    "pii-masking": "node tools/pii-check/src/cli.ts --masking",
+    "doc-facts": "node tools/doc-facts/src/cli.ts"
   },
   "devDependencies": {
     "@org/eslint-config": "workspace:*",

@@ -1,0 +1,21 @@
+{
+  "name": "@org/doc-facts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "文件裡的數字與 repo 內部事實來源的一致性（A1：只守推導得出來的）",
+  "bin": {
+    "doc-facts": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

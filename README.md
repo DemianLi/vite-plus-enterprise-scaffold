@@ -5,7 +5,7 @@
 完整的決策理由與風險登記見 [DECISIONS.md](DECISIONS.md)。這份 README 只講怎麼用。
 
 > **要上線前先看 [HANDOFF.md](HANDOFF.md)** —— 那裡收的是程式碼做不到、
-> 只有組織能決定的 13 件事（採購／資安／法務／平台／架構），每一項都附「拿什麼去談」。
+> 只有組織能決定的 17 件事（採購／資安／法務／平台／架構），每一項都附「拿什麼去談」。
 
 ## 快速開始
 
@@ -51,7 +51,7 @@ platform/    技術底座。slice-kit / http-client / config / security-headers 
              bff-contract / bff-mock / ui / pii / tsconfig / eslint-config
 tools/       建置與治理腳本。conformance / api-surface / codemods / slice-gen /
              bff-check / exit-drill / supply-chain / csp-verify /
-             compliance / pii-check / ui-survey
+             compliance / pii-check / doc-facts / ui-survey
 ```
 
 依賴方向**只准單向**：`apps → features → platform`。
@@ -202,9 +202,14 @@ D2 選了「可替換的驅動層」，而那張保單**是被實測過的**，�
 
 ## 供應鏈：拿去給資安與平台團隊的三份文件
 
-腳手架帶進來的東西比想像的多：**467 個套件，其中 121 個是平台限定的原生二進位，
-分屬 11 個家族**（不只 `vite-plus` —— TypeScript 7 自己就是原生執行檔，
-`lightningcss` 是 MPL-2.0）。這些數字**全部由 `pnpm-lock.yaml` 推導**，不是抄的。
+腳手架帶進來的東西比想像的多：**563 個套件，其中 144 個是平台限定的原生二進位，
+分屬 12 個家族**（不只 `vite-plus` —— TypeScript 7 自己就是原生執行檔，
+`lightningcss` 是 MPL-2.0）。
+
+這幾個數字由 `pnpm-lock.yaml` 推導進 `inventory.json`，再由
+[`tools/doc-facts`](tools/doc-facts) 逐句核對這一段有沒有跟上 ——
+上一版這裡寫著「**全部由 pnpm-lock.yaml 推導**，不是抄的」，
+而它們**正是抄的**，而且已經過期（467／121／11）。那句話是被自己描述的機制抓到的。
 
 ```bash
 ./node_modules/.bin/vpr sca-dossier      # → 資安：SCA 例外申請書
@@ -230,7 +235,7 @@ pnpm 那一步**（要設在機器層級），而**封閉環境無法就地升�
   內自帶一份 TypeScript 6.0.3。上游支援後即可移除。
 - `vp run` **沒有** changed-since 過濾器。affected 偵測若要做，得自己算 git diff。
   目前靠任務快取提速（實測 4/5 命中）。
-- 121 個原生二進位裡有 **32 個沒有 SLSA provenance**（含全部 20 個
+- 144 個原生二進位裡有 **43 個沒有 SLSA provenance**（含全部 20 個
   `@typescript/typescript-*`），只有 npm 的發佈簽章。這不是本腳手架能修的，
   但 SCA 例外申請書必須把它分開列 —— `vpr sca-dossier` 已經這麼做。
 - 22 個 `@yuku-*` 在 registry 上**沒有 license 欄位**。上層套件宣告 MIT、同一個 repo，
