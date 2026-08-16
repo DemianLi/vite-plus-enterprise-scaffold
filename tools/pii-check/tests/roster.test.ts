@@ -152,3 +152,48 @@ describe("CLI 端對端", () => {
     }
   });
 });
+
+/**
+ * 不認得的旗標必須紅 —— 這條是被一次真實事故逼出來的。
+ *
+ * C52 拿掉 `--masking` 之後，`tier2-security.yml` 裡那個步驟被留了下來。
+ * 當時這支 CLI 只找 `--root`、其餘無視，於是那一步安靜地把 ⑥ 又掃了一次、
+ * 回傳 0 —— CI 上是一個叫「個資：畫面上必須隱碼」的綠燈，而 ⑨ 早就沒有
+ * 任何東西在守。PR 就是這樣全綠合進來的。
+ *
+ * 修的是**類別**不是那一次：下一個被拿掉的旗標會用一模一樣的方式溜過去。
+ */
+describe("🔴 不認得的旗標", () => {
+  it("`--masking`（已移除）→ 紅，不得靜靜當成一次普通掃描", () => {
+    const result = spawnSync("node", [CLI, "--masking"], { cwd: ROOT, encoding: "utf8" });
+    expect(result.status, `仍然綠燈 —— 被拿掉的旗標又會在 CI 裡假裝成一道檢查`).toBe(1);
+    expect(result.stderr).toContain("--masking");
+  });
+
+  it("任何沒見過的旗標都一樣 → 紅", () => {
+    const result = spawnSync("node", [CLI, "--nope"], { cwd: ROOT, encoding: "utf8" });
+    expect(result.status).toBe(1);
+  });
+
+  it("★ 訊息要說得出「為什麼這會紅」，不只是「不認得」", () => {
+    // 讀到這條訊息的人多半正在 CI 上看紅燈。少了原因，
+    // 最短的修法是把旗標加回 KNOWN_FLAGS —— 那正好是錯的方向。
+    const result = spawnSync("node", [CLI, "--masking"], { cwd: ROOT, encoding: "utf8" });
+    expect(result.stderr).toContain("綠燈");
+  });
+
+  it("★ 對照組：認得的旗標照常運作", () => {
+    // 少了這條，一個「什麼旗標都紅」的實作也會讓上面三條全過。
+    const dir = mkdtempSync(join(tmpdir(), "pii-check-flag-"));
+    try {
+      for (let at = 0; at <= MINIMUM_SCANNED; at += 1) {
+        mkdirSync(join(dir, `p${at}`, "tests"), { recursive: true });
+        writeFileSync(join(dir, `p${at}`, "tests", "a.test.ts"), "// 乾淨\n");
+      }
+      const result = spawnSync("node", [CLI, "--root", dir], { cwd: ROOT, encoding: "utf8" });
+      expect(result.stderr).not.toContain("不認得的旗標");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
