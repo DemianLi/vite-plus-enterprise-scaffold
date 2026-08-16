@@ -1,7 +1,7 @@
 {
   "lockfileDocuments": 2,
   "totals": {
-    "packages": 519,
+    "packages": 563,
     "native": 144,
     "families": 12,
     "withoutIntegrity": 0
@@ -1260,7 +1260,11 @@
     {
       "id": "@types/parse-path@7.1.0",
       "reason": "This is a stub types definition. parse-path provides its own type definitions, so you do not need this installed."
+    },
+    {
+      "id": "glob@10.5.0",
+      "reason": "Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me"
     }
   ],
-  "nonNativeDigest": "4e62918b1a7337e9f33837e16d57c3fc213742924470cf96789e07b4e05ee761"
+  "nonNativeDigest": "21aebac5c66b233504c3c7bb6ccad7bfc7cec9a8048ecaf21e89e3886fa64169"
 }

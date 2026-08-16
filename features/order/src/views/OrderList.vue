@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { UiButton, UiDialog } from "@org/ui";
+import { maskName } from "@org/pii";
 import { useOrderList } from "../composables/useOrderList.ts";
 import { useOrderFilterStore } from "../store.ts";
 
@@ -68,7 +69,13 @@ const currency = new Intl.NumberFormat("zh-TW", {
       <tbody>
         <tr v-for="order in orders" :key="order.id">
           <td>{{ order.id }}</td>
-          <td>{{ order.customerName }}</td>
+          <!--
+            §11 II ⑨ —— 客戶姓名在列表上一律隱碼。
+            這條規則防的是內部人員（客服、營運）在日常作業畫面上看到完整個資，
+            不是防使用者看自己的資料。宣告在 src/index.ts 的 personalData，
+            由 tools/pii-check --masking 靜態驗證、由元件測試證明真的沒渲染出去。
+          -->
+          <td>{{ maskName(order.customerName) }}</td>
           <td>{{ currency.format(order.totalCents / 100) }}</td>
           <td>{{ $t(`order.status.${order.status}`) }}</td>
           <td>
@@ -93,7 +100,8 @@ const currency = new Intl.NumberFormat("zh-TW", {
         <dt class="text-(--color-muted)">#</dt>
         <dd>{{ selected.id }}</dd>
         <dt class="text-(--color-muted)">Customer</dt>
-        <dd>{{ selected.customerName }}</dd>
+        <!-- 明細也一樣。「點開就看得到完整的」等於沒有隱碼。 -->
+        <dd>{{ maskName(selected.customerName) }}</dd>
         <dt class="text-(--color-muted)">Total</dt>
         <dd>{{ currency.format(selected.totalCents / 100) }}</dd>
         <dt class="text-(--color-muted)">Status</dt>

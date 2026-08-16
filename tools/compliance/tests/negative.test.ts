@@ -48,6 +48,23 @@ interface Result {
   readonly output: string;
 }
 
+/**
+ * ⚠️ 這幾條測試的耗時是**牆鐘時間，不是邏輯複雜度**。
+ *
+ * 每一條都 spawn 一個 node 行程，而那個行程會把輸出交給 `vp fmt` 排版 ——
+ * formatter 才是權威（與 api-surface 同一課）。於是耗時隨 repo 大小成長，
+ * 與這幾條測試驗的東西完全無關。
+ *
+ * 實測：本機約 1.2 秒／條。加進 platform/pii 與 tools/pii-check 之後，
+ * CI 的冷啟動 runner 上跨過了 vitest 預設的 5 秒，於是對照組那一條
+ * **在本機全綠的情況下於 CI 逾時** —— 而訊息是「Test timed out」，
+ * 看起來像測試壞了，不像 repo 變大了。
+ *
+ * 提高上限而不是拆掉這幾條：它們驗的是「手改 COMPLIANCE.md 會被抓到」，
+ * 那件事只有真的跑一次 CLI 才驗得到。
+ */
+const CLI_TIMEOUT_MS = 30_000;
+
 function runCli(args: readonly string[]): Result {
   const result = spawnSync("node", [CLI, ...args], { cwd: ROOT, encoding: "utf8" });
   return {
@@ -159,68 +176,76 @@ describe("對照組：真實映射對真實檔案系統", () => {
   });
 });
 
-describe("CLI：手改 COMPLIANCE.md 會被抓到", () => {
-  /**
-   * 破壞的是**暫存目錄裡的副本**，走 `--file`。
-   * repo 的 COMPLIANCE.md 一個位元組都不會被動到。
-   */
-  function generateInto(dir: string): string {
-    const path = join(dir, "COMPLIANCE.md");
-    const result = runCli(["--update", "--file", path]);
-    expect(result.red, result.output).toBe(false);
-    return path;
-  }
+describe(
+  "CLI：手改 COMPLIANCE.md 會被抓到",
+  () => {
+    /**
+     * 破壞的是**暫存目錄裡的副本**，走 `--file`。
+     * repo 的 COMPLIANCE.md 一個位元組都不會被動到。
+     */
+    function generateInto(dir: string): string {
+      const path = join(dir, "COMPLIANCE.md");
+      const result = runCli(["--update", "--file", path]);
+      expect(result.red, result.output).toBe(false);
+      return path;
+    }
 
-  it("★ 剛產出來的檔案通過驗證（對照組）", () => {
-    const path = generateInto(makeSandbox());
-    const result = runCli(["--file", path]);
+    it("★ 剛產出來的檔案通過驗證（對照組）", () => {
+      const path = generateInto(makeSandbox());
+      const result = runCli(["--file", path]);
 
-    expect(result.red, result.output).toBe(false);
-    expect(result.output).toContain("一致");
-  });
+      expect(result.red, result.output).toBe(false);
+      expect(result.output).toContain("一致");
+    });
 
-  it("把「未證明」改成「已證明」 → 紅", () => {
-    const path = generateInto(makeSandbox());
-    const before = readFileSync(path, "utf8");
+    it("把「未證明」改成「已證明」 → 紅", () => {
+      const path = generateInto(makeSandbox());
+      const before = readFileSync(path, "utf8");
 
-    // 這正是最可能發生的手改：某一格看起來不好看，就改掉它。
-    expect(before).toContain("❌ 未證明");
-    writeFileSync(path, before.replace("❌ 未證明", "✅ 已證明"));
+      // 這正是最可能發生的手改：某一格看起來不好看，就改掉它。
+      expect(before).toContain("❌ 未證明");
+      writeFileSync(path, before.replace("❌ 未證明", "✅ 已證明"));
 
-    const result = runCli(["--file", path]);
-    expect(result.red, `仍然綠燈 —— 這張表擋不住手改\n${result.output}`).toBe(true);
-    expect(result.output).toContain("高估");
-  });
+      const result = runCli(["--file", path]);
+      expect(result.red, `仍然綠燈 —— 這張表擋不住手改\n${result.output}`).toBe(true);
+      expect(result.output).toContain("高估");
+    });
 
-  it("檔案不存在 → 紅，而且要說怎麼產", () => {
-    const result = runCli(["--file", join(makeSandbox(), "nope.md")]);
+    it("檔案不存在 → 紅，而且要說怎麼產", () => {
+      const result = runCli(["--file", join(makeSandbox(), "nope.md")]);
 
-    expect(result.red).toBe(true);
-    expect(result.output).toContain("--update");
-  });
+      expect(result.red).toBe(true);
+      expect(result.output).toContain("--update");
+    });
 
-  it("--file 後面沒接東西 → 紅", () => {
-    const result = runCli(["--file"]);
-    expect(result.red).toBe(true);
-  });
-});
+    it("--file 後面沒接東西 → 紅", () => {
+      const result = runCli(["--file"]);
+      expect(result.red).toBe(true);
+    });
+  },
+  CLI_TIMEOUT_MS,
+);
 
-describe("repo 本身沒有被動到", () => {
-  it("跑完之後 COMPLIANCE.md 仍與映射一致", () => {
-    const path = generateAndBreak();
-    expect(existsSync(path)).toBe(false);
+describe(
+  "repo 本身沒有被動到",
+  () => {
+    it("跑完之後 COMPLIANCE.md 仍與映射一致", () => {
+      const path = generateAndBreak();
+      expect(existsSync(path)).toBe(false);
 
-    const result = runCli([]);
-    expect(result.red, result.output).toBe(false);
-  });
+      const result = runCli([]);
+      expect(result.red, result.output).toBe(false);
+    });
 
-  function generateAndBreak(): string {
-    const dir = makeSandbox();
-    const path = join(dir, "COMPLIANCE.md");
-    runCli(["--update", "--file", path]);
-    writeFileSync(path, "壞掉的內容");
-    rmSync(dir, { recursive: true, force: true });
-    sandbox = undefined;
-    return path;
-  }
-});
+    function generateAndBreak(): string {
+      const dir = makeSandbox();
+      const path = join(dir, "COMPLIANCE.md");
+      runCli(["--update", "--file", path]);
+      writeFileSync(path, "壞掉的內容");
+      rmSync(dir, { recursive: true, force: true });
+      sandbox = undefined;
+      return path;
+    }
+  },
+  CLI_TIMEOUT_MS,
+);

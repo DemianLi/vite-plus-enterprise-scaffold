@@ -60,6 +60,12 @@
 # 舊證據無限期續命。那是一次安全決定，不是一次重構。
 /tools/csp-verify/          @org/platform-maintainers @org/security
 
+# 個資：EXEMPT 一條就讓一個檔案不再被掃，personalData 少一個欄位就讓那個欄位
+# 從此裸奔。兩者都是法遵決定，不是重構。platform/pii 的遮罩規則同理 ——
+# 「留幾個字」是拿去回答稽核的那個數字。
+/tools/pii-check/           @org/platform-maintainers @org/security
+/platform/pii/              @org/platform-maintainers @org/security
+
 /pnpm-workspace.yaml        @org/platform-maintainers
 /vite.config.ts             @org/platform-maintainers
 /eslint.config.js           @org/platform-maintainers @org/security

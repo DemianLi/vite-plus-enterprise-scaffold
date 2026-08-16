@@ -48,10 +48,10 @@ features/    垂直切片。一片 = 一個 package：
              src/api.ts（純資料存取）→ src/composables/（useXxx，有狀態的邏輯）
              → src/views/（只呈現）＋ src/store.ts（Pinia）＋ 自己的測試
 platform/    技術底座。slice-kit / http-client / config / security-headers /
-             bff-contract / bff-mock / ui / tsconfig / eslint-config
+             bff-contract / bff-mock / ui / pii / tsconfig / eslint-config
 tools/       建置與治理腳本。conformance / api-surface / codemods / slice-gen /
              bff-check / exit-drill / supply-chain / csp-verify /
-             compliance / ui-survey
+             compliance / pii-check / ui-survey
 ```
 
 依賴方向**只准單向**：`apps → features → platform`。

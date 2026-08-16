@@ -190,10 +190,36 @@ function checkBaseline(inventory: Inventory): Failure[] {
     lines.push(
       `移除 ${removed.length} 筆：${removed.slice(0, 6).join(", ")}${removed.length > 6 ? " …" : ""}`,
     );
-  if (added.length === 0 && removed.length === 0 && newFamilies.length === 0)
-    lines.push(
-      "清單相同但 integrity 或摘要有變 —— 同一個版本號拿到了不同的內容物，這比新增套件更該查。",
-    );
+
+  // ── 原生清單沒變時，還有兩種完全不同的可能 ────────────────────────
+  //
+  // 第一版把它們合成一句：「清單相同但 integrity 或摘要有變 ——
+  // 同一個版本號拿到了不同的內容物，這比新增套件更該查。」
+  //
+  // 那句話只對其中一種成立。加兩個**純 JS**相依（happy-dom、@vue/test-utils）
+  // 時原生清單當然不會變，於是這道閘門對著一次再routine不過的變更喊事故 ——
+  // 而喊過兩次狼之後，真的那次就沒有人會讀了。
+  //
+  // C44 在 provenance 那邊已經把這條線畫對了（`integrity-changed` 是事故、
+  // `stale-record` 是例行）。這裡是同一條線，只是漏畫了。
+  const beforeNonNative = before.totals.packages - before.totals.native;
+  const afterNonNative = inventory.totals.packages - inventory.totals.native;
+
+  if (added.length === 0 && removed.length === 0 && newFamilies.length === 0) {
+    if (beforeNonNative !== afterNonNative) {
+      const delta = afterNonNative - beforeNonNative;
+      lines.push(
+        `非原生（純 JS）套件 ${beforeNonNative} → ${afterNonNative}` +
+          `（${delta > 0 ? "+" : ""}${delta}）—— 原生清單與家族都沒變。`,
+        "這是例行變動：純 JS 相依不進原生家族分類，也不需要為它們算平台變體。",
+      );
+    } else {
+      lines.push(
+        "**套件清單完全相同，而摘要變了** —— 同一個版本號拿到了不同的內容物。",
+        "這不是升級，是需要查的事情：先比對 integrity，再看 provenance。",
+      );
+    }
+  }
 
   return [
     {

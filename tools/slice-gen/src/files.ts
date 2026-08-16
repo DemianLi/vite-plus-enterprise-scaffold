@@ -265,6 +265,15 @@ export default defineFeature({
 
   permissions: ["${name}:read"],
 
+  // §11 II ⑨ —— 這個切片會在畫面上呈現哪些個人資料欄位。
+  //
+  // **空陣列是一個答案，不是一個省略。** 它是必填的，正是為了讓
+  // 「這個切片沒有個資」與「還沒有人想過這件事」長得不一樣。
+  //
+  // 一旦填了東西進去（例如 "customerName"），那些欄位在 .vue 裡就必須
+  // 走 @org/pii 的 maskXxx()，否則 tools/pii-check --masking 會擋下 PR。
+  personalData: [],
+
   i18n: {
     "zh-TW": {
       ${name === camel ? name : `"${name}"`}: {

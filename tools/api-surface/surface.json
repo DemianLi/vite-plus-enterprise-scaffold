@@ -22,6 +22,15 @@
     "@org/config": ["assertNoUndeclaredEnv", "config"],
     "@org/eslint-config": ["default"],
     "@org/http-client": ["ForbiddenError", "HttpError", "UnauthenticatedError", "http"],
+    "@org/pii": [
+      "MASK_CHARACTER",
+      "isMasked",
+      "maskAll",
+      "maskEmail",
+      "maskName",
+      "maskNationalId",
+      "maskPhone"
+    ],
     "@org/security-headers": [
       "BASE_DIRECTIVES",
       "FORBIDDEN_VALUES",

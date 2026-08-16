@@ -15,6 +15,10 @@ export default defineFeature({
 
   permissions: ["order:read", "order:cancel"],
 
+  // §11 II ⑨ —— 這個切片在畫面上呈現的個人資料欄位。
+  // 目前只有姓名。金額與狀態不是個資，訂單編號也不是（它識別的是訂單不是人）。
+  personalData: ["customerName"],
+
   i18n: {
     "zh-TW": {
       order: {

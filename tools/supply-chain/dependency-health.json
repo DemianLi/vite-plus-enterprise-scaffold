@@ -35,6 +35,14 @@
       "lastStableAt": "2026-07-14"
     },
     {
+      "name": "@vue/test-utils",
+      "latest": "2.4.11",
+      "license": "MIT",
+      "publishedAt": "2026-06-04",
+      "stableReleasesPerYear": 5,
+      "lastStableAt": "2026-06-04"
+    },
+    {
       "name": "bingo",
       "latest": "0.9.3",
       "license": "MIT",
@@ -81,6 +89,14 @@
       "publishedAt": "2026-07-20",
       "stableReleasesPerYear": 11,
       "lastStableAt": "2026-07-20"
+    },
+    {
+      "name": "happy-dom",
+      "latest": "20.11.2",
+      "license": "MIT",
+      "publishedAt": "2026-08-07",
+      "stableReleasesPerYear": 65,
+      "lastStableAt": "2026-08-07"
     },
     {
       "name": "pinia",
