@@ -44,18 +44,20 @@ defineProps<{
 <template>
   <DialogRoot v-model:open="open">
     <DialogPortal>
-      <DialogOverlay class="fixed inset-0 bg-black/40" />
+      <!-- 色相在代幣、不透明度留在元件。`--color-overlay-40` 那種代幣會讓
+           每換一次濃淡就多一格，見 styles/index.css 對這一條的說明。 -->
+      <DialogOverlay class="fixed inset-0 bg-overlay/40" />
       <DialogContent
         :class="
           cn(
             'fixed top-1/2 left-1/2 w-[min(32rem,92vw)] -translate-x-1/2 -translate-y-1/2',
-            'rounded-lg bg-white p-6 shadow-xl',
+            'rounded-surface bg-surface p-6 shadow-overlay',
             'focus:outline-none',
           )
         "
       >
-        <DialogTitle class="text-lg font-semibold text-gray-900">{{ title }}</DialogTitle>
-        <DialogDescription class="mt-1 text-sm text-(--color-muted)">
+        <DialogTitle class="text-lg font-heading text-fg">{{ title }}</DialogTitle>
+        <DialogDescription class="mt-1 text-sm text-fg-muted">
           {{ description }}
         </DialogDescription>
 

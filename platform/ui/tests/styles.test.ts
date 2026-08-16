@@ -142,6 +142,36 @@ describe("設計代幣", () => {
     expect(css).toContain("--radius-control");
   });
 
+  it("★ 語意層必須指向色票層，不能直接寫值", () => {
+    // 這是 multi-brand 那條接縫的形狀本身（HANDOFF #24）：
+    // `--color-accent: var(--color-brand-600)` 讓各案有兩種粒度可選 ——
+    // 覆寫色票（整套品牌一起走）或覆寫語意（只換一個用途）。
+    //
+    // 改成直接寫值的話兩種都還在「能改」，但各案要一格一格追，
+    // 而那正是 #24 量到的狀態：元件裡 16 處顏色只有 5 處走代幣。
+    //
+    // ⚠️ 這裡只驗**宣告的形狀**。「這個間接在建置後仍然是活的」是另一回事，
+    // 由 `tools/theme-verify` 真的建置兩次去比對 —— 一支只讀 CSS 檔的測試
+    // 看不到 Tailwind 有沒有在建置期把它求值掉。
+    const semantic = [
+      ...entry().matchAll(/^\s*(--color-(?:accent|danger|focus)[a-z-]*)\s*:\s*([^;]+);/gm),
+    ];
+
+    expect(semantic.length, "@theme 裡找不到任何語意色代幣").toBeGreaterThan(0);
+    for (const [, name, value] of semantic) {
+      expect(value, `${name} 直接寫了值，沒有指向色票層`).toContain("var(--color-");
+    }
+  });
+
+  it("★ 非顏色的代幣也要有", () => {
+    // #24 查到的：multi-brand 之間不同的不只顏色，圓角／外框／陰影／字重
+    // 都要能換。只做顏色的話，接縫看起來在那裡但只覆蓋三分之一。
+    const css = entry();
+    for (const token of ["--radius-", "--border-width-", "--shadow-", "--font-weight-"]) {
+      expect(css, `@theme 裡沒有任何 ${token}* 代幣`).toContain(token);
+    }
+  });
+
   it("入口不寫元件類別", () => {
     // shadcn 模型的重點是「改一個元件時只要看一個檔案」。
     // 把樣式抽到共用入口會讓那個好處消失，然後我們只是自己做了一套 Bootstrap。

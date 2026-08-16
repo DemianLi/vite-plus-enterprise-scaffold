@@ -44,16 +44,96 @@
  */
 @source "../../../../**/*.{vue,ts}";
 
+/*
+ * ══ 代幣分兩層，而且分層是有作用的（C62 的產品要求 → HANDOFF #24）══════
+ *
+ * 「公司有一套基礎版型，各案可以換配色／形狀」這句話要成立，換的人必須有
+ * **兩種粒度**可選。所以：
+ *
+ *   第一層 色票（palette）  --color-brand-600  純粹的顏色，不帶用途
+ *   第二層 語意（semantic）  --color-accent     用途，值指向色票
+ *
+ * ── 這個間接是「活的」，不是寫作風格 ────────────────────────────────
+ *
+ * 實測（2026-08-17）：Tailwind 把 `--color-accent: var(--color-brand-600)`
+ * **原樣**寫進 :root，不在建置期求值。於是 app 端只覆寫 `--color-brand-600`
+ * 時，`--color-accent`／`--color-accent-hover` 會**跟著變**。
+ *
+ *   換整套品牌 → 覆寫色票那一層，所有用途一起走
+ *   只換某個用途（例如強調色不用品牌色）→ 覆寫語意那一層，色票不動
+ *
+ * 少了這一層，各案只能一個一個宣告去追，而那正是 #24 量到的狀態：
+ * 元件裡 16 處顏色只有 5 處走代幣。
+ *
+ * ── 元件只准用第二層 ────────────────────────────────────────────────
+ *
+ * `bg-brand-600` 與 `bg-gray-50` 在元件裡是同一種錯：前者跳過語意層，
+ * 後者連色票都不是。由 `tools/theme-verify` 的靜態檢查擋（歸零前是 16 處）。
+ *
+ * ── 引用 Tailwind 內建色階是刻意的 ──────────────────────────────────
+ *
+ * `var(--color-gray-900)` 這種寫法會讓 Tailwind 把它需要的內建色階一起
+ * 寫進 :root（實測過，不是推測）。好處是這次轉換**不改變任何一個像素** ——
+ * 元件本來就用 gray-900，現在只是多繞一層名字。
+ */
 @theme {
-  /* 品牌色。企業腳手架用中性值起步 —— 真正的色票由設計系統擁有者決定。 */
+  /* ── 第一層：色票 ────────────────────────────────────────────────
+   * 企業腳手架用中性值起步 —— 真正的色票由設計系統擁有者決定（C62）。 */
   --color-brand-50: oklch(0.97 0.014 254.6);
   --color-brand-500: oklch(0.62 0.19 259.8);
   --color-brand-600: oklch(0.55 0.2 262.9);
   --color-brand-700: oklch(0.49 0.19 264.4);
 
-  /* 語意色：狀態用這組，不要直接用調色盤 —— 換主題時才有單一改動點。 */
   --color-danger-500: oklch(0.64 0.21 25.3);
-  --color-muted: oklch(0.55 0.02 264.4);
+  /* -600 是這次補的：原本 danger 的 hover 走 `brightness-95`，
+   * 那是**衍生**而不是宣告 —— 換成深色底時它會往錯的方向走，
+   * 而且各案換不掉。三種 hover 策略收斂成一種：每個可 hover 的底色
+   * 都有一個具名的 -hover 兄弟。 */
+  --color-danger-600: oklch(0.57 0.21 25.3);
 
+  /* ── 第二層：語意 ──────────────────────────────────────────────── */
+
+  /* 前景 */
+  --color-fg: var(--color-gray-900);
+  --color-fg-subtle: var(--color-gray-700);
+  /* 原名 --color-muted。改名是因為它是**前景**色，而現在有了 --color-surface-*，
+   * 「muted」單獨出現分不出是字還是底。趁沒有任何 fork 之前改，之後就改不動了。 */
+  --color-fg-muted: oklch(0.55 0.02 264.4);
+  /* 「在強調色上面的字」。⚠️ 這**不是** --color-white 的別名：
+   * 各案把 --color-accent 換成淺色時，白字會直接消失，而那是看得見的 bug
+   * 卻沒有任何閘門會說話。有了這個名字，換色的人才知道還有一格要換。 */
+  --color-on-accent: var(--color-white);
+  --color-on-danger: var(--color-white);
+
+  /* 底 */
+  --color-surface: var(--color-white);
+  --color-surface-hover: var(--color-gray-50);
+  /* ghost 沒有底色也沒有外框，所以它的 hover 需要比 surface-hover 更強的
+   * 對比才看得出來。刻意用 variant 的名字：這一格只影響那一個 variant，
+   * 取一個假的語意名（"subtle"？"wash"？）只會讓換的人猜錯。 */
+  --color-surface-ghost-hover: var(--color-gray-100);
+
+  /* 線與焦點 */
+  --color-line: var(--color-gray-300);
+  --color-focus: var(--color-brand-500);
+
+  /* 狀態 */
+  --color-accent: var(--color-brand-600);
+  --color-accent-hover: var(--color-brand-700);
+  --color-danger: var(--color-danger-500);
+  --color-danger-hover: var(--color-danger-600);
+
+  /* 遮罩。⚠️ 色相在代幣、透明度留在元件（`bg-overlay/40`）——
+   * 不要加 --color-overlay-40，那會讓每換一次不透明度就多一個代幣。 */
+  --color-overlay: var(--color-black);
+
+  /* ── 形狀 ──────────────────────────────────────────────────────────
+   * #24 查到的：multi-brand 之間不同的不只顏色，圓角／外框／陰影／字重
+   * 都要能換。這幾格全部對齊轉換前的內建值，所以外觀零變化。 */
   --radius-control: 0.375rem;
+  --radius-surface: var(--radius-lg);
+  --border-width-control: 1px;
+  --shadow-overlay: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --font-weight-control: var(--font-weight-medium);
+  --font-weight-heading: var(--font-weight-semibold);
 }

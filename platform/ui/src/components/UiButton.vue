@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, inject } from "vue";
 import { cn } from "../utils/cn.ts";
+import { NO_OVERRIDE, UI_THEME, type UiSize, type UiVariant } from "../theme.ts";
 
 /**
  * 按鈕。
@@ -28,15 +29,19 @@ import { cn } from "../utils/cn.ts";
  *
  * `class-variance-authority` 在這個規模只是把查表包一層。少一個相依
  * ＝ 少一筆 SCA 範圍、少一筆鏡像清單、少一次 `--capture`。
+ *
+ * ── 下面每一個顏色都是語意代幣，一個內建調色盤都沒有 ────────────────
+ *
+ * 在 2026-08-17 之前不是這樣：`secondary`（**預設**的那個 variant）是
+ * `border-gray-300 bg-white text-gray-900 hover:bg-gray-50` —— 四個全是
+ * Tailwind 內建色階。也就是各案換得掉強調色，**換不掉最常出現在畫面上的
+ * 那顆按鈕**。那道落差由 `tools/theme-verify` 的靜態檢查守著（歸零前 16 處）。
  */
-
-type Variant = "primary" | "secondary" | "danger" | "ghost";
-type Size = "sm" | "md";
 
 const props = withDefaults(
   defineProps<{
-    variant?: Variant;
-    size?: Size;
+    variant?: "primary" | "secondary" | "danger" | "ghost";
+    size?: "sm" | "md";
     type?: "button" | "submit" | "reset";
     disabled?: boolean;
   }>(),
@@ -50,27 +55,57 @@ const props = withDefaults(
   },
 );
 
-const VARIANTS: Readonly<Record<Variant, string>> = {
-  primary: "bg-brand-600 text-white hover:bg-brand-700",
-  secondary: "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50",
-  danger: "bg-danger-500 text-white hover:brightness-95",
-  ghost: "text-gray-700 hover:bg-gray-100",
+/**
+ * ⚠️ 上面那兩個 union **刻意寫成字面值，不用 `UiVariant`／`UiSize` 別名**。
+ *
+ * `api-surface` 記錄的是 `defineProps` 的字面文字。換成別名之後，基準檔會
+ * 從 `"primary" | "secondary" | …` 變成 `UiVariant` —— 而那之後
+ * **union 少一個成員這道閘門就看不見了**，因為 UiButton 的形狀字串沒變。
+ * 拿「少寫一次」換一道變弱的閘門，是這個 repo 一路在拆的那種交易。
+ *
+ * 代價是同一份 union 寫在三個地方：這裡、`../theme.ts` 的 `UiVariant`、
+ * 以及下面 `VARIANTS` 的鍵。三者由 `../tests/theme.test.ts` 比對，
+ * 任何一邊多或少一個成員都會紅。
+ *
+ * ⚠️ 第一版把那個比對寫成**型別層的等式**（`Exact<typeof props.variant, UiVariant>`），
+ * 而它什麼都沒檢查 —— **`vp check` 不對 `.vue` 做型別檢查**。實測：
+ * `const broken: number = "字串"` 放在 `.vue` 裡是 0 errors，放在 `.ts` 裡是
+ * 1 error。所以 SFC 裡的型別斷言是裝飾品。這個缺口記在 HANDOFF #26。
+ */
+
+const VARIANTS: Readonly<Record<UiVariant, string>> = {
+  primary: "bg-accent text-on-accent hover:bg-accent-hover",
+  secondary: "border-control border-line bg-surface text-fg hover:bg-surface-hover",
+  danger: "bg-danger text-on-danger hover:bg-danger-hover",
+  ghost: "text-fg-subtle hover:bg-surface-ghost-hover",
 };
 
-const SIZES: Readonly<Record<Size, string>> = {
+/**
+ * 尺寸**刻意留成內建 spacing**，沒有代幣化。
+ *
+ * 判準是 #24 那句產品要求裡的分界：「一套基礎的 UI 版型」是要集中的，
+ * 「配色／形狀／互動」才是各案要換的。高度與內距屬於版型 ——
+ * 代幣化它們會長出 `--spacing-control-sm-padding` 這種名字，
+ * 而真正想換尺寸的案子要換的是**整條規則**，不是其中一個數字。
+ * 那條路由下面的擴充點提供（`sizes`）。
+ */
+const SIZES: Readonly<Record<UiSize, string>> = {
   sm: "h-8 px-3 text-sm",
   md: "h-10 px-4 text-sm",
 };
 
+// 各案的覆寫（見 ../theme.ts）。沒有人 provide 時是凍結的空物件。
+const theme = inject(UI_THEME, NO_OVERRIDE);
+
 const classes = computed(() =>
   cn(
-    "inline-flex items-center justify-center gap-2 rounded-(--radius-control) font-medium",
+    "inline-flex items-center justify-center gap-2 rounded-control font-control",
     // focus-visible 而不是 focus：滑鼠點擊不該出現焦點環，鍵盤操作必須出現。
     // 用 focus 會讓設計師要求拿掉它，然後鍵盤使用者就看不到自己在哪裡了。
-    "transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500",
+    "transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
     "disabled:pointer-events-none disabled:opacity-50",
-    VARIANTS[props.variant],
-    SIZES[props.size],
+    theme.variants?.[props.variant] ?? VARIANTS[props.variant],
+    theme.sizes?.[props.size] ?? SIZES[props.size],
   ),
 );
 </script>

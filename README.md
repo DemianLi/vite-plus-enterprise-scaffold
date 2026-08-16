@@ -29,7 +29,7 @@
 
 - 完整的決策理由與風險登記 → [DECISIONS.md](DECISIONS.md)
 - 上線前必讀 → [HANDOFF.md](HANDOFF.md)，那裡收的是程式碼做不到、
-  只有組織能決定的 25 件事（採購／資安／法務／平台／架構），每一項都附「拿什麼去談」
+  只有組織能決定的 26 件事（採購／資安／法務／平台／架構），每一項都附「拿什麼去談」
 - UI 技術選型的三方比較 → [UI-SURVEY.md](UI-SURVEY.md)
 
 ---
@@ -212,7 +212,7 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │   ├── security-headers/     CSP 以「資料」定義，由 BFF／dev 中介層／測試三方共用
 │   ├── bff-contract/         中間層必須做到什麼（13 條契約條目）＋怎麼證明做到了
 │   ├── bff-mock/             契約的參考實作；不是認證伺服器，session 存在記憶體裡
-│   ├── ui/                   共用 UI 元件層
+│   ├── ui/                   共用 UI 元件層。代幣分兩層，各案在自己的 app 覆寫
 │   ├── pii/                  個資欄位的標註與遮罩基礎設施
 │   ├── tsconfig/             共用 TypeScript 設定
 │   └── eslint-config/        兩份 ESLint 設定：Tier 2 安全規則集，與 Tier 1 的無障礙規則集
@@ -246,10 +246,10 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 
 ## 兩層檢查
 
-|                       | 內容                                       | 指令                   | 何時跑                    |
-| --------------------- | ------------------------------------------ | ---------------------- | ------------------------- |
-| **Tier 1 — 品質**     | oxlint + oxfmt + 型別檢查 + 無障礙靜態檢查 | `vp check`、`vpr a11y` | 本機、pre-commit、每次 PR |
-| **Tier 2 — 安全閘門** | 一致性檢查 + ESLint 安全規則               | `vpr gate`             | 每次 PR **＋ 每日排程**   |
+|                       | 內容                                                      | 指令                                       | 何時跑                    |
+| --------------------- | --------------------------------------------------------- | ------------------------------------------ | ------------------------- |
+| **Tier 1 — 品質**     | oxlint + oxfmt + 型別檢查 + 無障礙靜態檢查 + 設計系統接縫 | `vp check`、`vpr a11y`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
+| **Tier 2 — 安全閘門** | 一致性檢查 + ESLint 安全規則                              | `vpr gate`                                 | 每次 PR **＋ 每日排程**   |
 
 > 指令刻意**不用** `pnpm run` / `npx`：本專案不保證環境有全域 pnpm，
 > 而 `npx` 會被 `devEngines` 擋下。`vpr` 是 vite-plus 的 script runner，
@@ -267,7 +267,7 @@ Tier 2 刻意**全量、不快取、不經 `vp`**。原因是安全掃描的結�
 
 | Workflow                                                     | 內容                                                                                                 | 快取              | 觸發                     |
 | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- | ----------------- | ------------------------ |
-| [`tier1-quality.yml`](.github/workflows/tier1-quality.yml)   | `vp check` / test / build / **無障礙靜態檢查**                                                       | ✅ 任務快取       | PR、push to main         |
+| [`tier1-quality.yml`](.github/workflows/tier1-quality.yml)   | `vp check` / test / build / **無障礙靜態檢查** / **設計系統接縫**                                    | ✅ 任務快取       | PR、push to main         |
 | [`tier2-security.yml`](.github/workflows/tier2-security.yml) | 一致性檢查 / API 表面 / BFF 契約 / 退出面 / **供應鏈盤點** / ESLint 安全規則 / gitleaks / SBOM / SCA | ❌ **一格都沒有** | PR **＋ 每日 21:00 UTC** |
 | [`exit-drill.yml`](.github/workflows/exit-drill.yml)         | D2 退出演練（上游 Vite 實際重建一次）                                                                | ❌                | **每季** + 手動          |
 
@@ -512,7 +512,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 > 的內部骨架，MIT 宣告目前只在 [LICENSE](LICENSE) 與根 `package.json` 的
 > `"license": "MIT"` 兩處，兩者必須一致。正式對外前請把 `@org` 換成
 > **法務認可的法人全名**——這是組織的決定，不是這份 README 能代為認定的。
-> 底下 25 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
+> 底下 26 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
 
 上游相依的授權另計——`vite-plus` 為 MIT（Cloudflare 併購後），`lightningcss` 為 MPL-2.0，
 另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。完整盤點見 `vpr sca-dossier`。

@@ -21,8 +21,49 @@ shadcn 的模型是「你擁有原始碼」，所以「複製到哪」是一個�
 | ---------------------- | ------------------------------------------------------ |
 | `src/index.ts`         | 唯一公開契約。`tools/api-surface` 盯著這份 export 清單 |
 | `src/components/`      | 元件原始碼。**改行為就是改這裡**，沒有上游可以問       |
-| `src/styles/index.css` | Tailwind 入口 ＋ 設計代幣（`@theme`）                  |
+| `src/styles/index.css` | Tailwind 入口 ＋ 設計代幣（`@theme`），分兩層          |
+| `src/theme.ts`         | 各案覆寫 variant／size 的擴充點（`createUiTheme`）     |
 | `src/utils/cn.ts`      | class 合併。使用端能覆蓋元件樣式的前提                 |
+
+## 各案要換配色或形狀：改你自己的 app，不要改這裡
+
+C62 的產品要求是「一套基礎版型，各案可以換配色／形狀／互動」。前兩條軸
+2026-08-17 接起來了（HANDOFF #24），第三條**還沒有**（見文末）。
+
+```css
+/* apps/<你的案子>/src/styles.css */
+@import "@org/ui/styles.css";
+
+@theme {
+  --color-brand-600: oklch(0.55 0.18 173); /* 色票層：語意代幣跟著走 */
+  --color-line: oklch(0.85 0.02 173); /* 語意層：只換這一個用途 */
+  --radius-control: 0.5rem; /* 形狀 */
+}
+```
+
+```ts
+// apps/<你的案子>/src/main.ts —— 換整條 variant，代幣做不到的那一半
+createApp(App).use(createUiTheme({ variants: { secondary: "bg-surface-hover text-fg" } }));
+```
+
+| 層   | 例                                                   | 覆寫它會影響                      |
+| ---- | ---------------------------------------------------- | --------------------------------- |
+| 色票 | `--color-brand-600`、`--color-danger-500`            | 所有指向它的語意代幣一起變        |
+| 語意 | `--color-accent`、`--color-line`、`--radius-control` | 只有那一個用途                    |
+| 組合 | `createUiTheme({ variants })`                        | 整條 class 字串，代幣換不掉的部分 |
+
+兩層之間的間接是**活的**（實測：Tailwind 把 `var(--color-brand-600)` 原樣寫進
+`:root`，不在建置期求值）。這件事由 `tools/theme-verify` 真的建置兩次去比對 ——
+一支只 grep `@theme` 有沒有寫的測試量的是「有沒有寫」，不是「有沒有生效」。
+
+⚠️ **覆寫的 class 字串必須寫在 `.ts` 或 `.vue` 裡。** `@source` 只掃這兩種副檔名，
+搬進 JSON 或環境變數的話 Tailwind 掃不到、**也不會報錯**，產出的 CSS 少掉那些
+類別而建置全綠 —— 與下面第一個坑同一種症狀。
+
+⚠️ **`variant` 只能替換，不能新增。** 它是 prop 型別，開放任意字串等於讓打錯字
+靜靜退回預設樣式。真的需要第五個 variant 就是 `platform/ui` 的 PR，
+而那會被 `api-surface` 判成破壞性變更（下游若有自己的 `Record<UiVariant, …>`
+就編不過）—— 那個代價是對的，所有案子都會拿到它，該有人看過。
 
 ## 三個踩過的坑，都留了測試
 
@@ -84,9 +125,15 @@ Tailwind v4 的自動來源偵測**刻意跳過 node_modules**，而 monorepo �
 而現在也沒有具名的人在看。在 CODEOWNERS 加一列**買不回來** ——
 同一列多個 owner 是「任一核准即可」，見 HANDOFF #25。
 
-⚠️ **各案要換配色／形狀／互動的話，接縫現在只有三分之一**（HANDOFF #24）：
-元件裡 16 處顏色宣告只有 5 處走 `@theme` 代幣，而預設的 `secondary` variant
-一個代幣都沒用。**不要假設換得掉。**（推導那個數字的指令附在該項裡。）
+⚠️ **三條軸現在接了兩條**（HANDOFF #24）。配色與形狀在 2026-08-17 做完並由
+`tools/theme-verify` 實測守著；**互動方式那條還是零** —— 它被 `api-surface` 的
+`SFC_UNSUPPORTED` 主動擋著（元件加 `defineEmits`／`defineSlots`／`defineExpose`
+會讓那支工具直接丟例外），要開得先擴充 `tools/api-surface/src/shape.ts`。
+
+⚠️ **另一個仍然開著的洞：`vp check` 不對 `.vue` 做型別檢查。** 實測
+`const broken: number = "字串"` 放在 SFC 裡是 0 errors、放在 `.ts` 裡是 1 error。
+所以這個 package 的元件原始碼**沒有任何型別檢查在跑**，
+`api-surface` 抽 props 形狀是唯一看得到它們的東西。記在 HANDOFF #26。
 
 ## 開發
 

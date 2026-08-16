@@ -145,8 +145,50 @@ function classShape(checker: Checker, symbol: ApiSymbol): ExportShape {
   return { kind: "class", members: sortMembers(members) };
 }
 
+/**
+ * 印一個非物件型別。
+ *
+ * ⚠️ **不能直接 `typeToString`。** 對 `type UiVariant = "a" | "b"` 來說，
+ * 那個型別自己帶著 aliasSymbol，於是 `typeToString` 回傳的是
+ * **`"UiVariant"` 這個名字本身** —— 一個把自己的名字當成自己形狀的條目。
+ * 改名會被抓到（鍵變了），但改內容不會，而改內容才是破壞下游的那一種。
+ *
+ * 所以聯集逐一印出成員再接起來。順序由 checker 決定（字面值聯集會被
+ * 正規化成字典序，不是宣告順序），對比對來說只要**穩定**就夠了。
+ */
+function printNonObject(checker: Checker, type: Type): string {
+  if (type.isUnionType()) {
+    return type
+      .getTypes()
+      .map((member) => checker.typeToString(member, undefined, PRINT))
+      .join(" | ");
+  }
+  return checker.typeToString(type, undefined, PRINT);
+}
+
 function typeShape(checker: Checker, symbol: ApiSymbol): ExportShape {
   const declared = declaredTypeOf(checker, symbol);
+
+  /*
+   * ⚠️ 非物件型別必須在展開成員**之前**攔下來。
+   *
+   * 字面值聯集（`"sm" | "md"`）的每一個成員都是 string，於是
+   * `getPropertiesOfType` 回傳的是整套 `String.prototype`。實測：
+   * `@org/ui` 的 `UiVariant` 記成 123 行的 `charAt`／`blink`／`fontcolor`，
+   * 而 **union 本身一個字都沒有記到**。
+   *
+   * 所以那道守衛是裝飾品：把 `"primary" | "secondary"` 改成 `"primary"`，
+   * 記錄下來的形狀**完全一樣** —— 與 `.vue` 的 shim 同一種瞎法，
+   * 只是這次發生在一個看起來已經記了很多東西的條目上。
+   *
+   * 這條界線在這份檔案裡已經寫過兩次（`walkNamedTypes`、`carriesSignatures`
+   * 都寫著「字面量與陣列往下走會撞到 String / Array 自己的方法」），
+   * 只有這裡漏了。介面與物件型別不受影響，仍然逐一展開成員。
+   */
+  if (!declared.isObjectType() || checker.isArrayType(declared) || checker.isTupleType(declared)) {
+    return { kind: "type", type: printNonObject(checker, declared) };
+  }
+
   const members = [
     ...checker.getPropertiesOfType(declared).map((prop) => memberOf(checker, prop)),
     ...indexMembers(checker, declared),

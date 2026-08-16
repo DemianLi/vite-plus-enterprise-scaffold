@@ -167,6 +167,15 @@ export const GATES: readonly Gate[] = [
     note: "有零件測試。⚠️ 2026-08-16 加了第三項「測試相依帳目」（C64），而且是補一個**真的已經發生**的洞：完整演練每季才跑一次，`happy-dom` 從 PR #15 起就沒被安裝、演練從那時起就是壞的，19 個 PR 沒有人知道。該項已實測會紅（注入未登記的 devDependency → exit 1）。⚠️ 這一欄仍記 null：那是整道閘門四項的總和，而證據新鮮度守衛自己仍未被證明過會紅 —— 只證明了其中一項就把整格標成已證明，正是這張表最該擋下的事。",
   },
   {
+    id: "theme-verify",
+    kind: "gate",
+    what: "設計系統接縫：元件只准用語意代幣（靜態）＋ 各案覆寫代幣真的會進到產物（建置兩次比對）（D15／C62）",
+    command: "node tools/theme-verify/src/cli.ts",
+    evidence: null,
+    negativeTest: "tools/theme-verify/tests/palette.test.ts",
+    note: "2026-08-17 加（HANDOFF #24）。守的是 C62 那句產品要求的**前兩條軸** —— 配色與 component 形狀；**第三條（互動方式）完全不在範圍**，它被 `api-surface` 的 `SFC_UNSUPPORTED` 主動擋著。綠燈的意思是「兩條軸實測可換」，不是「設計系統可換」。⚠️ 建置那一半（比對兩份產出的 CSS）是真的跑 Tailwind，因為它的失敗模式是**建置成功、CSS 還變大、但一個 utility 都沒有** —— 只讀 CSS 檔驗不到。六條斷言裡五條實測會紅，逐條列在 `tools/theme-verify/README.md`；「覆寫零附帶影響」那條未測，破壞它得改 Tailwind 本身。⚠️ `negativeTest` 只指到靜態那一半的零件測試；建置那一半的紅燈是手動實測的，沒有自動化的反向測試 —— 兩次真建置放進單元測試會讓這道閘門的成本翻倍。",
+  },
+  {
     id: "eslint-security",
     kind: "gate",
     what: "no-unsanitized、eslint-plugin-security、vue/no-v-html（D5 的安全那一半）",
