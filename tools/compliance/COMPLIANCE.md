@@ -63,23 +63,23 @@
 標 ▷ 的是**提案者**而不是閘門：它不擋任何東西，所以「反向測試」對它不適用，
 上面那個 5／14 的分子與分母都不含它。
 
-| 閘門                | 檢查什麼                                                                        | 進版控的證據                                | 反向測試                                         |
-| ------------------- | ------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------ |
-| `conformance`       | 切片契約、分層邊界、設計系統採用、擁有權（D4／D9／D12／D14／D15）               | **（無）**                                  | `tools/conformance/tests/negative.test.ts`       |
-| `bff-check`         | D8 同源中間層的 15 條行為契約（cookie 屬性、CSRF、401／403）                    | **（無）**                                  | `tools/bff-check/tests/negative.test.ts`         |
-| `api-surface`       | platform/ 公開 API 表面的破壞性變更（D12）                                      | `tools/api-surface/surface.json`            | `tools/api-surface/tests/negative.test.ts`       |
-| `supply-chain`      | 相依盤點、原生家族分類、tarball digest 與 lockfile 綁定（R2–R5／R8）            | `tools/supply-chain/provenance.json`        | **❌ 無**                                        |
-| `exit-drill`        | D2 退出面靜態檢查、plugin 帳目、演練證據新鮮度（120 天）                        | `tools/exit-drill/evidence.json`            | **❌ 無**                                        |
-| `eslint-security`   | no-unsanitized、eslint-plugin-security、vue/no-v-html（D5 的安全那一半）        | **（無）**                                  | **❌ 無**                                        |
-| `trivy-sca`         | 相依套件的 HIGH／CRITICAL 漏洞，PR ＋ 每日 21:00 UTC 排程                       | **（無）**                                  | **❌ 無**                                        |
-| `trivy-sbom`        | CycloneDX SBOM 產出，並比對 component 數與 lockfile 套件數                      | **（無）**                                  | `tools/supply-chain/tests/sbom-negative.test.ts` |
-| `gitleaks`          | 機密掃描，fetch-depth: 0 以涵蓋被後續 commit 蓋掉的機密                         | **（無）**                                  | **❌ 無**                                        |
-| `pii-test-data`     | 測試資料裡不得有真實個資：身分證字號、Luhn 卡號、手機、指向真實網域的信箱       | **（無）**                                  | `tools/pii-check/tests/roster.test.ts`           |
-| `dependency-health` | 外部直接相依（24 個）的維護狀態與授權變更 —— 停更、或授權被偷偷改掉             | `tools/supply-chain/dependency-health.json` | `tools/supply-chain/tests/health.test.ts`        |
-| `renovate` ▷        | 提出相依升級與安全修補 —— §11 II ③「檢測**並因應**」裡的因應那一半              | `renovate.json`                             | ▷ 不適用                                         |
-| `doc-facts`         | README 與 HANDOFF 引用的數字，與 inventory.json／provenance.json 推導出來的一致 | **（無）**                                  | `tools/doc-facts/tests/facts.test.ts`            |
-| `evidence-manifest` | §16 證據清單與現實一致：宣告的檔案都在，且每一份都有閘門在維護                  | **（無）**                                  | `tools/compliance/tests/evidence.test.ts`        |
-| `compliance`        | 本對照表本身：映射與檔案系統一致、且沒有列在說謊                                | `tools/compliance/COMPLIANCE.md`            | `tools/compliance/tests/negative.test.ts`        |
+| 閘門                | 檢查什麼                                                                                                 | 進版控的證據                                | 反向測試                                         |
+| ------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------ |
+| `conformance`       | 切片契約、分層邊界、設計系統採用、擁有權（D4／D9／D12／D14／D15）                                        | **（無）**                                  | `tools/conformance/tests/negative.test.ts`       |
+| `bff-check`         | D8 同源中間層的 15 條行為契約（cookie 屬性、CSRF、401／403）                                             | **（無）**                                  | `tools/bff-check/tests/negative.test.ts`         |
+| `api-surface`       | platform/ 公開 API 表面的破壞性變更（D12）                                                               | `tools/api-surface/surface.json`            | `tools/api-surface/tests/negative.test.ts`       |
+| `supply-chain`      | 相依盤點、原生家族分類、tarball digest 與 lockfile 綁定（R2–R5／R8）                                     | `tools/supply-chain/provenance.json`        | **❌ 無**                                        |
+| `exit-drill`        | D2 退出面靜態檢查、plugin 帳目、演練證據新鮮度（120 天）                                                 | `tools/exit-drill/evidence.json`            | **❌ 無**                                        |
+| `eslint-security`   | no-unsanitized、eslint-plugin-security、vue/no-v-html（D5 的安全那一半）                                 | **（無）**                                  | **❌ 無**                                        |
+| `trivy-sca`         | 相依套件的 HIGH／CRITICAL 漏洞，PR ＋ 每日 21:00 UTC 排程                                                | **（無）**                                  | **❌ 無**                                        |
+| `trivy-sbom`        | CycloneDX SBOM 產出，並比對 component 數與 lockfile 套件數                                               | **（無）**                                  | `tools/supply-chain/tests/sbom-negative.test.ts` |
+| `gitleaks`          | 機密掃描，fetch-depth: 0 以涵蓋被後續 commit 蓋掉的機密                                                  | **（無）**                                  | **❌ 無**                                        |
+| `pii-test-data`     | 測試資料裡不得有真實個資：身分證字號、Luhn 卡號、手機、指向真實網域的信箱                                | **（無）**                                  | `tools/pii-check/tests/roster.test.ts`           |
+| `dependency-health` | 外部直接相依（24 個）的維護狀態與授權變更 —— 停更、或授權被偷偷改掉                                      | `tools/supply-chain/dependency-health.json` | `tools/supply-chain/tests/health.test.ts`        |
+| `renovate` ▷        | 提出相依升級與安全修補 —— §11 II ③「檢測**並因應**」裡的因應那一半                                       | `renovate.json`                             | ▷ 不適用                                         |
+| `doc-facts`         | 現況文件引用的數字，與 inventory.json／provenance.json 推導出來的一致（守哪幾份見 doc-facts 的 GUARDED） | **（無）**                                  | `tools/doc-facts/tests/facts.test.ts`            |
+| `evidence-manifest` | §16 證據清單與現實一致：宣告的檔案都在，且每一份都有閘門在維護                                           | **（無）**                                  | `tools/compliance/tests/evidence.test.ts`        |
+| `compliance`        | 本對照表本身：映射與檔案系統一致、且沒有列在說謊                                                         | `tools/compliance/COMPLIANCE.md`            | `tools/compliance/tests/negative.test.ts`        |
 
 ### 逐道註記
 
@@ -130,7 +130,7 @@
 
 - **`exit-drill`** — D2 退出面靜態檢查、plugin 帳目、演練證據新鮮度（120 天）
 - **`gitleaks`** — 機密掃描，fetch-depth: 0 以涵蓋被後續 commit 蓋掉的機密
-- **`doc-facts`** — README 與 HANDOFF 引用的數字，與 inventory.json／provenance.json 推導出來的一致
+- **`doc-facts`** — 現況文件引用的數字，與 inventory.json／provenance.json 推導出來的一致（守哪幾份見 doc-facts 的 GUARDED）
 
 ## 尚未適用（留好的介面）
 
