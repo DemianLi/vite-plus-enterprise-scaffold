@@ -67,7 +67,7 @@
 | ------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------ |
 | `conformance`       | 切片契約、分層邊界、設計系統採用、擁有權、幽靈依賴、CI action 以 SHA 釘住（D4／D9／D12／D14／D15）       | **（無）**                                  | `tools/conformance/tests/negative.test.ts`       |
 | `bff-check`         | D8 同源中間層的 15 條行為契約（cookie 屬性、CSRF、401／403）                                             | **（無）**                                  | `tools/bff-check/tests/negative.test.ts`         |
-| `api-surface`       | platform/ 公開 API 表面的破壞性變更（D12）                                                               | `tools/api-surface/surface.json`            | `tools/api-surface/tests/negative.test.ts`       |
+| `api-surface`       | platform/ 公開 API 的破壞性變更：export 名稱＋**型別形狀**（D12）                                        | `tools/api-surface/surface.json`            | `tools/api-surface/tests/negative.test.ts`       |
 | `supply-chain`      | 相依盤點、原生家族分類、tarball digest 與 lockfile 綁定（R2–R5／R8）                                     | `tools/supply-chain/provenance.json`        | **❌ 無**                                        |
 | `exit-drill`        | D2 退出面靜態檢查、plugin 帳目、演練證據新鮮度（120 天）                                                 | `tools/exit-drill/evidence.json`            | **❌ 無**                                        |
 | `eslint-security`   | no-unsanitized、eslint-plugin-security、vue/no-v-html（D5 的安全那一半）                                 | **（無）**                                  | **❌ 無**                                        |
@@ -89,7 +89,7 @@
 - **`bff-check`** — `./node_modules/.bin/vitest run --root tools/bff-check`  
   反向測試用改寫回應的 proxy 破壞行為而非程式碼，實作改寫法也不會失效。
 - **`api-surface`** — `node tools/api-surface/src/cli.ts`  
-  反向測試破壞的是**基準檔的副本**（`--baseline`），platform 的原始碼不用動 —— 對閘門而言「基準說有、現況沒有」與真的刪掉一個 export 完全等價。另有幾條驗 codemod 這個合法出口沒有被繞過，也沒有被誤擋。
+  2026-08-16 從「只比對 export 名稱」重做成「比對型別形狀」—— 舊版對「interface 加一個必填欄位」完全不會說話，而那是下游唯一真的會編不過的那種變更。反向測試分兩路：**改基準檔的副本**（`--baseline`）問「該紅的會不會紅」，**改 fixture 套件的原始碼**（`--platform`）問反過來的「這個重構不該漂移」；兩路都不用動 platform 的原始碼。另有幾條驗 codemod 這個合法出口沒有被繞過，也沒有被誤擋 —— 包含形狀變更用的 `changes` 登記。
 - **`supply-chain`** — `node tools/supply-chain/src/cli.ts`  
   parseLockfile／buildInventory 有零件測試，但**沒有一條**測「把 provenance 弄髒之後 CLI 會不會 exit 1」。
 - **`exit-drill`** — `node tools/exit-drill/src/cli.ts`  

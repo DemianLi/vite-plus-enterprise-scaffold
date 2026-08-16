@@ -14,6 +14,16 @@ import { cn } from "../utils/cn.ts";
  * 代價是：這個檔案的品質就是產品的品質，沒有人幫你把關。所以它歸
  * `platform/` 治理（CODEOWNERS ＋ api-surface 破壞性變更閘門）。
  *
+ * ⚠️ **那句話在 2026-08-16 之前是假的。** api-surface 當時只比對 export
+ * 名稱，而 `declare module "*.vue"` 讓 checker 對每個元件都回報同一個
+ * `DefineComponent<Record<string, unknown>, …>` —— 實測加一個必填 prop，
+ * 閘門零反應，連 UiButton 與 UiDialog 都分不出來。現在下面的 `defineProps`
+ * 由 `tools/api-surface/src/shape.ts` 直接解析 SFC 取得，那句話才成立。
+ *
+ * 隨之而來的限制：這個元件加 `defineEmits` / `defineSlots` / `defineExpose`
+ * 會讓 api-surface **直接丟例外**，因為那時 props 就不再是完整的公開面。
+ * 要加的話，先擴充那支解析。
+ *
  * ── 為什麼變體是純物件而不是 cva ────────────────────────────────────
  *
  * `class-variance-authority` 在這個規模只是把查表包一層。少一個相依
