@@ -210,7 +210,7 @@ export const GATES: readonly Gate[] = [
   {
     id: "doc-facts",
     kind: "gate",
-    what: "README 與 HANDOFF 引用的數字，與 inventory.json／provenance.json 推導出來的一致",
+    what: "現況文件引用的數字，與 inventory.json／provenance.json 推導出來的一致（守哪幾份見 doc-facts 的 GUARDED）",
     command: "node tools/doc-facts/src/cli.ts",
     evidence: null,
     negativeTest: "tools/doc-facts/tests/facts.test.ts",
