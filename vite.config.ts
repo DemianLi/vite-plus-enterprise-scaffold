@@ -30,14 +30,14 @@ export default defineConfig({
   fmt: {},
 
   lint: {
-    // ⚠️ `.semgrep/fixtures/` 裡**故意**有 `new Function()` 與
+    // ⚠️ `.semgrep/` 的 .ts 是 semgrep 的 fixture，裡面**故意**有 `new Function()` 與
     // `setTimeout("字串")` —— 那是 SAST 規則的對照組，沒有它們
     // `semgrep --test` 就沒有東西可以驗。
     //
     // 排除它與 `tools/pii-check` 的 EXEMPT 是同一條規矩：
     // 一份為了證明檢查有效而刻意違規的檔案，必須從那個檢查裡豁免 ——
     // 而豁免的範圍要剛好等於那一份，不是整個目錄樹。
-    ignorePatterns: [".semgrep/fixtures/**"],
+    ignorePatterns: [".semgrep/**"],
 
     plugins: ["import", "typescript", "unicorn", "oxc", "vue", "promise"],
 

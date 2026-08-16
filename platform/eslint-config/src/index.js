@@ -48,11 +48,11 @@ export default [
       "**/node_modules/**",
       "**/coverage/**",
       "**/*.d.ts",
-      // .semgrep/fixtures 裡**故意**有 innerHTML 指派與 new Function()——
+      // .semgrep/ 的 .ts 是 semgrep 的 fixture，裡面**故意**有 innerHTML 指派與 new Function()——
       // 那是 SAST 規則的對照組，沒有它們 `semgrep --test` 就沒有東西可驗。
       // 一份為了證明檢查有效而刻意違規的檔案，必須從那個檢查裡豁免
       //（與 tools/pii-check 的 EXEMPT 同一條規矩），而豁免範圍要剛好等於那一份。
-      ".semgrep/fixtures/**",
+      ".semgrep/**",
     ],
   },
 

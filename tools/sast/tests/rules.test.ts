@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,15 +30,36 @@ function ruleIds(source: string): readonly string[] {
   return [...source.matchAll(/^ {2}- id: ([\w-]+)$/gm)].map((match) => match[1] as string);
 }
 
+/**
+ * semgrep 的 `--test` **靠檔名配對**：`rules.yml` 的 fixture 必須是同一個
+ * 目錄下的 `rules.ts`。
+ *
+ * ⚠️ 第一版把 fixture 放在 `.semgrep/fixtures/` —— 於是 `semgrep --test`
+ * 印了「No unit tests found」然後**回傳 0**。這道「反向測試」在 CI 上
+ * 全綠而其實一條都沒驗，正是這個 repo 一路在防的那個形狀，
+ * 只是這次發生在 semgrep 自己那一層。
+ */
+function fixturePath(ruleFile: string): string {
+  return join(SEMGREP, ruleFile.replace(/\.yml$/, ".ts"));
+}
+
 function fixtureText(): string {
-  return readdirSync(join(SEMGREP, "fixtures"))
-    .map((name) => readFileSync(join(SEMGREP, "fixtures", name), "utf8"))
+  return ruleFiles()
+    .map((name) => readFileSync(fixturePath(name), "utf8"))
     .join("\n");
 }
 
 describe("規則檔本身", () => {
   it("兩份規則檔都在，而且不是空的", () => {
     expect([...ruleFiles()].sort()).toEqual(["generated-pii.yml", "rules.yml"]);
+  });
+
+  it("🔴 每份規則檔都有同名的 fixture —— semgrep --test 靠檔名配對", () => {
+    // 配對不上的話 semgrep 會印「No unit tests found」然後**回傳 0**。
+    // 第一版就是這樣：CI 全綠而一條規則都沒驗。
+    for (const file of ruleFiles()) {
+      expect(existsSync(fixturePath(file)), `${file} 沒有同名的 .ts fixture`).toBe(true);
+    }
   });
 
   it("★ 每一條規則都有 id、severity 與 message", () => {
@@ -123,14 +144,14 @@ describe("parsePersonalData 與 pii-check 用同一條規矩", () => {
 
 describe("規則涵蓋的是 lint 做不到的那一半", () => {
   it("★ taint 規則跨函式邊界 —— fixture 裡有一條就是這樣寫的", () => {
-    const source = readFileSync(join(SEMGREP, "fixtures/rules.ts"), "utf8");
+    const source = readFileSync(join(SEMGREP, "rules.ts"), "utf8");
     expect(source).toContain("跨了一個函式邊界仍然追得到");
   });
 
   it("★ fixture 記下了目前抓不到的東西", () => {
     // logger 包裝過的 log 抓不到。把「抓不到」釘成看得見的事實，
     // 比讓它當一個沒有人知道的洞好。
-    const source = readFileSync(join(SEMGREP, "fixtures/generated-pii.ts"), "utf8");
+    const source = readFileSync(join(SEMGREP, "generated-pii.ts"), "utf8");
     expect(source).toContain("目前的規則只認 console.*");
   });
 });

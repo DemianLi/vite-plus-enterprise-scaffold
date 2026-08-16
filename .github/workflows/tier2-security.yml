@@ -194,14 +194,22 @@ jobs:
       - name: "SAST 規則的反向測試（fixture 的 ruleid:／ok: 標記）"
         run: |
           docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src \
-            semgrep/semgrep:1.145.0 semgrep --test --config .semgrep .semgrep/fixtures
+            semgrep/semgrep:1.145.0 semgrep --test --config .semgrep .semgrep \
+            | tee semgrep-test.log
+          # ⚠️ semgrep 在**找不到測試**時印一行字然後回傳 0。
+          # 第一版的 fixture 放在子目錄裡，配對不上 —— 於是這道「反向測試」
+          # 在 CI 上全綠而其實一條都沒驗。零個測試不是通過。
+          if grep -q "No unit tests found" semgrep-test.log; then
+            echo "✗ semgrep 沒有找到任何 fixture —— 規則一條都沒被驗證"
+            exit 1
+          fi
 
       - name: SAST 掃描
         run: |
           docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src \
             semgrep/semgrep:1.145.0 semgrep scan --config .semgrep \
               --error --sarif --output semgrep.sarif \
-              --exclude .semgrep/fixtures
+              --exclude .semgrep
 
       - name: 上傳 SAST 結果到 Code Scanning
         if: always() && hashFiles('semgrep.sarif') != ''
