@@ -1,0 +1,10 @@
+{
+  "name": "@fixture/sample",
+  "version": "0.0.0",
+  "private": true,
+  "description": "api-surface 反向測試用的假 platform 套件（不是 workspace 成員，見 README）",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

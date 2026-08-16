@@ -43,6 +43,10 @@ function deriveTruth(handoff: string): Record<string, number> {
   const provenance = readJson("tools/supply-chain/provenance.json");
   const inventoryTotals = inventory["totals"] as Record<string, number>;
   const provenanceTotals = provenance["totals"] as Record<string, number>;
+  const surface = readJson("tools/api-surface/surface.json")["surface"] as Record<
+    string,
+    Record<string, unknown>
+  >;
 
   return {
     packages: inventoryTotals["packages"] as number,
@@ -51,6 +55,11 @@ function deriveTruth(handoff: string): Record<string, number> {
     "no-slsa": provenanceTotals["registry-signature"] as number,
     slsa: provenanceTotals["slsa-provenance"] as number,
     "handoff-items": handoffItemCount(handoff),
+    "api-entries": Object.keys(surface).length,
+    "api-exports": Object.values(surface).reduce(
+      (total, entry) => total + Object.keys(entry).length,
+      0,
+    ),
   };
 }
 

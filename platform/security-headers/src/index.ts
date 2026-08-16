@@ -8,10 +8,10 @@ export {
 } from "./policy.ts";
 export type { CspDirectives, CspOptions, SecurityHeaderOptions } from "./policy.ts";
 export { securityHeaders } from "./vite-plugin.ts";
-export type { SecurityHeadersPluginOptions } from "./vite-plugin.ts";
+export type { DevServerLike, ResponseLike, SecurityHeadersPluginOptions } from "./vite-plugin.ts";
 export {
   assertStaticCspCompatible,
   findStaticCspViolations,
   formatStaticCspViolations,
 } from "./static-csp.ts";
-export type { StaticCspViolation } from "./static-csp.ts";
+export type { OutputAssetLike, StaticCspViolation } from "./static-csp.ts";

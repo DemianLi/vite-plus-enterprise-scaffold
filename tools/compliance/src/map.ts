@@ -139,11 +139,11 @@ export const GATES: readonly Gate[] = [
   {
     id: "api-surface",
     kind: "gate",
-    what: "platform/ 公開 API 表面的破壞性變更（D12）",
+    what: "platform/ 公開 API 的破壞性變更：export 名稱＋**型別形狀**（D12）",
     command: "node tools/api-surface/src/cli.ts",
     evidence: "tools/api-surface/surface.json",
     negativeTest: "tools/api-surface/tests/negative.test.ts",
-    note: "反向測試破壞的是**基準檔的副本**（`--baseline`），platform 的原始碼不用動 —— 對閘門而言「基準說有、現況沒有」與真的刪掉一個 export 完全等價。另有幾條驗 codemod 這個合法出口沒有被繞過，也沒有被誤擋。",
+    note: "2026-08-16 從「只比對 export 名稱」重做成「比對型別形狀」—— 舊版對「interface 加一個必填欄位」完全不會說話，而那是下游唯一真的會編不過的那種變更。反向測試分兩路：**改基準檔的副本**（`--baseline`）問「該紅的會不會紅」，**改 fixture 套件的原始碼**（`--platform`）問反過來的「這個重構不該漂移」；兩路都不用動 platform 的原始碼。另有幾條驗 codemod 這個合法出口沒有被繞過，也沒有被誤擋 —— 包含形狀變更用的 `changes` 登記。",
   },
   {
     id: "supply-chain",

@@ -120,7 +120,10 @@ export function formatStaticCspViolations(
 
 // Vite 的 Plugin 型別由 `vite` 提供，但本 package 刻意不依賴 vite ——
 // 它同時要被 BFF（Node，無 Vite）消費。用結構型別描述所需的最小介面即可。
-interface OutputAssetLike {
+//
+// export 的理由同 vite-plugin.ts 的 DevServerLike：它出現在公開簽章裡，
+// tools/api-surface 追蹤不到沒有 export 的名字。
+export interface OutputAssetLike {
   readonly type?: string;
   readonly fileName?: string;
   readonly source?: unknown;

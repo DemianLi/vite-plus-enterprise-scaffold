@@ -15,13 +15,18 @@ import { buildSecurityHeaders } from "./policy.ts";
 
 // Vite 的 Plugin 型別由 `vite` 提供，但這個 package 刻意不依賴 vite ——
 // 它同時要被 BFF（Node，無 Vite）消費。用結構型別描述所需的最小介面即可。
-interface DevServerLike {
+//
+// 這兩個型別出現在 `securityHeaders` 的公開簽章裡，所以必須 export ——
+// 不是為了給人用，是因為 tools/api-surface 記錄型別形狀時對具名型別只印名字，
+// 而沒有 export 的名字它追蹤不到：改名一次形狀就漂一次，閘門只能判成
+// 破壞性變更。理由與實測寫在 tools/api-surface/src/shape.ts。
+export interface DevServerLike {
   readonly middlewares: {
     use(handler: (req: unknown, res: ResponseLike, next: () => void) => void): void;
   };
 }
 
-interface ResponseLike {
+export interface ResponseLike {
   setHeader(name: string, value: string): void;
 }
 

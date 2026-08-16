@@ -1,79 +1,490 @@
 {
+  "version": 2,
   "surface": {
-    "@org/bff-contract": [
-      "API_PREFIX",
-      "CONTRACT_ITEMS",
-      "CSRF_COOKIE",
-      "CSRF_COOKIE_FORBIDDEN_ATTRIBUTES",
-      "CSRF_HEADER",
-      "DEFAULT_ENDPOINTS",
-      "DEFAULT_SESSION_COOKIE",
-      "SAFE_METHODS",
-      "SESSION_COOKIE_ALLOWED_SAMESITE",
-      "SESSION_COOKIE_REQUIRED_ATTRIBUTES",
-      "SESSION_COOKIE_REQUIRED_PATH",
-      "describeContract",
-      "endpointsFromEnv",
-      "findSetCookie",
-      "isCleared",
-      "parseSetCookie"
-    ],
-    "@org/bff-mock": ["createBffMock", "startBffMock"],
-    "@org/config": ["assertNoUndeclaredEnv", "config"],
-    "@org/eslint-config": ["default"],
-    "@org/http-client": ["ForbiddenError", "HttpError", "UnauthenticatedError", "http"],
-    "@org/pii": [
-      "MASK_CHARACTER",
-      "isMasked",
-      "maskAll",
-      "maskEmail",
-      "maskName",
-      "maskNationalId",
-      "maskPhone"
-    ],
-    "@org/security-headers": [
-      "BASE_DIRECTIVES",
-      "FORBIDDEN_VALUES",
-      "OTHER_SECURITY_HEADERS",
-      "UNSAFE_INLINE_ALLOWED_IN",
-      "assertStaticCspCompatible",
-      "buildCsp",
-      "buildSecurityHeaders",
-      "findStaticCspViolations",
-      "formatStaticCspViolations",
-      "securityHeaders"
-    ],
-    "@org/slice-kit": ["defineFeature", "registerFeatures"],
-    "@org/slice-kit/contract": [
-      "ALLOWED_VERSION_PROTOCOLS",
-      "BANNED_DIRECT_DEPENDENCIES",
-      "COMPOSABLES_DIR",
-      "CSP_INCOMPATIBLE_MODULES",
-      "DESIGN_SYSTEM_PACKAGE",
-      "IMPORT_SPECIFIER_PATTERN",
-      "LAYERS",
-      "REQUIRED_FILES",
-      "REQUIRE_CATALOG_PROTOCOL",
-      "REQUIRE_CODEOWNERS_ENTRY",
-      "RUNTIME_TEMPLATE_FORBIDDEN",
-      "SLICE_DESIGN_SYSTEM_IMPORTS",
-      "SLICE_PACKAGE_PREFIX",
-      "SOURCE_EXTENSIONS",
-      "STORE_FILE",
-      "STORE_FORBIDDEN_IMPORTS",
-      "STORE_FORBIDDEN_LOCAL_MODULES",
-      "TEST_GLOB",
-      "VIEWS_DIR",
-      "VIEW_FORBIDDEN_IMPORTS",
-      "VIEW_FORBIDDEN_LOCAL_MODULES",
-      "composableFunctionName",
-      "isTypeOnlyImportAt",
-      "isValidComposableFile",
-      "isValidSliceDir",
-      "slicePackageName",
-      "usesDesignSystem"
-    ],
-    "@org/ui": ["UiButton", "UiDialog", "cn"]
+    "@org/bff-contract": {
+      "API_PREFIX": {
+        "kind": "value",
+        "type": "\"/api\""
+      },
+      "BffEndpoints": {
+        "kind": "type",
+        "members": [
+          "adminProbe: string",
+          "login: string",
+          "logout: string",
+          "probe: string",
+          "session: string"
+        ]
+      },
+      "CONTRACT_ITEMS": {
+        "kind": "value",
+        "type": "readonly { readonly id: string; readonly requirement: string; }[]"
+      },
+      "CookieAttributes": {
+        "kind": "type",
+        "members": ["[index string] readonly: string"]
+      },
+      "CSRF_COOKIE": {
+        "kind": "value",
+        "type": "\"XSRF-TOKEN\""
+      },
+      "CSRF_COOKIE_FORBIDDEN_ATTRIBUTES": {
+        "kind": "value",
+        "type": "readonly [\"HttpOnly\"]"
+      },
+      "CSRF_HEADER": {
+        "kind": "value",
+        "type": "\"X-XSRF-TOKEN\""
+      },
+      "DEFAULT_ENDPOINTS": {
+        "kind": "value",
+        "type": "BffEndpoints"
+      },
+      "DEFAULT_SESSION_COOKIE": {
+        "kind": "value",
+        "type": "\"org_session\""
+      },
+      "describeContract": {
+        "kind": "function",
+        "type": "() => string"
+      },
+      "endpointsFromEnv": {
+        "kind": "function",
+        "type": "(env: Record<string, string | undefined>) => BffEndpoints"
+      },
+      "findSetCookie": {
+        "kind": "function",
+        "type": "(headers: readonly string[], name: string) => ParsedSetCookie | undefined"
+      },
+      "isCleared": {
+        "kind": "function",
+        "type": "(cookie: ParsedSetCookie) => boolean"
+      },
+      "ParsedSetCookie": {
+        "kind": "type",
+        "members": ["attributes: CookieAttributes", "name: string", "value: string"]
+      },
+      "parseSetCookie": {
+        "kind": "function",
+        "type": "(raw: string) => ParsedSetCookie"
+      },
+      "SAFE_METHODS": {
+        "kind": "value",
+        "type": "readonly string[]"
+      },
+      "SESSION_COOKIE_ALLOWED_SAMESITE": {
+        "kind": "value",
+        "type": "readonly [\"Lax\", \"Strict\"]"
+      },
+      "SESSION_COOKIE_REQUIRED_ATTRIBUTES": {
+        "kind": "value",
+        "type": "readonly [\"HttpOnly\", \"Secure\"]"
+      },
+      "SESSION_COOKIE_REQUIRED_PATH": {
+        "kind": "value",
+        "type": "\"/\""
+      }
+    },
+    "@org/bff-mock": {
+      "BffMockOptions": {
+        "kind": "type",
+        "members": ["allowInProduction?: boolean | undefined", "sessionCookie?: string | undefined"]
+      },
+      "createBffMock": {
+        "kind": "function",
+        "type": "(options?: BffMockOptions) => Server<typeof IncomingMessage, typeof ServerResponse>"
+      },
+      "RunningBffMock": {
+        "kind": "type",
+        "members": ["close: () => Promise<void>", "origin: string"]
+      },
+      "startBffMock": {
+        "kind": "function",
+        "type": "(port?: number, options?: BffMockOptions | undefined) => Promise<RunningBffMock>"
+      }
+    },
+    "@org/config": {
+      "AppConfig": {
+        "kind": "type",
+        "members": ["apiBasePath: string", "appTitle: string", "buildSha: string"]
+      },
+      "assertNoUndeclaredEnv": {
+        "kind": "function",
+        "type": "(env: Record<string, string>) => void"
+      },
+      "config": {
+        "kind": "object",
+        "members": ["apiBasePath: string", "appTitle: string", "buildSha: string"]
+      }
+    },
+    "@org/eslint-config": {
+      "default": {
+        "kind": "names-only"
+      }
+    },
+    "@org/http-client": {
+      "ForbiddenError": {
+        "kind": "class",
+        "members": [
+          "body: unknown",
+          "cause?: unknown",
+          "message: string",
+          "name: \"ForbiddenError\"",
+          "new (status: number, url: string, body: unknown): ForbiddenError",
+          "stack?: string | undefined",
+          "status: number",
+          "url: string"
+        ]
+      },
+      "http": {
+        "kind": "object",
+        "members": [
+          "delete: <T>(path: string, options?: RequestOptions | undefined) => Promise<T>",
+          "get: <T>(path: string, options?: RequestOptions | undefined) => Promise<T>",
+          "patch: <T>(path: string, json?: unknown, options?: RequestOptions | undefined) => Promise<T>",
+          "post: <T>(path: string, json?: unknown, options?: RequestOptions | undefined) => Promise<T>",
+          "put: <T>(path: string, json?: unknown, options?: RequestOptions | undefined) => Promise<T>"
+        ]
+      },
+      "HttpError": {
+        "kind": "class",
+        "members": [
+          "body: unknown",
+          "cause?: unknown",
+          "message: string",
+          "name: string",
+          "new (status: number, url: string, body: unknown): HttpError",
+          "stack?: string | undefined",
+          "status: number",
+          "url: string"
+        ]
+      },
+      "RequestOptions": {
+        "kind": "type",
+        "members": [
+          "cache?: RequestCache | undefined",
+          "headers?: HeadersInit | undefined",
+          "integrity?: string | undefined",
+          "json?: unknown",
+          "keepalive?: boolean | undefined",
+          "method?: string | undefined",
+          "mode?: RequestMode | undefined",
+          "priority?: RequestPriority | undefined",
+          "redirect?: RequestRedirect | undefined",
+          "referrer?: string | undefined",
+          "referrerPolicy?: ReferrerPolicy | undefined",
+          "signal?: AbortSignal | undefined",
+          "window?: null | undefined"
+        ]
+      },
+      "UnauthenticatedError": {
+        "kind": "class",
+        "members": [
+          "body: unknown",
+          "cause?: unknown",
+          "message: string",
+          "name: \"UnauthenticatedError\"",
+          "new (status: number, url: string, body: unknown): UnauthenticatedError",
+          "stack?: string | undefined",
+          "status: number",
+          "url: string"
+        ]
+      }
+    },
+    "@org/pii": {
+      "isMasked": {
+        "kind": "function",
+        "type": "(value: string) => boolean"
+      },
+      "MASK_CHARACTER": {
+        "kind": "value",
+        "type": "\"○\""
+      },
+      "maskAll": {
+        "kind": "function",
+        "type": "(value: string) => string"
+      },
+      "maskEmail": {
+        "kind": "function",
+        "type": "(value: string) => string"
+      },
+      "maskName": {
+        "kind": "function",
+        "type": "(value: string) => string"
+      },
+      "maskNationalId": {
+        "kind": "function",
+        "type": "(value: string) => string"
+      },
+      "maskPhone": {
+        "kind": "function",
+        "type": "(value: string) => string"
+      }
+    },
+    "@org/security-headers": {
+      "assertStaticCspCompatible": {
+        "kind": "function",
+        "type": "() => { name: string; apply: \"build\"; writeBundle(options: unknown, bundle: Record<string, OutputAssetLike>): void; }"
+      },
+      "BASE_DIRECTIVES": {
+        "kind": "value",
+        "type": "CspDirectives"
+      },
+      "buildCsp": {
+        "kind": "function",
+        "type": "(options?: CspOptions) => string"
+      },
+      "buildSecurityHeaders": {
+        "kind": "function",
+        "type": "(options: SecurityHeaderOptions) => Readonly<Record<string, string>>"
+      },
+      "CspDirectives": {
+        "kind": "type",
+        "members": ["[index string] readonly: readonly string[]"]
+      },
+      "CspOptions": {
+        "kind": "type",
+        "members": ["nonce?: string | undefined", "reportUri?: string | undefined"]
+      },
+      "DevServerLike": {
+        "kind": "type",
+        "members": [
+          "middlewares: { use(handler: (req: unknown, res: ResponseLike, next: () => void) => void): void; }"
+        ]
+      },
+      "findStaticCspViolations": {
+        "kind": "function",
+        "type": "(html: string) => StaticCspViolation[]"
+      },
+      "FORBIDDEN_VALUES": {
+        "kind": "value",
+        "type": "readonly [\"'unsafe-eval'\", \"'unsafe-hashes'\", \"*\"]"
+      },
+      "formatStaticCspViolations": {
+        "kind": "function",
+        "type": "(fileName: string, violations: readonly StaticCspViolation[]) => string"
+      },
+      "OTHER_SECURITY_HEADERS": {
+        "kind": "value",
+        "type": "Readonly<Record<string, string>>"
+      },
+      "OutputAssetLike": {
+        "kind": "type",
+        "members": [
+          "fileName?: string | undefined",
+          "source?: unknown",
+          "type?: string | undefined"
+        ]
+      },
+      "ResponseLike": {
+        "kind": "type",
+        "members": ["setHeader: (name: string, value: string) => void"]
+      },
+      "SecurityHeaderOptions": {
+        "kind": "type",
+        "members": [
+          "hstsMaxAge?: number | undefined",
+          "nonce?: string | undefined",
+          "reportOnly: boolean",
+          "reportUri?: string | undefined"
+        ]
+      },
+      "securityHeaders": {
+        "kind": "function",
+        "type": "(options?: SecurityHeadersPluginOptions) => { name: string; apply: \"serve\"; configureServer(server: DevServerLike): void; }"
+      },
+      "SecurityHeadersPluginOptions": {
+        "kind": "type",
+        "members": ["reportOnly?: boolean | undefined", "reportUri?: string | undefined"]
+      },
+      "StaticCspViolation": {
+        "kind": "type",
+        "members": ["excerpt: string", "kind: string", "reason: string"]
+      },
+      "UNSAFE_INLINE_ALLOWED_IN": {
+        "kind": "value",
+        "type": "readonly [\"style-src-attr\"]"
+      }
+    },
+    "@org/slice-kit": {
+      "defineFeature": {
+        "kind": "function",
+        "type": "(feature: Feature) => Feature"
+      },
+      "Feature": {
+        "kind": "type",
+        "members": [
+          "i18n: Readonly<Record<string, Record<string, unknown>>>",
+          "menu: readonly FeatureMenuItem[]",
+          "name: string",
+          "permissions: readonly string[]",
+          "routes: readonly RouteRecordRaw[]"
+        ]
+      },
+      "FeatureMenuItem": {
+        "kind": "type",
+        "members": [
+          "icon?: string | undefined",
+          "labelKey: string",
+          "order?: number | undefined",
+          "permissions?: readonly string[] | undefined",
+          "routeName: string"
+        ]
+      },
+      "RegisteredFeatures": {
+        "kind": "type",
+        "members": [
+          "menu: readonly FeatureMenuItem[]",
+          "messages: Readonly<Record<string, Record<string, unknown>>>",
+          "names: readonly string[]",
+          "permissions: readonly string[]",
+          "routes: readonly RouteRecordRaw[]"
+        ]
+      },
+      "registerFeatures": {
+        "kind": "function",
+        "type": "(features: readonly Feature[]) => RegisteredFeatures"
+      }
+    },
+    "@org/slice-kit/contract": {
+      "ALLOWED_VERSION_PROTOCOLS": {
+        "kind": "value",
+        "type": "readonly [\"workspace:\", \"catalog:\"]"
+      },
+      "BANNED_DIRECT_DEPENDENCIES": {
+        "kind": "value",
+        "type": "readonly [\"axios\", \"ky\", \"got\", \"superagent\", \"node-fetch\"]"
+      },
+      "composableFunctionName": {
+        "kind": "function",
+        "type": "(fileName: string) => string"
+      },
+      "COMPOSABLES_DIR": {
+        "kind": "value",
+        "type": "\"src/composables\""
+      },
+      "CSP_INCOMPATIBLE_MODULES": {
+        "kind": "value",
+        "type": "readonly [{ readonly specifier: \"reka-ui\"; readonly names: readonly [\"SplitterGroup\", \"SplitterPanel\", \"SplitterResizeHandle\"]; readonly reason: string; }]"
+      },
+      "DESIGN_SYSTEM_PACKAGE": {
+        "kind": "value",
+        "type": "\"@org/ui\""
+      },
+      "IMPORT_SPECIFIER_PATTERN": {
+        "kind": "value",
+        "type": "RegExp"
+      },
+      "isTypeOnlyImportAt": {
+        "kind": "function",
+        "type": "(source: string, matchIndex: number) => boolean"
+      },
+      "isValidComposableFile": {
+        "kind": "function",
+        "type": "(fileName: string) => boolean"
+      },
+      "isValidSliceDir": {
+        "kind": "function",
+        "type": "(dir: string) => boolean"
+      },
+      "LAYERS": {
+        "kind": "object",
+        "members": [
+          "apps: \"apps\"",
+          "features: \"features\"",
+          "platform: \"platform\"",
+          "tools: \"tools\""
+        ]
+      },
+      "REQUIRE_CATALOG_PROTOCOL": {
+        "kind": "value",
+        "type": "true"
+      },
+      "REQUIRE_CODEOWNERS_ENTRY": {
+        "kind": "value",
+        "type": "true"
+      },
+      "REQUIRED_FILES": {
+        "kind": "value",
+        "type": "readonly [\"package.json\", \"tsconfig.json\", \"README.md\", \"src/index.ts\"]"
+      },
+      "RUNTIME_TEMPLATE_FORBIDDEN": {
+        "kind": "value",
+        "type": "true"
+      },
+      "SLICE_DESIGN_SYSTEM_IMPORTS": {
+        "kind": "value",
+        "type": "readonly [\"reka-ui\", \"clsx\", \"tailwind-merge\"]"
+      },
+      "SLICE_PACKAGE_PREFIX": {
+        "kind": "value",
+        "type": "\"@org/feature-\""
+      },
+      "slicePackageName": {
+        "kind": "function",
+        "type": "(dir: string) => string"
+      },
+      "SOURCE_EXTENSIONS": {
+        "kind": "value",
+        "type": "readonly [\".ts\", \".tsx\", \".js\", \".mjs\", \".vue\"]"
+      },
+      "STORE_FILE": {
+        "kind": "value",
+        "type": "\"src/store.ts\""
+      },
+      "STORE_FORBIDDEN_IMPORTS": {
+        "kind": "value",
+        "type": "readonly [\"@tanstack/vue-query\", \"@org/http-client\"]"
+      },
+      "STORE_FORBIDDEN_LOCAL_MODULES": {
+        "kind": "value",
+        "type": "readonly [\"api\"]"
+      },
+      "TEST_GLOB": {
+        "kind": "value",
+        "type": "\"tests/**/*.test.ts\""
+      },
+      "usesDesignSystem": {
+        "kind": "function",
+        "type": "(source: string) => boolean"
+      },
+      "VIEW_FORBIDDEN_IMPORTS": {
+        "kind": "value",
+        "type": "readonly [\"@tanstack/vue-query\", \"@org/http-client\"]"
+      },
+      "VIEW_FORBIDDEN_LOCAL_MODULES": {
+        "kind": "value",
+        "type": "readonly [\"api\"]"
+      },
+      "VIEWS_DIR": {
+        "kind": "value",
+        "type": "\"src/views\""
+      }
+    },
+    "@org/ui": {
+      "cn": {
+        "kind": "function",
+        "type": "(...inputs: ClassValue[]) => string"
+      },
+      "UiButton": {
+        "kind": "component",
+        "members": [
+          "disabled?: boolean",
+          "size?: \"sm\" | \"md\"",
+          "type?: \"button\" | \"submit\" | \"reset\"",
+          "variant?: \"primary\" | \"secondary\" | \"danger\" | \"ghost\""
+        ]
+      },
+      "UiDialog": {
+        "kind": "component",
+        "members": [
+          "[emit update:open]: void",
+          "description: string",
+          "open?: boolean",
+          "title: string"
+        ]
+      }
+    }
   },
   "codemods": [
     {

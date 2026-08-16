@@ -178,6 +178,26 @@ export const FACTS: readonly Fact[] = [
     source: "HANDOFF.md 的 `## N.` 與 `## N–M.` 標題",
     citations: [/只有組織能決定的 (\d+) 件事/],
   },
+  {
+    id: "api-entries",
+    describe: "platform/ 被追蹤的進入點數",
+    /**
+     * 這兩筆是 2026-08-16 補的，補的當下兩個數字都是錯的
+     *（文件寫 9 進入點／65 export，實際是 10／92）。
+     *
+     * 它們本來就在 HANDOFF 第 18 項的「有事實來源、還沒登記」那一格裡 ——
+     * 也就是說「知道它沒守」這件事已經寫下來一段時間了，而那段時間裡
+     * 那句話就一直是錯的。登記的成本是這四行。
+     */
+    source: "tools/api-surface/surface.json → surface 的鍵數",
+    citations: [/api-surface（(\d+) 個進入點/],
+  },
+  {
+    id: "api-exports",
+    describe: "platform/ 被追蹤的 export 總數",
+    source: "tools/api-surface/surface.json → surface 各進入點的鍵數總和",
+    citations: [/個進入點／(\d+) 個 export）/],
+  },
 ];
 
 /**
