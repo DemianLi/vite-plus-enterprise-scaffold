@@ -1,12 +1,17 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "description": [
     "升級提案機制（D16 迭代軸）。",
     "在這份設定存在之前，整個腳手架能在你升級「之後」告訴你什麼壞了，",
     "卻沒有任何一個東西會說「該升了」—— vite-plus 釘在 0.2.9，而它約 5–14 天一版。",
     "Renovate 補的是 §11 II ③「定期檢測並因應系統漏洞」裡的「因應」那一半：",
-    "Trivy 負責檢測，這裡負責提出修補。"
+    "Trivy 負責檢測，這裡負責提出修補。",
+    "",
+    "helpers:pinGitHubActionDigests 是 2026-08-16 加的，與 tools/conformance 的",
+    "「action 必須以 SHA 釘住」互為兩端：閘門擋住沒釘的，這個 preset 負責在升級時",
+    "把新版本也釘成 SHA。少了 preset，Renovate 會提出把 SHA 換回標籤的 PR，",
+    "然後閘門紅、而紅的原因是我們自己的機器人 —— 那種紅燈會被關掉。"
   ],
   "timezone": "Asia/Taipei",
   "schedule": ["before 6am on monday"],

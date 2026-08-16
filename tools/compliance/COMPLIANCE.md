@@ -65,7 +65,7 @@
 
 | 閘門                | 檢查什麼                                                                                                 | 進版控的證據                                | 反向測試                                         |
 | ------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------ |
-| `conformance`       | 切片契約、分層邊界、設計系統採用、擁有權、幽靈依賴（D4／D9／D12／D14／D15）                              | **（無）**                                  | `tools/conformance/tests/negative.test.ts`       |
+| `conformance`       | 切片契約、分層邊界、設計系統採用、擁有權、幽靈依賴、CI action 以 SHA 釘住（D4／D9／D12／D14／D15）       | **（無）**                                  | `tools/conformance/tests/negative.test.ts`       |
 | `bff-check`         | D8 同源中間層的 15 條行為契約（cookie 屬性、CSRF、401／403）                                             | **（無）**                                  | `tools/bff-check/tests/negative.test.ts`         |
 | `api-surface`       | platform/ 公開 API 表面的破壞性變更（D12）                                                               | `tools/api-surface/surface.json`            | `tools/api-surface/tests/negative.test.ts`       |
 | `supply-chain`      | 相依盤點、原生家族分類、tarball digest 與 lockfile 綁定（R2–R5／R8）                                     | `tools/supply-chain/provenance.json`        | **❌ 無**                                        |
@@ -85,7 +85,7 @@
 ### 逐道註記
 
 - **`conformance`** — `node tools/conformance/src/cli.ts`  
-  反向測試破壞的是複製到暫存目錄的副本，repo 原始碼不被動到。⚠️ 幽靈依賴那條（2026-08-16 加）**刻意不掃 `tools/*` 與 `tests/`** —— 產生器與測試的本職就是把程式碼當資料拿著，乾跑時那兩處噴出 20 幾條全數偽陽性。範圍窄而準，勝過寬而吵。
+  反向測試破壞的是複製到暫存目錄的副本，repo 原始碼不被動到。⚠️ 幽靈依賴那條（2026-08-16 加）**刻意不掃 `tools/*` 與 `tests/`** —— 產生器與測試的本職就是把程式碼當資料拿著，乾跑時那兩處噴出 20 幾條全數偽陽性。範圍窄而準，勝過寬而吵。⚠️ 「CI action 以 SHA 釘住」那條（同日加）**只看 `uses:`**，`run:` 裡的容器映像不在範圍 —— 要在 shell 腳本裡認出映像參考，任何做得到的正則都會對路徑與網址誤報。映像目前是手動用 digest 釘的，而「手動釘的東西」正是那條檢查存在的理由，缺口記在 HANDOFF 第 23 項。
 - **`bff-check`** — `./node_modules/.bin/vitest run --root tools/bff-check`  
   反向測試用改寫回應的 proxy 破壞行為而非程式碼，實作改寫法也不會失效。
 - **`api-surface`** — `node tools/api-surface/src/cli.ts`  

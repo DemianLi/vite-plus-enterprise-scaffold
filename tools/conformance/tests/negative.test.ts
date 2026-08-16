@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -379,6 +379,89 @@ describe("幽靈依賴：import 了但 package.json 沒宣告", () => {
 
     const result = runConformance(root);
     expect(result.output).not.toContain("幽靈依賴");
+    expect(result.red, result.output).toBe(false);
+  });
+});
+
+/**
+ * CI 的 action 必須以 commit SHA 釘住。
+ *
+ * 這一組的重點是**它是一道閘門，不是一次改動**：把現有的 16 行改成 SHA 是
+ * 快照，讓它保持為真的是下面這些測試所守的那條規則。少了它，下一個人加一行
+ * `uses: foo@v1`，而沒有任何東西會說話。
+ */
+describe("CI 的 action 必須以 commit SHA 釘住", () => {
+  const SHA = "3d3c42e5aac5ba805825da76410c181273ba90b1";
+
+  function writeWorkflow(root: string, body: string): void {
+    mkdirSync(join(root, ".github/workflows"), { recursive: true });
+    writeFileSync(
+      join(root, ".github/workflows/ci.yml"),
+      `name: ci\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n${body}`,
+    );
+  }
+
+  it("用可移動的標籤（@v7）→ 紅", () => {
+    const root = makeSandbox();
+    writeWorkflow(root, "      - uses: actions/checkout@v7\n");
+
+    const result = runConformance(root);
+    expect(result.red, result.output).toBe(true);
+    expect(result.output).toContain("action 未以 SHA 釘住");
+    expect(result.output).toContain("actions/checkout@v7");
+  });
+
+  /**
+   * ⚠️ 看起來很精確的版本號同樣是標籤。這一條單獨存在，是因為
+   * `@v0.36.0` 讀起來像釘死了 —— 而它和 `@v3` 一樣可以被重指。
+   */
+  it("看起來精確的版本標籤（@v0.36.0）也要紅", () => {
+    const root = makeSandbox();
+    writeWorkflow(root, "      - uses: aquasecurity/trivy-action@v0.36.0\n");
+
+    const result = runConformance(root);
+    expect(result.red, result.output).toBe(true);
+    expect(result.output).toContain("action 未以 SHA 釘住");
+  });
+
+  it("★ SHA 釘住的不得被誤擋（含尾隨的版本註解）", () => {
+    const root = makeSandbox();
+    writeWorkflow(root, `      - uses: actions/checkout@${SHA} # v7\n`);
+
+    const result = runConformance(root);
+    expect(result.output).not.toContain("action 未以 SHA 釘住");
+    expect(result.red, result.output).toBe(false);
+  });
+
+  it("★ 同 repo 的相對路徑 action 不得被誤擋（它沒有版本的概念）", () => {
+    const root = makeSandbox();
+    writeWorkflow(root, "      - uses: ./.github/actions/setup\n");
+
+    const result = runConformance(root);
+    expect(result.output).not.toContain("action 未以 SHA 釘住");
+    expect(result.red, result.output).toBe(false);
+  });
+
+  it("★ docker:// 帶 digest 的不得被誤擋", () => {
+    const root = makeSandbox();
+    writeWorkflow(root, `      - uses: docker://alpine@sha256:${"a".repeat(64)}\n`);
+
+    const result = runConformance(root);
+    expect(result.output).not.toContain("action 未以 SHA 釘住");
+    expect(result.red, result.output).toBe(false);
+  });
+
+  /**
+   * ★ 對照組的對照組：沒有 workflow 目錄時**不得**因此變紅。
+   *
+   * 少了這一條，一個「找不到目錄就 fail」的實作會讓上面每一條「該紅」的
+   * 測試都成功變紅 —— 而原因是環境，不是規則。
+   */
+  it("★ 沒有 .github/workflows 時不得紅", () => {
+    const root = makeSandbox();
+
+    const result = runConformance(root);
+    expect(result.output).not.toContain("action 未以 SHA 釘住");
     expect(result.red, result.output).toBe(false);
   });
 });
