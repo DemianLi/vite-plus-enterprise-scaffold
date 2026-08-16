@@ -25,9 +25,9 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           # vite-plus 要求 ^20.19.0 || ^22.18.0 || >=24.11.0
           node-version: "24"
@@ -51,7 +51,7 @@ jobs:
       # 靠快取命中跳過未變動的任務（本機實測 4/5 命中）。
       - name: Restore Vite task cache
         id: task-cache
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: node_modules/.vite/task-cache
           key: vite-task-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -70,7 +70,7 @@ jobs:
 
       - name: Save Vite task cache
         if: success()
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: node_modules/.vite/task-cache
           key: ${{ steps.task-cache.outputs.cache-primary-key }}
