@@ -69,6 +69,11 @@
 # 可以自由漂移 —— 而它們是拿去跟採購與資安講的話。
 /tools/doc-facts/           @org/platform-maintainers
 
+# SAST：rules.yml 少一個 sink，那條路徑就從此沒有人在看；rules.ts 少一個
+# 標記，那條規則就從此沒有被驗證過 —— 而後者的症狀是**綠燈**。
+# 兩個檔案要一起讀才知道「這道閘門現在到底在檢查什麼」。
+/.semgrep/                  @org/platform-maintainers @org/security
+
 /pnpm-workspace.yaml        @org/platform-maintainers
 /vite.config.ts             @org/platform-maintainers
 /eslint.config.js           @org/platform-maintainers @org/security

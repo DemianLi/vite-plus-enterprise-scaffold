@@ -1,0 +1,59 @@
+# 手寫的 SAST 規則。與 Tier 1／Tier 2 既有檢查**零重疊**是刻意的。
+#
+# ── 為什麼還需要 SAST，明明已經有 oxlint 與 ESLint ──────────────────
+#
+# lint 看的是**單一節點**：這一行有沒有用 eval、這個屬性是不是 v-html。
+# SAST 看得到的是**資料怎麼流**：使用者輸入從路由參數進來，經過兩個函式，
+# 最後流進 innerHTML —— 每一行單獨看都沒問題。
+#
+# 所以這裡只放 lint 做不到的那一類（taint），不重複 oxlint 已經擋掉的。
+#
+# ── ⚠️ 這不是那份要交給稽核的 SAST 報告 ────────────────────────────
+#
+# 源碼檢測與弱點掃描由專業廠商執行，那份報告才是稽核要的東西。
+# 這裡的規則是**開發當下**的守衛：讓廠商報告上少幾條，而不是取代它。
+#
+# 判準因此偏向**高精準、低噪音** —— 一道在開發流程裡亂叫的閘門會被關掉，
+# 而被關掉的閘門連「少幾條」都做不到。
+rules:
+  - id: tainted-route-input-to-dom-sink
+    mode: taint
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      路由參數（使用者可控）流進了 DOM sink。這是 lint 看不到的一類：
+      每一行單獨看都沒問題，問題在資料的流向。
+      改法：輸出走文字插值；真的要導頁的話，先用允許清單驗證。
+    pattern-sources:
+      - pattern: $ROUTE.query
+      - pattern: $ROUTE.params
+      - pattern: useRoute().query
+      - pattern: useRoute().params
+    pattern-sinks:
+      - pattern: $EL.innerHTML = $X
+      - pattern: $EL.outerHTML = $X
+      - pattern: location.href = $X
+      - pattern: window.location.href = $X
+      - pattern: window.open($X, ...)
+      - pattern: document.write($X)
+
+  - id: runtime-code-construction
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      執行期組出程式碼會逼 CSP 放寬 script-src 到 'unsafe-eval'（D11／R6）。
+      整份 CSP 的價值建立在沒有這一條上 —— 而放寬是靜默的，
+      症狀只有「某天被滲透測試開單」。
+    pattern-either:
+      - pattern: new Function(...)
+      - pattern: setTimeout("...", ...)
+      - pattern: setInterval("...", ...)
+    paths:
+      # 只看會進 runtime bundle 的東西。tools/ 是建置期腳本，
+      # 它們的程式碼不會被瀏覽器載入，CSP 管不到也不需要管。
+      include:
+        - "apps/**"
+        - "features/**"
+        - "platform/**"
+      exclude:
+        - "**/tests/**"

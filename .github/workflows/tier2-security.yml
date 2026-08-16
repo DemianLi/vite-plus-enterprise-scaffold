@@ -167,6 +167,76 @@ jobs:
       - name: ESLint 安全規則
         run: ./node_modules/.bin/eslint . --max-warnings=0
 
+      # ── SAST（源碼檢測）────────────────────────────────────────────
+      #
+      # ⚠️ **這不是要交給機關的那份 SAST 報告。** 源碼掃描報告是標案的交付物，
+      # 由第三方或機關指定的商用工具產出。這裡是**開發當下**的前置過濾器：
+      # 廠商掃出來的東西你們要在驗收期限內改完，改不完就是延遲驗收 ——
+      # 這一步把「驗收前才知道」變成「開發當下就知道」。
+      #
+      # ── 為什麼是自寫規則，不是 semgrep 的公開規則集（C56）───────────
+      #
+      # C54 當時的建議是改用 p/security-audit 這類公開規則集，理由是
+      # 「自寫規則跟商用工具撞在一起的機率低」。**實測把那個建議推翻了**：
+      # 拿一份故意寫壞的 fixture（route.query → innerHTML、new Function、
+      # 字串型 setTimeout）去測，p/xss 12 條、p/security-audit 22 條、
+      # p/owasp-top-ten 76 條、p/default 210 條 —— **四組全部命中 0**。
+      # 同一份 fixture 下面這兩條自寫規則命中 2。
+      #
+      # 原因不神秘：公開規則集的重心在伺服器端樣板與框架，
+      # Vue SPA 的瀏覽器端 DOM 汙點流是它們覆蓋得最薄的一塊。
+      #
+      # 所以規則留在 repo 裡。附帶好處是它們是**釘住的** —— 註冊表的
+      # `p/xxx` 是會移動的指標，規則變了不需要任何 commit，
+      # 而那會讓一個沒改過的 PR 因為上游改規則而變紅。
+      #
+      # ⚠️ semgrep 是 Python 工具，**不在 pnpm-lock.yaml 裡** ——
+      # tools/supply-chain 的盤點看不到它。它以容器映像進來，
+      # 而那是一個獨立於本 repo 供應鏈論證之外的信任決定（見 HANDOFF 第 21 項）。
+      #
+      # 先驗規則會不會命中，再拿規則去掃 repo。順序是刻意的：
+      # 一組壞掉的規則掃出零個發現，看起來與「沒有問題」一模一樣。
+      - name: "SAST 規則的反向測試"
+        run: |
+          # ⚠️ 掛載的是 **.semgrep 目錄本身**，而且 --config 指向 `.`。
+          #   兩者都是必要的：semgrep 配對 fixture 時算的是規則檔與目標檔的
+          #   相對路徑，工作目錄必須就是規則目錄。從 repo 根目錄下
+          #   `--test --config .semgrep` 配對不上 —— **而它不會報錯**，
+          #   它印「No unit tests found」然後回傳 0。那正是下面兩道防呆的理由。
+          docker run --rm -v "$GITHUB_WORKSPACE/.semgrep:/src" -w /src \
+            semgrep/semgrep:1.145.0 semgrep --test --config . \
+            | tee semgrep-test.log
+
+          # 兩道防呆，缺一不可：
+          # ① 「沒找到測試」要當成失敗 —— semgrep 對它回傳 0
+          if grep -q "No unit tests found" semgrep-test.log; then
+            echo "✗ semgrep 沒有找到任何 fixture —— 規則一條都沒被驗證"
+            echo "  零個測試通過，不是通過。"
+            exit 1
+          fi
+          # ② 輸出裡必須有真的「N/N tests passed」數字。
+          #   少了這一條，任何讓 semgrep 靜默的改動都會再度變成綠燈。
+          if ! grep -qE "[0-9]+/[0-9]+: .*tests passed" semgrep-test.log; then
+            echo "✗ 輸出裡找不到通過的測試數 —— 這一步不知道自己驗了什麼"
+            exit 1
+          fi
+
+      - name: SAST 掃描
+        # ⚠️ 一定要排除 .semgrep/ —— rules.ts 是**故意寫壞的** fixture，
+        #   不排除的話這一步永遠紅，而紅的原因是我們自己種的。
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src \
+            semgrep/semgrep:1.145.0 semgrep scan --config .semgrep/rules.yml \
+              --error --sarif --output semgrep.sarif \
+              --exclude .semgrep
+
+      - name: 上傳 SAST 結果到 Code Scanning
+        if: always() && hashFiles('semgrep.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
       # ── 機密掃描 ──────────────────────────────────────────────────
       - name: Secret 掃描
         uses: gitleaks/gitleaks-action@v3
