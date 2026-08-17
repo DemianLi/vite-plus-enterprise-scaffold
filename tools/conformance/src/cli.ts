@@ -136,6 +136,88 @@ function collectSourceFiles(dir: string, found: string[] = []): string[] {
   return found;
 }
 
+function collectCssFiles(dir: string, found: string[] = []): string[] {
+  for (const entry of readdirSync(dir)) {
+    if (entry === "node_modules" || entry === "dist") continue;
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      collectCssFiles(full, found);
+    } else if (entry.endsWith(".css")) {
+      found.push(full);
+    }
+  }
+  return found;
+}
+
+/**
+ * 去 CSS 註解，而且**先認得引號字串**。
+ *
+ * ⚠️ 天真的 `/\/\*[^]*?\*\//g` 在這個 repo 會踩到一個已知的坑：
+ *
+ * ```
+ * @source "../../../../**\/*.{vue,ts}";
+ *                      ↑ 這裡的 /**\/ 是一個合法的 CSS 空註解
+ * ```
+ *
+ * 吃掉它會把後面一整段（含 `@import`）一起刨掉，而**兩邊都不會報錯** ——
+ * 檢查看到的內容與瀏覽器看到的不是同一個東西。同一個坑
+ * `platform/ui/tests/styles.test.ts` 已經踩過一次，寫在該 package 的 README。
+ */
+export function stripCssComments(css: string): string {
+  let out = "";
+  let index = 0;
+  let quote: string | null = null;
+
+  while (index < css.length) {
+    const ch = css[index] as string;
+
+    if (quote !== null) {
+      out += ch;
+      if (ch === "\\") {
+        out += css[index + 1] ?? "";
+        index += 2;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      index++;
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      out += ch;
+      index++;
+      continue;
+    }
+
+    if (ch === "/" && css[index + 1] === "*") {
+      const end = css.indexOf("*/", index + 2);
+      index = end === -1 ? css.length : end + 2;
+      // 註解換成一個空白，免得把兩個 token 黏在一起。
+      out += " ";
+      continue;
+    }
+
+    out += ch;
+    index++;
+  }
+
+  return out;
+}
+
+/**
+ * `@import "x"`、`@import url("x")`、`@import "x" layer(y)` 三種都要抓到。
+ *
+ * ⚠️ **刻意寫成兩個分支而不是 `(?:url\(\s*)?`。** 那個寫法把 `\s*` 包在
+ * 一個 `?` 群組裡 ＝ star height 2，Tier 2 的 `security/detect-unsafe-regex`
+ * 當場咬住 —— 而它咬得對。同一個坑 `@org/slice-kit/contract` 的切片命名
+ * 規則已經踩過一次，`theme-verify` 的 `palette.ts` 也踩過。
+ *
+ * 沒有加豁免：一道跑在 CI 上的檢查掛在自己的正則上，是最難解釋的那種故障。
+ * 兩個分支各自 star height 1，`url()` 裡的空白照樣吃得到。
+ */
+export const CSS_IMPORT_PATTERN = /@import\s+url\(\s*["']([^"']+)["']|@import\s+["']([^"']+)["']/g;
+
 function checkRelativeEscapes(slicePath: string, slice: string): void {
   const boundary = slicePath + sep;
 
@@ -446,6 +528,36 @@ function checkPhantomDependencies(packageDir: string, label: string): void {
         `把 "${name}" 加進該 package.json 的 dependencies 或 devDependencies。` +
           "現在能跑是靠 workspace 根目錄的提升或間接相依 —— " +
           "那在乾淨重建（退出演練、單獨發佈、機關端依原始碼重建）時不成立",
+      );
+    }
+  }
+
+  // ── CSS 的 `@import` 也是相依，只是它不長得像 import ────────────────
+  //
+  // 2026-08-17 撞到的：`platform/ui/src/styles/index.css` 寫著
+  // `@import "tailwindcss"`，而 `platform/ui` 沒有宣告它 —— 解析成功純粹
+  // 因為 `apps/console` 剛好有。換一個消費者就不成立，而症狀是乾淨重建
+  // 時才爆，那正是上面那條檢查存在的理由。
+  //
+  // ⚠️ 乾跑的時候整個 repo **0 違規**（四筆 `@import`，三個 package 全都
+  // 已宣告）。接它不是因為現在有東西可抓，是因為**它要抓的那個缺陷已經
+  // 真的發生過一次**，而當時沒有任何東西說話（D16 的迭代軸）。
+  for (const file of collectCssFiles(packageDir)) {
+    if (file.includes(TESTS_SEGMENT)) continue;
+    const css = stripCssComments(readFileSync(file, "utf8"));
+
+    for (const match of css.matchAll(CSS_IMPORT_PATTERN)) {
+      // 兩個分支各有一個捕獲組，命中的那一個才有值。
+      const name = packageOfSpecifier(match[1] ?? match[2] ?? "");
+      if (name === null || declared.has(name) || reported.has(name)) continue;
+      reported.add(name);
+
+      fail(
+        label,
+        "幽靈依賴（CSS）",
+        `${relative(ROOT, file)} 的 @import 用了 "${name}"，但 ${relative(ROOT, pkgPath)} 沒有宣告它`,
+        `把 "${name}" 加進該 package.json。CSS 的 @import 與 JS 的 import 走同一套解析，` +
+          "所以失敗方式也一樣：本機綠、CI 綠、乾淨重建時才爆",
       );
     }
   }

@@ -7,6 +7,9 @@
     "theme-verify": "./src/cli.ts"
   },
   "type": "module",
+  "exports": {
+    "./palette": "./src/palette.ts"
+  },
   "scripts": {
     "test": "vp test",
     "check": "vp check"

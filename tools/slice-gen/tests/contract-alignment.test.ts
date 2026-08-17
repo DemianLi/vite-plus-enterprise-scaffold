@@ -17,6 +17,8 @@ import {
   SLICE_DESIGN_SYSTEM_IMPORTS,
 } from "@org/slice-kit/contract";
 
+import { findPaletteUsage } from "@org/theme-verify/palette";
+
 import { buildSliceFiles } from "../src/files.ts";
 import { flattenPaths, assertCoversContract } from "../src/contract-shape.ts";
 
@@ -337,6 +339,24 @@ describe("產出的切片符合 D15 設計系統規則", () => {
     const view = fileAt(`${VIEWS_DIR}/OrderHistoryList.vue`);
     expect(tokens.has("--color-fg-muted")).toBe(true);
     expect(view).toContain("text-fg-muted");
+  });
+
+  /**
+   * ⚠️ **產生器模板裡的一個寫死顏色 ＝ 每個新切片都帶著一個換不掉的顏色。**
+   *
+   * 2026-08-17 乾跑撞到的：模板的 `<h1>` 寫著 `text-gray-900`，而 `features`
+   * 底下那兩處**就是它產出來的**。這與 D15 落地當下「模板忘了 `@org/ui`」
+   * 是同一個形狀（C41）—— 產生器是教學品，它示範什麼團隊就長成什麼。
+   *
+   * 判定式與 `tools/theme-verify` **共用同一支**（`findPaletteUsage`），
+   * 各持一份的話，閘門那邊收緊而模板沒跟上，兩邊測試全綠。
+   */
+  it("★ 模板產出的畫面沒有任何原始顏色（與 theme-verify 同一支判定式）", () => {
+    const views = flattenPaths(files).filter((path) => path.endsWith(".vue"));
+    expect(views.length).toBeGreaterThan(0);
+
+    const violations = views.flatMap((path) => findPaletteUsage(path, fileAt(path)));
+    expect(violations.map((violation) => `${violation.file} ${violation.className}`)).toEqual([]);
   });
 
   it("★ 括號寫法引用的代幣也要存在（現在是 0 處，所以連植入的情況一起驗）", () => {

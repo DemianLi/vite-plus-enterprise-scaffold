@@ -57,6 +57,12 @@ createApp(App).use(createUiTheme({ variants: { secondary: "bg-surface-hover text
 `:root`，不在建置期求值）。這件事由 `tools/theme-verify` 真的建置兩次去比對 ——
 一支只 grep `@theme` 有沒有寫的測試量的是「有沒有寫」，不是「有沒有生效」。
 
+⚠️ **切片與應用也不准寫死顏色，不只元件。** 元件一行原始顏色都沒有，
+不代表各案換得掉配色 —— 切片自己在頁面上寫 `text-gray-900`，那一格就永遠
+是灰的。`theme-verify` 的靜態那一段在 2026-08-17 擴到 `features` 與 `apps`，
+乾跑當場撞到 4 處（含**產生器模板裡的一處**，也就是每個新切片天生帶著
+一個換不掉的顏色）。見 C68〈十〉。
+
 ⚠️ **覆寫的 class 字串必須寫在 `.ts` 或 `.vue` 裡。** `@source` 只掃這兩種副檔名，
 搬進 JSON 或環境變數的話 Tailwind 掃不到、**也不會報錯**，產出的 CSS 少掉那些
 類別而建置全綠 —— 與下面第一個坑同一種症狀。

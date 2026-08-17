@@ -18,7 +18,7 @@ const registered = inject<RegisteredFeatures>("features");
     -->
     <a
       href="#main"
-      class="sr-only focus:not-sr-only focus:absolute focus:z-10 focus:bg-white focus:px-4 focus:py-2"
+      class="sr-only focus:not-sr-only focus:absolute focus:z-10 focus:bg-surface focus:text-fg focus:px-4 focus:py-2"
     >
       {{ $t("shell.skipToContent") }}
     </a>

@@ -318,6 +318,85 @@ describe("幽靈依賴：import 了但 package.json 沒宣告", () => {
     expect(result.output).toContain("幽靈依賴");
   });
 
+  /**
+   * ⚠️ **CSS 的 `@import` 也是相依，只是它不長得像 import。**
+   *
+   * 2026-08-17 撞到的真實案例：`platform/ui/src/styles/index.css` 寫著
+   * `@import "tailwindcss"`，而 `platform/ui` 沒有宣告它 —— 解析成功純粹是
+   * 因為 `apps/console` 剛好有。乾跑時整個 repo 是 0 違規（四筆 `@import`
+   * 三個 package 全都已宣告），所以這一組測試就是這條規則**唯一**的證據。
+   */
+  it("🔴 CSS 的 @import 用了沒宣告的套件 → 紅", () => {
+    const root = makeSandbox();
+    writeFileSync(fileIn(root, "src/styles.css"), '@import "tailwindcss";\n');
+
+    const result = runConformance(root);
+    expect(result.red, result.output).toBe(true);
+    expect(result.output).toContain("幽靈依賴（CSS）");
+    expect(result.output).toContain("tailwindcss");
+  });
+
+  it("🔴 `@import url(...)` 與 `layer()` 尾綴也要抓到", () => {
+    const root = makeSandbox();
+    writeFileSync(fileIn(root, "src/styles.css"), '@import url("some-pkg/a.css") layer(base);\n');
+
+    const result = runConformance(root);
+    expect(result.red, result.output).toBe(true);
+    expect(result.output).toContain("some-pkg");
+  });
+
+  it("★ 相對路徑的 @import 不是相依，不得被誤擋", () => {
+    const root = makeSandbox();
+    writeFileSync(fileIn(root, "src/styles.css"), '@import "./other.css";\n');
+
+    expect(runConformance(root).red).toBe(false);
+  });
+
+  it("★ 註解掉的 @import 不算", () => {
+    const root = makeSandbox();
+    writeFileSync(fileIn(root, "src/styles.css"), '/* @import "commented-out"; */\n');
+
+    const result = runConformance(root);
+    expect(result.output).not.toContain("commented-out");
+    expect(result.red, result.output).toBe(false);
+  });
+
+  /**
+   * 🔴 **去註解時不准把 glob 吃掉。**
+   *
+   * ⚠️ 下面幾處的 `*\/` 刻意加了反斜線 —— 寫成裸的會**把這段註解自己關掉**，
+   * 而症狀是 386 行之後整個檔案變成語法錯誤。講註解會被吃掉的註解自己被吃掉了。
+   *
+   * `@source "…/**\/*.{vue,ts}"` 裡的 `/*` 是一個**合法的 CSS 註解開頭**。
+   * 天真的 `/\/\*[^]*?\*\//g` 會從那裡一路吃到**下一個真註解的 `*\/`**，
+   * 把中間整段刨掉 —— 而中間那段裡有一個真的 `@import`。兩邊都不報錯，
+   * 檢查看到的內容與瀏覽器看到的不是同一個東西。
+   *
+   * ⚠️ **這條測試的第一版不會鑑別**：當時 glob 之後沒有 `*\/`，天真版
+   * 根本沒吃到東西，所以兩種實作都綠。要讓它有意義，被吃掉的那個
+   * `@import` 必須是**沒宣告的套件**，而且後面要真的有一個 `*\/`。
+   * 換成天真版實測會紅 —— 那才是這條存在的證據。
+   */
+  it("🔴 glob 裡的 /* 不是註解 —— 吃掉它會連真的 @import 一起吞了", () => {
+    const root = makeSandbox();
+    writeFileSync(
+      fileIn(root, "src/styles.css"),
+      [
+        // ⚠️ 這個 glob 刻意寫成 `src/*.…` 而不是 `**/*.…`：後者的 `/**/` 是
+        // **自閉合**的，天真版只吃掉那四個字元、吞不到下面那行。
+        // 第一版就是那樣寫的，於是兩種實作都綠 —— 一條不會鑑別的測試。
+        '@source "src/*.{vue,ts}";',
+        '@import "swallowed-pkg";',
+        "/* 一個真的註解，天真版會吃到這裡才停 */",
+        "",
+      ].join("\n"),
+    );
+
+    const result = runConformance(root);
+    expect(result.red, result.output).toBe(true);
+    expect(result.output).toContain("swallowed-pkg");
+  });
+
   it("★ 子路徑匯入不得被誤擋（@org/slice-kit/contract 就是 @org/slice-kit）", () => {
     const root = makeSandbox();
     patch(

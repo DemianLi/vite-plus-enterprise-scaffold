@@ -19,6 +19,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@org/theme-verify": "workspace:*",
     "@org/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",

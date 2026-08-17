@@ -39,7 +39,7 @@ const statusKey = computed<string | null>(() => {
 
 <template>
   <section>
-    <h1 class="text-xl font-semibold text-gray-900">{{ $t("shipment.title") }}</h1>
+    <h1 class="text-xl font-semibold text-fg">{{ $t("shipment.title") }}</h1>
 
     <!--
       與 OrderList.vue 同一個處理，理由也一樣（見該檔 statusKey 的註解）：
