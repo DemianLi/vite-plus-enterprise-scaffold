@@ -46,8 +46,16 @@ const CODEMODS_DIR = join(ROOT, "tools/codemods");
  *
  * 那種紅燈沒有合法出口（沒有 codemod 可寫），所以升版號才是正解：
  * 版本對不上時 surface 整份重建，diff 一次看完。
+ *
+ * 版本沿革：
+ *   1 → 2（2026-08-16）模組 → export 名稱清單，改成名稱 → 型別形狀
+ *   2 → 3（2026-08-17）`.vue` 開始記 slot 與 emit（`[slot x]`／`[emit x]`）
+ *
+ * ⚠️ 第 3 版那次正是這段說明的示範：`platform/` 一個位元組都沒改（那四個
+ * slot 從第一天就存在），但工具開始記它們，於是比對出來是**四筆「新增必填
+ * 成員」的破壞性變更**，要求四份不存在的 codemod。升版號是唯一正確的出口。
  */
-const BASELINE_VERSION = 2;
+const BASELINE_VERSION = 3;
 
 /**
  * 要比對的基準檔。`--baseline <path>` 可以指到別處。

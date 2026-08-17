@@ -8,6 +8,7 @@ import {
   DialogRoot,
   DialogTitle,
 } from "reka-ui";
+import type { VNode } from "vue";
 import { cn } from "../utils/cn.ts";
 
 /**
@@ -38,6 +39,31 @@ defineProps<{
   title: string;
   /** 給螢幕閱讀器的說明。**必填** —— 沒有它的對話框對輔具使用者是一個無名的框。 */
   description: string;
+}>();
+
+/**
+ * ── 這三個 slot 就是 C62 那句「各案可以更換互動方式」的接縫 ────────────
+ *
+ * 配色與形狀是靠代幣換的（`createUiTheme`）；**互動換不了代幣，只能靠組合**。
+ * 這三格分別對應三種粒度：
+ *
+ *   default  換內容
+ *   footer   換**整組**收尾動作 —— 預設是「一顆關閉鈕」，各案可以放
+ *            「確認／取消」、放一個表單送出、或放空的
+ *   close    只換那顆關閉鈕本身（外層仍是 reka-ui 的 DialogClose，
+ *            所以點擊會關閉、鍵盤與焦點行為不變）
+ *
+ * ⚠️ **它們從落地那天就存在，只是沒有被宣告過。** 而在 2026-08-17 之前
+ * `api-surface` 看不見它們 —— 那道「加 defineSlots 會丟例外」的限制擋的是
+ * 宣告，不是 slot 本身。實測：往模板加一個具名 slot，閘門全綠。
+ * 現在宣告與模板必須一致，兩個方向都會紅。
+ *
+ * ⚠️ 回傳型別是**未經檢查的文字**（`.vue` 沒有型別檢查，見 HANDOFF #26）。
+ */
+defineSlots<{
+  default(): VNode[];
+  footer(): VNode[];
+  close(): VNode[];
 }>();
 </script>
 

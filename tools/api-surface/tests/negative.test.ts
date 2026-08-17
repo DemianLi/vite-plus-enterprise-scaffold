@@ -689,31 +689,117 @@ describe(".vue 元件的公開面", () => {
     expect(result.output).toContain("ariaLabel");
   });
 
-  it("🔴 元件用了 defineEmits → 直接丟例外，而且要說是哪個檔案", () => {
+  it("🔴 元件用了 defineExpose → 直接丟例外，而且要說是哪個檔案", () => {
+    // 三個巨集裡只剩它擋著。理由不是「還沒做」，是 `<script setup>` 預設封閉：
+    // 沒有這個巨集，一個實例成員都洩不出去 —— 它的絆線是真的。
     const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
-      source.replace("defineProps<{", 'defineEmits<{ (e: "go"): void }>();\n\ndefineProps<{'),
+      source.replace("defineProps<{", "defineExpose({ focus: () => {} });\n\ndefineProps<{"),
     );
-    expect(result.red, `emits 沒被擋下 —— 記下來的形狀會是不完整的\n${result.output}`).toBe(true);
+    expect(result.red, `expose 沒被擋下 —— 整個實例面會少掉\n${result.output}`).toBe(true);
     expect(result.output).toContain("SampleWidget.vue");
-    expect(result.output).toContain("defineEmits");
+    expect(result.output).toContain("defineExpose");
   });
 
-  it("★ 只在**註解**裡提到 defineEmits → 不得紅", () => {
+  it("★ 只在**註解**裡提到 defineExpose → 不得紅", () => {
     /**
      * 這條是被自己絆倒之後補的。`UiButton.vue` 的說明裡寫了一句
-     * 「加 defineEmits 會讓 api-surface 丟例外」，於是這支解析讀到自己的
+     * 「加 defineExpose 會讓 api-surface 丟例外」，於是這支解析讀到自己的
      * 警語，然後對那個檔案丟了例外 —— 訊息看起來完全正確，指的卻是註解。
      *
      * 修法是掃原始碼前先剝掉註解。留這條，是因為下一個人很可能會在
      * 別的地方重新加一個沒剝註解的掃描。
      */
     const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
-      source.replace(
-        "type Tone =",
-        "// 這個元件刻意不用 defineEmits / defineSlots / defineExpose。\ntype Tone =",
-      ),
+      source.replace("type Tone =", "// 這個元件刻意不用 defineExpose。\ntype Tone ="),
     );
     expect(result.red, `註解裡的字被當成程式碼了\n${result.output}`).toBe(false);
+  });
+
+  /**
+   * ── slot 與 emit：2026-08-17 之前這一整組問不出來 ──────────────────
+   *
+   * 當時的「保護」是：原始碼裡出現 `defineEmits`／`defineSlots` 就丟例外。
+   * 實測顯示那道絆線綁錯了東西 —— 它絆的是**宣告**，而 slot 與 emit
+   * **不需要宣告就存在**。下面第一條與第二條就是當初那兩筆量測，
+   * 現在它們必須紅。
+   */
+  it("🔴 模板加一個沒宣告的具名 slot → 紅（這一條在修好之前是綠的）", () => {
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("{{ label }}", '<slot name="header" />{{ label }}'),
+    );
+    expect(result.red, `沒宣告的 slot 是公開面，閘門卻看不見\n${result.output}`).toBe(true);
+    expect(result.output).toContain("header");
+  });
+
+  it("🔴 模板 emit 一個沒宣告的事件 → 紅（同樣曾經是綠的）", () => {
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("emit('picked', label)", "emit('dropped', label)"),
+    );
+    expect(result.red, `沒宣告的事件是公開面，閘門卻看不見\n${result.output}`).toBe(true);
+    expect(result.output).toContain("dropped");
+  });
+
+  it("🔴 拿掉一個 slot（宣告與模板一起拿掉）→ 破壞性", () => {
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("  icon(): unknown[];\n", "").replace('<slot name="icon" />', ""),
+    );
+    expect(result.red, `少一個 slot 沒被判成破壞性\n${result.output}`).toBe(true);
+    expect(result.output).toContain("[slot icon]");
+  });
+
+  it("🔴 改一個 emit 的參數型別 → 破壞性", () => {
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("picked: [label: string]", "picked: [label: number]"),
+    );
+    expect(result.red, `emit 的參數型別變了沒被看見\n${result.output}`).toBe(true);
+    expect(result.output).toContain("[emit picked]");
+  });
+
+  it("🔴 宣告了一個模板裡沒有的 slot → 紅（記錄比公開面大也是壞的）", () => {
+    // 另一個方向。消費端照著基準檔寫 `<template #ghost>`，內容永遠不會出現，
+    // 而那是一個沒有錯誤訊息的 bug。
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("  icon(): unknown[];", "  icon(): unknown[];\n  ghost(): unknown[];"),
+    );
+    expect(result.red, `宣告了不存在的 slot 沒被抓到\n${result.output}`).toBe(true);
+    expect(result.output).toContain("ghost");
+  });
+
+  it("★ 只寫在 HTML 註解裡的 <slot> 不算一個 slot", () => {
+    // 與上面那條 `defineExpose` 註解測試同一個顧慮，只是換一種註解語法。
+    // `UiDialog` 的模板本來就有 <!-- … -->，所以這條不是假想的情況。
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("{{ label }}", '<!-- 之後可能會加 <slot name="header" /> -->{{ label }}'),
+    );
+    expect(result.red, `HTML 註解裡的 slot 被當成真的了\n${result.output}`).toBe(false);
+  });
+
+  it("🔴 動態名字的 <slot> → 丟例外，不是安靜地少記", () => {
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace('<slot name="icon" />', '<slot :name="tone" />'),
+    );
+    expect(result.red, `讀不出名字的 slot 被跳過了\n${result.output}`).toBe(true);
+    expect(result.output).toContain("動態");
+  });
+
+  it("★ prop 的型別裡有分號 → 仍然算一個成員（切割要真的配對括號）", () => {
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("  label: string;", "  label: string;\n  meta: { a: string; b: number };"),
+    );
+    expect(result.red, `新增必填 prop 沒被看見\n${result.output}`).toBe(true);
+    expect(result.output).toContain("meta");
+    // 天真的 `split(";")` 會把它切成 `meta: { a: string` 與 `b: number }` 兩個成員。
+    // 兩個都是假的，而第二個看起來完全合法 —— 那種錯誤不會有人發現。
+    expect(result.output).not.toContain("成員 `b`");
+  });
+
+  it("🔴 defineProps 裡有一段解析不了的東西 → 丟例外，不是跳過", () => {
+    // 跳過的代價是那個 prop 從此不在記錄裡，而不在記錄裡的東西改了不會漂移。
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("  label: string;", "  label: string;\n  (): void;"),
+    );
+    expect(result.red, `看不懂的宣告被安靜跳過了\n${result.output}`).toBe(true);
+    expect(result.output).toContain("看不懂");
   });
 
   it("★ 改名 SFC 裡的區域型別別名 → 綠", () => {

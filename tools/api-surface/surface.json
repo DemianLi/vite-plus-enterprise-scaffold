@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "surface": {
     "@org/bff-contract": {
       "API_PREFIX": {
@@ -478,6 +478,7 @@
       "UiButton": {
         "kind": "component",
         "members": [
+          "[slot default]: (): VNode[]",
           "disabled?: boolean",
           "size?: \"sm\" | \"md\"",
           "type?: \"button\" | \"submit\" | \"reset\"",
@@ -488,6 +489,9 @@
         "kind": "component",
         "members": [
           "[emit update:open]: void",
+          "[slot close]: (): VNode[]",
+          "[slot default]: (): VNode[]",
+          "[slot footer]: (): VNode[]",
           "description: string",
           "open?: boolean",
           "title: string"

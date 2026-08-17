@@ -211,24 +211,199 @@ function typeShape(checker: Checker, symbol: ApiSymbol): ExportShape {
  *
  * 這個 repo 沒有 vue-tsc 可以用：vue-tsc 建在 TypeScript 6 以前的
  * compiler API 上，而 TS 7 把那個 API 拿掉了。所以這裡直接讀 SFC 的
- * `defineProps<{…}>()` 與 `defineModel<T>(…)`。
+ * `defineProps` / `defineModel` / `defineSlots` / `defineEmits`。
  *
  * ⚠️ **這是文字解析，涵蓋範圍必須寫死而不是盡力而為。** 元件的公開面
  * 除了 props 還有 emits、slots、expose；只認 props 卻記成一份完整形狀，
- * 就是「看起來有守、其實沒守」。因此遇到 `defineEmits` / `defineSlots` /
- * `defineExpose` 一律丟例外，讓加這些東西的人來決定怎麼記，而不是
- * 讓閘門安靜地少算。
+ * 就是「看起來有守、其實沒守」。
  */
-const SFC_UNSUPPORTED = ["defineEmits", "defineSlots", "defineExpose"] as const;
+
+/**
+ * `<script setup>` 裡唯一「不宣告就真的洩不出去」的巨集。
+ *
+ * ── 為什麼三個變成一個（2026-08-17）───────────────────────────────────
+ *
+ * 原本 `defineEmits` / `defineSlots` / `defineExpose` 三個都丟例外，理由寫著
+ * 「元件的公開面不只 props」。那句話是對的，但**那道絆線綁錯了東西**：
+ * 它絆的是「巨集的名字出現在原始碼裡」，不是公開面本身。實測（fixture 元件）：
+ *
+ *   在 `<template>` 加一個具名 slot 與一個預設 slot   → 閘門**全綠**
+ *   在 `<template>` 加 `@click="$emit('picked', label)"` → 閘門**全綠**
+ *
+ * 兩者都是真的公開面，兩者都不需要那三個巨集。而 `UiDialog` 從落地那天起
+ * 就有三個沒被記錄的 slot（`default`／`footer`／`close`），兩個切片正在用
+ * `#close` —— 也就是這道「保護」擋著的是宣告，不是變更。
+ *
+ * `defineExpose` 不一樣：`<script setup>` 預設是**封閉**的，沒有這個巨集，
+ * 一個實例成員都洩不出去。它的絆線是真的，所以留著。
+ *
+ * 三個裡兩個是裝飾品，一個是真的 —— 差別在於那個東西**能不能不經宣告就存在**。
+ */
+const SFC_UNSUPPORTED = ["defineExpose"] as const;
+
 const DEFINE_PROPS = /defineProps<\{([\s\S]*?)\}>\(\)/;
+const DEFINE_SLOTS = /defineSlots<\{([\s\S]*?)\}>\(\)/;
+const DEFINE_EMITS = /defineEmits<\{([\s\S]*?)\}>\(\)/;
 const DEFINE_MODEL = /defineModel<([^>]+)>\(\s*"([^"]+)"/g;
 const LOCAL_TYPE = /^\s*type\s+([A-Za-z_$][\w$]*)\s*=\s*([^;]+);/gm;
 const BLOCK_COMMENT = /\/\*[\s\S]*?\*\//g;
 const LINE_COMMENT = /(^|[^:])\/\/[^\n]*/g;
+const HTML_COMMENT = /<!--[\s\S]*?-->/g;
+const TEMPLATE_BLOCK = /<template[^>]*>([\s\S]*)<\/template>/;
+const SLOT_TAG = /<slot\b([^>]*)>/g;
+const EMIT_CALL = /\$?\bemit\(\s*(["'])([^"']*)\1/g;
+const EMIT_ANY = /\$?\bemit\(/g;
+
+/**
+ * 把一個型別字面值的內容切成成員。
+ *
+ * ⚠️ **不能用 `split(";")`。** slot 的正規寫法是方法簽章、一行一個、
+ * 常常連分號都不寫：
+ *
+ *   defineSlots<{
+ *     default(): VNode[]
+ *     footer(): VNode[]
+ *   }>()
+ *
+ * 而 prop 的型別裡本來就可能有分號（`meta?: { a: string; b: number }`）。
+ * 兩邊都要對，所以這裡做真的括號配對，只在**深度 0** 的 `;` 或換行切開 ——
+ * 與 `tools/theme-verify/src/css.ts` 學到的是同一件事：切錯的那幾個成員
+ * 不會報錯，它們會安靜地從記錄裡消失。
+ */
+function splitMembers(block: string): readonly string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+
+  for (let i = 0; i < block.length; i++) {
+    const char = block[i];
+    if (char === "{" || char === "[" || char === "(" || char === "<") {
+      depth++;
+    } else if (char === "}" || char === "]" || char === ")") {
+      depth--;
+      // `=>` 的 `>` 不是泛型的結尾。少了這個判斷，箭頭函式型別會把深度算成負的，
+      // 而負深度的下一個 `;` 就切不開了。
+    } else if (char === ">" && depth > 0 && block[i - 1] !== "=") {
+      depth--;
+    } else if ((char === ";" || char === "\n") && depth === 0) {
+      parts.push(block.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(block.slice(start));
+
+  return parts.map((part) => part.trim()).filter((part) => part.length > 0);
+}
+
+const TIGHTEN = /\s+/g;
+
+/** `name(…)` 或 `name: …` 或 `"name": …` → 名字與其餘。認不出來就回 undefined。 */
+function splitDeclaration(member: string, separator: "(" | ":"): [string, string] | undefined {
+  let name: string;
+  let rest: string;
+
+  if (member.startsWith('"')) {
+    const close = member.indexOf('"', 1);
+    if (close === -1) return undefined;
+    name = member.slice(1, close);
+    rest = member.slice(close + 1).trim();
+    if (separator === ":") {
+      if (!rest.startsWith(":")) return undefined;
+      rest = rest.slice(1).trim();
+    }
+  } else {
+    const at = member.indexOf(separator);
+    if (at <= 0) return undefined;
+    name = member.slice(0, at).trim();
+    rest = separator === ":" ? member.slice(at + 1).trim() : member.slice(at).trim();
+  }
+
+  if (!/^[A-Za-z_$][\w$:.-]*$/.test(name)) return undefined;
+  return [name, rest.replace(TIGHTEN, " ")];
+}
+
+/**
+ * 認不出來的成員一律丟例外，不是跳過。
+ *
+ * 跳過的代價是**那個成員從此不在記錄裡**，而不在記錄裡的東西改了不會漂移 ——
+ * 又一個「看起來有守」。這裡寧可要求寫法收斂成一種。
+ */
+function parseBlock(
+  file: string,
+  kind: "props" | "slots" | "emits",
+  block: string,
+  expand: (text: string) => string,
+): string[] {
+  const members: string[] = [];
+
+  for (const member of splitMembers(block)) {
+    if (kind === "props") {
+      const parsed = /^([A-Za-z_$][\w$]*)(\??)\s*:\s*([\s\S]+)$/.exec(member);
+      if (parsed === null) {
+        throw new Error(
+          `${basename(file)} 的 defineProps 有一段看不懂：\`${member}\`\n` +
+            "  只認 `name: 型別` 與 `name?: 型別`。跳過它等於那個 prop 從此不受守護。",
+        );
+      }
+      const [, name, optional, type] = parsed;
+      members.push(`${name}${optional}: ${expand((type ?? "").trim().replace(TIGHTEN, " "))}`);
+      continue;
+    }
+
+    // slot 走方法簽章（Vue 官方寫法），emit 走 3.3 的 tuple 寫法。
+    const parsed = splitDeclaration(member, kind === "slots" ? "(" : ":");
+    if (parsed === undefined) {
+      throw new Error(
+        `${basename(file)} 的 define${kind === "slots" ? "Slots" : "Emits"} 有一段看不懂：\`${member}\`\n` +
+          (kind === "slots"
+            ? "  只認方法簽章 `name(props): 回傳型別`（Vue 官方寫法）。"
+            : "  只認 tuple 寫法 `name: [參數: 型別]`（Vue 3.3 起的寫法）。") +
+          "\n  跳過它等於那一格從此不受守護。",
+      );
+    }
+    const [name, rest] = parsed;
+    members.push(`[${kind === "slots" ? "slot" : "emit"} ${name}]: ${expand(rest)}`);
+  }
+
+  return members;
+}
+
+/** `<slot>` 的名字。動態名字（`:name`）解析不了，一律丟例外。 */
+function templateSlots(file: string, template: string): ReadonlySet<string> {
+  const names = new Set<string>();
+
+  for (const match of template.matchAll(SLOT_TAG)) {
+    const attributes = match[1] ?? "";
+    if (/(^|\s)(:|v-bind:)name[=\s]/.test(attributes)) {
+      throw new Error(
+        `${basename(file)} 有一個名字是動態的 \`<slot>\`。\n` +
+          "  這支解析讀不出它會是哪些名字，而讀不出來就記不進公開面 —— " +
+          "請改成固定名字，或先擴充 tools/api-surface/src/shape.ts。",
+      );
+    }
+    const named = /(^|\s)name\s*=\s*"([^"]+)"/.exec(attributes);
+    names.add(named?.[2] ?? "default");
+  }
+
+  return names;
+}
+
+/** `$emit("x")` / `emit("x")` 的事件名。第一個參數不是字面值時丟例外。 */
+function emittedNames(file: string, source: string): ReadonlySet<string> {
+  const literal = [...source.matchAll(EMIT_CALL)];
+  const total = [...source.matchAll(EMIT_ANY)];
+  if (literal.length !== total.length) {
+    throw new Error(
+      `${basename(file)} 有一個 emit 的事件名不是字面值。\n` +
+        "  讀不出事件名就記不進公開面，而少記的那一格改了不會漂移。",
+    );
+  }
+  return new Set(literal.map((match) => match[2] as string));
+}
 
 function parseComponent(file: string): ExportShape {
   /**
-   * 先把註解拿掉，再看有沒有那三個巨集。
+   * 先把註解拿掉，再看有沒有那些巨集。
    *
    * ⚠️ 這一步是被自己絆倒之後才加的：`UiButton.vue` 的說明文字裡寫了一句
    * 「加 `defineEmits` 會讓 api-surface 直接丟例外」，於是這支解析讀到
@@ -237,15 +412,23 @@ function parseComponent(file: string): ExportShape {
    * 教訓不是「別在註解裡提巨集名」—— 那正是應該寫在那裡的話。
    * 是**掃原始碼的檢查一律要先剝掉註解**，否則文件與程式碼會互相干擾，
    * 而症狀（一個看起來很正確的錯誤訊息）不會指向真正的原因。
+   *
+   * ⚠️ HTML 註解是 2026-08-17 補的：新加的 `<template>` 掃描要在那裡面找
+   * `<slot>`，而 `UiDialog` 的模板本來就有 `<!-- … -->`。同一個坑，
+   * 只是換了一種註解語法。
    */
-  const source = readFileSync(file, "utf8").replace(BLOCK_COMMENT, "").replace(LINE_COMMENT, "$1");
+  const source = readFileSync(file, "utf8")
+    .replace(BLOCK_COMMENT, "")
+    .replace(LINE_COMMENT, "$1")
+    .replace(HTML_COMMENT, "");
 
   for (const marker of SFC_UNSUPPORTED) {
     if (!source.includes(marker)) continue;
     throw new Error(
-      `${basename(file)} 使用了 ${marker}，而這裡只解析 props。\n` +
-        "  元件的公開面因此不只 props，記下來的形狀會是不完整的 —— " +
-        "請先擴充 tools/api-surface/src/shape.ts 的解析，再加這個宣告。",
+      `${basename(file)} 使用了 ${marker}，而這裡不解析它。\n` +
+        "  `<script setup>` 預設是封閉的，所以 expose 出去的東西只會來自這個巨集 —— " +
+        "記下來的形狀會少掉整個實例面。\n" +
+        "  請先擴充 tools/api-surface/src/shape.ts 的解析，再加這個宣告。",
     );
   }
 
@@ -263,18 +446,30 @@ function parseComponent(file: string): ExportShape {
   const aliases = new Map<string, string>();
   for (const match of source.matchAll(LOCAL_TYPE)) {
     if (match[1] !== undefined && match[2] !== undefined) {
-      aliases.set(match[1], match[2].trim().replace(/\s+/g, " "));
+      aliases.set(match[1], match[2].trim().replace(TIGHTEN, " "));
     }
   }
   const expand = (text: string): string =>
     text.replace(/\b[A-Za-z_$][\w$]*\b/g, (name) => aliases.get(name) ?? name);
 
-  const members: string[] = [];
-  for (const line of propsBlock[1].split(";")) {
-    const declaration = /^\s*([A-Za-z_$][\w$]*)(\??)\s*:\s*([\s\S]+)$/.exec(line);
-    if (declaration === null) continue;
-    const [, name, optional, type] = declaration;
-    members.push(`${name}${optional}: ${expand((type ?? "").trim().replace(/\s+/g, " "))}`);
+  const members = parseBlock(file, "props", propsBlock[1], expand);
+
+  const slotsBlock = DEFINE_SLOTS.exec(source);
+  const declaredSlots = new Set<string>();
+  if (slotsBlock?.[1] !== undefined) {
+    for (const member of parseBlock(file, "slots", slotsBlock[1], expand)) {
+      members.push(member);
+      declaredSlots.add((/^\[slot ([^\]]+)\]/.exec(member)?.[1] ?? "").trim());
+    }
+  }
+
+  const emitsBlock = DEFINE_EMITS.exec(source);
+  const declaredEmits = new Set<string>();
+  if (emitsBlock?.[1] !== undefined) {
+    for (const member of parseBlock(file, "emits", emitsBlock[1], expand)) {
+      members.push(member);
+      declaredEmits.add((/^\[emit ([^\]]+)\]/.exec(member)?.[1] ?? "").trim());
+    }
   }
 
   // defineModel 同時產生一個 prop 與一個 update:<name> 事件，兩邊都是公開面。
@@ -282,13 +477,77 @@ function parseComponent(file: string): ExportShape {
     const [, type, name] = match;
     members.push(`${name}?: ${(type ?? "unknown").trim()}`);
     members.push(`[emit update:${name}]: void`);
+    declaredEmits.add(`update:${name}`);
   }
+
+  assertDeclared(file, source, declaredSlots, declaredEmits);
 
   if (members.length === 0) {
     throw new Error(`${basename(file)} 的 defineProps 解析結果是空的 —— 空形狀等於沒有守`);
   }
 
   return { kind: "component", members: sortMembers(members) };
+}
+
+/**
+ * 模板裡真的存在的 slot／emit，必須與宣告**完全一致**。
+ *
+ * ── 少了這一段，這次的擴充只是把絆線換個位置 ────────────────────────
+ *
+ * 上一版擋的是「巨集出現在原始碼裡」，而實測顯示 slot 與 emit **不需要巨集
+ * 就能存在**（見 SFC_UNSUPPORTED 上面的兩筆量測）。所以只加解析、不加這一段，
+ * 結果會是：宣告了的守得住，沒宣告的照樣安靜地存在 —— 和之前一樣。
+ *
+ * slot 兩個方向都檢查：
+ *   - 模板有、宣告沒有 → 公開面比記錄大，改了不會漂移
+ *   - 宣告有、模板沒有 → 記錄比公開面大，消費端照著寫卻永遠不會渲染
+ *
+ * ⚠️ **emit 只檢查一個方向**（emit 了就要宣告），這是量出來的不對稱：
+ * `defineModel("open")` 會生出一個 `update:open` 事件，而那個事件**沒有任何
+ * `emit(...)` 呼叫** —— 是 Vue 自己送的。反方向一起檢查的話，`UiDialog`
+ * 第一天就紅，然後這條規則會被關掉（C41）。
+ */
+function assertDeclared(
+  file: string,
+  source: string,
+  slots: ReadonlySet<string>,
+  emits: ReadonlySet<string>,
+): void {
+  const emitted = emittedNames(file, source);
+  for (const name of emitted) {
+    if (emits.has(name)) continue;
+    throw new Error(
+      `${basename(file)} emit 了 "${name}"，但 defineEmits 沒有宣告它。\n` +
+        `  沒有宣告的事件仍然是公開面（消費端 @${name} 收得到），只是這道閘門看不見 —— ` +
+        "請補進 defineEmits<{…}>()。",
+    );
+  }
+
+  // 沒有 <template> 時算成「零個 slot」，而不是跳過檢查 —— 跳過的話，
+  // 一個宣告了 slot 卻沒有模板的元件會安靜通過，而它宣告的每一格都是假的。
+  const templateBlock = TEMPLATE_BLOCK.exec(source);
+  const rendered =
+    templateBlock?.[1] === undefined ? new Set<string>() : templateSlots(file, templateBlock[1]);
+
+  for (const name of rendered) {
+    if (slots.has(name)) continue;
+    throw new Error(
+      `${basename(file)} 的模板有 <slot${name === "default" ? "" : ` name="${name}"`}>，` +
+        "但 defineSlots 沒有宣告它。\n" +
+        "  slot 不需要巨集就存在，所以沒宣告＝這道閘門看不見它 —— " +
+        "而它仍然是消費端寫得出來的公開面。請補進 defineSlots<{…}>()。",
+    );
+  }
+
+  for (const name of slots) {
+    if (rendered.has(name)) continue;
+    throw new Error(
+      `${basename(file)} 的 defineSlots 宣告了 "${name}"，但模板裡沒有這個 <slot>。\n` +
+        "  記錄比公開面大：消費端照著基準檔寫 <template #" +
+        name +
+        ">，內容永遠不會出現。",
+    );
+  }
 }
 
 // ── 非匯出的本地型別 ─────────────────────────────────────────────────
