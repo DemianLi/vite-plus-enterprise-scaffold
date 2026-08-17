@@ -113,6 +113,50 @@ describe("產出的 package.json 符合一致性檢查", () => {
   it("透過 @org/http-client 取得資料存取能力", () => {
     expect(Object.keys(allDeps)).toContain("@org/http-client");
   });
+
+  /**
+   * ── 模板裡的 `$t` 是一個相依，而它不長得像相依（C68）──────────────
+   *
+   * 2026-08-17 之前，產生器產出的模板用 `$t`，而產出的 `package.json` 沒有
+   * `vue-i18n`、`env.d.ts` 也沒有匯入它。症狀是**切片單獨拿出來型別檢查
+   * 噴一整排 TS2339，而所有閘門全綠** —— 全域屬性不是 import，
+   * `tools/conformance` 的幽靈相依檢查看不見它。
+   *
+   * 這條斷言刻意從**產出的模板**推導，不是寫死一組 `$t` ↔ `vue-i18n`：
+   * 模板哪天不再用 `$t` 了，這條就自己失效，不會變成一條沒人敢刪的規則。
+   */
+  it("★ 模板用了 $t → 宣告與一句真的 import 兩處都要有（C68）", () => {
+    const views = flattenPaths(files).filter((path) => path.endsWith(".vue"));
+    expect(views.length).toBeGreaterThan(0);
+
+    const usesGlobalT = views.some((path) => fileAt(path).includes("$t("));
+    if (!usesGlobalT) return;
+
+    expect(Object.keys(allDeps)).toContain("vue-i18n");
+    // 只宣告是不夠的 —— 實測只加宣告仍然 10 條，要有一句真的 import 才會
+    // 把 augmentation 帶進 program。放哪個 .d.ts 不重要，有就好。
+    const declarations = flattenPaths(files).filter((path) => path.endsWith(".d.ts"));
+    expect(declarations.some((path) => fileAt(path).includes('from "vue-i18n"'))).toBe(true);
+  });
+
+  /**
+   * ⚠️ 上一條的陷阱：那句 import 放錯檔案會**把 `.vue` 的解析整個弄壞**。
+   *
+   * `env.d.ts` 一旦出現頂層 import／export 就從全域腳本變成模組，而模組裡的
+   * `declare module "*.vue"` 不再是環境宣告 —— `routes.ts` 的
+   * `import("./views/…​.vue")` 當場找不到模組。實作時就是這樣紅的。
+   *
+   * 而且它**只有 tsgolint 紅、vue-tsc 全綠**（vue-tsc 真的解析 `.vue`，
+   * 不需要那個 shim）。所以這條不是「多寫一條保險」，是釘住一個
+   * 兩支編譯器看法不同的位置 —— 那正是 C57 說會出事的地方。
+   */
+  it('★ env.d.ts 不得是模組 —— 否則 declare module "*.vue" 會失效', () => {
+    const source = fileAt("src/env.d.ts");
+    for (const line of source.split("\n")) {
+      expect(line, `env.d.ts 出現頂層 import／export：${line}`).not.toMatch(/^(import|export)\s/);
+    }
+    expect(source).toContain('declare module "*.vue"');
+  });
 });
 
 describe("產出的程式碼落在正確的命名空間", () => {

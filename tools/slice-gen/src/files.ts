@@ -45,6 +45,10 @@ export function buildSliceFiles(options: SliceOptions): FileTree {
             "@tanstack/vue-query": "catalog:",
             pinia: "catalog:",
             vue: "catalog:",
+            // 模板用 `$t`，而 `$t` 是 vue-i18n 掛上去的全域屬性 —— 它是相依，
+            // 只是不長得像。少了這一行（加上 env.d.ts 那句 import），切片單獨
+            // 型別檢查會噴一整排 TS2339，見 C68。
+            "vue-i18n": "catalog:",
             "vue-router": "catalog:",
           },
           devDependencies: {
@@ -133,6 +137,10 @@ vp run ${pkgName}#test
 `,
 
     src: {
+      // ⚠️ **這個檔案不可以出現任何頂層 import／export。**
+      // 有的話它就從全域腳本變成模組，而模組裡的 \`declare module "*.vue"\`
+      // 不再是環境宣告 —— \`routes.ts\` 的 \`import("./views/…​.vue")\` 當場
+      // 找不到模組。i18n 的那句 import 因此住在隔壁的 i18n.d.ts。
       "env.d.ts": `/// <reference types="vite/client" />
 
 // Vue 單檔元件的型別橋接：tsgolint 不認識 .vue 副檔名。
@@ -141,6 +149,23 @@ declare module "*.vue" {
   const component: DefineComponent<Record<string, unknown>, Record<string, unknown>, unknown>;
   export default component;
 }
+`,
+
+      "i18n.d.ts": `// ── 模板裡的 \`$t\` 是一個相依，而它不長得像相依（C68）─────────────────
+//
+// \`$t\` 由 vue-i18n augment 到 \`ComponentCustomProperties\` 上。少了這一行，
+// 這個切片**單獨拿出來型別檢查會噴一整排 TS2339**，而在 apps/console 的
+// program 裡是 0 條 —— 因為 console 的 main.ts 有 \`import { createI18n }\`。
+//
+// ⚠️ 實測過三種寫法，只有這一種有效（package.json 宣告、\`/// <reference>\`
+// 都無效）。而這一行的另一半價值是它**是一個 import** —— 幽靈相依檢查讀
+// import，所以補完之後這個相依從此有人守。
+//
+// ⚠️ **為什麼自己一個檔案。** 併進 env.d.ts 會讓那個檔案變成模組，
+// 於是裡面的 \`declare module "*.vue"\` 不再是環境宣告。實測時就是這樣紅的，
+// 而且**只有 tsgolint 紅、vue-tsc 全綠** —— vue-tsc 真的解析 \`.vue\`，
+// 根本不需要那個 shim。一行 import 的位置會決定另一支工具看不看得見半個切片。
+import type {} from "vue-i18n";
 `,
 
       "api.ts": `import { http } from "@org/http-client";

@@ -220,6 +220,8 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 ├── tools/                    建置與治理腳本。每一支都是一道會失敗的閘門
 │   ├── conformance/          切片邊界一致性檢查（宣告依賴＋相對路徑逃逸）
 │   ├── api-surface/          platform/* 的型別形狀與基準比對，改名或改形狀即失敗
+│   ├── vue-typecheck/        .vue 的型別檢查（vp check 的 tsgolint 不看 SFC）
+│   ├── theme-verify/         設計系統接縫：真的建置兩次，證明各案換得掉配色與形狀
 │   ├── codemods/             breaking change 必附的遷移腳本
 │   ├── slice-gen/            切片產生器（vp create slice）
 │   ├── bff-check/            對參考實作或真實 gateway 驗收 D8 契約
@@ -383,7 +385,7 @@ D2 選了「可替換的驅動層」，而那張保單**是被實測過的**，�
 
 ## 供應鏈：拿去給資安與平台團隊的三份文件
 
-腳手架帶進來的東西比想像的多：**565 個套件，其中 144 個是平台限定的原生二進位，
+腳手架帶進來的東西比想像的多：**574 個套件，其中 144 個是平台限定的原生二進位，
 分屬 12 個家族**（不只 `vite-plus` —— TypeScript 7 自己就是原生執行檔，
 `lightningcss` 是 MPL-2.0）。
 
@@ -512,7 +514,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 > 的內部骨架，MIT 宣告目前只在 [LICENSE](LICENSE) 與根 `package.json` 的
 > `"license": "MIT"` 兩處，兩者必須一致。正式對外前請把 `@org` 換成
 > **法務認可的法人全名**——這是組織的決定，不是這份 README 能代為認定的。
-> 底下 26 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
+> 底下 27 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
 
 上游相依的授權另計——`vite-plus` 為 MIT（Cloudflare 併購後），`lightningcss` 為 MPL-2.0，
 另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。完整盤點見 `vpr sca-dossier`。
