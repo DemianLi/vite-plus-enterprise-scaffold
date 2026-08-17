@@ -7,7 +7,7 @@ import { build } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 
 import { findPaletteUsage, usedClassNames, type PaletteViolation } from "./palette.ts";
-import { customProperties, resolve as resolveVar, ruleFor, rules } from "./css.ts";
+import { auditReferences, customProperties, resolve as resolveVar, ruleFor, rules } from "./css.ts";
 // fixture 的探針類別。**從 fixture 讀進來，不在這支程式裡寫死** —— 理由見下面
 // 那條斷言旁邊的說明（寫死的話這支工具自己會讓斷言恆真）。
 import { TS_ONLY_PROBE } from "../fixtures/probe.ts";
@@ -22,13 +22,17 @@ import { TS_ONLY_PROBE } from "../fixtures/probe.ts";
  * `tools/api-surface` 的 `SFC_UNSUPPORTED` 主動擋著，開它是另一件事，
  * #24 仍然開著。這裡刻意不假裝三條都守到了。
  *
- * ── 兩半，而且兩半缺一不可 ──────────────────────────────────────────
+ * ── 三段，而且三段缺一不可 ──────────────────────────────────────────
  *
  * 一、**靜態**：元件裡不准出現原始顏色（`src/palette.ts`）。
  *     只讀檔、不建置。這是「可換性」的**前置條件** —— 元件寫死
  *     `bg-gray-50`，代幣接得再好也換不到那一格。
  *
- * 二、**建置**：同一份 fixture 建兩次，一次帶 `@theme` 覆寫、一次不帶，
+ * 二、**引用**：產物裡不准有指向不存在代幣的 `var()`（`runReferences`）。
+ *     這一段守的是設計系統的**使用端**，而前後兩段都只看 platform/ui。
+ *     它是 2026-08-17 補的，補的正是前兩段上線那個 PR 自己留下的 6 處缺陷。
+ *
+ * 三、**建置**：同一份 fixture 建兩次，一次帶 `@theme` 覆寫、一次不帶，
  *     比對兩份產出的 CSS。這是「可換性」的**證據**。
  *
  * ── 為什麼一定要真的建置 ────────────────────────────────────────────
@@ -181,8 +185,61 @@ function themeTokens(css: string): ReadonlyMap<string, string> {
   return customProperties(theme.map((rule) => rule.body).join(";"));
 }
 
+/**
+ * 三、引用：產物裡沒有指向不存在代幣的 `var()`。
+ *
+ * ── 這一條守的是設計系統的**使用端**，其他兩半都只看 platform/ui ──────
+ *
+ * 代幣改名時，宣告那一側改得掉；引用那一側散在各切片的 `class` 字串裡。
+ * 實測（2026-08-17）：#24 把 `--color-muted` 改名成 `--color-fg-muted`，
+ * 兩個切片與 `tools/slice-gen` 的模板共 6 處引用留在原地，產物裡因此有
+ * `.text-\(--color-muted\){color:var(--color-muted)}` 指向一個不存在的東西 ——
+ * 而當時這支工具**全綠**，因為它的靜態半只掃 `platform/ui/src/components`。
+ *
+ * 這一半掃得到，是因為 `platform/ui` 的 `@source` 是一條從 repo 根往下的
+ * glob：fixture 建置會把**整個 repo**（含 `features/`、含 `tools/` 裡的模板字串）
+ * 的類別一起編進來。所以檢查的對象雖然是 fixture 的產物，涵蓋的是全 repo。
+ */
+function runReferences(builds: readonly (readonly [string, string])[]): void {
+  const before = failures;
+  let declared = 0;
+
+  for (const [label, css] of builds) {
+    const audit = auditReferences(css);
+    declared += audit.declared;
+
+    if (audit.declared === 0) {
+      fail(
+        "產物裡一個自訂屬性宣告都沒讀到",
+        `${label} 建置解析出 0 格宣告`,
+        "解析不到東西時「沒有懸空引用」會恆真 —— 那是綠燈代表沒有人看，所以這裡直接紅",
+      );
+      continue;
+    }
+
+    for (const reference of audit.dangling) {
+      fail(
+        "引用了不存在的代幣",
+        `${label} 建置：${reference.name} 被 ${reference.selectors.join("、")} 引用，` +
+          "但整份產物裡沒有任何地方宣告它",
+        "改名代幣時要一起改使用端；`var()` 指到不存在的名字時瀏覽器會讓整條宣告失效" +
+          "（`color` 的結果是安靜地繼承父層），而建置不會有任何話說",
+      );
+    }
+  }
+
+  if (failures === before) {
+    console.log(`✓ 引用：${builds.length} 份產物共 ${declared} 格代幣宣告、0 處懸空引用`);
+  }
+}
+
 async function runBuilds(): Promise<void> {
   const [baseCss, overrideCss] = await Promise.all([compile("base.css"), compile("override.css")]);
+
+  runReferences([
+    ["base", baseCss],
+    ["override", overrideCss],
+  ]);
 
   const base = themeTokens(baseCss);
   const over = themeTokens(overrideCss);

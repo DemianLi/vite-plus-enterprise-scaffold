@@ -63,26 +63,26 @@
 標 ▷ 的是**提案者**而不是閘門：它不擋任何東西，所以「反向測試」對它不適用，
 上面那個 5／17 的分子與分母都不含它。
 
-| 閘門                | 檢查什麼                                                                                                       | 進版控的證據                                | 反向測試                                         |
-| ------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------ |
-| `conformance`       | 切片契約、分層邊界、設計系統採用、擁有權、幽靈依賴、CI action 以 SHA 釘住（D4／D9／D12／D14／D15）             | **（無）**                                  | `tools/conformance/tests/negative.test.ts`       |
-| `bff-check`         | D8 同源中間層的 15 條行為契約（cookie 屬性、CSRF、401／403）                                                   | **（無）**                                  | `tools/bff-check/tests/negative.test.ts`         |
-| `api-surface`       | platform/ 公開 API 的破壞性變更：export 名稱＋**型別形狀**（D12）                                              | `tools/api-surface/surface.json`            | `tools/api-surface/tests/negative.test.ts`       |
-| `supply-chain`      | 相依盤點、原生家族分類、tarball digest 與 lockfile 綁定（R2–R5／R8）                                           | `tools/supply-chain/provenance.json`        | **❌ 無**                                        |
-| `exit-drill`        | D2 退出面靜態檢查、plugin 帳目、**測試相依帳目**、演練證據新鮮度（120 天）                                     | `tools/exit-drill/evidence.json`            | **❌ 無**                                        |
-| `theme-verify`      | 設計系統接縫：元件只准用語意代幣（靜態）＋ 各案覆寫代幣真的會進到產物（建置兩次比對）（D15／C62）              | **（無）**                                  | `tools/theme-verify/tests/palette.test.ts`       |
-| `eslint-security`   | no-unsanitized、eslint-plugin-security、vue/no-v-html（D5 的安全那一半）                                       | **（無）**                                  | **❌ 無**                                        |
-| `a11y-lint`         | Vue 模板的靜態無障礙檢查：原生元素與屬性（缺 alt、缺 label、角色錯用、只有滑鼠事件）                           | **（無）**                                  | `platform/eslint-config/tests/a11y.test.ts`      |
-| `trivy-sca`         | 相依套件的 HIGH／CRITICAL 漏洞，PR ＋ 每日 21:00 UTC 排程                                                      | **（無）**                                  | **❌ 無**                                        |
-| `trivy-sbom`        | CycloneDX SBOM 產出，並比對 component 數與 lockfile 套件數                                                     | **（無）**                                  | `tools/supply-chain/tests/sbom-negative.test.ts` |
-| `sast`              | 跨函式的汙點傳遞（路由參數 → DOM sink）與執行期組程式碼 —— lint 看不到的那一類                                 | **（無）**                                  | `.semgrep/rules.ts`                              |
-| `gitleaks`          | 機密掃描，fetch-depth: 0 以涵蓋被後續 commit 蓋掉的機密                                                        | **（無）**                                  | **❌ 無**                                        |
-| `pii-test-data`     | 測試資料裡不得有真實個資：身分證字號、Luhn 卡號、手機、指向真實網域的信箱                                      | **（無）**                                  | `tools/pii-check/tests/roster.test.ts`           |
-| `dependency-health` | 外部直接相依（24 個）的維護狀態與授權變更 —— 停更、或授權被偷偷改掉                                            | `tools/supply-chain/dependency-health.json` | `tools/supply-chain/tests/health.test.ts`        |
-| `renovate` ▷        | 提出相依升級與安全修補 —— §11 II ③「檢測**並因應**」裡的因應那一半                                             | `renovate.json`                             | ▷ 不適用                                         |
-| `doc-facts`         | 現況文件引用的數字，與 repo 內部事實來源推導出來的一致（事實來源與守哪幾份文件見 doc-facts 的 FACTS／GUARDED） | **（無）**                                  | `tools/doc-facts/tests/facts.test.ts`            |
-| `evidence-manifest` | §16 證據清單與現實一致：宣告的檔案都在，且每一份都有閘門在維護                                                 | **（無）**                                  | `tools/compliance/tests/evidence.test.ts`        |
-| `compliance`        | 本對照表本身：映射與檔案系統一致、且沒有列在說謊                                                               | `tools/compliance/COMPLIANCE.md`            | `tools/compliance/tests/negative.test.ts`        |
+| 閘門                | 檢查什麼                                                                                                                       | 進版控的證據                                | 反向測試                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------------ |
+| `conformance`       | 切片契約、分層邊界、設計系統採用、擁有權、幽靈依賴、CI action 以 SHA 釘住（D4／D9／D12／D14／D15）                             | **（無）**                                  | `tools/conformance/tests/negative.test.ts`       |
+| `bff-check`         | D8 同源中間層的 15 條行為契約（cookie 屬性、CSRF、401／403）                                                                   | **（無）**                                  | `tools/bff-check/tests/negative.test.ts`         |
+| `api-surface`       | platform/ 公開 API 的破壞性變更：export 名稱＋**型別形狀**（D12）                                                              | `tools/api-surface/surface.json`            | `tools/api-surface/tests/negative.test.ts`       |
+| `supply-chain`      | 相依盤點、原生家族分類、tarball digest 與 lockfile 綁定（R2–R5／R8）                                                           | `tools/supply-chain/provenance.json`        | **❌ 無**                                        |
+| `exit-drill`        | D2 退出面靜態檢查、plugin 帳目、**測試相依帳目**、演練證據新鮮度（120 天）                                                     | `tools/exit-drill/evidence.json`            | **❌ 無**                                        |
+| `theme-verify`      | 設計系統接縫：元件只准用語意代幣（靜態）＋ 產物零懸空代幣引用（引用）＋ 各案覆寫代幣真的會進到產物（建置兩次比對）（D15／C62） | **（無）**                                  | `tools/theme-verify/tests/palette.test.ts`       |
+| `eslint-security`   | no-unsanitized、eslint-plugin-security、vue/no-v-html（D5 的安全那一半）                                                       | **（無）**                                  | **❌ 無**                                        |
+| `a11y-lint`         | Vue 模板的靜態無障礙檢查：原生元素與屬性（缺 alt、缺 label、角色錯用、只有滑鼠事件）                                           | **（無）**                                  | `platform/eslint-config/tests/a11y.test.ts`      |
+| `trivy-sca`         | 相依套件的 HIGH／CRITICAL 漏洞，PR ＋ 每日 21:00 UTC 排程                                                                      | **（無）**                                  | **❌ 無**                                        |
+| `trivy-sbom`        | CycloneDX SBOM 產出，並比對 component 數與 lockfile 套件數                                                                     | **（無）**                                  | `tools/supply-chain/tests/sbom-negative.test.ts` |
+| `sast`              | 跨函式的汙點傳遞（路由參數 → DOM sink）與執行期組程式碼 —— lint 看不到的那一類                                                 | **（無）**                                  | `.semgrep/rules.ts`                              |
+| `gitleaks`          | 機密掃描，fetch-depth: 0 以涵蓋被後續 commit 蓋掉的機密                                                                        | **（無）**                                  | **❌ 無**                                        |
+| `pii-test-data`     | 測試資料裡不得有真實個資：身分證字號、Luhn 卡號、手機、指向真實網域的信箱                                                      | **（無）**                                  | `tools/pii-check/tests/roster.test.ts`           |
+| `dependency-health` | 外部直接相依（24 個）的維護狀態與授權變更 —— 停更、或授權被偷偷改掉                                                            | `tools/supply-chain/dependency-health.json` | `tools/supply-chain/tests/health.test.ts`        |
+| `renovate` ▷        | 提出相依升級與安全修補 —— §11 II ③「檢測**並因應**」裡的因應那一半                                                             | `renovate.json`                             | ▷ 不適用                                         |
+| `doc-facts`         | 現況文件引用的數字，與 repo 內部事實來源推導出來的一致（事實來源與守哪幾份文件見 doc-facts 的 FACTS／GUARDED）                 | **（無）**                                  | `tools/doc-facts/tests/facts.test.ts`            |
+| `evidence-manifest` | §16 證據清單與現實一致：宣告的檔案都在，且每一份都有閘門在維護                                                                 | **（無）**                                  | `tools/compliance/tests/evidence.test.ts`        |
+| `compliance`        | 本對照表本身：映射與檔案系統一致、且沒有列在說謊                                                                               | `tools/compliance/COMPLIANCE.md`            | `tools/compliance/tests/negative.test.ts`        |
 
 ### 逐道註記
 
@@ -97,7 +97,7 @@
 - **`exit-drill`** — `node tools/exit-drill/src/cli.ts`  
   有零件測試。⚠️ 2026-08-16 加了第三項「測試相依帳目」（C64），而且是補一個**真的已經發生**的洞：完整演練每季才跑一次，`happy-dom` 從 PR #15 起就沒被安裝、演練從那時起就是壞的，19 個 PR 沒有人知道。該項已實測會紅（注入未登記的 devDependency → exit 1）。⚠️ 這一欄仍記 null：那是整道閘門四項的總和，而證據新鮮度守衛自己仍未被證明過會紅 —— 只證明了其中一項就把整格標成已證明，正是這張表最該擋下的事。
 - **`theme-verify`** — `node tools/theme-verify/src/cli.ts`  
-  2026-08-17 加（HANDOFF #24）。守的是 C62 那句產品要求的**前兩條軸** —— 配色與 component 形狀；**第三條（互動方式）完全不在範圍**，它被 `api-surface` 的 `SFC_UNSUPPORTED` 主動擋著。綠燈的意思是「兩條軸實測可換」，不是「設計系統可換」。⚠️ 建置那一半（比對兩份產出的 CSS）是真的跑 Tailwind，因為它的失敗模式是**建置成功、CSS 還變大、但一個 utility 都沒有** —— 只讀 CSS 檔驗不到。六條斷言裡五條實測會紅，逐條列在 `tools/theme-verify/README.md`；「覆寫零附帶影響」那條未測，破壞它得改 Tailwind 本身。⚠️ `negativeTest` 只指到靜態那一半的零件測試；建置那一半的紅燈是手動實測的，沒有自動化的反向測試 —— 兩次真建置放進單元測試會讓這道閘門的成本翻倍。
+  2026-08-17 加（HANDOFF #24）。守的是 C62 那句產品要求的**前兩條軸** —— 配色與 component 形狀；**第三條（互動方式）完全不在範圍**，它被 `api-surface` 的 `SFC_UNSUPPORTED` 主動擋著。綠燈的意思是「兩條軸實測可換」，不是「設計系統可換」。⚠️ 建置那一段（比對兩份產出的 CSS）是真的跑 Tailwind，因為它的失敗模式是**建置成功、CSS 還變大、但一個 utility 都沒有** —— 只讀 CSS 檔驗不到。九條斷言裡八條實測會紅，逐條列在 `tools/theme-verify/README.md`；「覆寫零附帶影響」那條未測，破壞它得改 Tailwind 本身。⚠️ 「引用」那一段是同日稍晚補的，補的是**這道閘門自己上線那個 PR 留下的缺陷**：代幣改名，6 處使用端沒跟上，而前兩段只掃 `platform/ui` 所以全綠（C66）。它有死角：括號寫法的懸空引用抓得到，正規工具類名對應的代幣被刪掉時 Tailwind 什麼都不產生，抓不到 —— 那一半在切片上目前沒有守，記在 HANDOFF #24。⚠️ 這一欄只放得下一個路徑，指的是靜態那一段；「引用」那一段的零件測試是 `tools/theme-verify/tests/css.test.ts`（六條，含「帶 fallback 的不算違規」與「解析不到東西時要紅」）。建置那一段的紅燈是手動實測的，沒有自動化的反向測試 —— 兩次真建置放進單元測試會讓這道閘門的成本翻倍。
 - **`eslint-security`** — `./node_modules/.bin/eslint . --max-warnings=0`  
   存在的首要理由是 oxlint 沒有 vue/no-v-html —— Vue 專案最主要的 XSS 入口。
 - **`a11y-lint`** — `./node_modules/.bin/eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0`  
@@ -138,7 +138,7 @@
 分開列的理由是避免下一次有人把它們當成法定義務再論證一次。
 
 - **`exit-drill`** — D2 退出面靜態檢查、plugin 帳目、**測試相依帳目**、演練證據新鮮度（120 天）
-- **`theme-verify`** — 設計系統接縫：元件只准用語意代幣（靜態）＋ 各案覆寫代幣真的會進到產物（建置兩次比對）（D15／C62）
+- **`theme-verify`** — 設計系統接縫：元件只准用語意代幣（靜態）＋ 產物零懸空代幣引用（引用）＋ 各案覆寫代幣真的會進到產物（建置兩次比對）（D15／C62）
 - **`a11y-lint`** — Vue 模板的靜態無障礙檢查：原生元素與屬性（缺 alt、缺 label、角色錯用、只有滑鼠事件）
 - **`gitleaks`** — 機密掃描，fetch-depth: 0 以涵蓋被後續 commit 蓋掉的機密
 - **`doc-facts`** — 現況文件引用的數字，與 repo 內部事實來源推導出來的一致（事實來源與守哪幾份文件見 doc-facts 的 FACTS／GUARDED）

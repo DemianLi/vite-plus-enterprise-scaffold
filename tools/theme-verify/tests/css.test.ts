@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { customProperties, resolve, ruleFor, rules } from "../src/css.ts";
+import { auditReferences, customProperties, resolve, ruleFor, rules } from "../src/css.ts";
 
 /**
  * CSS 讀取層的驗收。
@@ -63,5 +63,53 @@ describe("找規則", () => {
     // 類別名稱本來就互為前綴，所以子字串比對在這裡永遠是錯的。
     const all = rules(".text-fg-muted{color:a}.text-fg{color:b}");
     expect(ruleFor(all, ".text-fg")?.body).toBe("color:b");
+  });
+});
+
+/**
+ * 懸空引用：`var()` 指到一個整份產物裡都沒有人宣告的名字。
+ *
+ * 這是 2026-08-17 那次代幣改名留下的形狀 —— 宣告改了，散在切片 `class` 裡的
+ * 引用沒改，而建置成功、CSS 還變大。判定要準到兩件事：真的缺陷要抓到，
+ * Tailwind 自己那些**帶 fallback** 的引用一個都不能抓（實測 9 筆裡 7 筆是後者）。
+ */
+describe("懸空引用", () => {
+  const names = (css: string) => auditReferences(css).dangling.map((d) => d.name);
+
+  it("🔴 沒有人宣告的 var() → 抓到，而且要講得出是誰在用", () => {
+    const audit = auditReferences(":root{--a:1}.x{color:var(--nope)}");
+    expect(audit.dangling).toEqual([{ name: "--nope", selectors: [".x"] }]);
+  });
+
+  it("★ 帶 fallback 的一律放行 —— 這一條不要「收緊」", () => {
+    // 實測 apps/console 的產物：9 筆未宣告引用裡有 7 筆帶 fallback，
+    // 而且 7 筆全是 Tailwind 自己寫的（--tw-leading、--default-font-* …）。
+    // 把它們算成違規＝上線第一天就有 7 個偽陽性，然後這條規則會被關掉（C41）。
+    expect(names(".x{line-height:var(--tw-leading,1.5)}")).toEqual([]);
+  });
+
+  it("★ 宣告在別條規則裡也算數（刻意不追作用域）", () => {
+    // Tailwind 常常是 A 規則設 `--tw-shadow`、B 規則讀它。嚴格追作用域會把
+    // 那一整套判成違規，而它們一個缺陷都不是。這裡要抓的是「整份產物裡
+    // 沒有任何地方宣告過」。
+    expect(names(".a{--shared:1}.b{color:var(--shared)}")).toEqual([]);
+  });
+
+  it("★ @property 註冊過的名字算宣告", () => {
+    expect(
+      names('@property --tw-ease{syntax:"*"}.x{transition-timing-function:var(--tw-ease)}'),
+    ).toEqual([]);
+  });
+
+  it("★ 同一個名字被多處引用時要合併，選擇器不重複", () => {
+    const audit = auditReferences(".a{color:var(--x)}.b{color:var(--x)}.a{border-color:var(--x)}");
+    expect(audit.dangling).toEqual([{ name: "--x", selectors: [".a", ".b"] }]);
+  });
+
+  it("★ declared 要跟著回傳 —— 「零個懸空」與「一個字都沒讀到」長得一樣", () => {
+    // 呼叫端拿它當前置條件。少了這個數字，一份被解析壞掉的 CSS
+    // 會回報「沒有懸空引用」，而那是綠燈代表沒有人看。
+    expect(auditReferences("").declared).toBe(0);
+    expect(auditReferences(":root{--a:1;--b:2}").declared).toBe(2);
   });
 });
