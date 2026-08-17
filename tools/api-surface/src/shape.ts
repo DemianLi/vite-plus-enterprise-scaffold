@@ -244,7 +244,23 @@ const SFC_UNSUPPORTED = ["defineExpose"] as const;
 const DEFINE_PROPS = /defineProps<\{([\s\S]*?)\}>\(\)/;
 const DEFINE_SLOTS = /defineSlots<\{([\s\S]*?)\}>\(\)/;
 const DEFINE_EMITS = /defineEmits<\{([\s\S]*?)\}>\(\)/;
-const DEFINE_MODEL = /defineModel<([^>]+)>\(\s*"([^"]+)"/g;
+/**
+ * `defineModel<T>("name", …)` —— 具名的那一種。
+ *
+ * ⚠️ 不具名的 `defineModel<T>()` 另外一條（下面），因為**兩種都會產生公開面**，
+ * 而只認具名的那一版讓 `UiInput` 的 `modelValue` 與 `update:modelValue`
+ * 安靜地不進 API 表面 —— 正是這支工具檔頭說要避免的「少算」。
+ */
+const DEFINE_MODEL_NAMED = /defineModel<([^>]+)>\(\s*"([^"]+)"/g;
+
+/**
+ * `defineModel<T>()` 或 `defineModel<T>({ … })` —— 不具名，prop 名固定是
+ * `modelValue`（Vue 的預設）。
+ *
+ * `\(\s*[^"']` 是關鍵：下一個非空白字元不是引號，才不是具名形式。
+ * 少了它，具名的會被這條再算一次，於是同一個 model 出現兩組成員。
+ */
+const DEFINE_MODEL_DEFAULT = /defineModel<([^>]+)>\(\s*(?:\)|[^"'\s])/g;
 const LOCAL_TYPE = /^\s*type\s+([A-Za-z_$][\w$]*)\s*=\s*([^;]+);/gm;
 const BLOCK_COMMENT = /\/\*[\s\S]*?\*\//g;
 const LINE_COMMENT = /(^|[^:])\/\/[^\n]*/g;
@@ -436,13 +452,23 @@ function parseComponent(file: string): ExportShape {
   }
 
   const propsBlock = DEFINE_PROPS.exec(source);
-  if (propsBlock?.[1] === undefined) {
+  if (propsBlock?.[1] === undefined && source.includes("defineProps")) {
     throw new Error(
-      `${basename(file)} 找不到 defineProps<{…}>()。\n` +
-        "  這支解析只認型別參數形式；改用執行期物件形式的話這裡會少算，" +
+      `${basename(file)} 的 defineProps 不是型別參數形式。\n` +
+        "  這支解析只認 `defineProps<{…}>()`；執行期物件形式這裡會少算，" +
         "所以寧可紅。",
     );
   }
+
+  // ⚠️ **沒有 `defineProps` 是合法的**，不是解析失敗。
+  //
+  // 這裡原本無條件丟例外，而它擋住的第一個真實案例是 `UiInput` ——
+  // 一個只有 `defineModel` 的元件（它的公開面是 `modelValue` 與
+  // `update:modelValue`，兩樣都不經 defineProps）。當時的訊息說
+  // 「找不到 defineProps」，聽起來像元件寫錯了，實際上是解析器的假設太窄。
+  //
+  // 分成兩種情形之後，那條防線還在：**寫了 `defineProps` 但不是型別參數
+  // 形式**仍然紅（上面那條），因為那才是會少算的情形。
 
   // 同一個 <script setup> 裡宣告的區域型別別名要就地展開。
   // 它們對消費端不可見，改名不該讓形狀漂移。
@@ -455,7 +481,8 @@ function parseComponent(file: string): ExportShape {
   const expand = (text: string): string =>
     text.replace(/\b[A-Za-z_$][\w$]*\b/g, (name) => aliases.get(name) ?? name);
 
-  const members = parseBlock(file, "props", propsBlock[1], expand);
+  const members =
+    propsBlock?.[1] === undefined ? [] : parseBlock(file, "props", propsBlock[1], expand);
 
   const slotsBlock = DEFINE_SLOTS.exec(source);
   const declaredSlots = new Set<string>();
@@ -476,17 +503,27 @@ function parseComponent(file: string): ExportShape {
   }
 
   // defineModel 同時產生一個 prop 與一個 update:<name> 事件，兩邊都是公開面。
-  for (const match of source.matchAll(DEFINE_MODEL)) {
-    const [, type, name] = match;
+  const recordModel = (name: string, type: string | undefined): void => {
     members.push(`${name}?: ${(type ?? "unknown").trim()}`);
     members.push(`[emit update:${name}]: void`);
     declaredEmits.add(`update:${name}`);
+  };
+  for (const match of source.matchAll(DEFINE_MODEL_NAMED)) {
+    recordModel(match[2] as string, match[1]);
+  }
+  for (const match of source.matchAll(DEFINE_MODEL_DEFAULT)) {
+    recordModel("modelValue", match[1]);
   }
 
   assertDeclared(file, source, declaredSlots, declaredEmits);
 
   if (members.length === 0) {
-    throw new Error(`${basename(file)} 的 defineProps 解析結果是空的 —— 空形狀等於沒有守`);
+    throw new Error(
+      `${basename(file)} 沒有解析出任何公開面 —— 空形狀等於沒有守。\n` +
+        "  一個 prop、slot、emit、model 都沒有的元件是可能的（純版型），" +
+        "但它也就沒有東西需要 api-surface 保護；\n" +
+        "  比較可能的情形是巨集寫成了這支解析不認得的形式。",
+    );
   }
 
   return { kind: "component", members: sortMembers(members) };

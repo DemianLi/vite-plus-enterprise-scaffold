@@ -505,6 +505,14 @@
         "kind": "type",
         "type": "\"content\" | \"description\" | \"overlay\" | \"title\""
       },
+      "UiInput": {
+        "kind": "component",
+        "members": ["[emit update:modelValue]: void", "modelValue?: string | number"]
+      },
+      "UiInputSlot": {
+        "kind": "type",
+        "type": "\"input\""
+      },
       "UiSize": {
         "kind": "type",
         "type": "\"md\" | \"sm\""
@@ -513,7 +521,8 @@
         "kind": "type",
         "members": [
           "UiButton?: Readonly<Partial<Record<UiButtonSlot, string>>> | undefined",
-          "UiDialog?: Readonly<Partial<Record<UiDialogSlot, string>>> | undefined"
+          "UiDialog?: Readonly<Partial<Record<UiDialogSlot, string>>> | undefined",
+          "UiInput?: Readonly<Partial<Record<\"input\", string>>> | undefined"
         ]
       },
       "UiVariant": {

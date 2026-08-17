@@ -158,6 +158,41 @@ function runFixture(mutate: (source: string) => string): Result {
   return runFixtureFile(FIXTURE_SOURCE, mutate);
 }
 
+/**
+ * 改一個 fixture 檔之後跑 `--update`，回傳**重新推導出來的**基準。
+ *
+ * ⚠️ 與 `runFixtureFile` 的差別是它問的問題不同。比對模式問「這個改動會不會
+ * 紅」；這個問「解析器**看到了什麼**」。第一版把兩者混在一起，於是
+ * 「拿掉 defineProps 之後解析器沒有丟例外」被寫成了 `expect(red).toBe(false)`
+ * —— 而拿掉 prop 本來就該紅，測試因此在測一件它不打算測的事。
+ */
+function surfaceAfter(relative: string, mutate: (source: string) => string): Baseline {
+  const dir = sandbox();
+  cpSync(pristineFixture, dir, { recursive: true });
+  const file = join(dir, relative);
+  const before = readFileSync(file, "utf8");
+  const after = mutate(before);
+  if (after === before) throw new Error("fixture 改寫沒生效 —— 比對字串沒對上，這條測試是空的");
+  writeFileSync(file, after);
+
+  // ⚠️ 寫到一個**還不存在**的基準路徑。指向既有的那份時 `--update` 會先比對，
+  // 而這裡的改寫幾乎一定是破壞性的（prop 被換掉了）—— 於是它在推導之前就紅了，
+  // 而我們要問的正是「推導出什麼」。沒有舊基準可比，它就只推導。
+  const derived = join(dir, "derived.json");
+  const result = run(["--platform", dir, "--baseline", derived, "--update"]);
+  if (result.red) throw new Error(`解析失敗：${result.output}`);
+  return JSON.parse(readFileSync(derived, "utf8")) as Baseline;
+}
+
+/** fixture 元件在基準裡的成員清單。找不到就丟 —— 空清單對空清單是相等的。 */
+function widgetMembers(baseline: Baseline): readonly string[] {
+  for (const shapes of Object.values(baseline.surface)) {
+    const shape = shapes["SampleWidget"];
+    if (shape?.members !== undefined) return shape.members;
+  }
+  throw new Error("基準裡找不到 SampleWidget —— 這條測試是空的");
+}
+
 // ── 對照組 ────────────────────────────────────────────────────────────
 
 describe("對照組：沒動過的東西是綠的", () => {
@@ -698,6 +733,71 @@ describe(".vue 元件的公開面", () => {
     expect(result.red, `expose 沒被擋下 —— 整個實例面會少掉\n${result.output}`).toBe(true);
     expect(result.output).toContain("SampleWidget.vue");
     expect(result.output).toContain("defineExpose");
+  });
+
+  /**
+   * ── 沒有 `defineProps` 的元件（2026-08-17 補）────────────────────────
+   *
+   * 這裡原本無條件丟例外，訊息是「找不到 `defineProps<{…}>()`」。它擋住的
+   * 第一個真實案例是 `UiInput` —— 一個只有 `defineModel` 的輸入框，公開面
+   * 是 `modelValue` 與 `update:modelValue`，兩樣都不經 `defineProps`。
+   *
+   * 那個錯誤訊息**聽起來完全正確**，指的卻是解析器的假設，不是元件的問題。
+   * 與 `defineEmits`／`defineSlots` 那道絆線是同一種：**絆的是宣告的形式，
+   * 不是公開面本身。**
+   */
+  it("★ 只有 defineModel、沒有 defineProps → 解析得出來，而且 modelValue 進得了表面", () => {
+    /**
+     * 這一條同時修掉兩個缺口，兩個都是抄第一個 shadcn 元件時撞到的：
+     *
+     * 一、沒有 `defineProps` **原本無條件丟例外**。訊息是「找不到
+     *     defineProps<{…}>()」—— 聽起來完全正確，指的卻是解析器的假設。
+     *     `UiInput` 是個只有 `defineModel` 的輸入框，公開面是 `modelValue`
+     *     與 `update:modelValue`，兩樣都不經 defineProps。
+     *
+     * 二、`defineModel` 的樣式原本寫成 `defineModel<T>("name"` ——
+     *     **只認具名的那一種**。於是不具名形式產生的 `modelValue` 與
+     *     `update:modelValue` **安靜地不進 API 表面**，正是這支工具檔頭
+     *     說要避免的「少算」，發生在它自己身上。
+     *
+     * ⚠️ 驗的是**記錄下來的內容**，不是「有沒有丟例外」。第一版寫成
+     * `expect(red).toBe(false)` —— 而拿掉 prop 本來就該紅，那條測試在測
+     * 一件它不打算測的事。比對模式問「會不會紅」，這裡要問的是
+     * 「解析器看到了什麼」，兩者要分開。
+     */
+    const members = widgetMembers(
+      surfaceAfter(FIXTURE_COMPONENT, (source) =>
+        source
+          .replace(/defineProps<\{[\s\S]*?\}>\(\);/, "const model = defineModel<string>();")
+          .replace("{{ label }}", "{{ model }}"),
+      ),
+    );
+    expect(members).toContain("modelValue?: string");
+    expect(members).toContain("[emit update:modelValue]: void");
+  });
+
+  it("★ 具名的 defineModel 不得被算兩次", () => {
+    // 兩條樣式（具名／不具名）若都命中同一個宣告，同一個 model 會產生
+    // 兩組成員，而基準裡多出來的那一組永遠不會消失。
+    const members = widgetMembers(
+      surfaceAfter(FIXTURE_COMPONENT, (source) =>
+        source
+          .replace(/defineProps<\{[\s\S]*?\}>\(\);/, 'const model = defineModel<boolean>("open");')
+          .replace("{{ label }}", "{{ model }}"),
+      ),
+    );
+    expect(members.filter((member) => member.startsWith("open"))).toHaveLength(1);
+    expect(members).not.toContain("modelValue?: boolean");
+  });
+
+  it("🔴 寫了 defineProps 但用執行期物件形式 → 仍然要紅", () => {
+    // 上面那條放寬的是「完全沒有 defineProps」。**這條防線不能跟著鬆掉** ——
+    // 物件形式解析不了，記下來的形狀會少掉全部的 prop，而那是安靜的。
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace(/defineProps<\{[\s\S]*?\}>\(\);/, "defineProps({ label: String });"),
+    );
+    expect(result.red, `執行期物件形式的 defineProps 沒被擋下\n${result.output}`).toBe(true);
+    expect(result.output).toContain("SampleWidget.vue");
   });
 
   it("★ 只在**註解**裡提到 defineExpose → 不得紅", () => {

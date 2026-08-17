@@ -475,7 +475,7 @@ gh api repos/<owner>/<repo>/codeowners/errors
 | --- | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
 | 1   | `@tailwindcss/vite` 加進 `DRILL_PLUGINS` | ✅ 已登記，並補上**產物比對**（反向測試：拿掉 @source → 37%，紅）                          |
 | 2   | 重跑 `vpr supply-chain --capture`        | ✅ 519 套件／144 原生／12 家族。新家族 `@tailwindcss` 已分類為 toolchain                   |
-| 3   | 新增 `platform/ui` package               | ✅ CODEOWNERS（暫掛）、api-surface（11 個進入點／99 個 export）、退出演練 alias 都已接上   |
+| 3   | 新增 `platform/ui` package               | ✅ CODEOWNERS（暫掛）、api-surface（11 個進入點／101 個 export）、退出演練 alias 都已接上  |
 | 4   | 擋住「切片自己拼一套設計系統」           | ✅ 擋的是 **import 而非目錄**（理由見契約）；另加全 repo 禁用 reka-ui Splitter（CSP）      |
 | 5   | 瀏覽器實測 CSP                           | ✅ 五個探針全對（Chrome 148）。⚠️ 證據檔與守它的閘門已於 2026-08-16 拆除（C52）—— 見下方註 |
 
