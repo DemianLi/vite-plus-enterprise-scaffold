@@ -79,6 +79,42 @@ const componentClasses = new Set<string>(
   [...componentSources.values()].flatMap((source) => [...usedClassNames(source)]),
 );
 
+/**
+ * **消費端**的 `.vue`：切片與應用。
+ *
+ * ── 為什麼供應端守好了還不夠 ────────────────────────────────────────
+ *
+ * 元件一行原始顏色都沒有，不代表各案換得掉配色 —— 切片自己在頁面上寫
+ * `text-gray-900`，那一格就永遠是灰的。乾跑量出來的不是假想：
+ * **`features` 兩處、`apps` 一處，而第四處在產生器模板裡**，也就是
+ * 每個新切片天生帶著一個換不掉的顏色（C41 那個形狀的重演）。
+ *
+ * 判準與元件那一段**共用同一支偵測器**（`findPaletteUsage`）。
+ * 兩邊各持一份的話，供應端收緊而消費端沒跟上，而閘門全綠。
+ *
+ * ⚠️ 這與檔頭那句「不驗 `apps/console/src/styles.css` 的特定值」**不衝突**：
+ * 那句講的是 `@theme` 覆寫的**值**（那是刻意留給各案的擴充點），
+ * 這裡擋的是模板裡**繞過代幣層**寫死顏色。前者是用擴充點，後者是不用。
+ */
+const CONSUMER_ROOTS = ["features", "apps"] as const;
+
+function collectViews(dir: string, out: Map<string, string>): void {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (entry.name === "node_modules" || entry.name === "dist" || entry.name.startsWith(".")) {
+        continue;
+      }
+      collectViews(join(dir, entry.name), out);
+    } else if (entry.name.endsWith(".vue")) {
+      const path = join(dir, entry.name);
+      out.set(relative(ROOT, path), readFileSync(path, "utf8"));
+    }
+  }
+}
+
+const consumerSources = new Map<string, string>();
+for (const root of CONSUMER_ROOTS) collectViews(join(ROOT, root), consumerSources);
+
 // ── 一、靜態：元件只准用語意代幣 ──────────────────────────────────────
 
 function runStatic(): void {
@@ -92,14 +128,25 @@ function runStatic(): void {
     return;
   }
 
+  // 消費端掃不到東西也是「綠燈代表沒有人看」—— 與上面那條同一個理由。
+  if (consumerSources.size === 0) {
+    fail(
+      "切片與應用底下找不到任何 .vue",
+      `${CONSUMER_ROOTS.join("／")} 掃出 0 個檔`,
+      "這條檢查掃不到東西時會全綠 —— 所以這裡直接紅",
+    );
+    return;
+  }
+
   const violations: PaletteViolation[] = [];
   for (const [file, source] of componentSources) violations.push(...findPaletteUsage(file, source));
+  for (const [file, source] of consumerSources) violations.push(...findPaletteUsage(file, source));
 
   if (violations.length > 0) {
     for (const violation of violations) {
       const layer = violation.kind === "builtin" ? "Tailwind 內建色階" : "色票層";
       fail(
-        "元件裡有原始顏色",
+        "原始顏色",
         `${violation.file}:${violation.line} 用了 ${violation.className}（${layer}）`,
         violation.kind === "builtin"
           ? "改用語意代幣（見 platform/ui/src/styles/index.css 的第二層）。內建色階各案完全換不掉"
@@ -109,7 +156,9 @@ function runStatic(): void {
     return;
   }
 
-  console.log(`✓ 靜態：${files.length} 個元件、0 處原始顏色`);
+  console.log(
+    `✓ 靜態：${files.length} 個元件 ＋ ${consumerSources.size} 個切片／應用畫面、0 處原始顏色`,
+  );
 }
 
 // ── 二、建置：覆寫真的會進到產物 ──────────────────────────────────────

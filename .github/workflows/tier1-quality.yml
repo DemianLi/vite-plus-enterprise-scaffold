@@ -71,8 +71,12 @@ jobs:
       #
       # ⚠️ 這一步用的是**另一個 TypeScript**（`catalog:vue-typecheck` 的 JS 版
       # 5.x）。catalog 主線的 `typescript: ^7.0.2` 是原生 Go 版，已經沒有
-      # vue-tsc 需要的 compiler API。兩支編譯器的分歧風險量過：接上當天
-      # 對四份 program 的每一支 `.ts` 產出 0 條 tsgolint 沒有的診斷。
+      # vue-tsc 需要的 compiler API。
+      #
+      # ⚠️ 那第二份 TypeScript 不只是成本：`.ts` 檔消費 `.vue` 時，上一步看的是
+      # `declare module "*.vue"` 的萬用宣告（任何 prop 都合法），這一步解析真的
+      # SFC。所以**這一步紅、上一步綠，多半是真陽性**，不是兩支工具在吵架。
+      # 見 DECISIONS 的 C68〈九〉。
       - name: .vue 型別檢查
         run: node tools/vue-typecheck/src/cli.ts
 

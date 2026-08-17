@@ -409,7 +409,7 @@ const isOpen = computed({
 
 <template>
   <section>
-    <h1 class="text-xl font-semibold text-gray-900">{{ $t("${name}.title") }}</h1>
+    <h1 class="text-xl font-semibold text-fg">{{ $t("${name}.title") }}</h1>
 
     <p v-if="isPending">…</p>
 

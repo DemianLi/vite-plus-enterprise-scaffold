@@ -119,6 +119,59 @@ describe("SFC 內部：vp check 完全看不到的那一半", () => {
   );
 });
 
+/**
+ * ⚠️ **這一組是這道閘門唯一「別人完全做不到」的能力，不要當成錦上添花。**
+ *
+ * `.ts` 檔消費 `.vue` 時，`vp check` 看的是 `declare module "*.vue"` 那個
+ * 萬用宣告（props ＝ `Record<string, unknown>`，任何 prop 都合法），
+ * 而 vue-tsc 解析真的 SFC。實測在 repo 本體上：
+ *
+ *     h(UiButton, { variant: "根本不是 variant" })
+ *     vp check → 0 errors ／ 這道閘門 → 紅
+ *
+ * 落地當天把這件事寫成「分歧風險，升級時要重跑比對」——**方向寫反了**。
+ * 分歧存在，而且多半是真陽性。紅燈訊息因此必須自己講清楚，
+ * 否則第一個撞到的人會以為工具在吵架然後把閘門關掉（C41）。
+ *
+ * ⚠️ 但這一格**不是全知的**：型別**不符**會紅，**多一個不存在的 prop 不會** ——
+ * `h()` 的 props 型別是 `Props & VNodeProps & AllowedComponentProps &
+ * ComponentCustomProps` 的交集，多餘屬性檢查被那個交集打掉。
+ * 與模板側 `checkUnknownProps` 是同一件事的兩個位置，而兩邊都沒開／沒有。
+ */
+describe(".ts 消費 .vue：vp check 的盲區", () => {
+  it(
+    "🔴 prop 型別不符（h() 呼叫）—— 同一行在 vp check 底下是 0 errors",
+    () => {
+      const root = copy();
+      edit(root, "consumer.ts", "count: 1 }", 'count: "一" }');
+      expect(messages(check(root))).toContain("TS2");
+    },
+    SPAWNS_VUE_TSC,
+  );
+
+  it(
+    "⚪ 多一個根本不存在的 prop → **不會**紅（`h()` 的 props 型別帶 Record 交集）",
+    () => {
+      const root = copy();
+      edit(root, "consumer.ts", "count: 1 }", "count: 1, nope: true }");
+      expect(messages(check(root))).toBe("");
+    },
+    SPAWNS_VUE_TSC,
+  );
+
+  it(
+    "★ 這一類的診斷不在 .vue 上 —— 報告要分開講，不能標成「.vue 型別錯誤」",
+    () => {
+      const root = copy();
+      edit(root, "consumer.ts", "count: 1 }", 'count: "一" }');
+      const files = check(root).diagnostics.map((d) => d.file ?? "");
+      expect(files.every((file) => file.endsWith(".ts"))).toBe(true);
+      expect(files.some((file) => file.endsWith(".vue"))).toBe(false);
+    },
+    SPAWNS_VUE_TSC,
+  );
+});
+
 describe('跨元件：declare module "*.vue" 沒有把它蓋掉', () => {
   it(
     "🔴 prop 型別不符",

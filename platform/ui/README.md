@@ -57,6 +57,12 @@ createApp(App).use(createUiTheme({ variants: { secondary: "bg-surface-hover text
 `:root`，不在建置期求值）。這件事由 `tools/theme-verify` 真的建置兩次去比對 ——
 一支只 grep `@theme` 有沒有寫的測試量的是「有沒有寫」，不是「有沒有生效」。
 
+⚠️ **切片與應用也不准寫死顏色，不只元件。** 元件一行原始顏色都沒有，
+不代表各案換得掉配色 —— 切片自己在頁面上寫 `text-gray-900`，那一格就永遠
+是灰的。`theme-verify` 的靜態那一段在 2026-08-17 擴到 `features` 與 `apps`，
+乾跑當場撞到 4 處（含**產生器模板裡的一處**，也就是每個新切片天生帶著
+一個換不掉的顏色）。見 C68〈十〉。
+
 ⚠️ **覆寫的 class 字串必須寫在 `.ts` 或 `.vue` 裡。** `@source` 只掃這兩種副檔名，
 搬進 JSON 或環境變數的話 Tailwind 掃不到、**也不會報錯**，產出的 CSS 少掉那些
 類別而建置全綠 —— 與下面第一個坑同一種症狀。
@@ -167,7 +173,10 @@ Tailwind v4 的自動來源偵測**刻意跳過 node_modules**，而 monorepo �
 ⚠️ **代價：這個 repo 因此有兩個 TypeScript。** catalog 主線的
 `typescript: ^7.0.2` 是原生 Go 版，已經沒有 `vue-tsc` 需要的 compiler API，
 所以那支工具用具名 catalog 拉一份 JS 版的 TS 5.x。兩支編譯器的分歧風險
-量過（接上當天 0 條），**升 vite-plus 或 TS 時要重跑那個比對**。
+而那第二份 TypeScript **不只是成本**：`.ts` 檔消費 `.vue` 時，`vp check`
+看的是 `declare module "*.vue"` 的萬用宣告（任何 prop 都合法），vue-tsc 解析
+真的 SFC。實測 `h(UiButton, { variant: "根本不是 variant" })` → `vp check`
+0 errors、`vue-typecheck` 紅。**「一邊紅一邊綠」多半是真陽性**，見 C68 的〈九〉。
 
 ## 開發
 

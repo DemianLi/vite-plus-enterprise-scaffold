@@ -128,7 +128,7 @@ export const GATES: readonly Gate[] = [
     command: "node tools/conformance/src/cli.ts",
     evidence: null,
     negativeTest: "tools/conformance/tests/negative.test.ts",
-    note: "反向測試破壞的是複製到暫存目錄的副本，repo 原始碼不被動到。⚠️ 幽靈依賴那條（2026-08-16 加）**刻意不掃 `tools/*` 與 `tests/`** —— 產生器與測試的本職就是把程式碼當資料拿著，乾跑時那兩處噴出 20 幾條全數偽陽性。範圍窄而準，勝過寬而吵。⚠️ 「CI action 以 SHA 釘住」那條（同日加）**只看 `uses:`**，`run:` 裡的容器映像不在範圍 —— 要在 shell 腳本裡認出映像參考，任何做得到的正則都會對路徑與網址誤報。映像目前是手動用 digest 釘的，而「手動釘的東西」正是那條檢查存在的理由，缺口記在 HANDOFF 第 23 項。",
+    note: '反向測試破壞的是複製到暫存目錄的副本，repo 原始碼不被動到。⚠️ 幽靈依賴那條（2026-08-16 加，2026-08-17 擴到 CSS 的 `@import`）**刻意不掃 `tools/*` 與 `tests/`** —— 產生器與測試的本職就是把程式碼當資料拿著，乾跑時那兩處噴出 20 幾條全數偽陽性。範圍窄而準，勝過寬而吵。⚠️ CSS 那一半（C68〈十〉）乾跑是 **0 違規**，接它的理由不是現在有東西可抓，是**它要抓的缺陷已經真的發生過一次**（`platform/ui` 的 `@import "tailwindcss"` 靠 `apps/console` 剛好宣告才解析得到）—— D16 的迭代軸有分。去註解器必須先認得引號字串，否則 `@source "src/*.{vue,ts}"` 裡的 `/*` 會被當成註解開頭，把後面的 `@import` 一起吞掉而兩邊都不報錯。⚠️ 那條反向測試的**第一版不會鑑別**：fixture 用 `**/*`，而 `/**/` 是自閉合的，天真版吞不到下一行，於是兩種實作都綠 —— 換成 `src/*.…` 之後才真的會紅。⚠️ 「CI action 以 SHA 釘住」那條（同日加）**只看 `uses:`**，`run:` 裡的容器映像不在範圍 —— 要在 shell 腳本裡認出映像參考，任何做得到的正則都會對路徑與網址誤報。映像目前是手動用 digest 釘的，而「手動釘的東西」正是那條檢查存在的理由，缺口記在 HANDOFF 第 23 項。',
   },
   {
     id: "bff-check",
@@ -155,7 +155,7 @@ export const GATES: readonly Gate[] = [
     command: "node tools/vue-typecheck/src/cli.ts",
     evidence: null,
     negativeTest: "tools/vue-typecheck/tests/negative.test.ts",
-    note: "2026-08-17 加（C68）。補的是一個**完全沒有人在看**的區塊：`vp check` 的型別段是 tsgolint，它不看 `.vue` —— 實測同一行型別錯誤放進 SFC 是 0 errors、放進 `.ts` 是 1 error。乾跑量到 16 條，而 16 條全部是同一個根因：兩個切片的模板用 `$t`，而兩個 package.json 都沒宣告 vue-i18n —— **那是一個幽靈相依，而 `tools/conformance` 的幽靈相依檢查讀的是 import，全域屬性不是 import**，所以那道閘門看不見它。找到它的只有這一支。⚠️ 代價是這個 repo 因此有**兩個 TypeScript**（catalog 主線的原生 Go 版 TS 7 給 tsgolint、具名 catalog 的 JS 版 TS 5.x 給 vue-tsc）。兩支編譯器對同一份程式碼給出不同判決的話這道閘門會被關掉（C57），所以那個風險是量過才做的：接上當天 vue-tsc 對四份 program 的每一支 `.ts` 產出 0 條 tsgolint 沒有的診斷；供應鏈成本是 +9 個純 JS 套件、原生二進位與家族數完全不變。⚠️ 刻意不開 `strictTemplates`：乾跑多 2 條，兩條都是 `<UiButton @click>`，而「修法」是加 `defineEmits` —— 那會關掉 fallthrough attr，比病還糟（C41／C55）。⚠️ 抓不到 `<template #不存在的slot>`：`@vue/language-core` 3.x 只有 checkUnknownProps／Events／Components／Directives／strictVModel 五個旋鈕，沒有 unknown slot 這一項 —— 是能力邊界不是設定沒開。反向測試把它寫成一條「不得紅」，為的是升級後它哪天會紅時有人知道。⚠️ 這道閘門先證明自己有在看才給判決：每份 program 都用 `--listFiles` 比對「該讀的 .vue」與「實際讀了哪些檔」，缺一個就紅 —— 「0 條錯誤」與「一個檔案都沒讀到」印出來長得一樣。",
+    note: "2026-08-17 加（C68）。補的是一個**完全沒有人在看**的區塊：`vp check` 的型別段是 tsgolint，它不看 `.vue` —— 實測同一行型別錯誤放進 SFC 是 0 errors、放進 `.ts` 是 1 error。乾跑量到 16 條，而 16 條全部是同一個根因：兩個切片的模板用 `$t`，而兩個 package.json 都沒宣告 vue-i18n —— **那是一個幽靈相依，而 `tools/conformance` 的幽靈相依檢查讀的是 import，全域屬性不是 import**，所以那道閘門看不見它。找到它的只有這一支。⚠️ 代價是這個 repo 因此有**兩個 TypeScript**（catalog 主線的原生 Go 版 TS 7 給 tsgolint、具名 catalog 的 JS 版 TS 5.x 給 vue-tsc）。供應鏈成本是 +9 個純 JS 套件、原生二進位與家族數完全不變。⚠️ **落地當天把「分歧」寫成要管理的風險，那是錯的，同日修正（C68〈九〉）**：`.ts` 檔消費 `.vue` 時 `vp check` 看的是 `declare module '*.vue'` 的萬用宣告（任何 prop 都合法），vue-tsc 解析真的 SFC —— 實測 `h(UiButton, { variant: '根本不是 variant' })` 是 `vp check` 0 errors、這道閘門紅，而**紅的那邊是對的**。所以「一邊紅一邊綠」多半是真陽性，紅燈訊息因此按副檔名分開講，`.ts` 那一類直接寫「照樣修掉它，vp check 綠燈不代表誤報」—— 少了這句，第一個撞到的人會把真缺陷當成工具問題然後關掉閘門（C41）。反方向也有一例而那次是 tsgolint 對的（把 import 加進 env.d.ts 會讓 `declare module` 失效）：兩支各有對方看不見的東西，沒有一支涵蓋另一支。⚠️ 刻意不開 `strictTemplates`：乾跑多 2 條，兩條都是 `<UiButton @click>`，而「修法」是加 `defineEmits` —— 那會關掉 fallthrough attr，比病還糟（C41／C55）。⚠️ 抓不到 `<template #不存在的slot>`：`@vue/language-core` 3.x 只有 checkUnknownProps／Events／Components／Directives／strictVModel 五個旋鈕，沒有 unknown slot 這一項 —— 是能力邊界不是設定沒開。反向測試把它寫成一條「不得紅」，為的是升級後它哪天會紅時有人知道。⚠️ 這道閘門先證明自己有在看才給判決：每份 program 都用 `--listFiles` 比對「該讀的 .vue」與「實際讀了哪些檔」，缺一個就紅 —— 「0 條錯誤」與「一個檔案都沒讀到」印出來長得一樣。",
   },
   {
     id: "supply-chain",
@@ -178,11 +178,11 @@ export const GATES: readonly Gate[] = [
   {
     id: "theme-verify",
     kind: "gate",
-    what: "設計系統接縫：元件只准用語意代幣（靜態）＋ 產物零懸空代幣引用（引用）＋ 各案覆寫代幣真的會進到產物（建置兩次比對）（D15／C62）",
+    what: "設計系統接縫：元件**與切片／應用**只准用語意代幣（靜態）＋ 產物零懸空代幣引用（引用）＋ 各案覆寫代幣真的會進到產物（建置兩次比對）（D15／C62）",
     command: "node tools/theme-verify/src/cli.ts",
     evidence: null,
     negativeTest: "tools/theme-verify/tests/palette.test.ts",
-    note: "2026-08-17 加（HANDOFF #24）。守的是 C62 那句產品要求的**前兩條軸** —— 配色與 component 形狀；**第三條（互動方式）完全不在這道閘門的範圍**，而且不該在：互動換不了代幣，它是靠組合（slot／emit）換的，守它的是 `api-surface`（名單，2026-08-17 起，見 C67）與 `vue-typecheck`（slot payload 的型別，同日稍晚，見 C68）。綠燈的意思是「兩條軸實測可換」，不是「設計系統可換」。⚠️ 建置那一段（比對兩份產出的 CSS）是真的跑 Tailwind，因為它的失敗模式是**建置成功、CSS 還變大、但一個 utility 都沒有** —— 只讀 CSS 檔驗不到。九條斷言裡八條實測會紅，逐條列在 `tools/theme-verify/README.md`；「覆寫零附帶影響」那條未測，破壞它得改 Tailwind 本身。⚠️ 「引用」那一段是同日稍晚補的，補的是**這道閘門自己上線那個 PR 留下的缺陷**：代幣改名，6 處使用端沒跟上，而前兩段只掃 `platform/ui` 所以全綠（C66）。它有死角：括號寫法的懸空引用抓得到，正規工具類名對應的代幣被刪掉時 Tailwind 什麼都不產生，抓不到 —— 那一半在切片上目前沒有守，記在 HANDOFF #24。⚠️ 這一欄只放得下一個路徑，指的是靜態那一段；「引用」那一段的零件測試是 `tools/theme-verify/tests/css.test.ts`（六條，含「帶 fallback 的不算違規」與「解析不到東西時要紅」）。建置那一段的紅燈是手動實測的，沒有自動化的反向測試 —— 兩次真建置放進單元測試會讓這道閘門的成本翻倍。",
+    note: "2026-08-17 加（HANDOFF #24）。守的是 C62 那句產品要求的**前兩條軸** —— 配色與 component 形狀；**第三條（互動方式）完全不在這道閘門的範圍**，而且不該在：互動換不了代幣，它是靠組合（slot／emit）換的，守它的是 `api-surface`（名單，2026-08-17 起，見 C67）與 `vue-typecheck`（slot payload 的型別，同日稍晚，見 C68）。綠燈的意思是「兩條軸實測可換」，不是「設計系統可換」。⚠️ 建置那一段（比對兩份產出的 CSS）是真的跑 Tailwind，因為它的失敗模式是**建置成功、CSS 還變大、但一個 utility 都沒有** —— 只讀 CSS 檔驗不到。九條斷言裡八條實測會紅，逐條列在 `tools/theme-verify/README.md`；「覆寫零附帶影響」那條未測，破壞它得改 Tailwind 本身。⚠️ 「引用」那一段是同日稍晚補的，補的是**這道閘門自己上線那個 PR 留下的缺陷**：代幣改名，6 處使用端沒跟上，而前兩段只掃 `platform/ui` 所以全綠（C66）。它有死角：括號寫法的懸空引用抓得到，正規工具類名對應的代幣被刪掉時 Tailwind 什麼都不產生，抓不到 —— 那一半在切片上目前沒有守，記在 HANDOFF #24。⚠️ 2026-08-17 同日稍晚，靜態那一段的範圍從 `platform/ui/src/components` 擴到 `features` 與 `apps`（C68〈十〉）：元件一行原始顏色都沒有，不代表各案換得掉配色 —— 切片自己在頁面上寫 `text-gray-900`，那一格就永遠是灰的。乾跑撞到 4 處真陽性、0 偽陽性，**其中一處在產生器模板裡**，也就是每個新切片天生帶著一個換不掉的顏色（C41 那個形狀的重演）。產生器那一側由 `slice-gen` 的測試用**同一支判定式**（`findPaletteUsage`）釘住，各持一份的話兩邊測試會一起全綠。⚠️ 這一欄只放得下一個路徑，指的是靜態那一段；「引用」那一段的零件測試是 `tools/theme-verify/tests/css.test.ts`（六條，含「帶 fallback 的不算違規」與「解析不到東西時要紅」）。建置那一段的紅燈是手動實測的，沒有自動化的反向測試 —— 兩次真建置放進單元測試會讓這道閘門的成本翻倍。",
   },
   {
     id: "eslint-security",
