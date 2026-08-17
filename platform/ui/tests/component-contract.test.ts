@@ -9,6 +9,7 @@ import {
   consumedOverrides,
   declaredSlotTypes,
   defaultSlotKeys,
+  defaultTablesInTemplate,
   definePropsBlock,
   exportedTypeNames,
   propUnionMembers,
@@ -93,6 +94,12 @@ describe("元件契約", () => {
       const props = definePropsBlock(source);
       if (props === null) return;
       expect(aliasesUsedInProps(props, exportedTypeNames(THEME))).toEqual([]);
+    });
+
+    it("⑤ 模板不得直接引用預設表", () => {
+      // 接縫還在、只是沒接上 —— 打錯一個名字，前面每一條都還是綠的，
+      // 而各案的覆寫一個字都不會生效。
+      expect(defaultTablesInTemplate(source)).toEqual([]);
     });
 
     it("預設值必須是該 prop 的 union 成員之一", () => {
@@ -201,6 +208,34 @@ const parts = DEFAULT_PARTS;
   variant?: "primary" | "secondary";
 `;
     expect(propUnionMembers(props, "variant")).not.toContain("secondry");
+  });
+
+  it("⑤ 模板綁到預設表 —— 接縫還在、只是沒接上", () => {
+    // 這是打錯一個名字的情形，而前面每一條都還是綠的：`parts` 仍然被算出來、
+    // `DEFAULT_PARTS` 仍然有全部的鍵、`UiThemeOverride` 仍然宣告著那個槽。
+    const broken = `<script setup lang="ts">
+const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };
+const parts: Readonly<Record<UiFakeSlot, string>> = { a: theme.UiFake?.a ?? DEFAULT_PARTS.a, b: theme.UiFake?.b ?? DEFAULT_PARTS.b };
+</script>
+
+<template>
+  <div :class="DEFAULT_PARTS.a" />
+</template>`;
+    expect(defaultTablesInTemplate(broken)).toEqual(["DEFAULT_PARTS"]);
+  });
+
+  it("⑤ 綁到解析後的表是對的，不該紅", () => {
+    // 兩張表的型別註記一模一樣，靠「有沒有讀 theme.」分辨 ——
+    // 靠命名慣例分辨等於沒有分辨。
+    const fine = `<script setup lang="ts">
+const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };
+const parts: Readonly<Record<UiFakeSlot, string>> = { a: theme.UiFake?.a ?? DEFAULT_PARTS.a, b: theme.UiFake?.b ?? DEFAULT_PARTS.b };
+</script>
+
+<template>
+  <div :class="parts.a" />
+</template>`;
+    expect(defaultTablesInTemplate(fine)).toEqual([]);
   });
 
   it("★ 錨點移位要丟例外，不是回傳空集合", () => {
