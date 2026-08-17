@@ -201,7 +201,7 @@ export const GATES: readonly Gate[] = [
       "./node_modules/.bin/eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0",
     evidence: null,
     negativeTest: "platform/eslint-config/tests/a11y.test.ts",
-    note: "⚠️ 這道閘門對本 repo 的正常結果是**零個發現，而模板是有缺陷的**。它比對的是原生元素與屬性，而本 repo 的互動幾乎都包在元件裡（UiButton／RouterLink／DialogRoot）—— 元件對它是透明的。實測：同一批 `.vue` 用人眼讀出四個真缺陷（表格沒有 caption、`<th />` 是空的、載入狀態沒有 live region、`<nav>` 沒有可及名稱），它一個都沒報；那四個已在加這道閘門的同一個 PR 修掉。所以它覆蓋的是**靜態可查的那一半**，看不見的那一類具名列在 HANDOFF 第 22 項 —— 不要用這個綠燈取代它。反向測試拿一份故意寫壞的 SFC，斷言**每一條被啟用的規則都確實對它開火**（比的是規則 ID 的集合，不是數量、也不是 exit code）；另有一條比對「repo 裡有幾個 `.vue`」與「閘門掃到幾個」，因為「掃到零個」與「什麼都沒掃到」在 CI 上長得一模一樣。⚠️ 要哪個等級、驗收怎麼判，**以 RFP 為準**，這裡與工具設定裡都刻意不寫死。",
+    note: "⚠️ 這道閘門對本 repo 的正常結果是**零個發現，而模板是有缺陷的**。它比對的是原生元素與屬性，而本 repo 的互動幾乎都包在元件裡（UiButton／RouterLink／DialogRoot）—— 元件對它是透明的。實測：同一批 `.vue` 用人眼讀出四個真缺陷（表格沒有 caption、`<th />` 是空的、載入狀態沒有 live region、`<nav>` 沒有可及名稱），它一個都沒報；那四個已在加這道閘門的同一個 PR 修掉。所以它覆蓋的是**靜態可查的那一半**，看不見的那一類具名列在 HANDOFF 第 22 項 —— 不要用這個綠燈取代它。反向測試拿一份故意寫壞的 SFC，斷言**每一條被啟用的規則都確實對它開火**（比的是規則 ID 的集合，不是數量、也不是 exit code）；另有一條比對「repo 裡有幾個 `.vue`」與「閘門掃到幾個」，因為「掃到零個」與「什麼都沒掃到」在 CI 上長得一模一樣。⚠️ 要哪個等級、驗收怎麼判，**以 RFP 為準**，這裡與工具設定裡都刻意不寫死。⚠️ 2026-08-17（C69）：行為面那一半量過之後**決定不裝 axe 閘門**，改交付 `tools/compliance/ACCESSIBILITY.md` 那張分工表。理由不是成本，是量出來的 —— 想買的兩條（1.4.3 對比、1.4.1 顏色的使用）在模擬 DOM 下落在 `incomplete` 而不是 `violations`，也就是天真的 `expect(violations).toHaveLength(0)` 會在一段對比 1.1:1 的文字上亮綠燈；而買得到的 `heading-order` 是頁面級性質，掃孤立畫面時永遠不適用。更關鍵的是**驗收的三段沒有一段在 CI 裡**（Freego 掃已部署的 URL → 覆核 → 人工檢測 → 抽測），而四個缺口裡的焦點順序（2.4.3，A 級）連 Freego 都判定不了、只能人工 —— Playwright 也買不到它。",
   },
   {
     id: "trivy-sca",
