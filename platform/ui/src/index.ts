@@ -38,4 +38,4 @@ export { cn } from "./utils/cn.ts";
  * 「按鈕變成一個看不見但點得到的方塊」。
  */
 export { createUiTheme } from "./theme.ts";
-export type { UiSize, UiThemeOverride, UiVariant } from "./theme.ts";
+export type { UiButtonSlot, UiDialogSlot, UiSize, UiThemeOverride, UiVariant } from "./theme.ts";

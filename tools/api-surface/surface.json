@@ -485,6 +485,10 @@
           "variant?: \"primary\" | \"secondary\" | \"danger\" | \"ghost\""
         ]
       },
+      "UiButtonSlot": {
+        "kind": "type",
+        "type": "\"danger\" | \"ghost\" | \"md\" | \"primary\" | \"secondary\" | \"sm\""
+      },
       "UiDialog": {
         "kind": "component",
         "members": [
@@ -497,6 +501,10 @@
           "title: string"
         ]
       },
+      "UiDialogSlot": {
+        "kind": "type",
+        "type": "\"content\" | \"description\" | \"overlay\" | \"title\""
+      },
       "UiSize": {
         "kind": "type",
         "type": "\"md\" | \"sm\""
@@ -504,8 +512,8 @@
       "UiThemeOverride": {
         "kind": "type",
         "members": [
-          "sizes?: Readonly<Partial<Record<UiSize, string>>> | undefined",
-          "variants?: Readonly<Partial<Record<UiVariant, string>>> | undefined"
+          "UiButton?: Readonly<Partial<Record<UiButtonSlot, string>>> | undefined",
+          "UiDialog?: Readonly<Partial<Record<UiDialogSlot, string>>> | undefined"
         ]
       },
       "UiVariant": {
@@ -519,6 +527,12 @@
       "name": "rename-feature-kit-to-slice-kit",
       "removes": [],
       "reason": "C5：平台契約套件原名 @org/feature-kit 與切片的 @org/feature-* 命名撞號，被自己的邊界規則誤判。此遷移發生在本基準建立之前，因此 removes 為空；保留登記是為了讓 codemod 檔案的存在受檢查保護，並作為 D12 流程的範例。"
+    },
+    {
+      "name": "flatten-ui-theme-to-components",
+      "removes": [],
+      "changes": ["@org/ui#UiThemeOverride"],
+      "reason": "各案覆寫元件樣式的介面從 { variants, sizes }（按鈕的概念長在全域 API 上）改成 { 元件名: { 槽名: class 字串 } }。舊形狀讓第二個元件 UiDialog 沒有地方可放它的接縫，於是它的寬度與位置寫死在模板裡、任何案子都換不掉 —— 而沒有任何閘門說話。C70。"
     }
   ]
 }

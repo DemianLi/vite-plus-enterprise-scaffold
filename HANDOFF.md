@@ -475,7 +475,7 @@ gh api repos/<owner>/<repo>/codeowners/errors
 | --- | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
 | 1   | `@tailwindcss/vite` 加進 `DRILL_PLUGINS` | ✅ 已登記，並補上**產物比對**（反向測試：拿掉 @source → 37%，紅）                          |
 | 2   | 重跑 `vpr supply-chain --capture`        | ✅ 519 套件／144 原生／12 家族。新家族 `@tailwindcss` 已分類為 toolchain                   |
-| 3   | 新增 `platform/ui` package               | ✅ CODEOWNERS（暫掛）、api-surface（11 個進入點／97 個 export）、退出演練 alias 都已接上   |
+| 3   | 新增 `platform/ui` package               | ✅ CODEOWNERS（暫掛）、api-surface（11 個進入點／99 個 export）、退出演練 alias 都已接上   |
 | 4   | 擋住「切片自己拼一套設計系統」           | ✅ 擋的是 **import 而非目錄**（理由見契約）；另加全 repo 禁用 reka-ui Splitter（CSP）      |
 | 5   | 瀏覽器實測 CSP                           | ✅ 五個探針全對（Chrome 148）。⚠️ 證據檔與守它的閘門已於 2026-08-16 拆除（C52）—— 見下方註 |
 
@@ -1230,16 +1230,25 @@ grep -n "uses:" .github/workflows/*.yml
 `DECISIONS.md` 的 **C65**（配色與形狀）、**C66**（改名留下的洞）、
 **C67**（互動）。
 
-| 軸                 | 接縫在哪                                                        | 守它的         |
-| ------------------ | --------------------------------------------------------------- | -------------- |
-| **配色**           | `platform/ui/src/styles/index.css` 的兩層 `@theme`              | `theme-verify` |
-| **component 形狀** | `createUiTheme({ variants, sizes })`＋ 圓角／外框／陰影代幣     | `theme-verify` |
-| **互動方式**       | `UiDialog` 的 `default`／`footer`／`close` slot（＋ emit 支援） | `api-surface`  |
+| 軸                 | 接縫在哪                                                        | 守它的                         |
+| ------------------ | --------------------------------------------------------------- | ------------------------------ |
+| **配色**           | `platform/ui/src/styles/index.css` 的兩層 `@theme`              | `theme-verify`                 |
+| **component 形狀** | `createUiTheme({ 元件名: { 槽名: class } })`＋ 圓角／外框代幣   | `theme-verify` ＋ **元件契約** |
+| **互動方式**       | `UiDialog` 的 `default`／`footer`／`close` slot（＋ emit 支援） | `api-surface`                  |
 
-⚠️ **「都接上了」不等於「都一樣厚」。** 互動那條的接縫只有 `UiDialog`
+⚠️ **「三條軸都接上了」這句話在 2026-08-17 當天只對一個元件成立（C70）。**
+形狀那條軸當時只做在 `UiButton` 上 —— `UiDialog` 的寬度與位置寫死在模板裡，
+任何案子都換不掉。而沒有東西說話的原因很具體：**當時的檢查
+`readFileSync("UiButton.vue")` 寫死一個檔名**，守的是一個檔案不是一條規則。
+
+現在 `platform/ui/tests/component-contract.test.ts` 掃 `src/components/*.vue`，
+五條條文（有沒有匯出／有沒有宣告槽／宣告與預設表一致／有沒有 `inject`／
+模板有沒有綁到解析後的表），每條配反向測試。
+
+⚠️ **「都接上了」仍然不等於「都一樣厚」。** 互動那條的接縫只有 `UiDialog`
 真的用得上 —— `UiButton` 只有一個 `default` slot，它的互動就是「被點」。
-會不會夠用，第二個案子提出需求時才知道；那時候的差別是：**加一個 slot
-現在是一筆會被記錄、會被比對的公開面變更**，不是一次沒有人看見的漂移。
+而**「接縫夠不夠」刻意不做成靜態規則**：那是設計判斷，交給 `CODEOWNERS`
+與 PR。做成規則會長出沒有人會覆寫的槽名，然後被加例外（C41）。
 
 ### 已經做掉的（2026-08-17）
 
