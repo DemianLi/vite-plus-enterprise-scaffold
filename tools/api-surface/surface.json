@@ -122,11 +122,6 @@
         "kind": "names-only"
       }
     },
-    "@org/eslint-config/a11y": {
-      "default": {
-        "kind": "names-only"
-      }
-    },
     "@org/http-client": {
       "ForbiddenError": {
         "kind": "class",
@@ -519,6 +514,11 @@
       "name": "rename-feature-kit-to-slice-kit",
       "removes": [],
       "reason": "C5：平台契約套件原名 @org/feature-kit 與切片的 @org/feature-* 命名撞號，被自己的邊界規則誤判。此遷移發生在本基準建立之前，因此 removes 為空；保留登記是為了讓 codemod 檔案的存在受檢查保護，並作為 D12 流程的範例。"
+    },
+    {
+      "name": "drop-a11y-config-for-v1",
+      "removes": ["@org/eslint-config/a11y#default"],
+      "reason": "v1.0.0 的範圍縮減：無障礙整條移到 v2（論證在 main 的 DECISIONS.md C69）。這不是 API 演進而是產品線範圍的決定 —— 需要無障礙靜態檢查的案子要用 main 那條線，不是把它加回 v1。codemod 只移除 import 不補替代方案，因為沒有替代方案；讓升級的人當場看見少了一道閘門，比安靜地少掉危險得多。"
     }
   ]
 }

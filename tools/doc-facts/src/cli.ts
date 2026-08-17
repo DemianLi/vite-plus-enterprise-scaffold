@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { CONTRACT_ITEMS } from "@org/bff-contract";
 
 import { actionCounts, codeownersEntryCount, workspacePackageCount } from "./derive.ts";
-import { FACTS, checkFacts, handoffItemCount, type DocumentSource } from "./facts.ts";
+import { FACTS, checkFacts, type DocumentSource } from "./facts.ts";
 
 /**
  * 文件裡的數字與 repo 內部事實來源是否一致。
@@ -28,24 +28,16 @@ const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 /**
  * 用現在式描述「這個系統現在是什麼樣子」的文件。理由見 facts.ts 檔頭。
  *
- * ⚠️ `UI-SURVEY.md` 是 2026-08-16 補的。它原本不在這裡，而 README 與
- * HANDOFF 第 14 項都直接把讀者指過去（「完整的三方比較留在 UI-SURVEY.md」）——
- * 也就是說它是審查者**會打開**的一份，卻是唯一一份沒有被守的。
- * 補的當下它就有一句過期的（467 套件／121 原生二進位，實際 563／144）。
  *
  * 判準：**被 README 或 HANDOFF 指過去、而且用現在式寫的，就要進這份清單。**
  */
-const GUARDED = ["README.md", "HANDOFF.md", "UI-SURVEY.md"];
+const GUARDED = ["README.md", "HANDOFF.md"];
 
 function readJson(relative: string): Record<string, unknown> {
   return JSON.parse(readFileSync(join(ROOT, relative), "utf8")) as Record<string, unknown>;
 }
 
-function deriveTruth(handoff: string): Record<string, number> {
-  const inventory = readJson("tools/supply-chain/inventory.json");
-  const provenance = readJson("tools/supply-chain/provenance.json");
-  const inventoryTotals = inventory["totals"] as Record<string, number>;
-  const provenanceTotals = provenance["totals"] as Record<string, number>;
+function deriveTruth(): Record<string, number> {
   const surface = readJson("tools/api-surface/surface.json")["surface"] as Record<
     string,
     Record<string, unknown>
@@ -53,12 +45,6 @@ function deriveTruth(handoff: string): Record<string, number> {
   const actions = actionCounts(ROOT);
 
   return {
-    packages: inventoryTotals["packages"] as number,
-    native: inventoryTotals["native"] as number,
-    families: inventoryTotals["families"] as number,
-    "no-slsa": provenanceTotals["registry-signature"] as number,
-    slsa: provenanceTotals["slsa-provenance"] as number,
-    "handoff-items": handoffItemCount(handoff),
     "api-entries": Object.keys(surface).length,
     "api-exports": Object.values(surface).reduce(
       (total, entry) => total + Object.keys(entry).length,
@@ -78,8 +64,7 @@ function main(): number {
     source: readFileSync(join(ROOT, path), "utf8"),
   }));
 
-  const handoff = documents.find((document) => document.path === "HANDOFF.md")?.source ?? "";
-  const truth = deriveTruth(handoff);
+  const truth = deriveTruth();
   const problems = checkFacts(documents, truth);
 
   if (problems.length === 0) {

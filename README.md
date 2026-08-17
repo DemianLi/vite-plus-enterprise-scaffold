@@ -7,7 +7,6 @@
 
 [![Tier 1 — Quality](https://img.shields.io/github/actions/workflow/status/<ORG>/<REPO>/tier1-quality.yml?branch=main&label=tier1%20quality)](.github/workflows/tier1-quality.yml)
 [![Tier 2 — Security](https://img.shields.io/github/actions/workflow/status/<ORG>/<REPO>/tier2-security.yml?branch=main&label=tier2%20security)](.github/workflows/tier2-security.yml)
-[![Exit Drill](https://img.shields.io/github/actions/workflow/status/<ORG>/<REPO>/exit-drill.yml?label=exit%20drill)](.github/workflows/exit-drill.yml)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.18.0-339933)](package.json)
 [![pnpm](https://img.shields.io/badge/pnpm-11.21.0-F69220)](package.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](#-開源協議)
@@ -27,34 +26,43 @@
 看起來像機密的環境變數讓建置直接失敗、文件裡抄來的數字對不上事實來源就擋下 PR。
 適用於**多團隊並行開發、需要通過資安與稽核的企業內部系統**。
 
-- 完整的決策理由與風險登記 → [DECISIONS.md](DECISIONS.md)
-- 上線前必讀 → [HANDOFF.md](HANDOFF.md)，那裡收的是程式碼做不到、
-  只有組織能決定的 26 件事（採購／資安／法務／平台／架構），每一項都附「拿什麼去談」
-- UI 技術選型的三方比較 → [UI-SURVEY.md](UI-SURVEY.md)
+- **開工前必讀** → [HANDOFF.md](HANDOFF.md)：第一步要做什麼、v1.0.0 承諾什麼、
+  以及**它刻意不承諾什麼**
+- 完整的決策理由與踩過的坑 → [DECISIONS.md](DECISIONS.md)（涵蓋範圍大於 v1.0.0）
+- 版本沿革 → [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
-## ✨ 核心特性
+## ✨ v1.0.0 承諾的五件事
 
-- **垂直切片架構（Vertical Slice）** — 一片功能 ＝ 一個 package，自帶 API／composables／views／store／測試。
-  依賴方向**單向**：`apps → features → platform`，**切片之間一律禁止互相依賴**。
-- **邊界由三層機制守著，不是靠 review** — workspace manifest 檢查、oxlint `no-restricted-imports`
-  即時提示、相對路徑逃逸的精確路徑解析，各自補上另外兩層守不住的縫。
-- **兩層檢查、職責分離** — Tier 1 品質（快、有快取、編輯器即時）與 Tier 2 安全閘門
-  （**全量、不快取、不經驅動層、每日排程**）。
-- **安全預設值是內建行為，不是建議** — 憑證不進 JS、機密不進 bundle、sourcemap 產但不部署、
-  build script 預設全封鎖、CSP 以資料形式由三方共用。**每一條都有測試釘住**。
-- **驅動層可替換，而且被實測過** — `vpr exit-drill` 會用上游 Vite/Vitest 實際重建一次，
-  證據進版控，拿得出去給稽核看。
-- **`platform/` 的 breaking change 必須附 codemod** — `tools/api-surface` 比對每個進入點的
-  **型別形狀**（連 interface 成員、class 建構子、`.vue` 的 props 都算），
-  **移除、改名、或改變形狀就讓閘門失敗**。
-- **供應鏈是產生的，不是寫的** — SCA 例外申請書、含 sha512 的鏡像清單、封閉網路前置條件，
-  三份文件由 `pnpm-lock.yaml` 推導。
-- **文件裡的數字被機器核對** — `tools/doc-facts` 逐句比對現況型文件的數字與事實來源，
-  抄來的、過期的當場紅燈。
-- **全 TypeScript、契約優先** — 切片對外只有一個 `defineFeature()` 出口，
-  全靜態 import（SAST 追得到、bundler tree-shake 得掉、CODEOWNERS 管得住）。
+> ⚠️ **只有這五條。** 其他能力（無障礙、法遵、供應鏈盤點、退出演練、SBOM）
+> 刻意不在 v1.0.0 的範圍裡 —— 完整清單與「哪種案子會需要」寫在
+> [HANDOFF.md](HANDOFF.md)。
+
+1. **分工開發不受影響的系統架構** — 一片功能 ＝ 一個 package，依賴方向單向
+   （`apps → features → platform`），**切片之間一律禁止互相依賴**。
+   邊界由三層機制守著，不是靠 review：workspace manifest 檢查、
+   oxlint `no-restricted-imports` 即時提示、相對路徑逃逸的精確路徑解析。
+
+2. **設計模板到前端工程的開發方式** — 切片產生器與一致性檢查**讀同一份契約**，
+   產生器改了目錄結構、檢查器立刻跟上，不會各說各話。
+
+3. **設計模板對應 vue component 的方式** — 元件的公開面分三格，
+   各對應設計稿上的一種東西：**值**→代幣、**形狀**→variant、**結構**→slot。
+   `tools/api-surface` 盯著 props／slot／emit 的型別形狀，改了會被看到。
+
+4. **各案快速換配色與元件樣式** — 代幣分兩層（色票 → 語意），
+   `tools/theme-verify` **真的建置兩次**比對產物，證明覆寫會生效 ——
+   而不是只檢查「代幣有沒有寫在那裡」。
+
+5. **基礎資安在撰寫時就被發現** — 這是**前置過濾器**，不是交付的那份掃描報告
+   （源掃弱掃由專業公司做）。Tier 2 全量、不快取、不經驅動層：ESLint 安全規則
+   ＋ 自寫 SAST 汙點傳遞規則 ＋ gitleaks；加上機密不進 bundle、
+   憑證不進 JS、CSP 以資料形式共用，每一條都有測試釘住。
+
+⚠️ **`platform/` 的 breaking change 必須附 codemod** — 這是上面五條共同的前提：
+`tools/api-surface` 比對每個進入點的型別形狀（連 interface 成員、class 建構子、
+`.vue` 的 props／slot／emit 都算），**移除、改名、或改變形狀就讓閘門失敗**。
 
 ---
 
@@ -215,7 +223,7 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │   ├── ui/                   共用 UI 元件層。代幣分兩層，各案在自己的 app 覆寫
 │   ├── pii/                  個資欄位的標註與遮罩基礎設施
 │   ├── tsconfig/             共用 TypeScript 設定
-│   └── eslint-config/        兩份 ESLint 設定：Tier 2 安全規則集，與 Tier 1 的無障礙規則集
+│   └── eslint-config/        Tier 2 安全閘門的 ESLint 設定（與 oxlint 零重疊）
 │
 ├── tools/                    建置與治理腳本。每一支都是一道會失敗的閘門
 │   ├── conformance/          切片邊界一致性檢查（宣告依賴＋相對路徑逃逸）
@@ -224,20 +232,12 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │   ├── theme-verify/         設計系統接縫：真的建置兩次，證明各案換得掉配色與形狀
 │   ├── codemods/             breaking change 必附的遷移腳本
 │   ├── slice-gen/            切片產生器（vp create slice）
-│   ├── bff-check/            對參考實作或真實 gateway 驗收 D8 契約
-│   ├── exit-drill/           D2 退出演練：用上游 Vite/Vitest 實際重建一次
-│   ├── supply-chain/         套件盤點、SCA 例外申請書、鏡像清單、封閉網路前置條件
-│   ├── csp-verify/           CSP 探針；探針由工具產生，不讓人照抄
-│   ├── sast/                 開發期源碼掃描
-│   ├── compliance/           控制項與證據的對應表
-│   ├── pii-check/            個資外洩路徑檢查
-│   ├── doc-facts/            文件裡的數字 vs. repo 內部事實來源
-│   └── ui-survey/            UI-SURVEY.md 的資料來源
+│   ├── sast/                 開發期源碼掃描（自寫的汙點傳遞規則）
+│   └── doc-facts/            文件裡的數字 vs. repo 內部事實來源
 │
-├── .github/workflows/        CI：tier1-quality / tier2-security / exit-drill / supply-chain-recapture
-├── DECISIONS.md              決策日誌與風險登記（有日期，刻意不被 doc-facts 守）
-├── HANDOFF.md                只有組織能決定的事項，附「拿什麼去談」
-├── UI-SURVEY.md              UI 技術選型的三方比較
+├── .github/workflows/        CI：tier1-quality / tier2-security
+├── DECISIONS.md              決策日誌（有日期，涵蓋範圍大於 v1.0.0）
+├── HANDOFF.md                採用指南：第一步、v1 承諾什麼、刻意不承諾什麼
 └── vite.config.ts            驅動層設定（退出面刻意收斂在兩個設定檔）
 ```
 
@@ -248,10 +248,10 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 
 ## 兩層檢查
 
-|                       | 內容                                                      | 指令                                       | 何時跑                    |
-| --------------------- | --------------------------------------------------------- | ------------------------------------------ | ------------------------- |
-| **Tier 1 — 品質**     | oxlint + oxfmt + 型別檢查 + 無障礙靜態檢查 + 設計系統接縫 | `vp check`、`vpr a11y`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
-| **Tier 2 — 安全閘門** | 一致性檢查 + ESLint 安全規則                              | `vpr gate`                                 | 每次 PR **＋ 每日排程**   |
+|                       | 內容                                                       | 指令                                                | 何時跑                    |
+| --------------------- | ---------------------------------------------------------- | --------------------------------------------------- | ------------------------- |
+| **Tier 1 — 品質**     | oxlint + oxfmt + 型別檢查 + `.vue` 型別檢查 + 設計系統接縫 | `vp check`、`vpr vue-typecheck`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
+| **Tier 2 — 安全閘門** | 一致性檢查 + ESLint 安全規則                               | `vpr gate`                                          | 每次 PR **＋ 每日排程**   |
 
 > 指令刻意**不用** `pnpm run` / `npx`：本專案不保證環境有全域 pnpm，
 > 而 `npx` 會被 `devEngines` 擋下。`vpr` 是 vite-plus 的 script runner，
@@ -267,11 +267,15 @@ Tier 2 刻意**全量、不快取、不經 `vp`**。原因是安全掃描的結�
 
 ### CI
 
-| Workflow                                                     | 內容                                                                                                 | 快取              | 觸發                     |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- | ----------------- | ------------------------ |
-| [`tier1-quality.yml`](.github/workflows/tier1-quality.yml)   | `vp check` / test / build / **無障礙靜態檢查** / **設計系統接縫**                                    | ✅ 任務快取       | PR、push to main         |
-| [`tier2-security.yml`](.github/workflows/tier2-security.yml) | 一致性檢查 / API 表面 / BFF 契約 / 退出面 / **供應鏈盤點** / ESLint 安全規則 / gitleaks / SBOM / SCA | ❌ **一格都沒有** | PR **＋ 每日 21:00 UTC** |
-| [`exit-drill.yml`](.github/workflows/exit-drill.yml)         | D2 退出演練（上游 Vite 實際重建一次）                                                                | ❌                | **每季** + 手動          |
+| Workflow                                                     | 內容                                                                 | 快取              | 觸發                     |
+| ------------------------------------------------------------ | -------------------------------------------------------------------- | ----------------- | ------------------------ |
+| [`tier1-quality.yml`](.github/workflows/tier1-quality.yml)   | `vp check` / **`.vue` 型別檢查** / test / build / **設計系統接縫**   | ✅ 任務快取       | PR、push to main         |
+| [`tier2-security.yml`](.github/workflows/tier2-security.yml) | 一致性檢查 / API 表面 / 文件數字 / ESLint 安全規則 / SAST / gitleaks | ❌ **一格都沒有** | PR **＋ 每日 21:00 UTC** |
+
+CI 引用的 **6 個 action（8 處引用）全部以 commit SHA 釘住**，尾隨版本註解。
+標籤是可以被發佈者移動的指標：重指之後下一次 CI 就執行新的內容，
+**沒有 commit、沒有 PR、沒有 diff**，而這些 action 跑在拿得到 repo 與 secrets 的 job 裡。
+`tools/conformance` 有一條檢查在強制它。
 
 Tier 2 的三條規則——不快取、不做 affected 過濾、必須有時間觸發——是刻意的。
 改動前請先讀該檔開頭的理由；`CODEOWNERS` 也把它劃給資安共同把關。
@@ -279,9 +283,8 @@ Tier 2 的三條規則——不快取、不做 affected 過濾、必須有時間
 > **已在 GitHub Actions 上實跑**（2026-08-15）：Tier 1 一次就綠；Tier 2 首跑紅，
 > 抓到三個本機看不到的問題並已修掉（見 DECISIONS.md 的 C32）。
 >
-> ⚠️ 仍有兩處只有在貴組織的環境才驗得了：bootstrap 步驟在內部 registry 下需設
-> `npm_config_registry` 與 `NODE_EXTRA_CA_CERTS`，以及 SBOM 工具
-> （若貴組織用 Blackduck／Snyk 而非 Trivy，交付稽核的必須是稽核認可的那個工具的輸出）。
+> ⚠️ bootstrap 步驟在內部 registry 下需設 `npm_config_registry` 與 `NODE_EXTRA_CA_CERTS` ——
+> 那一段只有在貴組織的環境才驗得了。
 
 ---
 
@@ -314,6 +317,9 @@ Tier 2 的三條規則——不快取、不做 affected 過濾、必須有時間
 這條規則有機制強制：[`tools/api-surface`](tools/api-surface) 用 TypeScript 的
 checker 抽出每個 `platform/*` 進入點的**型別形狀**，與已提交的基準比對。
 **移除、改名、或改變形狀就讓閘門失敗**，除非基準已登記對應的 codemod。
+
+目前守著的範圍：`api-surface（10 個進入點／96 個 export）`。
+這兩個數字由 `vpr doc-facts` 從基準檔推導核對 —— 抄錯或過期會擋下 PR。
 
 「形狀」的意思是連 `interface` 的成員、class 的建構子、`.vue` 元件的 props
 都在比對範圍內——在一個匯出的 interface 上加一個必填欄位，下游每一個
@@ -369,68 +375,25 @@ BFF_ORIGIN=https://gateway.internal ./node_modules/.bin/vpr bff-check  # 對真�
 
 ---
 
-## 換掉 `vite-plus` 的退路
-
-D2 選了「可替換的驅動層」，而那張保單**是被實測過的**，不是一句話：
-
-```bash
-./node_modules/.bin/vpr exit-drill    # 用上游 Vite/Vitest 實際重建一次
-```
-
-最後一次結果在 [`tools/exit-drill/evidence.json`](tools/exit-drill/evidence.json)（進版控，
-是拿給稽核看的東西）。每次 gate 另外跑一個幾秒鐘的靜態檢查，
-確保退出面沒有從兩個設定檔擴大出去。詳見 [tools/exit-drill](tools/exit-drill)。
-
----
-
-## 供應鏈：拿去給資安與平台團隊的三份文件
-
-腳手架帶進來的東西比想像的多：**574 個套件，其中 144 個是平台限定的原生二進位，
-分屬 12 個家族**（不只 `vite-plus` —— TypeScript 7 自己就是原生執行檔，
-`lightningcss` 是 MPL-2.0）。
-
-這幾個數字由 `pnpm-lock.yaml` 推導進 `inventory.json`，再由
-[`tools/doc-facts`](tools/doc-facts) 逐句核對這一段有沒有跟上 ——
-上一版這裡寫著「**全部由 pnpm-lock.yaml 推導**，不是抄的」，
-而它們**正是抄的**，而且已經過期（467／121／11）。那句話是被自己描述的機制抓到的。
-
-```bash
-./node_modules/.bin/vpr sca-dossier      # → 資安：SCA 例外申請書
-./node_modules/.bin/vpr mirror-manifest  # → 平台：含 sha512 的鏡像清單
-./node_modules/.bin/vpr airgap           # → 平台：封閉網路前置條件與驗收方式
-```
-
-三份都是**產生**的，不是寫的。基線
-[`inventory.json`](tools/supply-chain/inventory.json) 與來源證明
-[`provenance.json`](tools/supply-chain/provenance.json) 進版控，每次 gate 與 Tier 2 比對——
-新的原生工具鏈進到建置環境時會被擋下，直到有人分類它。
-
-⚠️ 兩件反直覺、實測出來的事：**專案 `.npmrc` 的 `registry=` 不涵蓋 `vp` 自動下載
-pnpm 那一步**（要設在機器層級），而**封閉環境無法就地升相依**（`--capture` 必須
-在公網側完成）。兩者都在 `vpr airgap` 的輸出裡。詳見 [tools/supply-chain](tools/supply-chain)。
-
----
-
 ## 已知限制
 
 - `vite-plus` 是 **0.2.x（beta）**，約 1–2 週一版，且**無 SLA／支援承諾**（MIT）。
-  緩解是上面那道退出演練。授權疑慮已解除（Cloudflare 併購後 Vite+ 為 MIT），
-  但供應商紀錄要寫 Cloudflare。詳見 DECISIONS.md 的 R1。
+  授權疑慮已解除（Cloudflare 併購後 Vite+ 為 MIT），但供應商紀錄要寫 Cloudflare。
+  ⚠️ 證明「換得掉驅動層」的退出演練在 `main`，**不在 v1.0.0**。詳見 DECISIONS.md 的 R1。
 - `typescript-eslint` 不支援 TypeScript 7，Tier 2 因此在 `@org/eslint-config`
   內自帶一份 TypeScript 6.0.3。上游支援後即可移除。
 - `vp run` **沒有** changed-since 過濾器。affected 偵測若要做，得自己算 git diff。
   目前靠任務快取提速（實測 4/5 命中）。
-- 144 個原生二進位裡有 **43 個沒有 SLSA provenance**（含全部 20 個
-  `@typescript/typescript-*`），只有 npm 的發佈簽章。這不是本腳手架能修的，
-  但 SCA 例外申請書必須把它分開列 —— `vpr sca-dossier` 已經這麼做。
-- 22 個 `@yuku-*` 在 registry 上**沒有 license 欄位**。上層套件宣告 MIT、同一個 repo，
-  但工具刻意不代填 —— 需要法務確認或請上游補。
-- **無障礙只守得到靜態可查的那一半，而那一半在這種寫法下幾乎是空的。**
-  `vpr a11y` 對本 repo 的正常結果是**零個發現**，那不代表頁面可用：規則比對的是
-  原生元素與屬性，而本 repo 的互動幾乎都包在元件裡（`UiButton`／`RouterLink`／
-  `DialogRoot`），元件對它們是透明的。實測同一批 `.vue` 用人眼讀出四個真缺陷、
-  它一個都沒報（那四個已修）。看不見的那一類具名列在
-  [HANDOFF 第 22 項](HANDOFF.md)，要哪個等級以 RFP 為準。
+- ⚠️ **`platform/ui` 目前只有兩個元件**（`UiButton`、`UiDialog`）。
+  接縫（代幣／variant／slot）都通了、都有閘門，但**能換的東西還不多**。
+- ⚠️ **v1.0.0 沒有任何無障礙檢查。** 政府採購案的 AA 是立法院決議要求 ——
+  需要它的案子請用 `main` 分支。完整清單見 [HANDOFF.md](HANDOFF.md)。
+- ⚠️ **`platform/pii` 的遮罩能力在，強制它的東西不在。** `maskName()` 可以用，
+  但沒有任何檢查在確保「新增個資欄位時記得遮罩」—— 那道檢查在 `main`。
+  也就是說**遮罩在 v1 是慣例，不是機制**。
+- `tools/vue-typecheck` 用的是**第二個 TypeScript**（JS 版 5.x，因為 catalog
+  主線的 TS 7 是原生 Go 版、沒有 `vue-tsc` 需要的 compiler API）。
+  這道閘門紅而 `vp check` 綠時**多半是真陽性**，理由寫在它的紅燈訊息裡。
 
 ---
 
@@ -438,15 +401,15 @@ pnpm 那一步**（要設在機器層級），而**封閉環境無法就地升�
 
 這份 README 只講**怎麼用**。要知道**為什麼這樣設計**，去下面這幾份：
 
-| 文件                                             | 內容                                                           | 讀者               |
-| ------------------------------------------------ | -------------------------------------------------------------- | ------------------ |
-| [DECISIONS.md](DECISIONS.md)                     | 每一項架構決策（D-）、實測校正（C-）與風險登記（R-）的完整理由 | 架構師、後續維護者 |
-| [HANDOFF.md](HANDOFF.md)                         | 程式碼做不到、只有組織能決定的事項，每一項附「拿什麼去談」     | PM、採購、資安     |
-| [UI-SURVEY.md](UI-SURVEY.md)                     | UI 技術選型的三方比較與既有約束                                | 前端負責人         |
-| [`platform/bff-contract`](platform/bff-contract) | 13 條中間層契約條目、可覆寫的 env、對真實 gateway 的誠實限制   | 後端／平台團隊     |
-| [`tools/<name>/README.md`](tools)                | 每一道閘門自己的守備範圍、失敗訊息怎麼讀、刻意不守什麼         | 全體               |
-| [AGENTS.md](AGENTS.md)                           | Vite+ 工具鏈的指令對照（`vp` 內建命令 vs. `vp run` 腳本）      | 全體／AI 協作      |
-| [Vite+ 官方文件](https://viteplus.dev/guide/)    | 驅動層本身；本機副本在 `node_modules/vite-plus/docs`           | 全體               |
+| 文件                                             | 內容                                                              | 讀者               |
+| ------------------------------------------------ | ----------------------------------------------------------------- | ------------------ |
+| [DECISIONS.md](DECISIONS.md)                     | 架構決策（D-）、實測校正（C-）、風險登記（R-）**涵蓋範圍大於 v1** | 架構師、後續維護者 |
+| [HANDOFF.md](HANDOFF.md)                         | 採用指南：第一步、v1 承諾什麼、**刻意不承諾什麼**                 | 全體、PM           |
+| [CHANGELOG.md](CHANGELOG.md)                     | 版本沿革                                                          | 全體               |
+| [`platform/bff-contract`](platform/bff-contract) | 13 條中間層契約條目、可覆寫的 env、對真實 gateway 的誠實限制      | 後端／平台團隊     |
+| [`tools/<name>/README.md`](tools)                | 每一道閘門自己的守備範圍、失敗訊息怎麼讀、刻意不守什麼            | 全體               |
+| [AGENTS.md](AGENTS.md)                           | Vite+ 工具鏈的指令對照（`vp` 內建命令 vs. `vp run` 腳本）         | 全體／AI 協作      |
+| [Vite+ 官方文件](https://viteplus.dev/guide/)    | 驅動層本身；本機副本在 `node_modules/vite-plus/docs`              | 全體               |
 
 各層的 API 說明就放在該 package 的 `README.md` 與原始碼的 JSDoc 裡——
 本 repo 的慣例是**理由寫在它生效的地方**，不集中到一份會過期的說明文件。
@@ -479,7 +442,7 @@ PR 會被兩層 CI 攔一次，請先在本機過。另外有四條**不通融**
    否則 `tools/api-surface` 會擋下。做不到 codemod 就改成新增 API ＋ `@deprecated`。
 3. **新增切片要自己補三個檔案**：`CODEOWNERS`、`apps/<app>/package.json` 的
    dependencies、`apps/<app>/src/features.ts`。產生器刻意不代勞——那正是要被 review 的部分。
-4. **文件裡的數字必須推導得出來。** 現況型文件（README／HANDOFF／UI-SURVEY）由
+4. **文件裡的數字必須推導得出來。** 現況型文件（README／HANDOFF）由
    `tools/doc-facts` 逐句核對；改寫被登記的句子會變成 `never-cited` 紅燈，
    請同步更新 `tools/doc-facts/src/facts.ts` 的樣式。
 
@@ -514,7 +477,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 > 的內部骨架，MIT 宣告目前只在 [LICENSE](LICENSE) 與根 `package.json` 的
 > `"license": "MIT"` 兩處，兩者必須一致。正式對外前請把 `@org` 換成
 > **法務認可的法人全名**——這是組織的決定，不是這份 README 能代為認定的。
-> 底下 27 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
+> 底下 20 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
 
 上游相依的授權另計——`vite-plus` 為 MIT（Cloudflare 併購後），`lightningcss` 為 MPL-2.0，
-另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。完整盤點見 `vpr sca-dossier`。
+另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。⚠️ 完整盤點與 SCA 例外申請書在 `main`，**不在 v1.0.0**。

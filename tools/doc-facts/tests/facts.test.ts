@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { FACTS, checkFacts, handoffItemCount, type Fact } from "../src/facts.ts";
+import { FACTS, checkFacts, type Fact } from "../src/facts.ts";
 
 /**
  * 文件數字守衛的**反向測試**。
@@ -90,51 +90,6 @@ describe("checkFacts：該紅的時候會紅", () => {
   });
 });
 
-describe("★ 子集的數字不得被誤判成總數", () => {
-  it("HANDOFF 裡「8 個原生二進位」是授權實測的那一批，不是總數", () => {
-    // 用寬鬆樣式（任何「N 個原生二進位」）去比對總數的話，
-    // 這道閘門第一天就會對著兩個正確的數字亂叫。
-    const native = FACTS.find((fact) => fact.id === "native") as Fact;
-    const subsetLines = [
-      "授權疑慮已解除：`vite-plus`、core、8 個原生二進位的 `license` 欄位實測皆為 MIT。",
-      "> 22 個原生二進位（每個約 4 MB）進入我們的建置環境",
-    ];
-    for (const line of subsetLines) {
-      for (const citation of native.citations) {
-        expect(citation.exec(line), `誤判：${line.slice(0, 30)}`).toBeNull();
-      }
-    }
-  });
-
-  it("「10 個套件」是 darwin-x64 的鏡像量，不是套件總數", () => {
-    const packages = FACTS.find((fact) => fact.id === "packages") as Fact;
-    const line = "例如 `darwin-x64` 是 10 個套件、49 MB。";
-    for (const citation of packages.citations) expect(citation.exec(line)).toBeNull();
-  });
-
-  it("★ 「N 個套件全帶 sha512」的兩種寫法都要被咬到", () => {
-    // HANDOFF 有兩句一模一樣的宣稱，只有一句帶尾巴的「integrity」：
-    // 第 5–7 節的條列，以及第 23 項對照表的表格欄位。
-    //
-    // 原本的樣式要求那個尾巴，於是**表格裡那個數字從來沒有被守過** ——
-    // 2026-08-16 改套件數時才發現（C60）。放寬之後兩句都咬得到。
-    //
-    // ⚠️ 這條測的是「放寬」本身。少了它，有人把 `integrity` 加回樣式裡，
-    // `citations.length` 不變、never-cited 也不會紅（另一句仍然對得到），
-    // 於是那個洞會安靜地回來 —— 而這次連 C60 都寫著它已經補好了。
-    const packages = FACTS.find((fact) => fact.id === "packages") as Fact;
-    const bothForms = [
-      "- 565 個套件全帶 sha512 integrity，CI 以 `--frozen-lockfile` 安裝",
-      "| 565 個套件全帶 sha512                 | 標籤              |",
-    ];
-
-    for (const line of bothForms) {
-      const matched = packages.citations.some((citation) => citation.exec(line) !== null);
-      expect(matched, `沒有任何樣式咬得到：${line}`).toBe(true);
-    }
-  });
-});
-
 describe("★ 新登記的樣式不得誤判鄰近的句子", () => {
   /**
    * 2026-08-16 的第二輪擴大：契約條目、workspace 套件、action 引用處、
@@ -217,25 +172,6 @@ describe("★ 新登記的樣式不得誤判鄰近的句子", () => {
     const fact = FACTS.find((candidate) => candidate.id === "codeowners-entries") as Fact;
     const history = "本 repo 2026-08-15 實測：**22 條全部 Unknown owner**（見 C40）。";
     for (const citation of fact.citations) expect(citation.exec(history)).toBeNull();
-  });
-});
-
-describe("handoffItemCount：合併標題要展開", () => {
-  it("`## 5–7.` 算三項", () => {
-    expect(handoffItemCount("## 1.\n## 5–7.\n")).toBe(4);
-  });
-
-  it("★ 編號有缺口不補 —— 目前就沒有第 15 項", () => {
-    expect(handoffItemCount("## 14.\n## 16.\n")).toBe(2);
-  });
-
-  it("不是標題的數字不算", () => {
-    expect(handoffItemCount("### 3. 小節\n內文 ## 9. 不在行首")).toBe(0);
-  });
-
-  it("真的 HANDOFF.md 數得出來，而且不是 0", () => {
-    const source = readFileSync(join(ROOT, "HANDOFF.md"), "utf8");
-    expect(handoffItemCount(source)).toBeGreaterThan(5);
   });
 });
 
