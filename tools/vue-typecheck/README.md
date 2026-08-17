@@ -116,6 +116,19 @@ typeof ts.createProgram                    → undefined
 ——**而只有 tsgolint 紅、vue-tsc 全綠**（vue-tsc 真的解析 `.vue`，不需要 shim）。
 方向出乎意料：不是兩者判決不同，是一者看得見的東西另一者看不見。
 
+### 那第二個 TypeScript 要不要進退出演練的帳目？不用，而且是有理由的
+
+C64 的先例值得先講：`happy-dom` 沒登記，完整演練從 PR #15 起就是壞的，
+19 個 PR 沒有人知道 —— 那是「測試相依帳目」那一項存在的原因。
+
+`tools/exit-drill` 的帳目範圍是**從 `apps/console` 走得到的 manifest**
+（`reachableManifests()`），因為演練複製並跑測試的就是那一批。
+`@org/vue-typecheck` 沒有任何 package 依賴它（`vpr gate` 是按路徑呼叫的），
+所以它**不在可達集合裡**，`vue-tsc` 與那份 TS 5.x 也就不該進帳目。
+
+判準不是「它是不是 devDependency」，是**演練會不會跑到它**。
+哪天 `apps/console` 真的依賴了這支工具，帳目那道檢查會自己說話。
+
 ## 開發
 
 ```bash

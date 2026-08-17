@@ -1,4 +1,6 @@
-import { resolve } from "node:path";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -28,6 +30,27 @@ describe("排除規則", () => {
     expect(isFixture("tests/fixtures/app/src/Child.vue")).toBe(true);
     expect(isFixture("features/order/src/views/FixturesList.vue")).toBe(false);
     expect(isFixture("features/fixtures-demo/src/views/X.vue")).toBe(false);
+  });
+
+  /**
+   * ⚠️ 點開頭的目錄要在**走訪的時候**跳過，不是走進去之後再過濾掉。
+   *
+   * `negative.test.ts` 把 fixture 複製到 `tests/fixtures/.tmp-XXXX/`、跑完就刪，
+   * 而 vitest 並行跑測試檔 —— 走進一個正在被刪的目錄會丟 ENOENT，
+   * 那個例外發生在 `isFixture` 之前，過濾救不了。每 N 次紅一次的閘門會被
+   * 加例外，不會被修（C41／C61）。
+   */
+  it("★ 點開頭的目錄整個不走 —— 過濾救不了正在被刪掉的目錄", () => {
+    const root = mkdtempSync(join(tmpdir(), "vue-typecheck-walk-"));
+    try {
+      mkdirSync(join(root, "apps/.tmp-x"), { recursive: true });
+      writeFileSync(join(root, "apps/.tmp-x/Hidden.vue"), "<template><i /></template>");
+      mkdirSync(join(root, "apps/real"), { recursive: true });
+      writeFileSync(join(root, "apps/real/Seen.vue"), "<template><i /></template>");
+      expect(allViews(root)).toEqual(["apps/real/Seen.vue"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 
