@@ -100,7 +100,7 @@ document.title = config.appTitle;
  * 一個示範用的覆寫不該順便示範一個無障礙缺陷。
  */
 const uiTheme = createUiTheme({
-  variants: { secondary: "border-control border-accent bg-surface text-fg hover:bg-surface-hover" },
+  UiButton: { secondary: "border-control border-accent bg-surface text-fg hover:bg-surface-hover" },
 });
 
 createApp(App)
