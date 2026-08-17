@@ -238,29 +238,20 @@ function typeShape(checker: Checker, symbol: ApiSymbol): ExportShape {
  * 一個實例成員都洩不出去。它的絆線是真的，所以留著。
  *
  * 三個裡兩個是裝飾品，一個是真的 —— 差別在於那個東西**能不能不經宣告就存在**。
+ *
+ * ⚠️ 別把後來補回去的那條絆線與這一條搞混（見 typeLiteralMacro）：
+ * 那條絆的是「**寫了**但這支解析讀不懂」，這條絆的是「寫了」。前者不紅
+ * 就會少算，後者不紅只是少一句限制。
  */
 const SFC_UNSUPPORTED = ["defineExpose"] as const;
 
-const DEFINE_PROPS = /defineProps<\{([\s\S]*?)\}>\(\)/;
-const DEFINE_SLOTS = /defineSlots<\{([\s\S]*?)\}>\(\)/;
-const DEFINE_EMITS = /defineEmits<\{([\s\S]*?)\}>\(\)/;
-/**
- * `defineModel<T>("name", …)` —— 具名的那一種。
- *
- * ⚠️ 不具名的 `defineModel<T>()` 另外一條（下面），因為**兩種都會產生公開面**，
- * 而只認具名的那一版讓 `UiInput` 的 `modelValue` 與 `update:modelValue`
- * 安靜地不進 API 表面 —— 正是這支工具檔頭說要避免的「少算」。
- */
-const DEFINE_MODEL_NAMED = /defineModel<([^>]+)>\(\s*"([^"]+)"/g;
-
-/**
- * `defineModel<T>()` 或 `defineModel<T>({ … })` —— 不具名，prop 名固定是
- * `modelValue`（Vue 的預設）。
- *
- * `\(\s*[^"']` 是關鍵：下一個非空白字元不是引號，才不是具名形式。
- * 少了它，具名的會被這條再算一次，於是同一個 model 出現兩組成員。
- */
-const DEFINE_MODEL_DEFAULT = /defineModel<([^>]+)>\(\s*(?:\)|[^"'\s])/g;
+/** 識別字的一個字元 —— `macroPositions` 自己做字界判斷時用。 */
+const IDENT = /[\w$]/;
+const SPACE = /\s/;
+/** 泛型參數之後的 `(` 與其後的空白。 */
+const CALL_OPEN = /^\s*\(\s*/;
+/** `defineModel` 的第一個引數是字串字面值時的名字。單雙引號都認。 */
+const QUOTED_NAME = /^(["'])([^"']+)\1/;
 const LOCAL_TYPE = /^\s*type\s+([A-Za-z_$][\w$]*)\s*=\s*([^;]+);/gm;
 const BLOCK_COMMENT = /\/\*[\s\S]*?\*\//g;
 const LINE_COMMENT = /(^|[^:])\/\/[^\n]*/g;
@@ -420,6 +411,165 @@ function emittedNames(file: string, source: string): ReadonlySet<string> {
   return new Set(literal.map((match) => match[2] as string));
 }
 
+// ── 巨集的位置與它的型別參數 ─────────────────────────────────────────
+
+/**
+ * 巨集在原始碼裡出現的每一個位置（呼叫端已經先剝掉註解）。
+ *
+ * 用 `indexOf` 加自製字界判斷，而不是 `new RegExp(\`\\b${macro}\\b\`)`：
+ * 動態正規式會被 `security/detect-non-literal-regexp` 擋下，而為它加一條
+ * disable 註解，下一個真的在拼接使用者輸入的人會照抄。
+ */
+function macroPositions(source: string, macro: string): readonly number[] {
+  const positions: number[] = [];
+  for (let at = source.indexOf(macro); at >= 0; at = source.indexOf(macro, at + macro.length)) {
+    // `myDefineProps`／`definePropsExtra` 都不是這個巨集。
+    const before = source[at - 1];
+    const after = source[at + macro.length];
+    if (before !== undefined && IDENT.test(before)) continue;
+    if (after !== undefined && IDENT.test(after)) continue;
+    positions.push(at);
+  }
+  return positions;
+}
+
+interface Generic {
+  /** `<…>` 之間的原文。 */
+  readonly text: string;
+  /** 收尾 `>` 的下一個字元位置。 */
+  readonly end: number;
+}
+
+/**
+ * 抓 `巨集<…>` 的型別參數 —— 角括號**配對**，不是 `<([^>]+)>`。
+ *
+ * ⚠️ 「找到第一個 `>` 就收尾」是 2026-08-17 review 抓出來的缺口：
+ * `defineModel<Array<string>>()` 會在內層的 `>` 停手，接著要求一個 `(`
+ * 卻讀到 `>`，於是整條樣式不匹配 —— 而不匹配的結果不是紅燈，是**那個
+ * model 安靜地不進 API 表面**。少算比報錯難發現得多，這是本檔頭的主題。
+ */
+function genericArgument(source: string, from: number): Generic | undefined {
+  let at = from;
+  while (SPACE.test(source[at] ?? "")) at++;
+  if (source[at] !== "<") return undefined;
+
+  const start = at + 1;
+  let depth = 1;
+  for (at = start; at < source.length; at++) {
+    const char = source[at];
+    if (char === "<") {
+      depth++;
+      // `=>` 的 `>` 不是泛型的結尾（與 splitMembers 同一個判斷）。
+    } else if (char === ">" && source[at - 1] !== "=") {
+      depth--;
+      if (depth === 0) return { text: source.slice(start, at), end: at + 1 };
+    }
+  }
+  return undefined;
+}
+
+type LiteralMacro = "defineProps" | "defineSlots" | "defineEmits";
+
+/**
+ * `巨集<{…}>()` 的內容。沒寫這個巨集回 `undefined`；**寫了但形式不對就丟例外**。
+ *
+ * ── 為什麼「寫了卻讀不懂」一定要紅 ──────────────────────────────────
+ *
+ * 讀不懂的下一步只有兩條：跳過，或丟例外。跳過的代價是那一整組公開面
+ * 從此不在記錄裡 —— 而不在記錄裡的東西改了不會漂移，於是這道閘門對它
+ * 永遠是綠的。
+ *
+ * `defineProps` 從第一天就有這條絆線，另外兩個沒有。那個不對稱不是設計，
+ * 是漏的：`defineEmits(["picked"])`（執行期陣列形式）在 2026-08-17 之前
+ * 會讓所有事件安靜消失，而基準檔看起來仍然記著一份完整的元件形狀。
+ */
+function typeLiteralMacro(file: string, source: string, macro: LiteralMacro): string | undefined {
+  const positions = macroPositions(source, macro);
+  const at = positions[0];
+  if (at === undefined) return undefined;
+  if (positions.length > 1) {
+    throw new Error(
+      `${basename(file)} 的 ${macro} 出現了 ${positions.length} 次。\n` +
+        "  這支解析只讀第一個，其餘會被安靜忽略 —— 而 Vue 本身也不允許重複呼叫。",
+    );
+  }
+
+  const text = genericArgument(source, at + macro.length)?.text.trim() ?? "";
+  if (!text.startsWith("{") || !text.endsWith("}")) {
+    throw new Error(
+      `${basename(file)} 的 ${macro} 不是型別參數形式。\n` +
+        `  只認 \`${macro}<{…}>()\`。執行期形式（\`${macro}({…})\`）讀不出型別；\n` +
+        `  具名型別別名（\`${macro}<Shape>()\`）這支解析展不開它的成員。\n` +
+        "  兩種都會讓那一整組公開面從記錄裡消失，所以寧可紅。",
+    );
+  }
+  return text.slice(1, -1);
+}
+
+interface ModelDeclaration {
+  readonly name: string;
+  readonly type: string;
+}
+
+const MODEL = "defineModel";
+
+/**
+ * 每一個 `defineModel<T>(…)` 的 prop 名與型別。
+ *
+ * ── 一條路，不是兩條互斥的樣式 ──────────────────────────────────────
+ *
+ * 這裡曾經是兩條正規式（具名一條、不具名一條），靠 `\(\s*[^"'\s]` 這種前瞻
+ * 互相排除。review 在那兩條之間找到三個縫：巢狀泛型、單引號的名字、
+ * 以及完全沒有型別參數。三個縫的症狀一模一樣 —— 那個 model 的 prop 與
+ * `update:` 事件**安靜地不進 API 表面**。
+ *
+ * 縫的來源是「哪一條該命中」被編進了樣式本身。改成**先切出型別參數、
+ * 再看第一個引數是不是字串字面值**之後，兩種形式走的是同一條路，
+ * 中間沒有地方可以漏。
+ */
+function modelDeclarations(file: string, source: string): readonly ModelDeclaration[] {
+  const models: ModelDeclaration[] = [];
+
+  for (const at of macroPositions(source, MODEL)) {
+    const generic = genericArgument(source, at + MODEL.length);
+    if (generic === undefined) {
+      throw new Error(
+        `${basename(file)} 的 defineModel 沒有型別參數。\n` +
+          "  只認 `defineModel<T>(…)`。執行期形式（`defineModel({ type: String })`）" +
+          "讀不出型別，\n  而記成 `unknown` 之後換掉型別不會漂移 —— 那正是這道閘門要抓的。",
+      );
+    }
+
+    const open = CALL_OPEN.exec(source.slice(generic.end));
+    if (open === null) {
+      throw new Error(
+        `${basename(file)} 的 defineModel<…> 後面不是呼叫。\n` +
+          "  prop 名是從第一個引數判斷的，讀不到引數就分不出具名與不具名。",
+      );
+    }
+
+    const args = source.slice(generic.end + (open[0] as string).length);
+    const quoted = QUOTED_NAME.exec(args);
+    if (quoted !== null) {
+      models.push({ name: quoted[2] as string, type: generic.text.trim() });
+      continue;
+    }
+    // 第一個引數是選項物件、或根本沒有引數 → Vue 的預設 prop 名 `modelValue`。
+    if (args.startsWith(")") || args.startsWith("{")) {
+      models.push({ name: "modelValue", type: generic.text.trim() });
+      continue;
+    }
+    // 其餘（識別字、樣板字串、展開）讀不出名字。與 emit 的事件名同一條規則：
+    // 讀不出來就記不進公開面，而少記的那一格改了不會漂移。
+    throw new Error(
+      `${basename(file)} 的 defineModel 第一個引數不是字面值。\n` +
+        '  讀不出 prop 名就記不進公開面 —— 請改成 `defineModel<T>("name", …)`。',
+    );
+  }
+
+  return models;
+}
+
 function parseComponent(file: string): ExportShape {
   /**
    * 先把註解拿掉，再看有沒有那些巨集。
@@ -442,21 +592,12 @@ function parseComponent(file: string): ExportShape {
     .replace(HTML_COMMENT, "");
 
   for (const marker of SFC_UNSUPPORTED) {
-    if (!source.includes(marker)) continue;
+    if (macroPositions(source, marker).length === 0) continue;
     throw new Error(
       `${basename(file)} 使用了 ${marker}，而這裡不解析它。\n` +
         "  `<script setup>` 預設是封閉的，所以 expose 出去的東西只會來自這個巨集 —— " +
         "記下來的形狀會少掉整個實例面。\n" +
         "  請先擴充 tools/api-surface/src/shape.ts 的解析，再加這個宣告。",
-    );
-  }
-
-  const propsBlock = DEFINE_PROPS.exec(source);
-  if (propsBlock?.[1] === undefined && source.includes("defineProps")) {
-    throw new Error(
-      `${basename(file)} 的 defineProps 不是型別參數形式。\n` +
-        "  這支解析只認 `defineProps<{…}>()`；執行期物件形式這裡會少算，" +
-        "所以寧可紅。",
     );
   }
 
@@ -467,8 +608,9 @@ function parseComponent(file: string): ExportShape {
   // `update:modelValue`，兩樣都不經 defineProps）。當時的訊息說
   // 「找不到 defineProps」，聽起來像元件寫錯了，實際上是解析器的假設太窄。
   //
-  // 分成兩種情形之後，那條防線還在：**寫了 `defineProps` 但不是型別參數
-  // 形式**仍然紅（上面那條），因為那才是會少算的情形。
+  // 分成兩種情形之後，那條防線還在：**寫了但形式不對**仍然紅，
+  // 而那條現在對四個巨集一視同仁（見 typeLiteralMacro 與 modelDeclarations）。
+  const propsBlock = typeLiteralMacro(file, source, "defineProps");
 
   // 同一個 <script setup> 裡宣告的區域型別別名要就地展開。
   // 它們對消費端不可見，改名不該讓形狀漂移。
@@ -481,51 +623,52 @@ function parseComponent(file: string): ExportShape {
   const expand = (text: string): string =>
     text.replace(/\b[A-Za-z_$][\w$]*\b/g, (name) => aliases.get(name) ?? name);
 
-  const members =
-    propsBlock?.[1] === undefined ? [] : parseBlock(file, "props", propsBlock[1], expand);
+  const members = propsBlock === undefined ? [] : parseBlock(file, "props", propsBlock, expand);
 
-  const slotsBlock = DEFINE_SLOTS.exec(source);
+  const slotsBlock = typeLiteralMacro(file, source, "defineSlots");
   const declaredSlots = new Set<string>();
-  if (slotsBlock?.[1] !== undefined) {
-    for (const member of parseBlock(file, "slots", slotsBlock[1], expand)) {
+  if (slotsBlock !== undefined) {
+    for (const member of parseBlock(file, "slots", slotsBlock, expand)) {
       members.push(member);
       declaredSlots.add((/^\[slot ([^\]]+)\]/.exec(member)?.[1] ?? "").trim());
     }
   }
 
-  const emitsBlock = DEFINE_EMITS.exec(source);
+  const emitsBlock = typeLiteralMacro(file, source, "defineEmits");
   const declaredEmits = new Set<string>();
-  if (emitsBlock?.[1] !== undefined) {
-    for (const member of parseBlock(file, "emits", emitsBlock[1], expand)) {
+  if (emitsBlock !== undefined) {
+    for (const member of parseBlock(file, "emits", emitsBlock, expand)) {
       members.push(member);
       declaredEmits.add((/^\[emit ([^\]]+)\]/.exec(member)?.[1] ?? "").trim());
     }
   }
 
   // defineModel 同時產生一個 prop 與一個 update:<name> 事件，兩邊都是公開面。
-  const recordModel = (name: string, type: string | undefined): void => {
-    members.push(`${name}?: ${(type ?? "unknown").trim()}`);
-    members.push(`[emit update:${name}]: void`);
-    declaredEmits.add(`update:${name}`);
-  };
-  for (const match of source.matchAll(DEFINE_MODEL_NAMED)) {
-    recordModel(match[2] as string, match[1]);
-  }
-  for (const match of source.matchAll(DEFINE_MODEL_DEFAULT)) {
-    recordModel("modelValue", match[1]);
+  for (const model of modelDeclarations(file, source)) {
+    members.push(`${model.name}?: ${expand(model.type)}`);
+    members.push(`[emit update:${model.name}]: void`);
+    declaredEmits.add(`update:${model.name}`);
   }
 
   assertDeclared(file, source, declaredSlots, declaredEmits);
 
-  if (members.length === 0) {
-    throw new Error(
-      `${basename(file)} 沒有解析出任何公開面 —— 空形狀等於沒有守。\n` +
-        "  一個 prop、slot、emit、model 都沒有的元件是可能的（純版型），" +
-        "但它也就沒有東西需要 api-surface 保護；\n" +
-        "  比較可能的情形是巨集寫成了這支解析不認得的形式。",
-    );
-  }
-
+  /**
+   * ⚠️ **零公開面是合法的**，這裡不再丟例外（2026-08-17）。
+   *
+   * 原本的訊息是「空形狀等於沒有守」。那句話對，但它守錯了東西：真正要擋的是
+   * **巨集寫成了解析不了的形式**，而那件事現在由四道絆線各自擋著 ——
+   * `typeLiteralMacro`（props／slots／emits）、`modelDeclarations`、
+   * `SFC_UNSUPPORTED`（expose），再加上 `assertDeclared` 掃模板裡**真的存在**的
+   * slot 與 emit。走到這裡還是空的，就是真的空。
+   *
+   * ⚠️ 順序不能顛倒：先放行空形狀、再補絆線的話，中間那段時間裡任何寫錯
+   * 形式的巨集都會安靜地變成一個「合法的零公開面元件」。
+   *
+   * 留著那個例外的代價是純版型元件（`Separator`／`Skeleton` 這種）根本進不了
+   * `platform/ui`。而空清單**不等於不比對**：`compare.ts` 判的是
+   * `members !== undefined`，所以之後長出來的第一個 prop 仍然會漂移
+   *（negative.test.ts 有一條測試就在問這件事）。
+   */
   return { kind: "component", members: sortMembers(members) };
 }
 

@@ -193,6 +193,27 @@ function widgetMembers(baseline: Baseline): readonly string[] {
   throw new Error("基準裡找不到 SampleWidget —— 這條測試是空的");
 }
 
+/**
+ * 改一段、沒對上就丟。
+ *
+ * `runFixtureFile`／`surfaceAfter` 只驗「整份有沒有變」，那對單一改寫夠用，
+ * 對多段改寫不夠：其中一段沒對上，整份仍然變了，而測試會安靜地在測別的東西。
+ */
+function replaceOnce(source: string, from: string | RegExp, to: string): string {
+  const after = source.replace(from, to);
+  if (after === source) throw new Error(`fixture 改寫沒生效：${String(from)} —— 這條測試是空的`);
+  return after;
+}
+
+/** 把 fixture 元件剝成一個**零公開面**的純版型元件：prop、slot、emit 各一段。 */
+function stripSurface(source: string): string {
+  let stripped = replaceOnce(source, /defineProps<\{[\s\S]*?\}>\(\);/, "");
+  stripped = replaceOnce(stripped, /defineSlots<\{[\s\S]*?\}>\(\);/, "");
+  stripped = replaceOnce(stripped, /const emit = defineEmits<\{[\s\S]*?\}>\(\);/, "");
+  stripped = replaceOnce(stripped, ` @click="emit('picked', label)"`, "");
+  return replaceOnce(stripped, '<slot name="icon" />{{ label }}<slot />', "純版型");
+}
+
 // ── 對照組 ────────────────────────────────────────────────────────────
 
 describe("對照組：沒動過的東西是綠的", () => {
@@ -788,6 +809,136 @@ describe(".vue 元件的公開面", () => {
     );
     expect(members.filter((member) => member.startsWith("open"))).toHaveLength(1);
     expect(members).not.toContain("modelValue?: boolean");
+  });
+
+  it("★ 巢狀泛型 ＋ 單引號的具名 defineModel → 兩樣都讀得出來", () => {
+    /**
+     * 三個缺口寫在同一條裡，因為它們是同一個成因：**兩條互斥的正規式之間
+     * 一定會有縫**。`<([^>]+)>` 在 `Array<string>` 的內層 `>` 就收尾，
+     * 而具名那條只寫了雙引號。任何一個沒對上，這個 model 的兩格公開面
+     * 就安靜地不進表面 —— 不是紅燈，是少算，而少算沒有症狀。
+     *
+     * 改成「先切出型別參數，再看第一個引數是不是字串字面值」之後，
+     * 兩種形式走同一條路，所以這條同時問得出巢狀、引號、與不得重複計算。
+     */
+    const members = widgetMembers(
+      surfaceAfter(FIXTURE_COMPONENT, (source) =>
+        source
+          .replace(
+            /defineProps<\{[\s\S]*?\}>\(\);/,
+            "const items = defineModel<Array<string>>('items');",
+          )
+          .replace("{{ label }}", "{{ items }}"),
+      ),
+    );
+    expect(members).toContain("items?: Array<string>");
+    expect(members).toContain("[emit update:items]: void");
+    expect(members.filter((member) => member.startsWith("items"))).toHaveLength(1);
+    expect(members.some((member) => member.startsWith("modelValue"))).toBe(false);
+  });
+
+  it("🔴 defineModel 沒有型別參數 → 紅，不是記成 unknown", () => {
+    // 執行期形式讀不出型別。記成 `unknown` 的話，把 `String` 換成 `Number`
+    // 一個字都不會漂移 —— 而那正是這道閘門存在的理由的反面。
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace(
+        /defineProps<\{[\s\S]*?\}>\(\);/,
+        "const model = defineModel({ type: String });",
+      ),
+    );
+    expect(result.red, `執行期形式的 defineModel 沒被擋下\n${result.output}`).toBe(true);
+    expect(result.output).toContain("SampleWidget.vue");
+    expect(result.output).toContain("型別參數");
+  });
+
+  it("🔴 defineModel 的名字不是字面值 → 紅，不是預設成 modelValue", () => {
+    // 讀不出名字卻預設成 `modelValue`，記下來的會是一個**不存在的 prop**，
+    // 而真正的那一個永遠不在記錄裡。與 emit 的事件名同一條規則。
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace(
+        /defineProps<\{[\s\S]*?\}>\(\);/,
+        "const key = 'open';\nconst model = defineModel<boolean>(key);",
+      ),
+    );
+    expect(result.red, `讀不出名字的 defineModel 被當成 modelValue 了\n${result.output}`).toBe(
+      true,
+    );
+    // ⚠️ 只斷言「字面值」不夠：`emittedNames` 的訊息裡也有那三個字。
+    expect(result.output).toContain("第一個引數");
+  });
+
+  it("🔴 defineEmits 用執行期陣列形式 → 紅（這一條在修好之前是綠的）", () => {
+    /**
+     * `defineProps` 從第一天就有「寫了卻讀不懂就紅」這條絆線，`defineEmits`
+     * 與 `defineSlots` 沒有。那個不對稱不是設計，是漏的：陣列形式解析不了，
+     * 於是**所有事件安靜消失**，而基準檔看起來仍然記著一份完整的元件形狀 ——
+     * 比整個不記更難發現。
+     */
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace(
+        /const emit = defineEmits<\{[\s\S]*?\}>\(\);/,
+        'const emit = defineEmits(["picked"]);',
+      ),
+    );
+    expect(result.red, `執行期形式的 defineEmits 沒被擋下\n${result.output}`).toBe(true);
+    // ⚠️ 只斷言 "defineEmits" 會誤判成有守：拿掉這條絆線之後，模板裡那個
+    // `emit('picked')` 會讓 assertDeclared 丟例外，而它的訊息也寫著
+    // 「請補進 defineEmits」—— 一樣紅，卻是因為別的東西。
+    expect(result.output).toContain("不是型別參數形式");
+  });
+
+  it("🔴 defineSlots 用具名型別別名 → 紅（展不開就是少算）", () => {
+    // 別名的成員這支解析展不開，記下來會是零個 slot —— 而模板裡那兩個
+    // `<slot>` 仍然是消費端寫得出來的公開面。
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace(
+        /defineSlots<\{[\s\S]*?\}>\(\);/,
+        "type Slots = { default(): unknown[] };\ndefineSlots<Slots>();",
+      ),
+    );
+    expect(result.red, `別名形式的 defineSlots 沒被擋下\n${result.output}`).toBe(true);
+    // 同上：assertDeclared 的「請補進 defineSlots<{…}>()」也含那個字。
+    expect(result.output).toContain("不是型別參數形式");
+  });
+
+  it("★ 零公開面的元件：解析得出來，而且日後長出來的 prop 仍然會漂移", () => {
+    /**
+     * 這條有兩半，**第二半才是重點**。
+     *
+     * 第一半：純版型元件（`Separator`／`Skeleton` 這種）以前根本進不了
+     * `platform/ui` —— 解析器對「沒有解析出任何公開面」無條件丟例外。放行的
+     * 前提是四個巨集都已經有「寫了卻讀不懂就紅」的絆線（上面那幾條），
+     * 否則寫錯形式的巨集會安靜地變成一個「合法的零公開面元件」。
+     *
+     * 第二半：放行之後記下來的是 `members: []`，而這個 repo 自己的慣例是
+     * **空成員清單代表改比對型別字串**（見 shape.ts 的 typeShape 與
+     * objectMembers）。元件的形狀沒有 `type` 欄位，所以只要 `compare.ts`
+     * 也照那個慣例讀，兩半都比不到 —— 這個元件之後長出來的每一個 prop
+     * 都不會漂移。那會是一個比舊例外更糟的洞，而且是在一個專門補這種洞的
+     * 改動裡加進去的。實測 `compare.ts` 判的是 `members !== undefined`，
+     * 所以它是對的 —— 但那是推論，這裡把它變成量測。
+     */
+    const dir = sandbox();
+    cpSync(pristineFixture, dir, { recursive: true });
+    const file = join(dir, FIXTURE_COMPONENT);
+    writeFileSync(file, stripSurface(readFileSync(file, "utf8")));
+
+    const baseline = join(dir, "empty.json");
+    const seeded = run(["--platform", dir, "--baseline", baseline, "--update"]);
+    expect(seeded.red, `零公開面的元件解析不了\n${seeded.output}`).toBe(false);
+    expect(widgetMembers(JSON.parse(readFileSync(baseline, "utf8")) as Baseline)).toEqual([]);
+
+    writeFileSync(
+      file,
+      replaceOnce(
+        readFileSync(file, "utf8"),
+        '<script setup lang="ts">',
+        '<script setup lang="ts">\ndefineProps<{ zzAdded: string }>();',
+      ),
+    );
+    const result = run(["--platform", dir, "--baseline", baseline]);
+    expect(result.red, `基準是空成員清單，新增 prop 卻沒有漂移\n${result.output}`).toBe(true);
+    expect(result.output).toContain("zzAdded");
   });
 
   it("🔴 寫了 defineProps 但用執行期物件形式 → 仍然要紅", () => {
