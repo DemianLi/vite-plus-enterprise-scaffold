@@ -25,3 +25,53 @@ release. Add a tool name to select part of the graph. For example, run
 - [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
 
 <!--VITE PLUS END-->
+
+# Commenting Standards
+
+Code explains HOW; comments explain WHY. Write the fewest comments that leave the
+intent unambiguous.
+
+Not gated in CI, on purpose: comment quality is not statically verifiable, so it
+is enforced at review time.
+
+## Principles
+
+1. Never describe syntax, and never restate what a line literally does.
+2. Comment only where the code cannot explain itself: business-rule complexity,
+   edge cases, workarounds.
+3. Keep comments concise, sharp, and accurate.
+4. Prefer renaming a variable or extracting a function over a comment that
+   explains messy code.
+
+## Anti-patterns — delete these before rendering
+
+Restating the identifier:
+
+```ts
+// Get user balance
+function getUserBalance(): Amount {}
+```
+
+Translating syntax into prose:
+
+```ts
+if (user === null) return; // if user is null, return
+```
+
+Boilerplate block headers above self-explanatory functions.
+
+## The only comments worth keeping
+
+- **WHY** — why this algorithm, formula, or business decision, especially a
+  counter-intuitive one:
+  `// Bitwise shift here because throughput is bottlenecked by hardware constraint #302`
+- **WHAT** — API contracts, critical domain knowledge, external dependency
+  behaviour:
+  `// Third-party payment gateway requires the amount in cents, not dollars.`
+- **WARNING / HACK** — workarounds for known bugs:
+  `// Workaround for Safari iOS 15 touch bug. Do not remove this empty div.`
+
+## Self-check before output
+
+Re-read every comment you wrote. If a junior developer could infer it from the
+code beneath it, delete it.
