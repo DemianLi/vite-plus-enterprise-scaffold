@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject } from "vue";
+import { computed, inject, type VNode } from "vue";
 import { cn } from "../utils/cn.ts";
 import { NO_OVERRIDE, UI_THEME, type UiSize, type UiVariant } from "../theme.ts";
 
@@ -21,9 +21,12 @@ import { NO_OVERRIDE, UI_THEME, type UiSize, type UiVariant } from "../theme.ts"
  * 閘門零反應，連 UiButton 與 UiDialog 都分不出來。現在下面的 `defineProps`
  * 由 `tools/api-surface/src/shape.ts` 直接解析 SFC 取得，那句話才成立。
  *
- * 隨之而來的限制：這個元件加 `defineEmits` / `defineSlots` / `defineExpose`
- * 會讓 api-surface **直接丟例外**，因為那時 props 就不再是完整的公開面。
- * 要加的話，先擴充那支解析。
+ * ⚠️ **而它在 2026-08-17 之前只成立了一半。** 當時的限制寫著「加
+ * `defineEmits`／`defineSlots`／`defineExpose` 會讓 api-surface 直接丟例外」，
+ * 但那道絆線絆的是**巨集的名字**，不是公開面：下面那個 `<slot />` 從第一天
+ * 就存在、就是公開面，而且**不需要任何巨集** —— 閘門一句話都沒說。
+ * 現在 slot 與 emit 都要宣告，而且「模板裡有、宣告裡沒有」會直接紅。
+ * 只剩 `defineExpose` 仍然擋著（`<script setup>` 預設封閉，那道絆線是真的）。
  *
  * ── 為什麼變體是純物件而不是 cva ────────────────────────────────────
  *
@@ -72,6 +75,18 @@ const props = withDefaults(
  * `const broken: number = "字串"` 放在 `.vue` 裡是 0 errors，放在 `.ts` 裡是
  * 1 error。所以 SFC 裡的型別斷言是裝飾品。這個缺口記在 HANDOFF #26。
  */
+
+/**
+ * 按鈕的內容 —— 這是這個元件唯一的組合點（C62 的「互動方式」那條軸）。
+ *
+ * ⚠️ 宣告的**回傳型別是未經檢查的文字**：`vp check` 不對 `.vue` 做型別檢查
+ * （HANDOFF #26），而 `api-surface` 是原文記錄它。所以 `VNode[]` 是照
+ * Vue 的 `Slot` 型別寫的，不是被驗證過的 —— #26 修好之前它就是一份文件。
+ * 它**受保護**的部分是另一件事：改了它，基準檔會漂移、閘門會紅。
+ */
+defineSlots<{
+  default(): VNode[];
+}>();
 
 const VARIANTS: Readonly<Record<UiVariant, string>> = {
   primary: "bg-accent text-on-accent hover:bg-accent-hover",

@@ -27,8 +27,9 @@ shadcn 的模型是「你擁有原始碼」，所以「複製到哪」是一個�
 
 ## 各案要換配色或形狀：改你自己的 app，不要改這裡
 
-C62 的產品要求是「一套基礎版型，各案可以換配色／形狀／互動」。前兩條軸
-2026-08-17 接起來了（HANDOFF #24），第三條**還沒有**（見文末）。
+C62 的產品要求是「一套基礎版型，各案可以換配色／形狀／互動」。**三條軸都在
+2026-08-17 接起來了**（HANDOFF #24）。前兩條靠代幣與 `createUiTheme`（下面），
+第三條靠 slot —— 互動是結構不是值，代幣換不了它（見文末）。
 
 ```css
 /* apps/<你的案子>/src/styles.css */
@@ -125,15 +126,35 @@ Tailwind v4 的自動來源偵測**刻意跳過 node_modules**，而 monorepo �
 而現在也沒有具名的人在看。在 CODEOWNERS 加一列**買不回來** ——
 同一列多個 owner 是「任一核准即可」，見 HANDOFF #25。
 
-⚠️ **三條軸現在接了兩條**（HANDOFF #24）。配色與形狀在 2026-08-17 做完並由
-`tools/theme-verify` 實測守著；**互動方式那條還是零** —— 它被 `api-surface` 的
-`SFC_UNSUPPORTED` 主動擋著（元件加 `defineEmits`／`defineSlots`／`defineExpose`
-會讓那支工具直接丟例外），要開得先擴充 `tools/api-surface/src/shape.ts`。
+✅ **三條軸都接上了**（HANDOFF #24，2026-08-17）：
+
+| 軸       | 接縫                                            | 守它的         | 守到什麼程度                     |
+| -------- | ----------------------------------------------- | -------------- | -------------------------------- |
+| 配色     | 兩層 `@theme` 代幣                              | `theme-verify` | **實測可換**（真的建置兩次比對） |
+| 形狀     | `createUiTheme({ variants, sizes })` ＋ 代幣    | `theme-verify` | **實測可換**（同上）             |
+| 互動方式 | `UiDialog` 的 `default`／`footer`／`close` slot | `api-surface`  | 只有**改了會漂移**，見下         |
+
+⚠️ **第三列比前兩列薄，不要把三列讀成同一件事。** `theme-verify` 是真的建置
+兩次去證明「換得掉」；`api-surface` 證明的是「這幾格是公開面，改了會被看到」——
+**沒有任何東西證明某個案子真的能不 fork 就換掉 `UiDialog` 的互動**。
+會不會夠用，第二個案子提出需求時才知道。
+
+互動那條不是靠代幣換的，是靠**組合**：`footer` 換整組收尾動作、`close` 只換
+那顆按鈕（外層仍是 reka-ui 的 `DialogClose`，鍵盤與焦點行為不變）。
+
+⚠️ **那三個 slot 從落地那天就存在，但到 2026-08-17 為止沒有被記錄過。**
+當時的限制寫著「加 `defineEmits`／`defineSlots`／`defineExpose` 會讓
+`api-surface` 直接丟例外」，而那道絆線絆的是**巨集的名字**，不是公開面 ——
+實測往模板加一個具名 slot、加一個 `$emit`，閘門兩次都全綠。現在 slot 與 emit
+都要宣告，宣告與模板不一致會直接紅。只剩 `defineExpose` 仍然擋著
+（`<script setup>` 預設封閉，那道絆線是真的）。見 C67。
 
 ⚠️ **另一個仍然開著的洞：`vp check` 不對 `.vue` 做型別檢查。** 實測
 `const broken: number = "字串"` 放在 SFC 裡是 0 errors、放在 `.ts` 裡是 1 error。
 所以這個 package 的元件原始碼**沒有任何型別檢查在跑**，
-`api-surface` 抽 props 形狀是唯一看得到它們的東西。記在 HANDOFF #26。
+`api-surface` 抽 props／slot／emit 形狀是唯一看得到它們的東西 ——
+而它是**原文比對**，不是型別檢查：`defineSlots` 裡寫的 `VNode[]` 沒有人在驗。
+記在 HANDOFF #26。
 
 ## 開發
 
