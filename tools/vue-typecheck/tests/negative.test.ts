@@ -1,5 +1,5 @@
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -19,6 +19,18 @@ import { parseOutput, runVueTsc, type RunResult } from "../src/run.ts";
 const HERE = resolve(fileURLToPath(import.meta.url), "..");
 const FIXTURE = join(HERE, "fixtures/app");
 const BIN = join(HERE, "../node_modules/vue-tsc/bin/vue-tsc.js");
+
+/**
+ * ⚠️ **每一條會跑 vue-tsc 的測試都要自己帶 timeout。**
+ *
+ * vitest 預設 5 秒，而一次 `runVueTsc` 是建一份完整的 TS program ——
+ * 本機約 2 秒，CI runner 上超過 5 秒。第一版沒帶，於是**本機全綠、CI 六條紅**。
+ *
+ * 不改成全域設定的理由：那要在本 package 多一份 `vite.config.ts`，
+ * 而「退出面收斂在兩個設定檔」是 README 寫在外面的不變式。
+ * 慢的是這幾條，代價就寫在這幾條旁邊。
+ */
+const SPAWNS_VUE_TSC = 120_000;
 
 let dir: string | undefined;
 
@@ -56,62 +68,97 @@ function messages(result: RunResult): string {
 }
 
 describe("基準：fixture 本身是乾淨的", () => {
-  it("★ 沒有任何診斷 —— 後面每一條「會紅」才有意義", () => {
-    const result = check(copy());
-    expect(messages(result)).toBe("");
-    expect(result.status).toBe(0);
-  });
+  it(
+    "★ 沒有任何診斷 —— 後面每一條「會紅」才有意義",
+    () => {
+      const result = check(copy());
+      expect(messages(result)).toBe("");
+      expect(result.status).toBe(0);
+    },
+    SPAWNS_VUE_TSC,
+  );
 
-  it("★ 兩個 .vue 真的進了 program —— 「零錯誤」與「什麼都沒看」長得一樣", () => {
-    const result = check(copy());
-    const views = result.files.filter((file) => file.endsWith(".vue"));
-    expect(views.map((file) => file.split("/").pop()).sort()).toEqual(["Child.vue", "Parent.vue"]);
-  });
+  it(
+    "★ 兩個 .vue 真的進了 program —— 「零錯誤」與「什麼都沒看」長得一樣",
+    () => {
+      const result = check(copy());
+      const views = result.files
+        .filter((file) => file.endsWith(".vue"))
+        .map((file) => basename(file))
+        .sort((a, b) => a.localeCompare(b));
+      expect(views).toEqual(["Child.vue", "Parent.vue"]);
+    },
+    SPAWNS_VUE_TSC,
+  );
 });
 
 describe("SFC 內部：vp check 完全看不到的那一半", () => {
-  it("🔴 <script setup> 裡的型別錯誤", () => {
-    const root = copy();
-    edit(
-      root,
-      "Child.vue",
-      "import type { VNode }",
-      'const broken: number = "顯然是字串";\nvoid broken;\nimport type { VNode }',
-    );
-    expect(messages(check(root))).toContain("TS2322");
-  });
+  it(
+    "🔴 <script setup> 裡的型別錯誤",
+    () => {
+      const root = copy();
+      edit(
+        root,
+        "Child.vue",
+        "import type { VNode }",
+        'const broken: number = "顯然是字串";\nvoid broken;\nimport type { VNode }',
+      );
+      expect(messages(check(root))).toContain("TS2322");
+    },
+    SPAWNS_VUE_TSC,
+  );
 
-  it("🔴 <template> 運算式的型別錯誤", () => {
-    const root = copy();
-    edit(root, "Child.vue", "{{ label }}", "{{ label.notAMethod() }}");
-    expect(messages(check(root))).toContain("'notAMethod' does not exist");
-  });
+  it(
+    "🔴 <template> 運算式的型別錯誤",
+    () => {
+      const root = copy();
+      edit(root, "Child.vue", "{{ label }}", "{{ label.notAMethod() }}");
+      expect(messages(check(root))).toContain("'notAMethod' does not exist");
+    },
+    SPAWNS_VUE_TSC,
+  );
 });
 
 describe('跨元件：declare module "*.vue" 沒有把它蓋掉', () => {
-  it("🔴 prop 型別不符", () => {
-    const root = copy();
-    edit(root, "Parent.vue", ':count="1"', ":count=\"'一'\"");
-    expect(messages(check(root))).toContain("TS2322");
-  });
+  it(
+    "🔴 prop 型別不符",
+    () => {
+      const root = copy();
+      edit(root, "Parent.vue", ':count="1"', ":count=\"'一'\"");
+      expect(messages(check(root))).toContain("TS2322");
+    },
+    SPAWNS_VUE_TSC,
+  );
 
-  it("🔴 少了必填的 prop", () => {
-    const root = copy();
-    edit(root, "Parent.vue", ' label="hi"', "");
-    expect(messages(check(root))).toContain("TS2345");
-  });
+  it(
+    "🔴 少了必填的 prop",
+    () => {
+      const root = copy();
+      edit(root, "Parent.vue", ' label="hi"', "");
+      expect(messages(check(root))).toContain("TS2345");
+    },
+    SPAWNS_VUE_TSC,
+  );
 
-  it("🔴 slot payload 的型別用錯 —— 這一條就是 #24 留下的第一個殘留", () => {
-    const root = copy();
-    edit(root, "Parent.vue", "total.toFixed(0)", "total.toUpperCase()");
-    expect(messages(check(root))).toContain("'toUpperCase' does not exist on type 'number'");
-  });
+  it(
+    "🔴 slot payload 的型別用錯 —— 這一條就是 #24 留下的第一個殘留",
+    () => {
+      const root = copy();
+      edit(root, "Parent.vue", "total.toFixed(0)", "total.toUpperCase()");
+      expect(messages(check(root))).toContain("'toUpperCase' does not exist on type 'number'");
+    },
+    SPAWNS_VUE_TSC,
+  );
 
-  it("🔴 事件的參數型別不符", () => {
-    const root = copy();
-    edit(root, "Parent.vue", "function onPicked(id: string)", "function onPicked(id: number)");
-    expect(messages(check(root))).not.toBe("");
-  });
+  it(
+    "🔴 事件的參數型別不符",
+    () => {
+      const root = copy();
+      edit(root, "Parent.vue", "function onPicked(id: string)", "function onPicked(id: number)");
+      expect(messages(check(root))).not.toBe("");
+    },
+    SPAWNS_VUE_TSC,
+  );
 });
 
 /**
@@ -119,13 +166,17 @@ describe('跨元件：declare module "*.vue" 沒有把它蓋掉', () => {
  * 不一致時它會紅（C67）。兩邊合起來才完整 —— 這裡驗型別、那裡驗名單。
  */
 describe("能力邊界：記下來，不是放過", () => {
-  it("⚪ 用一個不存在的 slot 名 → **不會**紅（language-core 沒有這個旋鈕）", () => {
-    const root = copy();
-    edit(root, "Parent.vue", "#badge=", "#nope=");
-    // 用了 #nope 之後 badge 的 payload 就沒人接，所以順帶把那段運算式也拿掉。
-    edit(root, "Parent.vue", "{{ total.toFixed(0) }}", "x");
-    expect(messages(check(root))).toBe("");
-  });
+  it(
+    "⚪ 用一個不存在的 slot 名 → **不會**紅（language-core 沒有這個旋鈕）",
+    () => {
+      const root = copy();
+      edit(root, "Parent.vue", "#badge=", "#nope=");
+      // 用了 #nope 之後 badge 的 payload 就沒人接，所以順帶把那段運算式也拿掉。
+      edit(root, "Parent.vue", "{{ total.toFixed(0) }}", "x");
+      expect(messages(check(root))).toBe("");
+    },
+    SPAWNS_VUE_TSC,
+  );
 });
 
 describe("工具自己不准安靜地什麼都沒檢查", () => {
@@ -153,25 +204,32 @@ describe("工具自己不准安靜地什麼都沒檢查", () => {
    * **接線** —— vue-tsc 實際印出來的絕對路徑與 `Program.views` 的相對路徑
    * 對得上。接錯的話這道「比錯誤數重要」的守衛會恆真，而那正是它要防的事。
    */
-  it("★ .vue 被 tsconfig 排除在外 → 0 條錯誤，但守衛要指名是哪一個", () => {
-    const root = copy();
-    writeFileSync(
-      join(root, "tsconfig.json"),
-      readFileSync(join(root, "tsconfig.json"), "utf8").replace(
-        '"include": ["src"]',
-        '"include": ["src/env.d.ts"]',
-      ),
-    );
-    const result = check(root);
-    expect(messages(result)).toBe("");
+  it(
+    "★ .vue 被 tsconfig 排除在外 → 0 條錯誤，但守衛要指名是哪一個",
+    () => {
+      const root = copy();
+      writeFileSync(
+        join(root, "tsconfig.json"),
+        readFileSync(join(root, "tsconfig.json"), "utf8").replace(
+          '"include": ["src"]',
+          '"include": ["src/env.d.ts"]',
+        ),
+      );
+      const result = check(root);
+      expect(messages(result)).toBe("");
 
-    const program: Program = {
-      dir: ".",
-      tsconfig: "tsconfig.json",
-      views: ["src/Child.vue", "src/Parent.vue"],
-    };
-    expect(missingViews(root, program, result.files)).toEqual(["src/Child.vue", "src/Parent.vue"]);
-  });
+      const program: Program = {
+        dir: ".",
+        tsconfig: "tsconfig.json",
+        views: ["src/Child.vue", "src/Parent.vue"],
+      };
+      expect(missingViews(root, program, result.files)).toEqual([
+        "src/Child.vue",
+        "src/Parent.vue",
+      ]);
+    },
+    SPAWNS_VUE_TSC,
+  );
 
   it("🔴 vue-tsc 印出一行認不得的東西 → 丟例外，不是當成沒事", () => {
     expect(() => parseOutput("Something entirely unexpected")).toThrow("解析不了");
