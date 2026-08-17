@@ -1,0 +1,7 @@
+{
+  "extends": "@org/tsconfig/node.json",
+  "include": ["src", "tests"],
+  // fixture 是**刻意寫壞的**，被這份 tsconfig 收進來的話 `vp check` 會對著它們紅。
+  // 它們的型別由 tests/ 裡真的跑一次 vue-tsc 來驗，不由這裡。
+  "exclude": ["tests/fixtures"]
+}

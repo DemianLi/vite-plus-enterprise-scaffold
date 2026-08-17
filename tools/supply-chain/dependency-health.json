@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-16",
+  "capturedAt": "2026-08-17",
   "registry": "https://registry.npmjs.org",
   "records": [
     {
@@ -209,6 +209,14 @@
       "publishedAt": "2026-07-15",
       "stableReleasesPerYear": 15,
       "lastStableAt": "2026-07-15"
+    },
+    {
+      "name": "vue-tsc",
+      "latest": "3.3.10",
+      "license": "MIT",
+      "publishedAt": "2026-08-15",
+      "stableReleasesPerYear": 36,
+      "lastStableAt": "2026-08-15"
     },
     {
       "name": "zod",

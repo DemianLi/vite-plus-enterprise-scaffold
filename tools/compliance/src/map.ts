@@ -146,7 +146,16 @@ export const GATES: readonly Gate[] = [
     command: "node tools/api-surface/src/cli.ts",
     evidence: "tools/api-surface/surface.json",
     negativeTest: "tools/api-surface/tests/negative.test.ts",
-    note: "2026-08-16 從「只比對 export 名稱」重做成「比對型別形狀」—— 舊版對「interface 加一個必填欄位」完全不會說話，而那是下游唯一真的會編不過的那種變更。反向測試分兩路：**改基準檔的副本**（`--baseline`）問「該紅的會不會紅」，**改 fixture 套件的原始碼**（`--platform`）問反過來的「這個重構不該漂移」；兩路都不用動 platform 的原始碼。另有幾條驗 codemod 這個合法出口沒有被繞過，也沒有被誤擋 —— 包含形狀變更用的 `changes` 登記。⚠️ 2026-08-17 擴到 `.vue` 的 **slot 與 emit**（C62 那句產品要求的第三條軸，HANDOFF #24）。這一次補的是一道**裝飾品**：舊版對 `defineEmits`／`defineSlots`／`defineExpose` 一律丟例外，而那道絆線絆的是巨集的名字、不是公開面 —— 實測往元件模板加一個具名 slot、加一個 `$emit`，閘門兩次都全綠，而 `UiDialog` 從落地那天就有三個沒被記錄的 slot。現在宣告與模板必須一致，兩個方向都會紅；只剩 `defineExpose` 仍然丟例外（`<script setup>` 預設封閉，那道絆線是真的）。基準檔因此升到第 3 版 —— `platform/` 一個位元組都沒改，但工具開始記新東西，不升版號會變成四筆要求不存在 codemod 的假破壞性變更（C67）。",
+    note: "2026-08-16 從「只比對 export 名稱」重做成「比對型別形狀」—— 舊版對「interface 加一個必填欄位」完全不會說話，而那是下游唯一真的會編不過的那種變更。反向測試分兩路：**改基準檔的副本**（`--baseline`）問「該紅的會不會紅」，**改 fixture 套件的原始碼**（`--platform`）問反過來的「這個重構不該漂移」；兩路都不用動 platform 的原始碼。另有幾條驗 codemod 這個合法出口沒有被繞過，也沒有被誤擋 —— 包含形狀變更用的 `changes` 登記。⚠️ 2026-08-17 擴到 `.vue` 的 **slot 與 emit**（C62 那句產品要求的第三條軸，HANDOFF #24）。這一次補的是一道**裝飾品**：舊版對 `defineEmits`／`defineSlots`／`defineExpose` 一律丟例外，而那道絆線絆的是巨集的名字、不是公開面 —— 實測往元件模板加一個具名 slot、加一個 `$emit`，閘門兩次都全綠，而 `UiDialog` 從落地那天就有三個沒被記錄的 slot。現在宣告與模板必須一致，兩個方向都會紅；只剩 `defineExpose` 仍然丟例外（`<script setup>` 預設封閉，那道絆線是真的）。⚠️ 這裡比對的是**原文**不是型別 —— `defineSlots` 裡寫的 `VNode[]` 這支工具不驗。那一半由 `vue-typecheck` 補（2026-08-17 同日稍晚，C68），兩道合起來才是「名單不漂移」＋「型別相符」。基準檔因此升到第 3 版 —— `platform/` 一個位元組都沒改，但工具開始記新東西，不升版號會變成四筆要求不存在 codemod 的假破壞性變更（C67）。",
+  },
+  {
+    id: "vue-typecheck",
+    kind: "gate",
+    what: "`.vue` 的型別檢查：`<script setup>`、模板運算式、跨元件的 prop 與 slot payload 型別（HANDOFF #26）",
+    command: "node tools/vue-typecheck/src/cli.ts",
+    evidence: null,
+    negativeTest: "tools/vue-typecheck/tests/negative.test.ts",
+    note: "2026-08-17 加（C68）。補的是一個**完全沒有人在看**的區塊：`vp check` 的型別段是 tsgolint，它不看 `.vue` —— 實測同一行型別錯誤放進 SFC 是 0 errors、放進 `.ts` 是 1 error。乾跑量到 16 條，而 16 條全部是同一個根因：兩個切片的模板用 `$t`，而兩個 package.json 都沒宣告 vue-i18n —— **那是一個幽靈相依，而 `tools/conformance` 的幽靈相依檢查讀的是 import，全域屬性不是 import**，所以那道閘門看不見它。找到它的只有這一支。⚠️ 代價是這個 repo 因此有**兩個 TypeScript**（catalog 主線的原生 Go 版 TS 7 給 tsgolint、具名 catalog 的 JS 版 TS 5.x 給 vue-tsc）。兩支編譯器對同一份程式碼給出不同判決的話這道閘門會被關掉（C57），所以那個風險是量過才做的：接上當天 vue-tsc 對四份 program 的每一支 `.ts` 產出 0 條 tsgolint 沒有的診斷；供應鏈成本是 +9 個純 JS 套件、原生二進位與家族數完全不變。⚠️ 刻意不開 `strictTemplates`：乾跑多 2 條，兩條都是 `<UiButton @click>`，而「修法」是加 `defineEmits` —— 那會關掉 fallthrough attr，比病還糟（C41／C55）。⚠️ 抓不到 `<template #不存在的slot>`：`@vue/language-core` 3.x 只有 checkUnknownProps／Events／Components／Directives／strictVModel 五個旋鈕，沒有 unknown slot 這一項 —— 是能力邊界不是設定沒開。反向測試把它寫成一條「不得紅」，為的是升級後它哪天會紅時有人知道。⚠️ 這道閘門先證明自己有在看才給判決：每份 program 都用 `--listFiles` 比對「該讀的 .vue」與「實際讀了哪些檔」，缺一個就紅 —— 「0 條錯誤」與「一個檔案都沒讀到」印出來長得一樣。",
   },
   {
     id: "supply-chain",
@@ -173,7 +182,7 @@ export const GATES: readonly Gate[] = [
     command: "node tools/theme-verify/src/cli.ts",
     evidence: null,
     negativeTest: "tools/theme-verify/tests/palette.test.ts",
-    note: "2026-08-17 加（HANDOFF #24）。守的是 C62 那句產品要求的**前兩條軸** —— 配色與 component 形狀；**第三條（互動方式）完全不在這道閘門的範圍**，而且不該在：互動換不了代幣，它是靠組合（slot／emit）換的，守它的是 `api-surface`（2026-08-17 起，見 C67）。綠燈的意思是「兩條軸實測可換」，不是「設計系統可換」。⚠️ 建置那一段（比對兩份產出的 CSS）是真的跑 Tailwind，因為它的失敗模式是**建置成功、CSS 還變大、但一個 utility 都沒有** —— 只讀 CSS 檔驗不到。九條斷言裡八條實測會紅，逐條列在 `tools/theme-verify/README.md`；「覆寫零附帶影響」那條未測，破壞它得改 Tailwind 本身。⚠️ 「引用」那一段是同日稍晚補的，補的是**這道閘門自己上線那個 PR 留下的缺陷**：代幣改名，6 處使用端沒跟上，而前兩段只掃 `platform/ui` 所以全綠（C66）。它有死角：括號寫法的懸空引用抓得到，正規工具類名對應的代幣被刪掉時 Tailwind 什麼都不產生，抓不到 —— 那一半在切片上目前沒有守，記在 HANDOFF #24。⚠️ 這一欄只放得下一個路徑，指的是靜態那一段；「引用」那一段的零件測試是 `tools/theme-verify/tests/css.test.ts`（六條，含「帶 fallback 的不算違規」與「解析不到東西時要紅」）。建置那一段的紅燈是手動實測的，沒有自動化的反向測試 —— 兩次真建置放進單元測試會讓這道閘門的成本翻倍。",
+    note: "2026-08-17 加（HANDOFF #24）。守的是 C62 那句產品要求的**前兩條軸** —— 配色與 component 形狀；**第三條（互動方式）完全不在這道閘門的範圍**，而且不該在：互動換不了代幣，它是靠組合（slot／emit）換的，守它的是 `api-surface`（名單，2026-08-17 起，見 C67）與 `vue-typecheck`（slot payload 的型別，同日稍晚，見 C68）。綠燈的意思是「兩條軸實測可換」，不是「設計系統可換」。⚠️ 建置那一段（比對兩份產出的 CSS）是真的跑 Tailwind，因為它的失敗模式是**建置成功、CSS 還變大、但一個 utility 都沒有** —— 只讀 CSS 檔驗不到。九條斷言裡八條實測會紅，逐條列在 `tools/theme-verify/README.md`；「覆寫零附帶影響」那條未測，破壞它得改 Tailwind 本身。⚠️ 「引用」那一段是同日稍晚補的，補的是**這道閘門自己上線那個 PR 留下的缺陷**：代幣改名，6 處使用端沒跟上，而前兩段只掃 `platform/ui` 所以全綠（C66）。它有死角：括號寫法的懸空引用抓得到，正規工具類名對應的代幣被刪掉時 Tailwind 什麼都不產生，抓不到 —— 那一半在切片上目前沒有守，記在 HANDOFF #24。⚠️ 這一欄只放得下一個路徑，指的是靜態那一段；「引用」那一段的零件測試是 `tools/theme-verify/tests/css.test.ts`（六條，含「帶 fallback 的不算違規」與「解析不到東西時要紅」）。建置那一段的紅燈是手動實測的，沒有自動化的反向測試 —— 兩次真建置放進單元測試會讓這道閘門的成本翻倍。",
   },
   {
     id: "eslint-security",

@@ -4244,6 +4244,159 @@ close    只換那顆按鈕本身（外層仍是 reka-ui 的 DialogClose，
 
 ---
 
+### C68 — 接上 `.vue` 的型別檢查：量出來的不是缺陷數，是一個沒人看得見的相依（2026-08-17）
+
+HANDOFF #26 記著「`vp check` 不對 `.vue` 做型別檢查」，並且要求先量再決定：
+「乾跑結果是幾條？**它是不是零決定這件事是半天還是三天**」。
+
+量出來 **16 條**。而 16 條的價值不在數量 —— 在於它們全部是**同一個根因**，
+而那個根因是任何一道現有閘門都看不見的。
+
+#### 一、先讓工具自己過關，再看數字
+
+三個正向對照跑在前面，因為「0 條」與「一個檔案都沒讀到」印出來長得一樣，
+而這個 repo 已經被那個形狀騙過三次（`@source`、`@theme`、`sr-only`）：
+
+| 對照                                          | 結果                            |
+| --------------------------------------------- | ------------------------------- |
+| `<script>` 裡 `const broken: number = "字串"` | ✅ `UiDialog.vue(107,7) TS2322` |
+| `<template>` 裡 `{{ title.notAMethod() }}`    | ✅ `UiDialog.vue(85,68) TS2339` |
+| `--listFiles` 有沒有含 `.vue`                 | ✅ 兩個元件都在程式清單裡       |
+
+這一條後來變成工具的一部分：`missingViews()` 每次都比對「該讀的 `.vue`」
+與「vue-tsc 實際讀了哪些檔」，缺一個就紅。**綠燈必須先證明有人在看。**
+
+#### 二、`apps/console` 的 0 條是假的乾淨
+
+| 套件                | 錯誤數 |
+| ------------------- | ------ |
+| `platform/ui`       | 0      |
+| `apps/console`      | 0      |
+| `features/order`    | 10     |
+| `features/shipment` | 6      |
+
+第一眼會讀成「應用層乾淨、切片有問題」。`--listFiles` 顯示不是：
+**`apps/console` 的程式清單裡就有 `features/order/src/views/OrderList.vue`**。
+同一個檔案，在 console 的程式裡 0 條、在自己 package 的程式裡 10 條。
+
+所以缺陷不是「有幾條錯」，是**切片單獨拿出來型別檢查不會過** ——
+而這個腳手架的整個賣點就是切片會被別的團隊 fork 走。
+
+#### 三、根因：`$t` 是一個相依，而它不長得像相依
+
+16 條全部是 `TS2339: Property '$t' does not exist`。
+
+`$t` 由 vue-i18n augment 到 `ComponentCustomProperties` 上。
+`apps/console/src/main.ts` 有 `import { createI18n } from "vue-i18n"`，
+augmentation 是被那一句帶進程式的。兩個切片的模板都在用 `$t`，
+**而兩個 `package.json` 都沒宣告 vue-i18n，任何一支 `.ts` 都沒有匯入它**。
+`.npmrc` 是 `node-linker=isolated` ＋ `hoist=false`，
+`features/*/node_modules/vue-i18n` 與 root 都不存在。執行期能動純粹是因為
+`apps/console` 的 `app.use(i18n)` 把 `$t` 掛成全域。
+
+> ⚠️ **`tools/conformance` 的幽靈相依檢查讀的是 import，而這一個不是 import。**
+> 與 #26 尾巴那個 CSS `@import "tailwindcss"` 同一類：不是那道檢查寫壞了，
+> 是那類相依從來不經過它掃的那個形狀。**找到它的只有 vue-tsc。**
+
+修法實測過三種，只有一種有效：
+
+| 做法                                                 | 剩幾條 |
+| ---------------------------------------------------- | ------ |
+| 只在 `package.json` 宣告 `vue-i18n`                  | 10     |
+| 再加 `/// <reference types="vue-i18n" />`            | 10     |
+| `import type {} from "vue-i18n";` 放進切片的 `.d.ts` | **0**  |
+
+而那一行的另一半價值是**它是一個 import**：補完之後，這個相依從此落在
+既有幽靈相依檢查的視野裡。實測：把宣告從產生器模板拿掉，`slice-gen` 的
+端對端測試（它真的跑一次一致性檢查）當場紅 —— 迴圈是閉的。
+
+#### 四、那一行放錯檔案會把 `.vue` 的解析整個弄壞，而只有一支編譯器會說話
+
+第一版把 import 加進 `env.d.ts`。那個檔案因此從**全域腳本變成模組**，
+於是裡面的 `declare module "*.vue"` 不再是環境宣告，
+`routes.ts` 的 `import("./views/OrderList.vue")` 當場找不到模組。
+
+**而它只有 tsgolint 紅、vue-tsc 全綠** —— vue-tsc 真的解析 `.vue`，
+根本不需要那個 shim。這是 C57 說的「兩支工具打架」的**具體位置**，
+而且方向出乎意料：不是兩者對同一段程式碼判決不同，是**一者看得見的東西
+另一者看不見**。改成獨立的 `src/i18n.d.ts`，並在產生器測試裡釘住
+「`env.d.ts` 不得出現頂層 import／export」。
+
+#### 五、代價：這個 repo 現在有兩個 TypeScript
+
+`catalog` 的 `typescript: ^7.0.2` 是原生 Go 版，已經沒有 JS 版的 compiler API：
+
+```
+Object.keys(require("typescript")).length  → 2
+typeof ts.createProgram                    → undefined
+typeof ts.createLanguageService            → undefined
+```
+
+而 `vue-tsc@3` → `@volar/typescript` 需要那組 API。所以 `tools/vue-typecheck`
+用具名 catalog `catalog:vue-typecheck` 拉一份 JS 版的 TypeScript 5.x。
+
+這是一個**架構層級的決定**，不是實作細節，所以是問過才做的。三個把成本
+限縮住的量測：
+
+- **分歧的上界是 0。** vue-tsc 在 TS 5.9 下把四份 program 裡的每一支 `.ts`
+  （`cn.ts`、`theme.ts`、`index.ts`、兩支測試檔）都檢查了，
+  **產出 0 條 tsgolint 沒有的診斷**。升 vite-plus 或 TS 時要重跑這個比對。
+- **供應鏈成本量得出來**：+9 個純 JS 套件（565 → 574），
+  **原生二進位 144 → 144、家族 12 → 12 完全不變**。TypeScript 5.x 沒有
+  平台限定的二進位，所以它不進 `tools/supply-chain` 的原生家族分類。
+- **範圍刻意收窄**：`tools/vue-typecheck` 只對含 `.vue` 的 package 跑，
+  `.ts` 的判決仍然只有 `vp check` 一個來源。
+
+#### 六、`strictTemplates` 量完之後不開（C55／C41）
+
+| 設定                                             | 基準錯誤數 |
+| ------------------------------------------------ | ---------- |
+| 不開                                             | 0          |
+| `strictTemplates: true`                          | **2**      |
+| 四個 `checkUnknown*` 全開                        | 2          |
+| `strictTemplates` ＋ `checkUnknownEvents: false` | 0          |
+| `strictTemplates` ＋ `checkUnknownProps: false`  | 0          |
+
+那 2 條都是 `<UiButton @click="…">`。`UiButton` 沒宣告 `click` 事件，
+靠的是 fallthrough attr 落到根 `<button>` —— 而**加 `defineEmits` 反而會
+關掉 fallthrough**，變成必須手動 re-emit。也就是說那 2 條要求的「修法」
+比病還糟。一道會誤報的閘門第一天就會被加例外，而例外永遠不會拿掉（C41）。
+
+不開的代價寫清楚：抓不到「prop 名字打錯」。
+
+#### 七、買到了什麼、沒買到什麼
+
+在 `apps/console` 的程式裡（基準 0 條）逐一植入：
+
+| 植入                                   | 結果                                 |
+| -------------------------------------- | ------------------------------------ |
+| `<UiDialog :title="123">`              | ✅ TS2322                            |
+| 拿掉必填的 `:description`              | ✅ TS2345                            |
+| slot payload 型別用錯                  | ✅ TS2339                            |
+| `<template #nope>`（不存在的 slot 名） | ❌ 不報，開 `strictTemplates` 也不報 |
+
+第三列**把 C67 留下的第一個殘留關掉了**：`defineSlots` 裡的 `VNode[]`
+不再是「沒有人在驗的文字」。前兩列同時證明 `declare module "*.vue"`
+那個 shim **沒有**蓋掉跨元件的型別檢查 —— 那是反向測試的 fixture 一定要
+帶著同一份 shim 的理由。
+
+第四列是**能力邊界不是設定沒開**：`@vue/language-core` 3.x 只有
+`checkUnknownProps`／`Events`／`Components`／`Directives`／`strictVModel`
+五個旋鈕，沒有 unknown slot 這一項。那一半由 `api-surface` 守（C67）：
+slot 的**名單**由它比對，slot 的**型別**由這裡比對。寫成一條「不得紅」的
+測試，是為了升級後它哪天突然會紅時有人知道。
+
+#### 八、這一輪沒有做的
+
+- **`tools/` 底下的 `.vue` 不掃。** 只有兩個 fixture，而且是刻意寫壞的。
+  排除規則是路徑中段 `tests/fixtures/`，**是規則不是清單** ——
+  新增 fixture 不必改程式。
+- **`.vue` 的檢查與 `vp check` 沒有合併。** 合併要嘛把第二個 TypeScript
+  塞進所有人的編輯器路徑，要嘛等 tsgolint 支援 SFC。現在是一道獨立閘門，
+  進 `vpr gate` 與 Tier 1。
+
+---
+
 ## 實作順序
 
 依賴關係決定順序，不是重要性。

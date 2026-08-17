@@ -128,16 +128,24 @@ Tailwind v4 的自動來源偵測**刻意跳過 node_modules**，而 monorepo �
 
 ✅ **三條軸都接上了**（HANDOFF #24，2026-08-17）：
 
-| 軸       | 接縫                                            | 守它的         | 守到什麼程度                     |
-| -------- | ----------------------------------------------- | -------------- | -------------------------------- |
-| 配色     | 兩層 `@theme` 代幣                              | `theme-verify` | **實測可換**（真的建置兩次比對） |
-| 形狀     | `createUiTheme({ variants, sizes })` ＋ 代幣    | `theme-verify` | **實測可換**（同上）             |
-| 互動方式 | `UiDialog` 的 `default`／`footer`／`close` slot | `api-surface`  | 只有**改了會漂移**，見下         |
+| 軸       | 接縫                                            | 守它的                           | 守到什麼程度                     |
+| -------- | ----------------------------------------------- | -------------------------------- | -------------------------------- |
+| 配色     | 兩層 `@theme` 代幣                              | `theme-verify`                   | **實測可換**（真的建置兩次比對） |
+| 形狀     | `createUiTheme({ variants, sizes })` ＋ 代幣    | `theme-verify`                   | **實測可換**（同上）             |
+| 互動方式 | `UiDialog` 的 `default`／`footer`／`close` slot | `api-surface` ＋ `vue-typecheck` | 名單會漂移就紅、型別不符也紅     |
 
-⚠️ **第三列比前兩列薄，不要把三列讀成同一件事。** `theme-verify` 是真的建置
-兩次去證明「換得掉」；`api-surface` 證明的是「這幾格是公開面，改了會被看到」——
-**沒有任何東西證明某個案子真的能不 fork 就換掉 `UiDialog` 的互動**。
-會不會夠用，第二個案子提出需求時才知道。
+⚠️ **第三列仍然比前兩列薄，不要把三列讀成同一件事。** `theme-verify` 是真的
+建置兩次去證明「換得掉」；第三列證明的是「這幾格是公開面，改了會被看到，
+而且消費端接錯型別會紅」—— **沒有任何東西證明某個案子真的能不 fork 就換掉
+`UiDialog` 的互動**。會不會夠用，第二個案子提出需求時才知道。
+
+第三列分兩道閘門，分工不同：`api-surface` 比對 slot／emit 的**名單**
+（宣告與模板必須一致，C67），`tools/vue-typecheck` 比對 slot payload 的
+**型別**（宣告與消費端必須相符，C68）。
+
+⚠️ 兩道都抓不到的：**消費端寫了一個不存在的 slot 名**（`<template #typo>`）。
+`@vue/language-core` 沒有 unknown slot 的旋鈕，而 `api-surface` 看的是元件
+自己那一側。目前靠 code review。
 
 互動那條不是靠代幣換的，是靠**組合**：`footer` 換整組收尾動作、`close` 只換
 那顆按鈕（外層仍是 reka-ui 的 `DialogClose`，鍵盤與焦點行為不變）。
@@ -149,12 +157,17 @@ Tailwind v4 的自動來源偵測**刻意跳過 node_modules**，而 monorepo �
 都要宣告，宣告與模板不一致會直接紅。只剩 `defineExpose` 仍然擋著
 （`<script setup>` 預設封閉，那道絆線是真的）。見 C67。
 
-⚠️ **另一個仍然開著的洞：`vp check` 不對 `.vue` 做型別檢查。** 實測
-`const broken: number = "字串"` 放在 SFC 裡是 0 errors、放在 `.ts` 裡是 1 error。
-所以這個 package 的元件原始碼**沒有任何型別檢查在跑**，
-`api-surface` 抽 props／slot／emit 形狀是唯一看得到它們的東西 ——
-而它是**原文比對**，不是型別檢查：`defineSlots` 裡寫的 `VNode[]` 沒有人在驗。
-記在 HANDOFF #26。
+✅ **`.vue` 的型別檢查已於 2026-08-17 接上**（HANDOFF #26／C68）。
+在此之前 `vp check` 的型別段（tsgolint）不看 `.vue` —— 實測
+`const broken: number = "字串"` 放在 SFC 裡是 0 errors、放在 `.ts` 裡是 1 error，
+也就是這個 package 的元件原始碼一行型別檢查都沒跑過。
+
+現在由 `tools/vue-typecheck` 守（`vpr gate` 與 Tier 1 都跑）。
+
+⚠️ **代價：這個 repo 因此有兩個 TypeScript。** catalog 主線的
+`typescript: ^7.0.2` 是原生 Go 版，已經沒有 `vue-tsc` 需要的 compiler API，
+所以那支工具用具名 catalog 拉一份 JS 版的 TS 5.x。兩支編譯器的分歧風險
+量過（接上當天 0 條），**升 vite-plus 或 TS 時要重跑那個比對**。
 
 ## 開發
 
