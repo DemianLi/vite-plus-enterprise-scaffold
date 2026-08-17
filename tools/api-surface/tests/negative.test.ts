@@ -901,6 +901,18 @@ describe(".vue 元件的公開面", () => {
     expect(result.output).toContain("不是型別參數形式");
   });
 
+  it("🔴 同一個巨集寫兩次 → 紅（只讀第一個等於安靜忽略其餘）", () => {
+    // 解析只讀第一個匹配。Vue 自己也不允許重複呼叫，所以這條大半是防禦性的 ——
+    // 但沒有反向測試的防線與沒有防線在輸出上長得一樣，所以還是要問一次。
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("defineSlots<{", "defineSlots<{ extra(): unknown[] }>();\n\ndefineSlots<{"),
+    );
+    expect(result.red, `重複的巨集沒被擋下\n${result.output}`).toBe(true);
+    // ⚠️ 拿掉這條絆線之後閘門仍然會紅（只讀到第一個 defineSlots，模板裡的
+    // `icon` 就變成沒宣告的 slot）—— 所以要斷言只有這條路會印的字。
+    expect(result.output).toContain("出現了 2 次");
+  });
+
   it("★ 零公開面的元件：解析得出來，而且日後長出來的 prop 仍然會漂移", () => {
     /**
      * 這條有兩半，**第二半才是重點**。
