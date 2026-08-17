@@ -146,6 +146,33 @@ describe("工具自己不准安靜地什麼都沒檢查", () => {
     expect(missingViews("/repo", program, ["/repo/a/X.vue"])).toEqual([]);
   });
 
+  /**
+   * ★ 端對端版：把 tsconfig 的 `include` 指開，`.vue` 就真的不在 program 裡。
+   *
+   * 上面兩條是拿假路徑餵 `missingViews`，證明的是判斷式；這一條證明的是
+   * **接線** —— vue-tsc 實際印出來的絕對路徑與 `Program.views` 的相對路徑
+   * 對得上。接錯的話這道「比錯誤數重要」的守衛會恆真，而那正是它要防的事。
+   */
+  it("★ .vue 被 tsconfig 排除在外 → 0 條錯誤，但守衛要指名是哪一個", () => {
+    const root = copy();
+    writeFileSync(
+      join(root, "tsconfig.json"),
+      readFileSync(join(root, "tsconfig.json"), "utf8").replace(
+        '"include": ["src"]',
+        '"include": ["src/env.d.ts"]',
+      ),
+    );
+    const result = check(root);
+    expect(messages(result)).toBe("");
+
+    const program: Program = {
+      dir: ".",
+      tsconfig: "tsconfig.json",
+      views: ["src/Child.vue", "src/Parent.vue"],
+    };
+    expect(missingViews(root, program, result.files)).toEqual(["src/Child.vue", "src/Parent.vue"]);
+  });
+
   it("🔴 vue-tsc 印出一行認不得的東西 → 丟例外，不是當成沒事", () => {
     expect(() => parseOutput("Something entirely unexpected")).toThrow("解析不了");
   });

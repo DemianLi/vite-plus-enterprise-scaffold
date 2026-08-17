@@ -21,7 +21,7 @@ const WORKSPACE_GLOBS = ["apps", "platform", "features", "tools"] as const;
  */
 const FIXTURE_SEGMENT = `${sep}tests${sep}fixtures${sep}`;
 
-const SKIP_DIRS = new Set(["node_modules", "dist", ".git", ".turbo"]);
+const SKIP_DIRS = new Set(["node_modules", "dist", ".turbo"]);
 
 export interface Program {
   /** package 目錄，相對於 repo 根。 */
@@ -32,10 +32,22 @@ export interface Program {
   readonly views: readonly string[];
 }
 
+/**
+ * ⚠️ **點開頭的目錄一律不走**，`.git` 只是其中一個。
+ *
+ * 直接的理由是本 package 自己的反向測試：它把 fixture 複製到
+ * `tests/fixtures/.tmp-XXXX/`、跑完就 `rmSync`。而 vitest **並行跑測試檔**，
+ * 所以 `programs.test.ts` 可能正走到一個正在被刪掉的目錄裡 ——
+ * `readdirSync` 對消失的目錄丟 ENOENT，而**那個例外發生在任何過濾之前**，
+ * `isFixture` 救不了。
+ *
+ * 那會變成一道每 N 次紅一次的閘門，而那種閘門會被加例外，不會被修（C41），
+ * 而且它正是 C61 的形狀：兩支測試搶同一個 repo。
+ */
 function walk(dir: string, out: string[]): void {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) continue;
+      if (SKIP_DIRS.has(entry.name) || entry.name.startsWith(".")) continue;
       walk(join(dir, entry.name), out);
     } else if (entry.name.endsWith(".vue")) {
       out.push(join(dir, entry.name));
