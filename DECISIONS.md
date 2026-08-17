@@ -2709,6 +2709,24 @@ MPL-2.0 —— 那比一開始就講出來難處理得多。
 一個被 acknowledge 過的套件從 `package.json` 消失了仍然要報 ——
 否則例外清單會從「這個狀態可以接受」變成「這個套件不用檢查」。
 
+#### 留在 `ui-survey` 的那一半，三處都刻意不接
+
+搬走的是那兩個判定函式。`--csp` 與 `--sca` 留下來，因為它們問的仍然是
+「候選名單裡哪一個能用」—— 決策期的問題，不是「我們實際裝了什麼」。
+於是在 11 支有 `src/cli.ts` 的工具裡，`ui-survey` 是唯一根 `package.json`
+的 script、`vpr gate`、workflow **三處都沒有**的一支。
+
+那不是漏接。兩個子命令都要打公開 npm registry，排進 CI 只會讓 CI 在 registry
+抖動時變紅，而它守不住任何東西。**這條理由後來被引用了兩次**：C40 的
+CODEOWNERS 檢查與交接清單第 15 項都寫著「與 `tools/ui-survey` 不進 gate
+是同一條理由」。
+
+連根 script 都不給是同一個判斷再往前一步。`vpr sca-dossier`／`vpr airgap`／
+`vpr csp-probe` 動的是本 repo 自己的 lockfile 與建置產物，離線可跑；這支不是。
+而完整指令已經在交接清單第 14 項、[`UI-SURVEY.md`](UI-SURVEY.md) 與
+`tools/ui-survey/README.md` 各印過一次 —— 再給一個 `vpr` 拼法只是第四份
+手抄的事實，而 `tools/doc-facts` 正是為了這件事存在的。
+
 ---
 
 ### C44 — 加了升級提案機制，並且發現「自動修好它」會蓋掉供應鏈事故
