@@ -169,11 +169,11 @@ export const GATES: readonly Gate[] = [
   {
     id: "theme-verify",
     kind: "gate",
-    what: "設計系統接縫：元件只准用語意代幣（靜態）＋ 各案覆寫代幣真的會進到產物（建置兩次比對）（D15／C62）",
+    what: "設計系統接縫：元件只准用語意代幣（靜態）＋ 產物零懸空代幣引用（引用）＋ 各案覆寫代幣真的會進到產物（建置兩次比對）（D15／C62）",
     command: "node tools/theme-verify/src/cli.ts",
     evidence: null,
     negativeTest: "tools/theme-verify/tests/palette.test.ts",
-    note: "2026-08-17 加（HANDOFF #24）。守的是 C62 那句產品要求的**前兩條軸** —— 配色與 component 形狀；**第三條（互動方式）完全不在範圍**，它被 `api-surface` 的 `SFC_UNSUPPORTED` 主動擋著。綠燈的意思是「兩條軸實測可換」，不是「設計系統可換」。⚠️ 建置那一半（比對兩份產出的 CSS）是真的跑 Tailwind，因為它的失敗模式是**建置成功、CSS 還變大、但一個 utility 都沒有** —— 只讀 CSS 檔驗不到。六條斷言裡五條實測會紅，逐條列在 `tools/theme-verify/README.md`；「覆寫零附帶影響」那條未測，破壞它得改 Tailwind 本身。⚠️ `negativeTest` 只指到靜態那一半的零件測試；建置那一半的紅燈是手動實測的，沒有自動化的反向測試 —— 兩次真建置放進單元測試會讓這道閘門的成本翻倍。",
+    note: "2026-08-17 加（HANDOFF #24）。守的是 C62 那句產品要求的**前兩條軸** —— 配色與 component 形狀；**第三條（互動方式）完全不在範圍**，它被 `api-surface` 的 `SFC_UNSUPPORTED` 主動擋著。綠燈的意思是「兩條軸實測可換」，不是「設計系統可換」。⚠️ 建置那一段（比對兩份產出的 CSS）是真的跑 Tailwind，因為它的失敗模式是**建置成功、CSS 還變大、但一個 utility 都沒有** —— 只讀 CSS 檔驗不到。九條斷言裡八條實測會紅，逐條列在 `tools/theme-verify/README.md`；「覆寫零附帶影響」那條未測，破壞它得改 Tailwind 本身。⚠️ 「引用」那一段是同日稍晚補的，補的是**這道閘門自己上線那個 PR 留下的缺陷**：代幣改名，6 處使用端沒跟上，而前兩段只掃 `platform/ui` 所以全綠（C66）。它有死角：括號寫法的懸空引用抓得到，正規工具類名對應的代幣被刪掉時 Tailwind 什麼都不產生，抓不到 —— 那一半在切片上目前沒有守，記在 HANDOFF #24。⚠️ 這一欄只放得下一個路徑，指的是靜態那一段；「引用」那一段的零件測試是 `tools/theme-verify/tests/css.test.ts`（六條，含「帶 fallback 的不算違規」與「解析不到東西時要紅」）。建置那一段的紅燈是手動實測的，沒有自動化的反向測試 —— 兩次真建置放進單元測試會讓這道閘門的成本翻倍。",
   },
   {
     id: "eslint-security",

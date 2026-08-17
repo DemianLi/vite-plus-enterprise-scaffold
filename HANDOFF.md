@@ -1185,7 +1185,7 @@ grep -n "uses:" .github/workflows/*.yml
 - 非顏色代幣：圓角、外框寬度、陰影、字重
 - `apps/console/src/styles.css` 是真的覆寫，`main.ts` 是真的用擴充點換掉
   預設的 `secondary` —— **各案 fork 之後第一個要改的就是這兩處**
-- 反向測試：六條斷言五條實測會紅，逐條列在 `tools/theme-verify/README.md`
+- 反向測試：九條斷言八條實測會紅，逐條列在 `tools/theme-verify/README.md`
 
 `apps/console` 的**實際產物**（2026-08-17，不是 fixture）：
 
@@ -1258,6 +1258,29 @@ node tools/theme-verify/src/cli.ts
 **間距刻意沒有** —— 那屬於「一套基礎的版型」那一半，代幣化它會長出
 `--spacing-control-sm-padding` 這種名字，而真正要換尺寸的案子要換的是
 整條規則（走 `createUiTheme({ sizes })`）。判準見 C65 第三節。
+
+### ⚠️ 前兩條軸上線的那個 PR 自己留下一個缺陷（2026-08-17 當日修）
+
+那個 PR 把 `--color-muted` 改名成 `--color-fg-muted`，而**使用端 6 處沒跟上**
+（`features/order` ×4、`features/shipment` ×1、`tools/slice-gen` 的模板 ×1）。
+產物裡因此有 `.text-\(--color-muted\){color:var(--color-muted)}` 指向一個
+不存在的名字，五個 `<dt>` 標籤安靜地失去灰色 —— 而**四道閘門全綠**，
+因為三道自訂檢查全部長在設計系統的**供給端**，改名的風險全部在**使用端**。
+
+已修，並補上 `theme-verify` 的第三段（產物零懸空引用）。論證見 C66。
+
+⚠️ **那一段有死角，而且這次的修法讓死角變大**：
+
+| 寫法                  | 代幣不存在時 Tailwind 會…  | 抓得到嗎 |
+| --------------------- | -------------------------- | -------- |
+| `text-(--沒有的代幣)` | 照樣編出規則，`var()` 懸空 | ✅       |
+| `text-沒有的代幣`     | **什麼都不產生**           | ❌       |
+
+6 處都改成了正規工具類名，所以同一個錯誤下次會更安靜。產生器模板那一側
+補了原始碼層的耦合（`tools/slice-gen/tests/contract-alignment.test.ts` 直接讀
+`platform/ui` 的 `@theme` 清單，代幣改名會紅）；**切片那一側沒有**。
+要補的話，判準是「切片用到的語意 utility 必須對得上一個已宣告的代幣」，
+而它需要一份 Tailwind 內建 utility 的清單來排除誤判 —— 先量再決定（C55）。
 
 ### 做的過程撞出兩個新項目
 

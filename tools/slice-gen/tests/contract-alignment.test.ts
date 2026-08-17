@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   REQUIRED_FILES,
   BANNED_DIRECT_DEPENDENCIES,
@@ -36,6 +39,20 @@ function fileAt(path: string): string {
   }
   if (typeof node !== "string") throw new Error(`${path} 不是檔案`);
   return node;
+}
+
+/** 設計系統 `@theme` 區塊裡宣告的代幣名。讀原始碼而不是抄一份清單（A1）。 */
+function declaredThemeTokens(): ReadonlySet<string> {
+  const path = resolve(
+    fileURLToPath(import.meta.url),
+    "../../../..",
+    "platform/ui/src/styles/index.css",
+  );
+  const block = /@theme\s*\{([\s\S]*)\}/.exec(readFileSync(path, "utf8"));
+  if (block === null) throw new Error(`${path} 裡找不到 @theme 區塊 —— 讀不到就不要給判決`);
+  return new Set(
+    [...(block[1] as string).matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1] as string),
+  );
 }
 
 function generatedPackageJson(): Record<string, Record<string, string> | string> {
@@ -253,6 +270,56 @@ describe("產出的切片符合 D15 設計系統規則", () => {
         );
       }
     }
+  });
+
+  /**
+   * ⚠️ 這一條與 `tools/theme-verify` 的懸空引用檢查**故意重疊，但看的不是同一件事**。
+   *
+   * 2026-08-17 的實測：`--color-muted` 改名成 `--color-fg-muted` 之後，模板裡的
+   * 引用留在原地，而且是**這個檔案**把它複製給之後每一個切片。那次是靠產物裡
+   * 的懸空 `var()` 抓到的 —— 但那條路徑有個死角：
+   *
+   *   括號寫法 `text-(--沒有的代幣)`  → Tailwind 照樣編出規則，var() 懸空 → 抓得到
+   *   工具類名 `text-沒有的代幣`       → Tailwind **什麼都不產生**       → 抓不到
+   *
+   * 也就是改用正規工具類名之後，同一個錯誤反而變得**更安靜**。所以模板這一側
+   * 要有一條原始碼層的耦合：代幣改名時，這裡會紅。
+   */
+  it("★ 模板用到的語意代幣真的在設計系統裡（代幣改名時這裡要紅）", () => {
+    const tokens = declaredThemeTokens();
+    // 讀不到代幣時下面兩條會恆真 —— 先擋掉那種綠燈。
+    expect(tokens.size).toBeGreaterThan(10);
+
+    const view = fileAt(`${VIEWS_DIR}/OrderHistoryList.vue`);
+    expect(tokens.has("--color-fg-muted")).toBe(true);
+    expect(view).toContain("text-fg-muted");
+  });
+
+  it("★ 括號寫法引用的代幣也要存在（現在是 0 處，所以連植入的情況一起驗）", () => {
+    const tokens = declaredThemeTokens();
+    const referenced = (source: string): string[] =>
+      [...source.matchAll(/\((--[a-z0-9-]+)\)/g)].map((match) => match[1] as string);
+
+    for (const source of sources) {
+      for (const name of referenced(source)) {
+        expect(tokens.has(name), `模板引用了不存在的代幣 ${name}`).toBe(true);
+      }
+    }
+
+    /*
+     * 模板現在一處括號寫法都沒有，上面那圈是空的。少了下面這一行，
+     * 這條測試會在判定式壞掉時照樣通過。
+     *
+     * ⚠️ **這個反例不能整段寫成字面值，而它第一版就是。** Tailwind 的
+     * `@source` 掃 `.ts`，於是這一行植入的假類別被編成一條真的 CSS 規則，
+     * 指向一個不存在的代幣 —— `tools/theme-verify` 的「引用」那一段當場紅了，
+     * 抓到的是**寫來驗證它的那條測試**。同一個形狀在這個 repo 的第四次。
+     *
+     * 所以名字拆出來組回去：掃描器是純文字的，看不到完整的候選字。
+     */
+    const notAToken = "--color-gone";
+    expect(referenced(`<dt class="text-(${notAToken})">`)).toEqual([notAToken]);
+    expect(tokens.has("--color-gone")).toBe(false);
   });
 
   it("判定式對「沒用設計系統的 view」確實回傳 false（否則上面全是空轉）", () => {

@@ -128,14 +128,14 @@ const currency = new Intl.NumberFormat("zh-TW", {
       :description="$t('order.detailDescription')"
     >
       <dl v-if="selected" class="grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
-        <dt class="text-(--color-muted)">#</dt>
+        <dt class="text-fg-muted">#</dt>
         <dd>{{ selected.id }}</dd>
-        <dt class="text-(--color-muted)">Customer</dt>
+        <dt class="text-fg-muted">Customer</dt>
         <!-- 明細也一樣。「點開就看得到完整的」等於沒有隱碼。 -->
         <dd>{{ maskName(selected.customerName) }}</dd>
-        <dt class="text-(--color-muted)">Total</dt>
+        <dt class="text-fg-muted">Total</dt>
         <dd>{{ currency.format(selected.totalCents / 100) }}</dd>
-        <dt class="text-(--color-muted)">Status</dt>
+        <dt class="text-fg-muted">Status</dt>
         <dd>{{ $t(`order.status.${selected.status}`) }}</dd>
       </dl>
 

@@ -70,7 +70,7 @@ const statusKey = computed<string | null>(() => {
       :description="$t('shipment.detailDescription')"
     >
       <dl v-if="selected" class="grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
-        <dt class="text-(--color-muted)">#</dt>
+        <dt class="text-fg-muted">#</dt>
         <dd>{{ selected.id }}</dd>
         <!-- TODO: 補上這個切片實際的欄位（與 api.ts 的 ShipmentItem 對齊） -->
       </dl>
