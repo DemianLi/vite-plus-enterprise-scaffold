@@ -774,6 +774,16 @@ describe(".vue 元件的公開面", () => {
     expect(result.red, `HTML 註解裡的 slot 被當成真的了\n${result.output}`).toBe(false);
   });
 
+  it("🔴 emit 的事件名不是字面值 → 丟例外，不是安靜地少記", () => {
+    // 讀不出事件名就記不進公開面，而少記的那一格改了不會漂移 ——
+    // 與動態 slot 名同一個顧慮。
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("emit('picked', label)", "emit(label)"),
+    );
+    expect(result.red, `讀不出名字的 emit 被跳過了\n${result.output}`).toBe(true);
+    expect(result.output).toContain("字面值");
+  });
+
   it("🔴 動態名字的 <slot> → 丟例外，不是安靜地少記", () => {
     const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
       source.replace('<slot name="icon" />', '<slot :name="tone" />'),

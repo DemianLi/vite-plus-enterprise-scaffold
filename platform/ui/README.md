@@ -128,11 +128,16 @@ Tailwind v4 的自動來源偵測**刻意跳過 node_modules**，而 monorepo �
 
 ✅ **三條軸都接上了**（HANDOFF #24，2026-08-17）：
 
-| 軸       | 接縫                                            | 守它的         |
-| -------- | ----------------------------------------------- | -------------- |
-| 配色     | 兩層 `@theme` 代幣                              | `theme-verify` |
-| 形狀     | `createUiTheme({ variants, sizes })` ＋ 代幣    | `theme-verify` |
-| 互動方式 | `UiDialog` 的 `default`／`footer`／`close` slot | `api-surface`  |
+| 軸       | 接縫                                            | 守它的         | 守到什麼程度                     |
+| -------- | ----------------------------------------------- | -------------- | -------------------------------- |
+| 配色     | 兩層 `@theme` 代幣                              | `theme-verify` | **實測可換**（真的建置兩次比對） |
+| 形狀     | `createUiTheme({ variants, sizes })` ＋ 代幣    | `theme-verify` | **實測可換**（同上）             |
+| 互動方式 | `UiDialog` 的 `default`／`footer`／`close` slot | `api-surface`  | 只有**改了會漂移**，見下         |
+
+⚠️ **第三列比前兩列薄，不要把三列讀成同一件事。** `theme-verify` 是真的建置
+兩次去證明「換得掉」；`api-surface` 證明的是「這幾格是公開面，改了會被看到」——
+**沒有任何東西證明某個案子真的能不 fork 就換掉 `UiDialog` 的互動**。
+會不會夠用，第二個案子提出需求時才知道。
 
 互動那條不是靠代幣換的，是靠**組合**：`footer` 換整組收尾動作、`close` 只換
 那顆按鈕（外層仍是 reka-ui 的 `DialogClose`，鍵盤與焦點行為不變）。

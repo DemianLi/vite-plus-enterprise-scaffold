@@ -251,7 +251,10 @@ const LINE_COMMENT = /(^|[^:])\/\/[^\n]*/g;
 const HTML_COMMENT = /<!--[\s\S]*?-->/g;
 const TEMPLATE_BLOCK = /<template[^>]*>([\s\S]*)<\/template>/;
 const SLOT_TAG = /<slot\b([^>]*)>/g;
-const EMIT_CALL = /\$?\bemit\(\s*(["'])([^"']*)\1/g;
+// ⚠️ `+` 而不是 `*`：`emit("")` 用 `*` 會match成功，於是空字串被登記成一個
+// 事件名，然後要求 defineEmits 宣告一個叫 `""` 的事件。用 `+` 的話它落到
+// 下面「數量對不上」那條，一樣紅，但訊息是對的。
+const EMIT_CALL = /\$?\bemit\(\s*(["'])([^"']+)\1/g;
 const EMIT_ANY = /\$?\bemit\(/g;
 
 /**
