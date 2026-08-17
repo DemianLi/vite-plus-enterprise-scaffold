@@ -167,7 +167,10 @@ Tailwind v4 的自動來源偵測**刻意跳過 node_modules**，而 monorepo �
 ⚠️ **代價：這個 repo 因此有兩個 TypeScript。** catalog 主線的
 `typescript: ^7.0.2` 是原生 Go 版，已經沒有 `vue-tsc` 需要的 compiler API，
 所以那支工具用具名 catalog 拉一份 JS 版的 TS 5.x。兩支編譯器的分歧風險
-量過（接上當天 0 條），**升 vite-plus 或 TS 時要重跑那個比對**。
+而那第二份 TypeScript **不只是成本**：`.ts` 檔消費 `.vue` 時，`vp check`
+看的是 `declare module "*.vue"` 的萬用宣告（任何 prop 都合法），vue-tsc 解析
+真的 SFC。實測 `h(UiButton, { variant: "根本不是 variant" })` → `vp check`
+0 errors、`vue-typecheck` 紅。**「一邊紅一邊綠」多半是真陽性**，見 C68 的〈九〉。
 
 ## 開發
 

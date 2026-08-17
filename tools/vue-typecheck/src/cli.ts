@@ -23,9 +23,26 @@ import { runVueTsc } from "./run.ts";
  * `@volar/typescript` 需要那組 API。所以本 package 用具名 catalog
  * `catalog:vue-typecheck` 拉一份 JS 版的 TypeScript 5.x。
  *
- * **兩支編譯器對同一份 `.ts` 給出不同判決的話，這道閘門會被關掉（C57）。**
- * 那個風險量過：接上當天 vue-tsc 把這四份 program 裡的每一支 `.ts` 都檢查了，
- * 產出 0 條 tsgolint 沒有的診斷。升 vite-plus 或 TS 時要重跑那個比對。
+ * ── 而那第二個 TypeScript 不只是成本，它看得見 `vp check` 看不見的東西 ──
+ *
+ * 落地當天的說法是「分歧上界 0，升級時要重跑比對」。**那個說法是錯的**，
+ * 而且錯在方向：分歧不但存在，還是這道閘門的**能力**。實測（`.ts` 檔）：
+ *
+ * ```ts
+ * import UiButton from "./components/UiButton.vue";
+ * h(UiButton, { variant: "根本不是 variant" });
+ * ```
+ *
+ * `vp check` → **0 errors**；這道閘門 → 紅。因為 tsgolint 看的是
+ * `declare module "*.vue"` 那個萬用宣告（props 是 `Record<string, unknown>`，
+ * 任何 prop 都合法），vue-tsc 解析真的 SFC。
+ *
+ * ⚠️ 所以**「一邊紅一邊綠」不是分歧警訊，多半是真陽性** —— 這一點必須寫在
+ * 紅燈訊息裡，否則第一個撞到的人會以為是工具在吵架，然後把閘門關掉（C41）。
+ *
+ * 反方向也有一個實例，而那次是 tsgolint 對的：把 `import` 加進 `env.d.ts`
+ * 會讓 `declare module "*.vue"` 失效，`vp check` 紅、vue-tsc 全綠。
+ * **兩支編譯器各自有對方看不見的東西，沒有一支涵蓋另一支。**
  *
  * ── 刻意不開 `strictTemplates` ──────────────────────────────────────
  *
@@ -90,7 +107,10 @@ function main(): void {
   // 四份 program 大量重疊（每一份都會拉進 platform/ui 的兩個元件），所以
   // **同一個缺陷會被回報四次**。按位置去重，把回報它的 program 併在一起 ——
   // 那個清單有資訊：`$t` 那一類正是「同一個檔案在 A 裡乾淨、在 B 裡是錯的」。
-  const found = new Map<string, { readonly detail: string; readonly programs: string[] }>();
+  const found = new Map<
+    string,
+    { readonly detail: string; readonly isView: boolean; readonly programs: string[] }
+  >();
   let views = 0;
 
   for (const program of programs) {
@@ -106,6 +126,7 @@ function main(): void {
       const key = `${where} ${diagnostic.code} ${diagnostic.text}`;
       const entry = found.get(key) ?? {
         detail: `${where}\n  ${diagnostic.code}: ${diagnostic.text}`,
+        isView: diagnostic.file?.endsWith(".vue") ?? false,
         programs: [],
       };
       entry.programs.push(program.dir);
@@ -122,8 +143,20 @@ function main(): void {
     }
   }
 
-  for (const { detail, programs: where } of found.values()) {
-    fail(".vue 型別錯誤", `${detail}\n  （回報者：${where.join("、")}）`, "修掉它");
+  for (const { detail, isView, programs: where } of found.values()) {
+    const suffix = `\n  （回報者：${where.join("、")}）`;
+    if (isView) {
+      fail(".vue 型別錯誤", `${detail}${suffix}`, "修掉它");
+      continue;
+    }
+    // ⚠️ **不是 `.vue` 的診斷要分開講，而且不要叫人去看 vp check 有沒有分歧。**
+    // 實測過：這一類多半是 `vp check` **看不到**的真缺陷，不是兩支編譯器吵架。
+    fail(
+      "型別錯誤（`vp check` 很可能是綠的）",
+      `${detail}${suffix}`,
+      "照樣修掉它。vp check 綠燈不代表這條是誤報 —— 它看的是 " +
+        '`declare module "*.vue"` 那個萬用宣告，vue-tsc 解析真的 SFC，兩邊看到的不是同一個型別（C68）',
+    );
   }
 
   if (failures > 0) {

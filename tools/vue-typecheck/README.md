@@ -106,8 +106,8 @@ typeof ts.createProgram                    → undefined
 **兩支編譯器對同一份程式碼給出不同判決的話，這道閘門會被關掉（C57）。**
 把成本框住的三個量測：
 
-- **分歧上界 0**：vue-tsc 在 TS 5.9 下把四份 program 裡的每一支 `.ts` 都
-  檢查了，產出 0 條 tsgolint 沒有的診斷。**升 vite-plus 或 TS 時要重跑。**
+- ⚠️ ~~分歧上界 0，升級時要重跑~~ **方向寫反了**：分歧是這道閘門的
+  **能力**，不是要管理的風險。見下面〈`.ts` 消費 `.vue` 是 vp check 的盲區〉。
 - **供應鏈 +9 個純 JS 套件**，原生二進位 144 → 144、家族 12 → 12 不變。
 - **範圍收窄**：只對含 `.vue` 的 package 跑，`.ts` 的判決仍然只有 `vp check`。
 
@@ -115,6 +115,31 @@ typeof ts.createProgram                    → undefined
 那個檔案就從全域腳本變成模組，裡面的 `declare module "*.vue"` 不再是環境宣告
 ——**而只有 tsgolint 紅、vue-tsc 全綠**（vue-tsc 真的解析 `.vue`，不需要 shim）。
 方向出乎意料：不是兩者判決不同，是一者看得見的東西另一者看不見。
+
+### `.ts` 消費 `.vue` 是 `vp check` 的盲區 —— 這道閘門唯一「別人做不到」的能力
+
+```ts
+// 一支 .ts 檔
+import UiButton from "@org/ui/…/UiButton.vue";
+h(UiButton, { variant: "根本不是 variant" });
+```
+
+| 誰                    | 結果         | 為什麼                                               |
+| --------------------- | ------------ | ---------------------------------------------------- |
+| `vp check`            | **0 errors** | 看 `declare module "*.vue"`：props ＝ 任何東西都合法 |
+| `tools/vue-typecheck` | **紅**       | 解析真的 SFC，看得到 `UiVariant`                     |
+
+⚠️ **所以「這道紅、`vp check` 綠」多半是真陽性，不是兩支編譯器在吵架。**
+紅燈訊息自己會講這句 —— 少了它，第一個撞到的人會把真缺陷當成工具問題，
+然後關掉閘門（C41）。
+
+反方向也有一例，而那次是 tsgolint 對的（`env.d.ts` 變成模組，見下）。
+**兩支編譯器各自有對方看不見的東西，沒有一支涵蓋另一支。**
+
+⚠️ 這一格**不是全知的**：型別**不符**會紅，**多一個不存在的 prop 不會** ——
+`h()` 的 props 型別是 `Props & VNodeProps & AllowedComponentProps &
+ComponentCustomProps` 的交集，多餘屬性檢查被那個交集打掉。與模板側的
+`checkUnknownProps` 是同一件事的兩個位置，而兩邊都沒有守。
 
 ### 那第二個 TypeScript 要不要進退出演練的帳目？不用，而且是有理由的
 
