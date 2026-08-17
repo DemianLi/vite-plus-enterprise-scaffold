@@ -36,3 +36,6 @@ dist-ssr
 .scan/
 sbom.cdx.json
 trivy.sarif
+
+# tools/vue-typecheck 反向測試的暫存副本（見 tests/fixtures/README.md）
+tools/vue-typecheck/tests/fixtures/.tmp-*

@@ -1,0 +1,24 @@
+{
+  "name": "@org/vue-typecheck",
+  "version": "0.0.0",
+  "private": true,
+  "description": ".vue 的型別檢查（vp check 的 tsgolint 不看 SFC，見 C68）",
+  "bin": {
+    "vue-typecheck": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:vue-typecheck",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:",
+    "vue": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}

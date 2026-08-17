@@ -62,6 +62,20 @@ jobs:
       - name: 格式、lint、型別（oxfmt + oxlint + tsgolint）
         run: ./node_modules/.bin/vp check
 
+      # ── 上一步看不到的那一半（HANDOFF #26 / C68）──────────────────────
+      #
+      # `vp check` 的型別段是 tsgolint，**它不看 `.vue`**。實測：同一行
+      # `const broken: number = "顯然是字串"` 放進 SFC 是 0 errors、
+      # 放進 `.ts` 是 1 error。所以設計系統的元件原始碼在 2026-08-17 之前
+      # 一行型別檢查都沒跑過。
+      #
+      # ⚠️ 這一步用的是**另一個 TypeScript**（`catalog:vue-typecheck` 的 JS 版
+      # 5.x）。catalog 主線的 `typescript: ^7.0.2` 是原生 Go 版，已經沒有
+      # vue-tsc 需要的 compiler API。兩支編譯器的分歧風險量過：接上當天
+      # 對四份 program 的每一支 `.ts` 產出 0 條 tsgolint 沒有的診斷。
+      - name: .vue 型別檢查
+        run: node tools/vue-typecheck/src/cli.ts
+
       - name: 測試
         run: ./node_modules/.bin/vp run -r test
 
@@ -79,8 +93,10 @@ jobs:
       # 但一個 utility 都沒有**。靜態讀 CSS 檔驗不到那件事。
       #
       # ⚠️ 綠燈的意思是「配色與形狀兩條軸實測可換」，**不是**「設計系統可換」。
-      # 第三條軸（互動方式）被 api-surface 的 SFC_UNSUPPORTED 主動擋著，
-      # 這道閘門完全看不到它。仍然開著的缺口寫在 HANDOFF 第 24 項。
+      # 第三條軸（互動方式）不在這裡，而且不該在這裡 —— 互動是結構不是值，
+      # 代幣換不了它。守它的是上面的 api-surface（slot／emit 必須宣告，C67）
+      # 與 `.vue` 型別檢查（slot payload 的型別，C68）。三列的強度不一樣，
+      # 差在哪寫在 platform/ui/README.md 那張表。
       - name: 設計系統接縫
         run: node tools/theme-verify/src/cli.ts
 

@@ -67,6 +67,32 @@ catalog:
   # 而那正是 Tier 2「不快取、不過濾、每日排程」三條規則的**唯一**理由。
   eslint-plugin-vuejs-accessibility: ^2.6.0
 
+  # --- `.vue` 的型別檢查（HANDOFF #26／C68）。僅 CI 與本機使用 ---
+  # ⚠️ 它的 typescript 在下面的具名 catalog，不在這裡 —— 那不是筆誤。
+  vue-tsc: ^3.3.10
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 具名 catalog：這個 repo 裡有**兩個 TypeScript**（C68）
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# 上面的 `typescript: ^7.0.2` 是**原生 Go 版**，`vp check` 的型別段（tsgolint）
+# 用它。實測它不再提供 JS 版的 compiler API：
+#
+#     Object.keys(require("typescript")).length  → 2
+#     typeof ts.createProgram                    → undefined
+#
+# 而 `vue-tsc` → `@volar/typescript` 需要那組 API。所以要檢查 `.vue`，
+# 就必須讓 `tools/vue-typecheck` 這一個 package 解析到 JS 版的 TypeScript。
+#
+# ⚠️ **兩支編譯器對同一份 `.ts` 可能給出不一樣的診斷，而那種閘門會被關掉（C57）。**
+# 這個風險是量過的，不是賭的：接上當天 vue-tsc 把四個程式裡的每一支 `.ts`
+# 都檢查了，**產出 0 條 tsgolint 沒有的診斷**。範圍也刻意收窄 ——
+# `tools/vue-typecheck` 只對含 `.vue` 的 package 跑，`.ts` 的判決仍然只有
+# `vp check` 一個來源。升 vite-plus／TS 時要重跑那個比對，見 C68。
+catalogs:
+  vue-typecheck:
+    typescript: ^5.9.3
+
 overrides:
   vite: "catalog:"
 
