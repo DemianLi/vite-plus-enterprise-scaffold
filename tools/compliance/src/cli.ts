@@ -9,6 +9,8 @@ import { CONTROLS, FUTURE, GATES, REGULATION } from "./map.ts";
 import { blockingGates, owedGaps, render, unprovenGates } from "./render.ts";
 import { verifyMap } from "./verify.ts";
 import { RETENTION_EVIDENCE, renderEvidenceManifest, verifyEvidence } from "./evidence.ts";
+import { CRITERIA, preFilterRules, verifyCriteria } from "./a11y.ts";
+import { renderAccessibility } from "./a11y-render.ts";
 
 /**
  * 法遵對照表：產生、並在每次 CI 驗它沒有說謊。
@@ -66,15 +68,9 @@ function parseFile(argv: readonly string[]): string {
 }
 
 /** 產出並交給 `vp fmt`。回傳 formatter 的輸出，那才是要比對的東西。 */
-function renderFormatted(): string {
-  const markdown = render({
-    regulation: REGULATION,
-    gates: GATES,
-    controls: CONTROLS,
-    future: FUTURE,
-  });
+function formatted(markdown: string, name: string): string {
   const dir = mkdtempSync(join(tmpdir(), "compliance-render-"));
-  const path = join(dir, "COMPLIANCE.md");
+  const path = join(dir, name);
 
   try {
     writeFileSync(path, markdown);
@@ -95,6 +91,26 @@ function renderFormatted(): string {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+function renderFormatted(): string {
+  return formatted(
+    render({ regulation: REGULATION, gates: GATES, controls: CONTROLS, future: FUTURE }),
+    "COMPLIANCE.md",
+  );
+}
+
+/**
+ * 無障礙那一份（HANDOFF #22／C69）。
+ *
+ * 刻意是**另一個檔案**而不是 COMPLIANCE.md 的一節：兩套規範的判定者、
+ * 流程、交付產出都不同，理由寫在 `a11y.ts` 的檔頭。
+ */
+function renderAccessibilityFormatted(): string {
+  return formatted(
+    renderAccessibility({ criteria: CRITERIA, rules: preFilterRules() }),
+    "ACCESSIBILITY.md",
+  );
 }
 
 function summarise(): void {
@@ -148,6 +164,17 @@ function main(): number {
   }
 
   const baseline = parseFile(argv);
+  const a11yBaseline = join(ROOT, "tools/compliance/ACCESSIBILITY.md");
+
+  // 無障礙那張表的自我檢查：宣稱有閘門守 → 那個閘門必須真的存在。
+  const knownGateIds = new Set(GATES.map((gate) => gate.id));
+  const a11yProblems = verifyCriteria(CRITERIA, knownGateIds);
+  if (a11yProblems.length > 0) {
+    console.error("\n✗ 無障礙分工表與映射對不上\n");
+    for (const problem of a11yProblems) console.error(`  ✗ [${problem.kind}] ${problem.detail}`);
+    console.error("\n  事實來源：tools/compliance/src/a11y.ts\n");
+    return 1;
+  }
 
   // ── --update 先寫再驗，順序是刻意的 ────────────────────────────────
   //
@@ -157,6 +184,8 @@ function main(): number {
   if (argv.includes("--update")) {
     writeFileSync(baseline, renderFormatted());
     console.log(`✓ 已更新 ${baseline}`);
+    writeFileSync(a11yBaseline, renderAccessibilityFormatted());
+    console.log(`✓ 已更新 ${a11yBaseline}`);
     const status = reportMapErrors();
     if (status === 0) summarise();
     return status;
@@ -184,7 +213,18 @@ function main(): number {
     return 1;
   }
 
-  console.log("✓ 法遵對照表與映射一致");
+  if (!existsSync(a11yBaseline)) {
+    console.error(`✗ 找不到 ${a11yBaseline}`);
+    console.error("  執行：node tools/compliance/src/cli.ts --update\n");
+    return 1;
+  }
+  if (readFileSync(a11yBaseline, "utf8") !== renderAccessibilityFormatted()) {
+    console.error("\n✗ ACCESSIBILITY.md 與 a11y.ts 不一致\n");
+    console.error("  執行：node tools/compliance/src/cli.ts --update\n");
+    return 1;
+  }
+
+  console.log("✓ 法遵對照表與無障礙分工表都與映射一致");
   summarise();
   return 0;
 }

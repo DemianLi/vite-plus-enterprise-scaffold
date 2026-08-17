@@ -783,6 +783,9 @@ importers:
 
   tools/compliance:
     devDependencies:
+      '@org/eslint-config':
+        specifier: workspace:*
+        version: link:../../platform/eslint-config
       '@org/tsconfig':
         specifier: workspace:*
         version: link:../../platform/tsconfig

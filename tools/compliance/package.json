@@ -12,6 +12,7 @@
     "check": "vp check"
   },
   "devDependencies": {
+    "@org/eslint-config": "workspace:*",
     "@org/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
