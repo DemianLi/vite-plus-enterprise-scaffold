@@ -8,8 +8,9 @@ import {
   DialogRoot,
   DialogTitle,
 } from "reka-ui";
-import type { VNode } from "vue";
+import { inject, type VNode } from "vue";
 import { cn } from "../utils/cn.ts";
+import { NO_OVERRIDE, UI_THEME, type UiDialogSlot } from "../theme.ts";
 
 /**
  * 對話框。用 reka-ui 的 Dialog 基元。
@@ -65,6 +66,48 @@ defineSlots<{
   footer(): VNode[];
   close(): VNode[];
 }>();
+
+/**
+ * ── 「形狀」那條軸的接縫 ────────────────────────────────────────────
+ *
+ * ⚠️ **這個元件在 2026-08-17 之前完全沒有這一格。** 值走代幣、結構走 slot，
+ * 但形狀寫死在模板裡 —— 一個要把對話框改成手機版底部滑出的案子，
+ * 代幣換不掉（那不是值）、slot 換不掉（那不是結構），只能去改這個檔案，
+ * 也就是要集中的那一半。而 HANDOFF 當時寫著「接縫是通的」。
+ *
+ * 那句話對 `UiButton` 為真、對這個元件為假，**而沒有任何東西會說話** ——
+ * 因為當時的檢查是 `readFileSync("UiButton.vue")`，寫死一個檔名。
+ * 現在改成掃目錄（`../tests/component-contract.test.ts`）。
+ *
+ * ── 四個槽名的來源 ──────────────────────────────────────────────────
+ *
+ * 不是我們取的：它們就是上面 import 的 reka-ui 基元名，也是 shadcn-vue 的
+ * part 名。設計師講「overlay 要更淡」，前端要改的那一格就叫 `overlay`。
+ *
+ * ⚠️ 刻意**沒有**給那兩個排版用的 `<div>`（`mt-4` 與 `mt-6 flex …`）槽。
+ * 規則若是「每一塊 class 都要有槽」，那兩格會被逼出沒有人會覆寫的槽名 ——
+ * 形式主義的閘門第一天就會被加例外，而例外永遠不會拿掉（C41）。
+ * 「接縫夠不夠」是 review 的職責，不是靜態檢查的。
+ */
+const DEFAULT_PARTS: Readonly<Record<UiDialogSlot, string>> = {
+  overlay: "fixed inset-0 bg-overlay/40",
+  content: cn(
+    "fixed top-1/2 left-1/2 w-[min(32rem,92vw)] -translate-x-1/2 -translate-y-1/2",
+    "rounded-surface bg-surface p-6 shadow-overlay",
+    "focus:outline-none",
+  ),
+  title: "text-lg font-heading text-fg",
+  description: "mt-1 text-sm text-fg-muted",
+};
+
+// 覆寫表是凍結的、而且不依賴 props，所以解析一次就好 —— 不需要 computed。
+const theme = inject(UI_THEME, NO_OVERRIDE);
+const parts: Readonly<Record<UiDialogSlot, string>> = {
+  overlay: theme.UiDialog?.overlay ?? DEFAULT_PARTS.overlay,
+  content: theme.UiDialog?.content ?? DEFAULT_PARTS.content,
+  title: theme.UiDialog?.title ?? DEFAULT_PARTS.title,
+  description: theme.UiDialog?.description ?? DEFAULT_PARTS.description,
+};
 </script>
 
 <template>
@@ -72,18 +115,10 @@ defineSlots<{
     <DialogPortal>
       <!-- 色相在代幣、不透明度留在元件。`--color-overlay-40` 那種代幣會讓
            每換一次濃淡就多一格，見 styles/index.css 對這一條的說明。 -->
-      <DialogOverlay class="fixed inset-0 bg-overlay/40" />
-      <DialogContent
-        :class="
-          cn(
-            'fixed top-1/2 left-1/2 w-[min(32rem,92vw)] -translate-x-1/2 -translate-y-1/2',
-            'rounded-surface bg-surface p-6 shadow-overlay',
-            'focus:outline-none',
-          )
-        "
-      >
-        <DialogTitle class="text-lg font-heading text-fg">{{ title }}</DialogTitle>
-        <DialogDescription class="mt-1 text-sm text-fg-muted">
+      <DialogOverlay :class="parts.overlay" />
+      <DialogContent :class="parts.content">
+        <DialogTitle :class="parts.title">{{ title }}</DialogTitle>
+        <DialogDescription :class="parts.description">
           {{ description }}
         </DialogDescription>
 

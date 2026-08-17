@@ -480,6 +480,10 @@
           "variant?: \"primary\" | \"secondary\" | \"danger\" | \"ghost\""
         ]
       },
+      "UiButtonSlot": {
+        "kind": "type",
+        "type": "\"danger\" | \"ghost\" | \"md\" | \"primary\" | \"secondary\" | \"sm\""
+      },
       "UiDialog": {
         "kind": "component",
         "members": [
@@ -492,6 +496,10 @@
           "title: string"
         ]
       },
+      "UiDialogSlot": {
+        "kind": "type",
+        "type": "\"content\" | \"description\" | \"overlay\" | \"title\""
+      },
       "UiSize": {
         "kind": "type",
         "type": "\"md\" | \"sm\""
@@ -499,8 +507,8 @@
       "UiThemeOverride": {
         "kind": "type",
         "members": [
-          "sizes?: Readonly<Partial<Record<UiSize, string>>> | undefined",
-          "variants?: Readonly<Partial<Record<UiVariant, string>>> | undefined"
+          "UiButton?: Readonly<Partial<Record<UiButtonSlot, string>>> | undefined",
+          "UiDialog?: Readonly<Partial<Record<UiDialogSlot, string>>> | undefined"
         ]
       },
       "UiVariant": {
@@ -519,6 +527,12 @@
       "name": "drop-a11y-config-for-v1",
       "removes": ["@org/eslint-config/a11y#default"],
       "reason": "v1.0.0 的範圍縮減：無障礙整條移到 v2（論證在 main 的 DECISIONS.md C69）。這不是 API 演進而是產品線範圍的決定 —— 需要無障礙靜態檢查的案子要用 main 那條線，不是把它加回 v1。codemod 只移除 import 不補替代方案，因為沒有替代方案；讓升級的人當場看見少了一道閘門，比安靜地少掉危險得多。"
+    },
+    {
+      "name": "flatten-ui-theme-to-components",
+      "removes": [],
+      "changes": ["@org/ui#UiThemeOverride"],
+      "reason": "各案覆寫元件樣式的介面從 { variants, sizes }（按鈕的概念長在全域 API 上）改成 { 元件名: { 槽名: class 字串 } }。舊形狀讓第二個元件 UiDialog 沒有地方可放它的接縫，於是它的寬度與位置寫死在模板裡、任何案子都換不掉 —— 而沒有任何閘門說話。在 v1.0.0 tag 之前改，代價是一個呼叫端；tag 之後改，代價是每一個 fork、永遠。"
     }
   ]
 }

@@ -67,8 +67,9 @@ const props = withDefaults(
  * 拿「少寫一次」換一道變弱的閘門，是這個 repo 一路在拆的那種交易。
  *
  * 代價是同一份 union 寫在三個地方：這裡、`../theme.ts` 的 `UiVariant`、
- * 以及下面 `VARIANTS` 的鍵。三者由 `../tests/theme.test.ts` 比對，
- * 任何一邊多或少一個成員都會紅。
+ * 以及下面 `VARIANTS` 的鍵。三者由 `../tests/component-contract.test.ts` 比對，
+ * 任何一邊多或少一個成員都會紅 —— 而那支測試是**掃目錄**的，
+ * 不是綁在這個檔名上，所以第三個元件加進來時它一樣會說話。
  *
  * ⚠️ 第一版把那個比對寫成**型別層的等式**（`Exact<typeof props.variant, UiVariant>`），
  * 而它什麼都沒檢查 —— **`vp check` 不對 `.vue` 做型別檢查**。實測：
@@ -119,8 +120,8 @@ const classes = computed(() =>
     // 用 focus 會讓設計師要求拿掉它，然後鍵盤使用者就看不到自己在哪裡了。
     "transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
     "disabled:pointer-events-none disabled:opacity-50",
-    theme.variants?.[props.variant] ?? VARIANTS[props.variant],
-    theme.sizes?.[props.size] ?? SIZES[props.size],
+    theme.UiButton?.[props.variant] ?? VARIANTS[props.variant],
+    theme.UiButton?.[props.size] ?? SIZES[props.size],
   ),
 );
 </script>
