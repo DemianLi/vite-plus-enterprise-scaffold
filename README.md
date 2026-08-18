@@ -309,7 +309,7 @@ Tier 2 的三條規則——不快取、不做 affected 過濾、必須有時間
 
 第 3 層之所以不用 lint 規則：`import/no-relative-parent-imports` 擋掉的是**所有** `../`，
 連 `src/views/X.vue` 匯入同 package 的 `../api.ts` 都擋，偽陽性高到大家會關掉它。
-詳見 `tools/conformance/src/cli.ts` 的 `checkRelativeEscapes`。
+詳見 `tools/conformance/src/rules/relative-escape.ts`。
 
 ---
 
