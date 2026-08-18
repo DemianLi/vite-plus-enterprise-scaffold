@@ -233,12 +233,13 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │   ├── theme-verify/         設計系統接縫：真的建置兩次，證明各案換得掉配色與形狀
 │   ├── codemods/             breaking change 必附的遷移腳本
 │   ├── slice-gen/            切片產生器（vp create slice）
-│   ├── sast/                 開發期源碼掃描（自寫的汙點傳遞規則）
 │   └── doc-facts/            文件裡的數字 vs. repo 內部事實來源
 │
+├── .semgrep/                 開發期源碼掃描的自寫規則（汙點傳遞）＋ 故意寫壞的 fixture
 ├── .github/workflows/        CI：tier1-quality / tier2-security
 ├── DECISIONS.md              決策日誌（有日期，涵蓋範圍大於 v1.0.0）
 ├── HANDOFF.md                採用指南：第一步、v1 承諾什麼、刻意不承諾什麼
+├── SCOPE.md                  什麼准許出現在 release/v1 的樹上（給維護者）
 └── vite.config.ts            驅動層設定（退出面刻意收斂在兩個設定檔）
 ```
 
@@ -412,6 +413,7 @@ checker 抽出每個 `platform/*` 進入點的**型別形狀**，與已提交的
 | [DECISIONS.md](DECISIONS.md)                     | 架構決策（D-）、實測校正（C-）、風險登記（R-）**涵蓋範圍大於 v1** | 架構師、後續維護者 |
 | [HANDOFF.md](HANDOFF.md)                         | 採用指南：第一步、v1 承諾什麼、**刻意不承諾什麼**                 | 全體、PM           |
 | [CHANGELOG.md](CHANGELOG.md)                     | 版本沿革                                                          | 全體               |
+| [SCOPE.md](SCOPE.md)                             | 什麼准許出現在 `release/v1` 的樹上，以及判準                      | 維護 v1 這條線的人 |
 | [`platform/bff-contract`](platform/bff-contract) | 13 條中間層契約條目、可覆寫的 env、對真實 gateway 的誠實限制      | 後端／平台團隊     |
 | [`tools/<name>/README.md`](tools)                | 每一道閘門自己的守備範圍、失敗訊息怎麼讀、刻意不守什麼            | 全體               |
 | [AGENTS.md](AGENTS.md)                           | Vite+ 工具鏈的指令對照（`vp` 內建命令 vs. `vp run` 腳本）         | 全體／AI 協作      |

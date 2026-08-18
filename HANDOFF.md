@@ -51,6 +51,7 @@ grep -n "@org/" CODEOWNERS
 | `tools/api-surface`   | `platform/*` 的**型別形狀**，改名或改形狀就失敗，破壞性變更必須附 codemod |
 | `tools/vue-typecheck` | `.vue` 的型別（`vp check` 的 tsgolint 不看 SFC）                          |
 | `tools/slice-gen`     | 產生器與檢查器**讀同一份契約**，不會各說各話                              |
+| `tools/codemods`      | 破壞性變更的遷移腳本；`api-surface` 擋下的就是**沒附 codemod** 的那些     |
 
 ### 二、從設計模板到前端工程的開發方式
 
@@ -238,3 +239,8 @@ grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 
 決策的完整理由與踩過的坑留在 [DECISIONS.md](DECISIONS.md) ——
 那是一份有日期的決策日誌，涵蓋的範圍**大於 v1.0.0**。
+
+> 上面〈v1.0.0 **不**涵蓋什麼〉講的是**能力**：你的案子需要什麼，該用哪條分支。
+> 另有一份 [SCOPE.md](SCOPE.md) 講的是**目錄**：什麼准許出現在 `release/v1` 的
+> 樹上，以及判準（**看它守的東西給誰看**）。那份是給**維護這條線的人**的，
+> 開案子用不到 —— 兩份刻意不重述對方的內容。
