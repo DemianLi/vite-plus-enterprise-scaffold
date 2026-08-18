@@ -1,26 +1,24 @@
 {
-  "name": "@org/doc-facts",
+  "name": "@org/gate-roster",
   "version": "0.0.0",
   "private": true,
-  "description": "文件裡的數字與 repo 內部事實來源的一致性（A1：只守推導得出來的）",
+  "description": "閘門名冊的單一事實來源，以及四個消費端的一致性檢查",
   "bin": {
-    "doc-facts": "./src/cli.ts"
+    "gate-roster": "./src/cli.ts"
   },
   "type": "module",
-  "exports": {
-    "./derive": "./src/derive.ts"
-  },
   "scripts": {
     "test": "vp test",
     "check": "vp check"
   },
   "dependencies": {
-    "@org/bff-contract": "workspace:*"
+    "@org/doc-facts": "workspace:*"
   },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
+    "vite": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   }
