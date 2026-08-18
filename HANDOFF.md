@@ -475,7 +475,7 @@ gh api repos/<owner>/<repo>/codeowners/errors
 | --- | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
 | 1   | `@tailwindcss/vite` 加進 `DRILL_PLUGINS` | ✅ 已登記，並補上**產物比對**（反向測試：拿掉 @source → 37%，紅）                          |
 | 2   | 重跑 `vpr supply-chain --capture`        | ✅ 519 套件／144 原生／12 家族。新家族 `@tailwindcss` 已分類為 toolchain                   |
-| 3   | 新增 `platform/ui` package               | ✅ CODEOWNERS（暫掛）、api-surface（11 個進入點／99 個 export）、退出演練 alias 都已接上   |
+| 3   | 新增 `platform/ui` package               | ✅ CODEOWNERS（暫掛）、api-surface（11 個進入點／101 個 export）、退出演練 alias 都已接上  |
 | 4   | 擋住「切片自己拼一套設計系統」           | ✅ 擋的是 **import 而非目錄**（理由見契約）；另加全 repo 禁用 reka-ui Splitter（CSP）      |
 | 5   | 瀏覽器實測 CSP                           | ✅ 五個探針全對（Chrome 148）。⚠️ 證據檔與守它的閘門已於 2026-08-16 拆除（C52）—— 見下方註 |
 
@@ -1311,6 +1311,13 @@ grep -n "uses:" .github/workflows/*.yml
 - `defineExpose` 仍然丟例外，而這次是**有理由的**：`<script setup>` 預設封閉，
   沒有那個巨集就洩不出任何實例成員 —— 它的絆線是真的
 - 基準檔升到第 3 版（`platform/` 沒改，是工具開始記新東西，見 C67）
+- **四個巨集都是「寫了卻讀不懂就紅」**（2026-08-17，見 C72）。只認
+  `defineProps<{…}>()`／`defineSlots<{…}>()`／`defineEmits<{…}>()`／
+  `defineModel<T>(…)`；執行期形式與具名型別別名一律丟例外，因為它們的
+  失敗輪廓是**少算**（那一整組公開面從記錄裡消失，而基準檔看起來很完整）
+- **零公開面的元件是合法的**（`Separator`／`Skeleton` 這種純版型元件）。
+  ⚠️ 這條放行的前提是上一條已經補齊 —— 順序顛倒的話，寫錯形式的巨集會
+  安靜地變成一個「合法的零公開面元件」
 
 ⚠️ **`theme-verify` 綠燈的意思仍然是「配色與形狀實測可換」，不是「設計系統可換」。**
 互動那條軸由**兩道**閘門守，而且分工不同：`api-surface` 守 slot／emit 的
