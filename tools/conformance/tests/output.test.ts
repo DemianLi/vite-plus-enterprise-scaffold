@@ -65,12 +65,18 @@ describe("大報告不得被截斷", () => {
     // 一、確定這份報告真的大過緩衝區，否則下面兩條會恆真。
     expect(Buffer.byteLength(output, "utf8")).toBeGreaterThan(64 * 1024);
 
-    // 二、每一條違規都在。
+    // 二、印出來的違規**條數**要對得上。截斷時開頭那幾百條照樣在、
+    // 結束碼照樣是 1，所以「有沒有印完」只有數量與結尾看得出來。
+    // 實測那次截斷在第 185 條左右。
+    expect(output.split("✗ [").length - 1).toBe(VIOLATIONS);
     expect(output).toContain(`${VIOLATIONS} 項違規`);
     expect(output).toContain(`org/action-${VIOLATIONS - 1}@v1`);
 
-    // 三、**最後一條是完整的**。截斷時結束碼照樣是 1、開頭那幾百條也照樣在，
-    // 所以只有結尾能分辨「印完了」與「印到一半」。
-    expect(output.endsWith("secrets\n\n")).toBe(true);
+    // 三、最後一條沒有斷在半句話上。每一組結束時會空一行，
+    // 所以完整的報告一定以兩個換行收尾。
+    //
+    // ⚠️ 刻意不比對最後那段訊息的字面內容 —— 那會讓「有人調整了某條規則的
+    // 修法說明」變成這條測試紅，而紅的訊息不會提到截斷。
+    expect(output.endsWith("\n\n")).toBe(true);
   });
 });
