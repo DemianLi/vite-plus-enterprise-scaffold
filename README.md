@@ -219,6 +219,7 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │
 ├── tools/                    建置與治理腳本。多數是會失敗的閘門，例外都在下面標明
 │   ├── gate-kit/             閘門底下那一層（不是閘門）：repo 根、走目錄、旗標解析
+│   ├── gate-roster/          閘門名冊的單一事實來源，以及四個消費端的一致性檢查
 │   ├── conformance/          切片邊界一致性檢查（宣告依賴＋相對路徑逃逸）
 │   ├── api-surface/          platform/* 的型別形狀與基準比對，改名或改形狀即失敗
 │   ├── vue-typecheck/        .vue 的型別檢查（vp check 的 tsgolint 不看 SFC）
@@ -229,12 +230,12 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │   ├── exit-drill/           D2 退出演練：用上游 Vite/Vitest 實際重建一次
 │   ├── supply-chain/         套件盤點、SCA 例外申請書、鏡像清單、封閉網路前置條件
 │   ├── csp-verify/           CSP 探針；探針由工具產生，不讓人照抄
-│   ├── sast/                 開發期源碼掃描
 │   ├── compliance/           控制項與證據的對應表
 │   ├── pii-check/            個資外洩路徑檢查
 │   ├── doc-facts/            文件裡的數字 vs. repo 內部事實來源
 │   └── ui-survey/            UI-SURVEY.md 的資料來源（決策期工具，刻意不進閘門，見 C45）
 │
+├── .semgrep/                 開發期源碼掃描的自寫規則（汙點傳遞）＋ 故意寫壞的 fixture
 ├── .github/workflows/        CI：tier1-quality / tier2-security / exit-drill / supply-chain-recapture
 ├── DECISIONS.md              決策日誌與風險登記（有日期，刻意不被 doc-facts 守）
 ├── HANDOFF.md                只有組織能決定的事項，附「拿什麼去談」
@@ -249,10 +250,17 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 
 ## 兩層檢查
 
-|                       | 內容                                                      | 指令                                       | 何時跑                    |
-| --------------------- | --------------------------------------------------------- | ------------------------------------------ | ------------------------- |
-| **Tier 1 — 品質**     | oxlint + oxfmt + 型別檢查 + 無障礙靜態檢查 + 設計系統接縫 | `vp check`、`vpr a11y`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
-| **Tier 2 — 安全閘門** | 一致性檢查 + ESLint 安全規則                              | `vpr gate`                                 | 每次 PR **＋ 每日排程**   |
+|                       | 內容                                                                                                                                                                                      | 指令                                       | 何時跑                    |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------- |
+| **Tier 1 — 品質**     | 閘門名冊一致 + oxlint + oxfmt + 型別檢查 + .vue 型別檢查 + 無障礙靜態檢查 + 設計系統接縫                                                                                                  | `vp check`、`vpr a11y`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
+| **Tier 2 — 安全閘門** | 一致性檢查 + platform API 表面檢查 + D2 退出面檢查 + 供應鏈盤點 + 法遵對照表 + 測試環境個資檢查 + 文件數字與事實來源一致 + BFF 契約驗收 + ESLint 安全規則 + SAST + 機密掃描 + SBOM 與 SCA | `vpr gate`                                 | 每次 PR **＋ 每日排程**   |
+
+> **這張表的閘門部分是被守著的。** `tools/gate-roster` 會比對它與 `scripts.gate`、
+> 兩個 workflow —— 少寫一道會紅（多寫不會，因為 SAST／機密掃描／SBOM 不在名冊的
+> 涵蓋範圍內，見 `tools/gate-roster/src/gates.ts` 的檔頭）。
+>
+> ⚠️ 這一格在接上名冊之前**漏了九道**，而它正是讀者判斷「PR 會被什麼擋下來」
+> 的地方（C74）。
 
 > 指令刻意**不用** `pnpm run` / `npx`：本專案不保證環境有全域 pnpm，
 > 而 `npx` 會被 `devEngines` 擋下。`vpr` 是 vite-plus 的 script runner，
@@ -515,7 +523,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 > 的內部骨架，MIT 宣告目前只在 [LICENSE](LICENSE) 與根 `package.json` 的
 > `"license": "MIT"` 兩處，兩者必須一致。正式對外前請把 `@org` 換成
 > **法務認可的法人全名**——這是組織的決定，不是這份 README 能代為認定的。
-> 底下 28 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
+> 底下 29 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
 
 上游相依的授權另計——`vite-plus` 為 MIT（Cloudflare 併購後），`lightningcss` 為 MPL-2.0，
 另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。完整盤點見 `vpr sca-dossier`。
