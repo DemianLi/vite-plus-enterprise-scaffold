@@ -217,7 +217,8 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │   ├── tsconfig/             共用 TypeScript 設定
 │   └── eslint-config/        兩份 ESLint 設定：Tier 2 安全規則集，與 Tier 1 的無障礙規則集
 │
-├── tools/                    建置與治理腳本。每一支都是一道會失敗的閘門
+├── tools/                    建置與治理腳本。多數是會失敗的閘門，例外都在下面標明
+│   ├── gate-kit/             閘門底下那一層（不是閘門）：repo 根、走目錄、旗標解析
 │   ├── conformance/          切片邊界一致性檢查（宣告依賴＋相對路徑逃逸）
 │   ├── api-surface/          platform/* 的型別形狀與基準比對，改名或改形狀即失敗
 │   ├── vue-typecheck/        .vue 的型別檢查（vp check 的 tsgolint 不看 SFC）
@@ -232,7 +233,7 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │   ├── compliance/           控制項與證據的對應表
 │   ├── pii-check/            個資外洩路徑檢查
 │   ├── doc-facts/            文件裡的數字 vs. repo 內部事實來源
-│   └── ui-survey/            UI-SURVEY.md 的資料來源
+│   └── ui-survey/            UI-SURVEY.md 的資料來源（決策期工具，刻意不進閘門，見 C45）
 │
 ├── .github/workflows/        CI：tier1-quality / tier2-security / exit-drill / supply-chain-recapture
 ├── DECISIONS.md              決策日誌與風險登記（有日期，刻意不被 doc-facts 守）
@@ -514,7 +515,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 > 的內部骨架，MIT 宣告目前只在 [LICENSE](LICENSE) 與根 `package.json` 的
 > `"license": "MIT"` 兩處，兩者必須一致。正式對外前請把 `@org` 換成
 > **法務認可的法人全名**——這是組織的決定，不是這份 README 能代為認定的。
-> 底下 27 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
+> 底下 28 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
 
 上游相依的授權另計——`vite-plus` 為 MIT（Cloudflare 併購後），`lightningcss` 為 MPL-2.0，
 另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。完整盤點見 `vpr sca-dossier`。
