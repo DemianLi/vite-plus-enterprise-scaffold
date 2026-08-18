@@ -108,10 +108,25 @@ for (const layer of ["features", "platform", "apps"]) {
   }
 }
 
+/**
+ * ⚠️ **這裡用 `process.exitCode` 而不是 `process.exit()`，而那是一個實測出來的
+ * 缺陷，不是風格偏好。**
+ *
+ * macOS 上寫到 pipe 的 stderr 是**非同步**的（Linux 與 Windows 是同步的），
+ * 而 `process.exit()` 不等待未送出的那一段。整份報告改成一次寫出之後，
+ * 一個 600 條違規的 repo 在本機實測**只印得出 38 KB，123 KB 的報告被從
+ * 中間切斷** —— 而結束碼仍然是 1，所以 CI 是紅的、看起來也「正常」。
+ *
+ * 前身是十幾行 `console.error`，剛好躲過了這件事。也就是說這不是原本就有的
+ * 問題，是「把報告收成一個字串」這個改動帶進來的，而**一般大小的報告完全
+ * 看不出來**：拆解當時錄的六份輸出全部一字不差，最大的那份 7 KB。
+ *
+ * 設 `exitCode` 之後行程會自己跑完並在離開前把 stderr 排乾。這支工具到這裡
+ * 已經沒有任何未完成的非同步工作，所以不會拖著不結束。
+ */
 if (findings.length === 0) {
   console.log(`✓ 一致性檢查通過（${slices.length} 個切片）`);
-  process.exit(0);
+} else {
+  process.stderr.write(formatReport(findings));
+  process.exitCode = 1;
 }
-
-process.stderr.write(formatReport(findings));
-process.exit(1);
