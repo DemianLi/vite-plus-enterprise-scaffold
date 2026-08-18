@@ -58,6 +58,31 @@ jobs:
           restore-keys: |
             vite-task-${{ runner.os }}-${{ runner.arch }}-
 
+      # ── 閘門名冊（C74，v1 上是 C71）──────────────────────────────────
+      #
+      # 放第一個，因為它最便宜（只讀四個檔案），而「設定對不上」這件事
+      # 你會希望在花三十秒跑型別檢查**之前**就知道。
+      #
+      # 它比對的是：`package.json` 的 `gate` 與各別名、這兩個 workflow、
+      # README〈兩層檢查〉那張表 —— 同一份閘門清單在那幾處各寫一份，而在這道
+      # 閘門出現之前，沒有任何東西在斷言它們一致。
+      #
+      # 接上它的當下，main 上抓到三件事：`doc-facts` 與 `pii-check` 在
+      # Tier 2 跑而不在 `scripts.gate` 裡（本機 `vpr ready` 全綠、CI 紅，
+      # 與 #51 修過的那個毛病一模一樣）、`vue-typecheck` 沒有單獨跑的別名、
+      # 以及 README 那張表的兩格加起來漏了九道。見 C74。
+      #
+      # ⚠️ 在 Tier 1 而不是 Tier 2，理由與下面設計系統接縫那一步同一條：
+      # Tier 2 的三條規則只為了「安全掃描的結果會隨時間失效」，
+      # 而「四份名冊有沒有對齊」不會隨時間失效。
+      #
+      # ⚠️ 它**看不見 `exit-drill.yml`**（每季排程的完整演練），也看不見
+      # semgrep／gitleaks／Trivy 那些 docker 與 `uses:` 步驟。理由寫在
+      # `tools/gate-roster/src/gates.ts` 的檔頭 —— 一道只守半個檔案的閘門，
+      # 必須自己講明白守的是哪半個。
+      - name: 閘門名冊一致
+        run: node tools/gate-roster/src/cli.ts
+
       # ── 檢查 ─────────────────────────────────────────────────────────
       - name: 格式、lint、型別（oxfmt + oxlint + tsgolint）
         run: ./node_modules/.bin/vp check
