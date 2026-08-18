@@ -45,8 +45,8 @@ const ENTRY = join(PACKAGE_ROOT, "src/styles/index.css");
  * 結果那行變成 `../../../..*.{vue,ts}` —— 路徑少了一層，而測試看到的
  * 「宣告」跟 Tailwind 看到的不是同一個東西。這種錯最難查：兩邊都沒報錯。
  *
- * 所以要先認得字串。與 tools/exit-drill 的 plugin 解析器同一個做法：
- * **要比對程式碼就得先分辨程式碼與字面值**，正則做不到這件事。
+ * 所以要先認得字串：**要比對程式碼就得先分辨程式碼與字面值**，
+ * 正則做不到這件事。
  */
 function stripCssComments(css: string): string {
   let out = "";

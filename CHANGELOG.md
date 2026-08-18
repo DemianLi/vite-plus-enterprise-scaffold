@@ -10,6 +10,42 @@
 
 ---
 
+## [1.0.1] — 2026-08-18
+
+`platform/*` 的型別形狀一格沒動 —— 這一版只把**不實的敘述改成實的**，
+以及讓 `vpr ready` 名副其實。
+
+### 修正
+
+v1.0.0 是從 `main` **刪掉七支工具**做出來的，而刪掉的東西在文件與程式碼裡
+留下了引用。歷史紀錄（本檔與 `DECISIONS.md`）保留原樣 —— 那是有日期的敘述；
+其餘十三處改掉了：
+
+- **`.claude/launch.json` 指向不存在的檔案。** 唯一的 preview 設定寫的是
+  `tools/csp-verify/src/cli.ts`，而那支工具不在這一版 —— 任何團隊拉下來叫
+  agent 跑預覽，第一步就失敗。改成 `apps/console` 的 dev server（port 5173）。
+- **兩處「有東西在守」的假承諾。** `platform/pii/tests/mask.test.ts` 與
+  `features/order/tests/masking.test.ts` 寫著 `tools/pii-check` 會掃到假資料
+  並擋下 PR。這一版沒有那支工具 —— 改成寫明「靠約定，不靠閘門」。
+- **兩處沒有東西在執行的規矩。** `apps/console/vite.config.ts` 與
+  `renovate.json` 要求新的 vite plugin 登記進 `tools/exit-drill` 的
+  `DRILL_PLUGINS`。改成寫明這一版要靠人記得。
+- **四份文件叫人跑不存在的指令**（`vpr bff-check`、`vpr exit-drill`）。
+  `platform/bff-contract` 的規格與 `platform/bff-mock` 這個參考實作都**還在**，
+  不在的是把它跑成測試的驗收器 —— 兩份 README 都改成講清楚這件事。
+- **四處指向不存在的程式當作參照**（`tools/compliance` 的對照表、
+  `tools/exit-drill` 的 plugin 解析器、`tools/sast`）。
+- **`tier2-security.yml` 有一整段 D8 契約的註解被留在 `doc-facts` 那一步上面** ——
+  刪工具時刪了步驟、沒刪註解。
+
+### 變更
+
+- **`doc-facts` 加進 `scripts.gate`。** 在此之前它只跑在 CI 的 Tier 2，
+  所以本機 `vpr ready` 可以全綠而推上去 CI 紅 —— 而 README 把 `vpr ready`
+  講成「一次跑完所有檢查」。現在那句話是真的。
+
+---
+
 ## [1.0.0] — 2026-08-17
 
 第一個穩定版。**範圍是刻意縮小的** —— 五條承諾，其他能力留在 `main`。

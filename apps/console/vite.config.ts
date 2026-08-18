@@ -18,10 +18,12 @@ export default defineConfig(({ mode }) => {
 
       // D15 —— Tailwind v4。
       //
-      // ⚠️ 這個 plugin **會改變建置產物**，所以它必須登記在
-      // tools/exit-drill/src/plugins.ts 的 DRILL_PLUGINS。沒登記的話，
-      // 退出演練會產生一份沒有它的設定、建置成功、寫下 result: "pass" ——
-      // 而產物是一個完全沒有樣式的應用（C36）。
+      // ⚠️ 這個 plugin **會改變建置產物**。加任何會改變產物的 plugin 之前，
+      // 要先確認 D2 的退出演練不會產出一份沒有它的設定、建置成功、
+      // 卻交出一個完全沒有樣式的應用。
+      //
+      // **這一版沒有東西在守這件事** —— 把那份帳目自動化的 tools/exit-drill
+      // 留在 main（見 CHANGELOG）。在這個腳手架裡它是一條要靠人記得的規矩。
       tailwindcss(),
 
       // D11 —— 在 dev 就套用安全標頭（report-only）。
