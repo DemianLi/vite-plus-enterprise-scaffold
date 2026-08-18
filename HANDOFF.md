@@ -205,6 +205,27 @@ compiler API，所以 `tools/vue-typecheck` 用具名 catalog 拉一份 JS 版�
 `.ts` 檔消費 `.vue` 時 `vp check` 看的是 `declare module "*.vue"` 的萬用宣告
 （任何 prop 都合法），vue-tsc 解析真的 SFC。紅燈訊息自己會講這句。
 
+### 五、四份閘門清單是手抄的，沒有東西在斷言它們一致
+
+同一份「跑哪些閘門」的清單，在這個 repo 裡各寫一份：`package.json` 的
+`gate` 與各別名、兩個 workflow、以及 `README`〈兩層檢查〉那張表。
+**加一道閘門而漏掉其中一處，不會有任何東西說話。**
+
+⚠️ 這不是假想的。已經發作過兩次：v1.0.1 修的是第一次（`doc-facts` 只在 CI 跑、
+不在 `scripts.gate` 裡，於是本機 `vpr ready` 全綠而推上去 CI 紅）；第二次是
+README 那張表的 Tier 2 那格漏了兩道閘門，**不知道漏了多久** —— 而那一格正是
+讀者判斷「PR 會被什麼擋下來」的地方。兩處都已修好，但**成因還在**。
+
+守它的機制（`tools/gate-roster`）在 `main`，**刻意不放進 v1**：它守的是 CI
+流程的內部一致性，漂移傷的是維護者，不是拉 v1 去做案子的團隊 —— 而 v1 的
+範疇判準是「**它守的東西給誰看**」。v1.0.2 曾經短暫帶著它，v1.0.3 移除。
+
+**實務上要怎麼辦：** 加一道閘門時，四處要一起改。用這個指令找齊：
+
+```bash
+grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
+```
+
 ---
 
 ## 一次跑完所有檢查

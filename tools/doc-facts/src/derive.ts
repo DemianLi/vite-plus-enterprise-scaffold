@@ -52,7 +52,7 @@ export const TRANSIENT_PREFIX = "zz-";
  * 只有 7 個是 workspace 成員。用目錄數當判準的檢查會在開發機紅、在 CI 綠 ——
  * 那正是 C41 說的「第一天就被加例外，然後例外再也拿不掉」的形狀。
  */
-export function workspacePackages(root: string): string[] {
+function workspacePackages(root: string): string[] {
   const manifest = readFileSync(join(root, "pnpm-workspace.yaml"), "utf8");
   const globs = [...manifest.matchAll(/^\s*-\s*([\w./-]+)\/\*\s*$/gm)].map((match) => match[1]);
 
