@@ -71,7 +71,9 @@ B 團隊把 API 呼叫寫進元件、C 團隊偷偷加了跨切片依賴 —— 
 產生器與一致性檢查之間**只准經由 `@org/slice-kit/contract` 溝通**。
 
 `tools/*` 不受切片邊界規則約束（那些規則只作用於 `features/*/**`），所以沒有任何
-機制會阻止有人從 `tools/slice-gen` 直接 import `../conformance/src/cli.ts`。
+機制會阻止有人從 `tools/slice-gen` 直接 import `../conformance/src/rules/`。
+（#53 把那些判定拆成沒有副作用的模組之後，這件事從「做不到」變成「很好做」——
+擋它的東西因此只剩下這一段話。）
 別這麼做 —— 那會安靜地重建出 D9 想消滅的「兩份事實來源」，而且所有測試照樣全綠。
 
 ## 開發
