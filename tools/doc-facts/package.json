@@ -7,9 +7,6 @@
     "doc-facts": "./src/cli.ts"
   },
   "type": "module",
-  "exports": {
-    "./derive": "./src/derive.ts"
-  },
   "scripts": {
     "test": "vp test",
     "check": "vp check"

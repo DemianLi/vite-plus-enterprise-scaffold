@@ -249,14 +249,14 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 
 ## 兩層檢查
 
-|                       | 內容                                                                                            | 指令                                                                   | 何時跑                    |
-| --------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------- |
-| **Tier 1 — 品質**     | 閘門名冊一致 + oxlint + oxfmt + 型別檢查 + `.vue` 型別檢查 + 設計系統接縫                       | `vp check`、`vpr gate-roster`、`vpr vue-typecheck`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
-| **Tier 2 — 安全閘門** | 一致性檢查 + platform API 表面檢查 + 文件數字與事實來源一致 + ESLint 安全規則 + SAST + 機密掃描 | `vpr gate`                                                             | 每次 PR **＋ 每日排程**   |
+|                       | 內容                                                                                            | 指令                                                | 何時跑                    |
+| --------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------- |
+| **Tier 1 — 品質**     | oxlint + oxfmt + 型別檢查 + `.vue` 型別檢查 + 設計系統接縫                                      | `vp check`、`vpr vue-typecheck`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
+| **Tier 2 — 安全閘門** | 一致性檢查 + platform API 表面檢查 + 文件數字與事實來源一致 + ESLint 安全規則 + SAST + 機密掃描 | `vpr gate`                                          | 每次 PR **＋ 每日排程**   |
 
-> ⚠️ 這張表的「內容」欄不是手抄的清單 —— `vpr gate-roster` 會比對它與
-> `tools/gate-roster/src/gates.ts`，漏掉一道閘門會擋下 PR（C71）。
-> 表裡的 SAST 與機密掃描是例外：它們只在 CI 跑，不在那份名冊裡，理由見該檔檔頭。
+> ⚠️ **這張表是手抄的，沒有任何東西在斷言它與實際跑的閘門一致。**
+> 加一道閘門而忘了改這裡，不會有東西說話 —— 它已經發生過一次（Tier 2 那格
+> 曾經漏了兩道）。守它的機制在 `main`，不在 v1，理由見 HANDOFF〈已知的誠實缺口〉第五條。
 
 > 指令刻意**不用** `pnpm run` / `npx`：本專案不保證環境有全域 pnpm，
 > 而 `npx` 會被 `devEngines` 擋下。`vpr` 是 vite-plus 的 script runner，
@@ -483,7 +483,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 > 的內部骨架，MIT 宣告目前只在 [LICENSE](LICENSE) 與根 `package.json` 的
 > `"license": "MIT"` 兩處，兩者必須一致。正式對外前請把 `@org` 換成
 > **法務認可的法人全名**——這是組織的決定，不是這份 README 能代為認定的。
-> 底下 21 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
+> 底下 20 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
 
 上游相依的授權另計——`vite-plus` 為 MIT（Cloudflare 併購後），`lightningcss` 為 MPL-2.0，
 另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。⚠️ 完整盤點與 SCA 例外申請書在 `main`，**不在 v1.0.0**。
