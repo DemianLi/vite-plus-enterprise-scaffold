@@ -72,12 +72,11 @@ jobs:
       - name: platform API 表面檢查
         run: node tools/api-surface/src/cli.ts
 
-      # ── D8 中間層契約（R6）────────────────────────────────────────
-      # 對參考實作跑，證明這份契約是可實現的 —— 一份沒有任何實作通過的規格，
-      # 通常是一份寫錯的規格。驗收組織既有的 gateway 時改的是 env，不是這一行：
-      #   BFF_ORIGIN=https://gateway.internal ./node_modules/.bin/vitest run --root tools/bff-check
+      # ── 文件裡的數字 vs. repo 內部事實來源（A1）──────────────────
+      # 只守推導得出來的數字。這些數字是拿去跟採購與資安講的話，
+      # 每次相依變動就會變，而人抄下來的不會有人再推導一次。
       #
-      # 放在 Tier 2 而非只在 Tier 1：這是認證與 CSRF 的行為契約，
+      # 放在 Tier 2 而非只在 Tier 1：它跨整個 repo，
       # 不該因為「這次改動與它無關」而被 affected 過濾跳過。
       - name: 文件數字與事實來源一致
         run: node tools/doc-facts/src/cli.ts
@@ -111,8 +110,8 @@ jobs:
       # `p/xxx` 是會移動的指標，規則變了不需要任何 commit，
       # 而那會讓一個沒改過的 PR 因為上游改規則而變紅。
       #
-      # ⚠️ semgrep 是 Python 工具，**不在 pnpm-lock.yaml 裡** ——
-      # tools/supply-chain 的盤點看不到它。它以容器映像進來，
+      # ⚠️ semgrep 是 Python 工具，**不在 pnpm-lock.yaml 裡** —— 任何從
+      # lockfile 推導的供應鏈盤點都看不到它。它以容器映像進來，
       # 而那是一個獨立於本 repo 供應鏈論證之外的信任決定（見 HANDOFF 第 21 項）。
       #
       # 先驗規則會不會命中，再拿規則去掃 repo。順序是刻意的：

@@ -20,17 +20,12 @@ gateway。R6 因此一直卡在一個**組織問題**上：
 
 ## 跑法
 
-對參考實作（CI 每次都跑，證明這份契約是可實現的）：
-
-```bash
-vpr bff-check
-```
-
-對組織既有的 gateway：
-
-```bash
-BFF_ORIGIN=https://gateway.internal BFF_SESSION_COOKIE=SESSIONID vpr bff-check
-```
+> ⚠️ **驗收器不在這一版。** 把下面這些條目跑成測試的 `tools/bff-check`
+> 留在 `main`（見根目錄的 [CHANGELOG](../../CHANGELOG.md)）。這一版交付的是
+> 契約本身與 `@org/bff-mock` 這個已通過它的參考實作。
+>
+> 取回那支工具之後，跑法是對參考實作 `vpr bff-check`，對組織既有的 gateway
+> 則是 `BFF_ORIGIN=https://gateway.internal BFF_SESSION_COOKIE=SESSIONID vpr bff-check`。
 
 可覆寫的 env：`BFF_ORIGIN`、`BFF_SESSION_COOKIE`、`BFF_LOGIN_PATH`、`BFF_LOGOUT_PATH`、
 `BFF_SESSION_PATH`、`BFF_PROBE_PATH`、`BFF_ADMIN_PROBE_PATH`、`BFF_SESSION_VALUE`、

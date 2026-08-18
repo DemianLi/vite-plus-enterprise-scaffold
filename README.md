@@ -363,16 +363,17 @@ checker 抽出每個 `platform/*` 進入點的**型別形狀**，與已提交的
 
 ## D8 中間層（BFF／gateway）
 
-那一層不在腳手架裡 —— 它是組織既有的 gateway。腳手架提供的是**它必須做到什麼**，
-以及**怎麼證明做到了**：
+那一層不在腳手架裡 —— 它是組織既有的 gateway。腳手架提供的是**它必須做到什麼**：
+一份可執行的規格，加上一個已經通過它的參考實作。
 
-```bash
-./node_modules/.bin/vpr bff-check                                    # 對參考實作
-BFF_ORIGIN=https://gateway.internal ./node_modules/.bin/vpr bff-check  # 對真實 gateway
-```
+這一層要滿足的是 D8。13 條契約條目、可覆寫的 env、以及對真實 gateway 的誠實
+限制（OIDC 那段無法自動化）見 [`platform/bff-contract`](platform/bff-contract)；
+參考實作是 [`platform/bff-mock`](platform/bff-mock)（`vpr bff` 啟動）。
 
-全綠代表這一層滿足 D8。13 條契約條目、可覆寫的 env、以及對真實 gateway 的
-誠實限制（OIDC 那段無法自動化）見 [`platform/bff-contract`](platform/bff-contract)。
+> ⚠️ **驗收器不在這一版。** 把契約跑成測試、可以指向組織既有 gateway 的
+> `tools/bff-check` 留在 `main`（見 [CHANGELOG](CHANGELOG.md)）。
+> 這一版交付的是**規格與參考實作**，不是自動驗收 —— 要驗收就得自己寫，
+> 或從 `main` 取那支工具。
 
 ---
 
