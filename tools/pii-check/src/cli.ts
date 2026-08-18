@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+
+import { parseFlags, repoRoot, walk } from "@org/gate-kit";
 
 import { scanRepo } from "./scan.ts";
 
@@ -22,66 +23,34 @@ import { scanRepo } from "./scan.ts";
  * **遮罩還在，只是沒有機制強制。**（見 DECISIONS 的 C52）
  */
 
-const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
-
 /** 不進去的目錄。掃 node_modules 會把全世界的測試資料一起掃進來。 */
-const SKIP = new Set(["node_modules", ".git", "dist", ".scan", "coverage", ".vite-plus"]);
+const SKIP = ["node_modules", ".git", "dist", ".scan", "coverage", ".vite-plus"];
 
 /** 只看文字檔。二進位檔的位元組隨機通過 Luhn 的機率不低，而那是純誤報。 */
-const TEXT = /\.(ts|tsx|js|mjs|cjs|vue|json|md|ya?ml|css|html|txt)$/;
+const TEXT = [
+  ".ts",
+  ".tsx",
+  ".js",
+  ".mjs",
+  ".cjs",
+  ".vue",
+  ".json",
+  ".md",
+  ".yml",
+  ".yaml",
+  ".css",
+  ".html",
+  ".txt",
+];
 
-function listFiles(directory: string): string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(directory)) {
-    if (SKIP.has(entry)) continue;
-    const full = join(directory, entry);
-    if (statSync(full).isDirectory()) {
-      found.push(...listFiles(full));
-    } else if (TEXT.test(entry)) {
-      found.push(full);
-    }
-  }
-  return found;
-}
-
-/** 這支認得的旗標。**只有這些** —— 見 `parseRoot` 的說明。 */
-const KNOWN_FLAGS = new Set(["--root"]);
-
-function parseRoot(argv: readonly string[]): string {
-  /**
-   * ⚠️ 不認得的旗標要當場紅，不能忽略。
-   *
-   * C52 拿掉 `--masking` 之後，`tier2-security.yml` 裡那個步驟被留了下來。
-   * 當時這裡只找 `--root`，其餘一律無視 —— 於是那一步安靜地把 ⑥ 又掃了
-   * 一次、回傳 0，而 CI 上顯示的是一個叫「個資：畫面上必須隱碼」的綠燈。
-   *
-   * **一個檢查不存在，比一個檢查失敗糟得多**：失敗會有人修，
-   * 而這種綠燈會被當成證據拿去給稽核看。
-   */
-  for (const argument of argv) {
-    if (!argument.startsWith("--")) continue;
-    if (KNOWN_FLAGS.has(argument)) continue;
-    console.error(
-      `✗ 不認得的旗標：${argument}\n` +
-        `  這支只吃 ${[...KNOWN_FLAGS].join("、")}。\n` +
-        "  會紅是刻意的：被拿掉的旗標留在 CI 裡而被靜靜忽略時，\n" +
-        "  那一步會頂著它原本的名字回傳綠燈 —— 而那個名字說的是謊。",
-    );
-    process.exit(1);
-  }
-
-  const at = argv.indexOf("--root");
-  if (at === -1) return ROOT;
-  const value = argv[at + 1];
-  if (value === undefined || value.startsWith("--")) {
-    console.error("--root 後面要接一個目錄");
-    process.exit(1);
-  }
-  return resolve(value);
-}
+/**
+ * 這支認得的旗標。**只有這些** —— 不認得的一律紅，理由寫在
+ * `@org/gate-kit` 的 `parseFlags`，那次事故就是在這支身上發生的。
+ */
+const SPEC = { root: { kind: "value", noun: "目錄", fallback: repoRoot() } } as const;
 
 function runScan(root: string): number {
-  const files = listFiles(root).map((path) => relative(root, path));
+  const files = walk(root, { skip: SKIP, extensions: TEXT });
   const report = scanRepo(files, (path) => readFileSync(join(root, path), "utf8"));
 
   if (report.problems.length === 0) {
@@ -105,4 +74,9 @@ function runScan(root: string): number {
   return 1;
 }
 
-process.exit(runScan(parseRoot(process.argv.slice(2))));
+const parsed = parseFlags(process.argv.slice(2), SPEC);
+if (!parsed.ok) {
+  console.error(parsed.message);
+  process.exit(1);
+}
+process.exit(runScan(resolve(parsed.flags.root)));

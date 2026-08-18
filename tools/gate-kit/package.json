@@ -1,18 +1,15 @@
 {
-  "name": "@org/pii-check",
+  "name": "@org/gate-kit",
   "version": "0.0.0",
   "private": true,
-  "description": "§11 II ⑥ 測試環境不得使用真實個人資料；§11 II ⑨ 畫面上的個資必須隱碼",
-  "bin": {
-    "pii-check": "./src/cli.ts"
-  },
+  "description": "閘門底下那一層：repo 根、走目錄、旗標解析",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "test": "vp test",
     "check": "vp check"
-  },
-  "dependencies": {
-    "@org/gate-kit": "workspace:*"
   },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",

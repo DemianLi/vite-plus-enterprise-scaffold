@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { repoRoot } from "@org/gate-kit";
+
 import { EXEMPT, MINIMUM_SCANNED, SCAN_RULES, inScope, scanRepo } from "../src/scan.ts";
 import { scanText } from "../src/detect.ts";
 
@@ -19,8 +21,24 @@ import { scanText } from "../src/detect.ts";
  * 少了它，這整支測試可能在餵一堆偵測不到的東西而全綠。
  */
 
-const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
+const ROOT = repoRoot();
 const CLI = join(ROOT, "tools/pii-check/src/cli.ts");
+
+/**
+ * ★ `repoRoot()` 穿過 pnpm 的 symlink 之後仍然落在 repo 根。
+ *
+ * workspace 的每個相依都是 `node_modules/@org/gate-kit -> ../../../gate-kit`
+ * 的軟連結。Node 解析時若回報的是**連結路徑**而不是真實路徑，
+ * `import.meta.url` 會落在 `node_modules` 底下，`../../../..` 就會算到別的
+ * 地方 —— 而錯的那個根仍然是一個存在的目錄，掃起來不會拋錯，只是掃錯東西
+ * 然後回報綠燈。這條測試住在這裡而不是 gate-kit 裡，因為只有真的宣告了
+ * 相依的 package 才有那個 symlink 可穿。
+ */
+describe("repoRoot 穿過 workspace symlink", () => {
+  it("★ 與這個檔案自己推導出來的根相同", () => {
+    expect(ROOT).toBe(resolve(fileURLToPath(import.meta.url), "../../../.."));
+  });
+});
 
 /** 拼出來的，不是寫死的。理由見檔頭。 */
 const VALID_ID = `A1${"00000001"}`;

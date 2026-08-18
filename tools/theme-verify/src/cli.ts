@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { readFileSync, readdirSync } from "node:fs";
-import { join, relative, resolve as resolvePath } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, relative } from "node:path";
+
+import { parseFlags, repoRoot, walk } from "@org/gate-kit";
 
 import { build } from "vite";
 import tailwindcss from "@tailwindcss/vite";
@@ -57,7 +58,7 @@ import { TS_ONLY_PROBE } from "../fixtures/probe.ts";
  * 守的是**那條路徑會不會生效**，用的是 `fixtures/` 底下自己的一份。
  */
 
-const ROOT = resolvePath(fileURLToPath(import.meta.url), "../../../..");
+const ROOT = repoRoot();
 const COMPONENTS = join(ROOT, "platform/ui/src/components");
 const FIXTURES = join(ROOT, "tools/theme-verify/fixtures");
 
@@ -98,22 +99,19 @@ const componentClasses = new Set<string>(
  */
 const CONSUMER_ROOTS = ["features", "apps"] as const;
 
-function collectViews(dir: string, out: Map<string, string>): void {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isDirectory()) {
-      if (entry.name === "node_modules" || entry.name === "dist" || entry.name.startsWith(".")) {
-        continue;
-      }
-      collectViews(join(dir, entry.name), out);
-    } else if (entry.name.endsWith(".vue")) {
-      const path = join(dir, entry.name);
-      out.set(relative(ROOT, path), readFileSync(path, "utf8"));
-    }
+const consumerSources = new Map<string, string>();
+for (const area of CONSUMER_ROOTS) {
+  // walk() 給的是相對於它起點的路徑，而這份 Map 的鍵一直是相對於 repo 根的
+  // ——「features/order/views/X.vue」。少了這個 join，錯誤訊息會指到不存在的路徑。
+  for (const found of walk(join(ROOT, area), {
+    skip: ["node_modules", "dist"],
+    skipDotDirs: true,
+    extensions: [".vue"],
+  })) {
+    const path = join(area, found);
+    consumerSources.set(path, readFileSync(join(ROOT, path), "utf8"));
   }
 }
-
-const consumerSources = new Map<string, string>();
-for (const root of CONSUMER_ROOTS) collectViews(join(ROOT, root), consumerSources);
 
 // ── 一、靜態：元件只准用語意代幣 ──────────────────────────────────────
 
@@ -444,6 +442,18 @@ async function runBuilds(): Promise<void> {
         `${users.length} 條 utility 本體不變、其餘 ${base.size - expected.size} 格零附帶影響`,
     );
   }
+}
+
+/**
+ * 這支不吃任何旗標，而空 spec 的意思是「一個都不准」，不是「什麼都放行」。
+ *
+ * 在此之前 `node tools/theme-verify/src/cli.ts --whatever` 會安靜地跑完並
+ * 回傳 0 —— 一個打錯字的 CI 步驟會頂著閘門的名字發綠燈。
+ */
+const parsed = parseFlags(process.argv.slice(2), {});
+if (!parsed.ok) {
+  console.error(parsed.message);
+  process.exit(1);
 }
 
 runStatic();
