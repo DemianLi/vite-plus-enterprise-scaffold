@@ -40,16 +40,23 @@ import { join } from "node:path";
 export const TRANSIENT_PREFIX = "zz-";
 
 /**
- * workspace 樣式底下的 package 數。
+ * workspace 樣式底下的每一個 package，以 repo 相對路徑回傳（例如 `tools/conformance`）。
  *
  * 樣式從 `pnpm-workspace.yaml` 讀，不寫死目錄清單 —— 加一個新的頂層層級時，
- * 這個數字要跟著動，而不是安靜地少算一整層。
+ * 這份清單要跟著動，而不是安靜地少算一整層。
+ *
+ * ⚠️ 判準是**目錄裡有 `package.json`**，不是「`tools/` 底下有這個目錄」。
+ * 兩者在乾淨的 clone 上一樣，在開發機上不一樣：切換分支時 git 會刪掉被追蹤的
+ * 檔案，但留下含 `.DS_Store` 或殘留 `node_modules` 連結的**空目錄**。實測在
+ * 一台從 `main` 切到 `release/v1` 的機器上，`tools/` 底下數得到 16 個目錄而
+ * 只有 7 個是 workspace 成員。用目錄數當判準的檢查會在開發機紅、在 CI 綠 ——
+ * 那正是 C41 說的「第一天就被加例外，然後例外再也拿不掉」的形狀。
  */
-export function workspacePackageCount(root: string): number {
+export function workspacePackages(root: string): string[] {
   const manifest = readFileSync(join(root, "pnpm-workspace.yaml"), "utf8");
   const globs = [...manifest.matchAll(/^\s*-\s*([\w./-]+)\/\*\s*$/gm)].map((match) => match[1]);
 
-  let total = 0;
+  const packages: string[] = [];
   for (const glob of globs) {
     if (glob === undefined) continue;
     const dir = join(root, glob);
@@ -59,13 +66,18 @@ export function workspacePackageCount(root: string): number {
       if (!statSync(candidate).isDirectory()) continue;
       try {
         statSync(join(candidate, "package.json"));
-        total += 1;
+        packages.push(`${glob}/${entry}`);
       } catch {
         // 沒有 package.json 的目錄不是 workspace 成員。
       }
     }
   }
-  return total;
+  return packages;
+}
+
+/** workspace 樣式底下的 package 數。 */
+export function workspacePackageCount(root: string): number {
+  return workspacePackages(root).length;
 }
 
 const USES = /^\s*-?\s*uses:\s*(\S+)/gm;
