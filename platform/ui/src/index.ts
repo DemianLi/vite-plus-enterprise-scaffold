@@ -34,6 +34,15 @@ export { default as UiSkeleton } from "./components/UiSkeleton.vue";
 export { default as UiTabs } from "./components/UiTabs.vue";
 export { default as UiTabsPanel } from "./components/UiTabsPanel.vue";
 export { default as UiDatePicker } from "./components/UiDatePicker.vue";
+export { default as UiAlert } from "./components/UiAlert.vue";
+export { default as UiPagination } from "./components/UiPagination.vue";
+export { default as UiSeparator } from "./components/UiSeparator.vue";
+export { default as UiTable } from "./components/UiTable.vue";
+export { default as UiTableBody } from "./components/UiTableBody.vue";
+export { default as UiTableCell } from "./components/UiTableCell.vue";
+export { default as UiTableHead } from "./components/UiTableHead.vue";
+export { default as UiTableHeadCell } from "./components/UiTableHeadCell.vue";
+export { default as UiTableRow } from "./components/UiTableRow.vue";
 export { default as UiLabel } from "./components/UiLabel.vue";
 export { default as UiRadioGroup } from "./components/UiRadioGroup.vue";
 export { default as UiRadioItem } from "./components/UiRadioItem.vue";
@@ -52,6 +61,7 @@ export { cn } from "./utils/cn.ts";
  */
 export { createUiTheme } from "./theme.ts";
 export type {
+  UiAlertSlot,
   UiBadgeSlot,
   UiButtonSlot,
   UiCheckboxSlot,
@@ -59,12 +69,20 @@ export type {
   UiDialogSlot,
   UiInputSlot,
   UiLabelSlot,
+  UiPaginationSlot,
   UiRadioGroupSlot,
   UiRadioItemSlot,
   UiSelectSlot,
+  UiSeparatorSlot,
   UiSize,
   UiSkeletonSlot,
   UiSwitchSlot,
+  UiTableBodySlot,
+  UiTableCellSlot,
+  UiTableHeadCellSlot,
+  UiTableHeadSlot,
+  UiTableRowSlot,
+  UiTableSlot,
   UiTabsPanelSlot,
   UiTabsSlot,
   UiTextareaSlot,

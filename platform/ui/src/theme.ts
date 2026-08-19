@@ -153,6 +153,34 @@ export type UiDatePickerSlot =
   | "day";
 
 /**
+ * `UiTable` 家族的可覆寫部位 —— **六個檔案各一個型別**。
+ *
+ * ⚠️ 不合成一個 `UiTableSlot` 的理由與 `UiTabs`／`UiTabsPanel` 相同：
+ * 覆寫的語意是整條替換，合成一格的話各案想只改儲存格內距，
+ * 就得把表頭與列的 class 一起抄過來。
+ */
+export type UiTableSlot = "scroller" | "table";
+/** `UiTableHead` 的可覆寫部位（`<thead>`）。 */
+export type UiTableHeadSlot = "head";
+/** `UiTableBody` 的可覆寫部位（`<tbody>`）。 */
+export type UiTableBodySlot = "body";
+/** `UiTableRow` 的可覆寫部位（`<tr>`）。 */
+export type UiTableRowSlot = "row";
+/** `UiTableHeadCell` 的可覆寫部位（`<th>`）。 */
+export type UiTableHeadCellSlot = "cell";
+/** `UiTableCell` 的可覆寫部位（`<td>`）。`numeric` 是疊加在 `cell` 上的那一格。 */
+export type UiTableCellSlot = "cell" | "numeric";
+
+/** `UiPagination` 的可覆寫部位。名稱取自 reka-ui 的基元。 */
+export type UiPaginationSlot = "list" | "item" | "nav" | "ellipsis";
+
+/** `UiSeparator` 的可覆寫部位。 */
+export type UiSeparatorSlot = "separator";
+
+/** `UiAlert` 的可覆寫部位 —— `alert` 是版型，另外三個是 `tone` 的值（同 `UiBadge`）。 */
+export type UiAlertSlot = "alert" | "info" | "success" | "danger";
+
+/**
  * 各案的覆寫表：**元件名 → 槽名 → 整條 class 字串**。
  *
  * ⚠️ 語意是**整條替換**，不是附加。想要「在預設值上加一點東西」請把預設值
@@ -176,6 +204,15 @@ export type UiThemeOverride = {
   readonly UiRadioItem?: Readonly<Partial<Record<UiRadioItemSlot, string>>>;
   readonly UiSelect?: Readonly<Partial<Record<UiSelectSlot, string>>>;
   readonly UiDatePicker?: Readonly<Partial<Record<UiDatePickerSlot, string>>>;
+  readonly UiTable?: Readonly<Partial<Record<UiTableSlot, string>>>;
+  readonly UiTableHead?: Readonly<Partial<Record<UiTableHeadSlot, string>>>;
+  readonly UiTableBody?: Readonly<Partial<Record<UiTableBodySlot, string>>>;
+  readonly UiTableRow?: Readonly<Partial<Record<UiTableRowSlot, string>>>;
+  readonly UiTableHeadCell?: Readonly<Partial<Record<UiTableHeadCellSlot, string>>>;
+  readonly UiTableCell?: Readonly<Partial<Record<UiTableCellSlot, string>>>;
+  readonly UiPagination?: Readonly<Partial<Record<UiPaginationSlot, string>>>;
+  readonly UiSeparator?: Readonly<Partial<Record<UiSeparatorSlot, string>>>;
+  readonly UiAlert?: Readonly<Partial<Record<UiAlertSlot, string>>>;
 };
 
 /**
