@@ -233,7 +233,8 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │   ├── theme-verify/         設計系統接縫：真的建置兩次，證明各案換得掉配色與形狀
 │   ├── codemods/             breaking change 必附的遷移腳本
 │   ├── slice-gen/            切片產生器（vp create slice）
-│   └── doc-facts/            文件裡的數字 vs. repo 內部事實來源
+│   ├── doc-facts/            文件裡的數字 vs. repo 內部事實來源
+│   └── scope-check/          SCOPE.md 列的東西 vs. 版控裡真正存在的目錄
 │
 ├── .semgrep/                 開發期源碼掃描的自寫規則（汙點傳遞）＋ 故意寫壞的 fixture
 ├── .github/workflows/        CI：tier1-quality / tier2-security
@@ -250,10 +251,10 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 
 ## 兩層檢查
 
-|                       | 內容                                                                                            | 指令                                                | 何時跑                    |
-| --------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------- |
-| **Tier 1 — 品質**     | oxlint + oxfmt + 型別檢查 + `.vue` 型別檢查 + 設計系統接縫                                      | `vp check`、`vpr vue-typecheck`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
-| **Tier 2 — 安全閘門** | 一致性檢查 + platform API 表面檢查 + 文件數字與事實來源一致 + ESLint 安全規則 + SAST + 機密掃描 | `vpr gate`                                          | 每次 PR **＋ 每日排程**   |
+|                       | 內容                                                                                                                          | 指令                                                | 何時跑                    |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------- |
+| **Tier 1 — 品質**     | oxlint + oxfmt + 型別檢查 + `.vue` 型別檢查 + 設計系統接縫                                                                    | `vp check`、`vpr vue-typecheck`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
+| **Tier 2 — 安全閘門** | 一致性檢查 + platform API 表面檢查 + 文件數字與事實來源一致 + **SCOPE.md 與版控內容一致** + ESLint 安全規則 + SAST + 機密掃描 | `vpr gate`                                          | 每次 PR **＋ 每日排程**   |
 
 > ⚠️ **這張表是手抄的，沒有任何東西在斷言它與實際跑的閘門一致。**
 > 加一道閘門而忘了改這裡，不會有東西說話 —— 它已經發生過一次（Tier 2 那格
@@ -273,10 +274,10 @@ Tier 2 刻意**全量、不快取、不經 `vp`**。原因是安全掃描的結�
 
 ### CI
 
-| Workflow                                                     | 內容                                                                 | 快取              | 觸發                     |
-| ------------------------------------------------------------ | -------------------------------------------------------------------- | ----------------- | ------------------------ |
-| [`tier1-quality.yml`](.github/workflows/tier1-quality.yml)   | `vp check` / **`.vue` 型別檢查** / test / build / **設計系統接縫**   | ✅ 任務快取       | PR、push to main         |
-| [`tier2-security.yml`](.github/workflows/tier2-security.yml) | 一致性檢查 / API 表面 / 文件數字 / ESLint 安全規則 / SAST / gitleaks | ❌ **一格都沒有** | PR **＋ 每日 21:00 UTC** |
+| Workflow                                                     | 內容                                                                            | 快取              | 觸發                     |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------- | ----------------- | ------------------------ |
+| [`tier1-quality.yml`](.github/workflows/tier1-quality.yml)   | `vp check` / **`.vue` 型別檢查** / test / build / **設計系統接縫**              | ✅ 任務快取       | PR、push to main         |
+| [`tier2-security.yml`](.github/workflows/tier2-security.yml) | 一致性檢查 / API 表面 / 文件數字 / **範疇** / ESLint 安全規則 / SAST / gitleaks | ❌ **一格都沒有** | PR **＋ 每日 21:00 UTC** |
 
 CI 引用的 **6 個 action（8 處引用）全部以 commit SHA 釘住**，尾隨版本註解。
 標籤是可以被發佈者移動的指標：重指之後下一次 CI 就執行新的內容，
@@ -485,7 +486,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 > 的內部骨架，MIT 宣告目前只在 [LICENSE](LICENSE) 與根 `package.json` 的
 > `"license": "MIT"` 兩處，兩者必須一致。正式對外前請把 `@org` 換成
 > **法務認可的法人全名**——這是組織的決定，不是這份 README 能代為認定的。
-> 底下 20 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
+> 底下 21 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
 
 上游相依的授權另計——`vite-plus` 為 MIT（Cloudflare 併購後），`lightningcss` 為 MPL-2.0，
 另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。⚠️ 完整盤點與 SCA 例外申請書在 `main`，**不在 v1.0.0**。
