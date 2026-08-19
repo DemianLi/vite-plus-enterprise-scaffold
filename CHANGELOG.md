@@ -10,6 +10,87 @@
 
 ---
 
+## [1.1.0] — 2026-08-20
+
+**C81 判出的三個缺陷型元件補齊了：`Field`、`Alert Dialog`、`Dropdown Menu`。**
+
+⚠️ **這一版放寬了 `v1.0.6` 才定下的元件範疇**（C78），而那是刻意的：
+C81 §七 把候選分成「三個是缺陷、四個是方便」，這一版只補前三個。
+**四個方便（`Card`／`Empty`／`Item`／`Spinner`）是待裁決，不是被裁掉** ——
+把它們讀成「已經判出去了」，下一個人就會拿錯那把尺。
+
+三個元件的共同形狀：**C81 給的理由是對的，但沒有一個足以決定 API 形狀。**
+真正決定形狀的三件事都要讀上游原始碼才看得到，而三次都推翻了先寫好的設計。
+
+### 新增（C84／C86／C88）
+
+- **`UiField`** —— label ＋ 控制項 ＋ 說明 ＋ 錯誤訊息的版型**與接線**。
+  ⚠️ 上游的 `Field` 是九個子元件的純版型家族，`aria-describedby` 全手動 ——
+  照抄的話它過不了 C81 自己的層 2。這一個改成 **scoped slot 給一個 `control`
+  物件**，id 產生與 `aria-invalid` 傳遞都在裡面。
+  ⚠️ **使用端忘了 `v-bind="control"` 接線還是斷的，而且畫面正常。**
+
+- **`UiAlertDialog`** —— 破壞性動作的確認框。⚠️ 它**不是** `UiDialog` 換兩顆
+  按鈕：`role="alertdialog"`、點外面不關、而且**初始焦點落在「取消」**。
+
+  > ⚠️ **刻意沒有 `footer` 槽**（`UiDialog` 有）。那個焦點保護不是
+  > `AlertDialogContent` 做到的 —— `cancelElement` 是 `AlertDialogCancel`
+  > **自己在 `onMounted` 註冊的**，沒渲染它 `?.focus()` 就是 no-op，
+  > 而畫面完全正常。**覆寫是整條替換，所以能被覆寫的東西不能是保護。**
+
+- **`UiDropdownMenu`** —— 表格每一列的「⋯」。方向鍵、Home/End、首字母跳轉、
+  Esc 關閉並還原焦點。
+
+  > ⚠️ **`label` 必填，因為選單的名字是借來的。** `DropdownMenuContent` 寫死
+  > `:aria-labelledby="rootContext?.triggerId"` —— 觸發器沒有可及名稱，
+  > `role="menu"` 也一起沒有。而「⋯」最自然的實作 `<button>⋯</button>`
+  > 正好就是那個樣子。名字走 `sr-only` 的**文字**不走 `aria-label`：
+  > 後者壞掉畫面完全正常，前者壞掉那行字直接顯示在按鈕上。
+  > **把安靜的缺陷換成吵鬧的缺陷。**
+
+### 修正（C85）
+
+- **模板裡的 HTML 註解會進 SSR 產物。** `renderToString` **不移除**註解
+  （用戶端 production build 會），所以只咬 SSR 使用端 —— 而本 repo 的
+  `apps/console` 是 SPA，**自己的產物看不到這件事**。
+  ⚠️ 不是 `UiDialog` 一個，是**四個元件五段**。
+
+  > ⚠️ **C85 的標題點名的那一個是唯一不會的**（C86 §六 更正）：`UiDialog`
+  > 那段寫在 `<DialogPortal>` 裡，SSR 下整個 portal 是 `<!--v-if-->`。
+  > 掃描與絆線都對，錯的是**只量了一個就把結論推到另外四個身上**。
+
+### 內部（C87）
+
+- **兩支測試搶同一個真實 repo**，`tools/conformance` 與 `tools/slice-gen` 對
+  同一個根斷言相反的狀態，並行跑是擲銅板。修在**排程層**，不弱化斷言。
+  ⚠️ 連續三個 PR 的 CI 紅在同一行，而每次重跑都會過 —— 這種紅最貴的地方
+  不是它本身，是它教人學會忽略紅燈。
+
+### 閘門
+
+- `platform/ui` 第一次有 **DOM 測試**（happy-dom）。⚠️ **供應鏈零變化**：
+  `happy-dom` 與 `@vue/test-utils` 本來就在 catalog 裡，lockfile 只多兩行
+  importer。環境用 `// @vitest-environment happy-dom` 限在單一檔案。
+
+  > ⚠️ 非得是 DOM 不可：reka-ui 的 `Teleport` 是 `isMounted || forceMount`，
+  > 而 `useMounted()` 在伺服器端是 false —— **包在 portal 裡的東西
+  > `renderToString` 一個字都不渲染**。
+
+- 三個元件的關鍵行為各自被變異驗過（C84 八個、C86 九個、C88 十五個）。
+  ⚠️ **零紅的變異也記下來了**，沒有假裝有閘門在守 —— 見 DECISIONS 的
+  C88 §九（`:text-value`、`data-[highlighted]`、以及 `sr-only` vs
+  `aria-label` 三處只有慣例、沒有行為層檢查）。
+
+### 相容性
+
+`platform/*` 的 API 形狀**零刪除、零改名**：`api-surface` 從 142 增為 148 個
+export（10 個進入點不變），全部是新增。所以這是 **minor 不是 major** ——
+而那個判定是閘門做的，不是人宣告的。
+
+元件數 24 → 27。**相依零增減。**
+
+---
+
 ## [1.0.7] — 2026-08-19
 
 **判準補了兩層、骨架的兩個無障礙缺陷修了、而測試檔的字面值一直在進使用者
