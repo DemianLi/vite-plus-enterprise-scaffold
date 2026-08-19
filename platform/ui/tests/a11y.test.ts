@@ -170,6 +170,45 @@ describe("★ 產物實測：原始碼裡的那個字真的變成規則", () => 
     const css = await buildCss(["animate-pulse"]);
     expect(css).not.toMatch(/prefers-reduced-motion/);
   });
+
+  /**
+   * ⚠️ **第二組（C88）：`UiDropdownMenu` 觸發器上那個 `sr-only`。**
+   *
+   * 那個元件的可及名稱來自按鈕內容裡的 `<span class="sr-only">`，而
+   * `sr-only` 是**模板裡寫死的一個字串**、不在任何預設表裡 ——
+   * 上面 `animatedSlots` 走的那條路徑掃不到它。
+   *
+   * ⚠️ **這一條守的是版面，不是無障礙。** 可及名稱是文字內容、不依賴 CSS：
+   * `sr-only` 編不出來的時候名字還在，壞的是「那行字會顯示在按鈕上」。
+   * 把它讀成「名字的保險」是反的 —— 元件檔頭有同一段說明，而那個方向
+   * 正是選 `sr-only` 而不選 `aria-label` 的第三個理由（壞得吵）。
+   */
+  const srOnlyCandidate = ((): string => {
+    const source = COMPONENTS.find(({ name }) => name === "UiDropdownMenu")?.source ?? "";
+    const template = stripComments(source).split("<template>")[1] ?? "";
+    // 取的是**真的包著 `label` 的那個 span**，不是任何一個 sr-only。
+    return /<span class="([^"]+)">\{\{ label \}\}<\/span>/.exec(template)?.[1] ?? "";
+  })();
+
+  it("★ candidate 真的是從元件模板取來的", () => {
+    // 抓不到時 candidate 是空字串，下面那條會在空清單上跑 —— 它仍然會紅
+    // （空清單編不出 `.sr-only`），但訊息會指向 Tailwind 而不是這個正則。
+    expect(srOnlyCandidate).toBe("sr-only");
+  });
+
+  it("sr-only 真的編得出把文字挪出畫面的規則", async () => {
+    const css = await buildCss([srOnlyCandidate]);
+    expect(css, `產物裡沒有 .sr-only：\n${css}`).toMatch(/\.sr-only\s*\{/);
+    // 只看選擇器在不在會被一條空規則滿足。⚠️ 而**藏起來的那一句是
+    // `clip-path: inset(50%)`，不是老寫法的 `clip: rect(0,0,0,0)`**
+    // （`tailwindcss@4.3.3` 實測；第一版按舊寫法斷言，紅了）。
+    expect(css).toMatch(/clip-path:\s*inset\(/);
+  });
+
+  it("★ 那條規則是那個 class 帶來的，不是 base reset 自帶的", async () => {
+    const css = await buildCss(["size-4"]);
+    expect(css).not.toMatch(/\.sr-only\s*\{/);
+  });
 });
 
 /**
