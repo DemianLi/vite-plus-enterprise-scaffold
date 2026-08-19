@@ -99,7 +99,7 @@ createUiTheme({
 ⚠️ **這一條的接縫從第一天就完整，內容補到 14 個元件。**
 表單那一排（`UiInput`、`UiTextarea`、`UiSelect`、`UiCheckbox`、
 `UiRadioGroup`／`UiRadioItem`、`UiSwitch`、`UiLabel`）已經齊了，
-而且**26 個元件都被檢查過**，一個 CRUD 畫面拼得出來了。
+而且**27 個元件都被檢查過**，一個 CRUD 畫面拼得出來了。
 
 ⚠️ **shadcn 沒有安裝。** 這個 repo 用的是它的三個原料
 （reka-ui ＋ clsx ＋ tailwind-merge）與它的模型（原始碼在自己手上）。
@@ -184,10 +184,10 @@ createUiTheme({
 
 也就是說：**遮罩在 v1 是慣例，不是機制。**
 
-### 二、`platform/ui` 有 26 個元件，範圍是被定義過的
+### 二、`platform/ui` 有 27 個元件，範圍是被定義過的
 
-接縫（代幣／具名槽／slot）都通了、**26 個元件都被檢查器驗過**，
-一個 CRUD 畫面拼得出來：表單八支、表格家族六支＋分頁、版型與回饋九支。
+接縫（代幣／具名槽／slot）都通了、**27 個元件都被檢查器驗過**，
+一個 CRUD 畫面拼得出來：表單十支、表格家族六支＋分頁、版型與回饋十支。
 
 ⚠️ **「要幾個才算夠」在 2026-08-19 之前沒有任何文件定義過。** 查過 HANDOFF、
 SCOPE、DECISIONS 與 git 歷史：從來沒有列過 v1 要有哪些元件。唯一的依據是

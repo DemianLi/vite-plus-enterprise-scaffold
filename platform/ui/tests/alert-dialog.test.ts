@@ -200,6 +200,34 @@ describe("UiAlertDialog", () => {
     expect(wrapper.emitted()["update:open"]).toEqual([[false]]);
   });
 
+  it("⭐ emit confirm 的那一刻對話框還開著 —— 它在下一個 tick 才關", async () => {
+    // ⚠️ C88 的更正。這個檔案原本在 `emit` 的說明上寫著「對話框已經關了」，
+    // 而實測相反 —— 探針要放在處理器**裡面**才看得到（上面那條在 `settle()`
+    // 之後查，那時確實關了，所以它對這個錯完全無感）。
+    //
+    // 後果：在 `@confirm` 裡同步寫 `open = true` 會被下一個 tick 的關閉
+    // 安靜地蓋掉。「兩顆按鈕都會關」本身沒變，錯的只有時序。
+    const openWhenEmitted: boolean[] = [];
+    const wrapper = mount(AlertDialog, {
+      props: {
+        ...PROPS,
+        onConfirm: () => {
+          openWhenEmitted.push(document.querySelector('[data-slot="alert-dialog"]') !== null);
+        },
+      },
+      attachTo: document.body,
+    });
+    await settle();
+
+    const content = document.querySelector('[data-slot="alert-dialog"]') as Element;
+    (confirmButton(content) as HTMLElement).click();
+    expect(openWhenEmitted, "處理器根本沒被呼叫").toEqual([true]);
+
+    await settle();
+    expect(document.querySelector('[data-slot="alert-dialog"]')).toBeNull();
+    expect(wrapper.emitted("confirm")).toHaveLength(1);
+  });
+
   it("按取消會關，而且**不會** emit confirm", async () => {
     const { wrapper, content } = await open();
 

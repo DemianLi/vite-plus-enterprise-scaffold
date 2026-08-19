@@ -158,6 +158,23 @@ export type UiRadioItemSlot = "item" | "indicator" | "label";
 export type UiSelectSlot = "trigger" | "content" | "item" | "indicator" | "chevron";
 
 /**
+ * `UiDropdownMenu` 的可覆寫部位。
+ *
+ * ⚠️ **沒有 `label` 那一格，而那是刻意的。** 觸發器裡那個 `sr-only` 的
+ * `<span>` 是這個元件**唯一**的可及名稱來源 —— 選單自己的名字也是從它來的
+ * （`DropdownMenuContent` 的 `aria-labelledby` 指向觸發器）。開一格給它就等於
+ * 讓各案用一句 `{ UiDropdownMenu: { label: "" } }` 把按鈕與選單同時變成無名，
+ * **而畫面一個像素都不會變**。同 `UiAlertDialog` 不給 `footer` 槽的形狀：
+ * 覆寫是整條替換，所以能被覆寫的東西不能是保護。
+ *
+ * ⚠️ `danger` 這一格是**加在 `item` 之上**的，不是取代它（模板寫成
+ * `[parts.item, parts.danger]`）。所以覆寫 `danger` 只該寫顏色；把版型也寫進去
+ * 的話會和 `item` 疊出兩份。這與 `UiBadge` 把 tone 攤平成獨立槽是同一個做法，
+ * 差別只在那裡是互斥的、這裡是疊加的。
+ */
+export type UiDropdownMenuSlot = "trigger" | "icon" | "content" | "item" | "danger";
+
+/**
  * `UiDatePicker` 的可覆寫部位。名稱取自 reka-ui 的基元。
  *
  * ⚠️ 八格是這個 repo 目前最多的 —— 日期選擇器本來就是一個小應用
@@ -227,6 +244,7 @@ export type UiThemeOverride = {
   readonly UiRadioGroup?: Readonly<Partial<Record<UiRadioGroupSlot, string>>>;
   readonly UiRadioItem?: Readonly<Partial<Record<UiRadioItemSlot, string>>>;
   readonly UiSelect?: Readonly<Partial<Record<UiSelectSlot, string>>>;
+  readonly UiDropdownMenu?: Readonly<Partial<Record<UiDropdownMenuSlot, string>>>;
   readonly UiDatePicker?: Readonly<Partial<Record<UiDatePickerSlot, string>>>;
   readonly UiTable?: Readonly<Partial<Record<UiTableSlot, string>>>;
   readonly UiTableHead?: Readonly<Partial<Record<UiTableHeadSlot, string>>>;

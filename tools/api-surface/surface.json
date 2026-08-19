@@ -560,6 +560,21 @@
         "kind": "type",
         "type": "\"content\" | \"description\" | \"overlay\" | \"title\""
       },
+      "UiDropdownMenu": {
+        "kind": "component",
+        "members": [
+          "[emit select]: [value: string]",
+          "[emit update:open]: void",
+          "align?: \"start\" | \"end\"",
+          "items: readonly { value: string; label: string; disabled?: boolean; variant?: \"default\" | \"danger\"; }[]",
+          "label: string",
+          "open?: boolean"
+        ]
+      },
+      "UiDropdownMenuSlot": {
+        "kind": "type",
+        "type": "\"content\" | \"danger\" | \"icon\" | \"item\" | \"trigger\""
+      },
       "UiField": {
         "kind": "component",
         "members": [
@@ -750,6 +765,7 @@
           "UiCheckbox?: Readonly<Partial<Record<UiCheckboxSlot, string>>> | undefined",
           "UiDatePicker?: Readonly<Partial<Record<UiDatePickerSlot, string>>> | undefined",
           "UiDialog?: Readonly<Partial<Record<UiDialogSlot, string>>> | undefined",
+          "UiDropdownMenu?: Readonly<Partial<Record<UiDropdownMenuSlot, string>>> | undefined",
           "UiField?: Readonly<Partial<Record<UiFieldSlot, string>>> | undefined",
           "UiInput?: Readonly<Partial<Record<\"input\", string>>> | undefined",
           "UiLabel?: Readonly<Partial<Record<\"label\", string>>> | undefined",

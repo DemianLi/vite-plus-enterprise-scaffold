@@ -49,6 +49,7 @@ export { default as UiField } from "./components/UiField.vue";
 export { default as UiRadioGroup } from "./components/UiRadioGroup.vue";
 export { default as UiRadioItem } from "./components/UiRadioItem.vue";
 export { default as UiSelect } from "./components/UiSelect.vue";
+export { default as UiDropdownMenu } from "./components/UiDropdownMenu.vue";
 export { default as UiSwitch } from "./components/UiSwitch.vue";
 export { default as UiTextarea } from "./components/UiTextarea.vue";
 export { cn } from "./utils/cn.ts";
@@ -70,6 +71,7 @@ export type {
   UiCheckboxSlot,
   UiDatePickerSlot,
   UiDialogSlot,
+  UiDropdownMenuSlot,
   UiInputSlot,
   UiLabelSlot,
   UiFieldSlot,
