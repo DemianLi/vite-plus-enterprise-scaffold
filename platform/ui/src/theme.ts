@@ -117,6 +117,24 @@ export type UiTabsSlot = "list" | "trigger";
 /** `UiTabsPanel` 的可覆寫部位。見 `UiTabsSlot` 為什麼分開。 */
 export type UiTabsPanelSlot = "panel";
 
+/** `UiLabel` 的可覆寫部位。 */
+export type UiLabelSlot = "label";
+
+/** `UiTextarea` 的可覆寫部位。⚠️ 與 `UiInputSlot` 刻意分開，見元件檔頭。 */
+export type UiTextareaSlot = "textarea";
+
+/** `UiSwitch` 的可覆寫部位。名稱取自 reka-ui 的基元。 */
+export type UiSwitchSlot = "root" | "thumb";
+
+/** `UiRadioGroup` 的可覆寫部位 —— 只有容器，每一項是 `UiRadioItem` 的事。 */
+export type UiRadioGroupSlot = "group";
+
+/** `UiRadioItem` 的可覆寫部位。 */
+export type UiRadioItemSlot = "item" | "indicator" | "label";
+
+/** `UiSelect` 的可覆寫部位。名稱取自 reka-ui 的基元。 */
+export type UiSelectSlot = "trigger" | "content" | "item" | "indicator";
+
 /**
  * 各案的覆寫表：**元件名 → 槽名 → 整條 class 字串**。
  *
@@ -134,6 +152,12 @@ export type UiThemeOverride = {
   readonly UiCheckbox?: Readonly<Partial<Record<UiCheckboxSlot, string>>>;
   readonly UiTabs?: Readonly<Partial<Record<UiTabsSlot, string>>>;
   readonly UiTabsPanel?: Readonly<Partial<Record<UiTabsPanelSlot, string>>>;
+  readonly UiLabel?: Readonly<Partial<Record<UiLabelSlot, string>>>;
+  readonly UiTextarea?: Readonly<Partial<Record<UiTextareaSlot, string>>>;
+  readonly UiSwitch?: Readonly<Partial<Record<UiSwitchSlot, string>>>;
+  readonly UiRadioGroup?: Readonly<Partial<Record<UiRadioGroupSlot, string>>>;
+  readonly UiRadioItem?: Readonly<Partial<Record<UiRadioItemSlot, string>>>;
+  readonly UiSelect?: Readonly<Partial<Record<UiSelectSlot, string>>>;
 };
 
 /**
