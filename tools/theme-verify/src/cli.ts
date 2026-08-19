@@ -11,6 +11,9 @@ import { auditReferences, customProperties, resolve as resolveVar, ruleFor, rule
 // fixture 的探針類別。**從 fixture 讀進來，不在這支程式裡寫死** —— 理由見下面
 // 那條斷言旁邊的說明（寫死的話這支工具自己會讓斷言恆真）。
 import { TS_ONLY_PROBE } from "../fixtures/probe.ts";
+// 反向探針：**應該掃不到**的類別。字面值住在被 @source not 排除的檔案裡，
+// 這支程式只拿變數 —— 寫在這裡的話它自己會進產物，斷言就永遠紅。
+import { EXCLUDED_PROBE, EXCLUDED_PROBE_MARK } from "../tests/excluded-probe.ts";
 
 /**
  * 設計系統接縫的驗收（HANDOFF #24 → C62 那句產品要求）。
@@ -435,6 +438,29 @@ async function runBuilds(): Promise<void> {
       `fixtures/probe.ts 的 ${candidate} 不在產物裡`,
       "createUiTheme() 的覆寫字串就住在 .ts（composition root）。" +
         "@source 掃不到 .ts 的話那些覆寫會安靜地沒有樣式，而建置全綠",
+    );
+  }
+
+  // ── 反過來：測試檔裡的類別**不准**進產物 ──
+  //
+  // 上面那條守「掃得到」，這條守「掃得剛好」。兩條都要，因為
+  // `@source` 的兩種壞法方向相反：漏掃讓畫面壞掉，多掃讓交付的 CSS
+  // 帶著測試殘留（實測 0.84 kB／13 條選擇器，全部來自測試檔的字面值與註解）。
+  //
+  // ⚠️ 退出演練抓不到多掃那一種：它比的是 CSS 位元組比值 ≥ 80%，
+  // 而多掃的方向是產物變大。所以這裡是唯一在守它的地方。
+  if (EXCLUDED_PROBE.length === 0 || EXCLUDED_PROBE_MARK.length === 0) {
+    fail(
+      "反向探針是空的",
+      "tests/excluded-probe.ts 沒有給出類別或比對字串",
+      "空字串會讓下面那條斷言恆真 —— 同 fixtures/probe.ts 的理由",
+    );
+  } else if (baseCss.includes(EXCLUDED_PROBE_MARK)) {
+    fail(
+      "測試檔裡的類別被編進產物了",
+      `${EXCLUDED_PROBE} 只寫在 tests/ 底下，卻在產物裡留下了 ${EXCLUDED_PROBE_MARK}`,
+      "platform/ui 的 @source 少了 `not` 那兩條排除。Tailwind 的抽取器不解析語法，" +
+        "連註解裡長得像 utility 的字串都會變成規則 —— 那些規則會進使用者下載的 CSS",
     );
   }
 
