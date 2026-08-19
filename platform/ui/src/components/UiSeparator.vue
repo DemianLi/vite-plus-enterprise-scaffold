@@ -18,17 +18,22 @@ import { NO_OVERRIDE, UI_THEME, type UiSeparatorSlot } from "../theme.ts";
  * 於是一個排版用的分隔線會被唸出來。
  */
 
-defineProps<{
-  /** 方向。垂直的要有明確高度（外面給），否則畫不出來。 */
-  orientation?: "horizontal" | "vertical";
-  /**
-   * 這條線有語意（真的在分隔兩段內容），輔具要唸。
-   *
-   * ⚠️ 預設是 `false`（裝飾），與 reka-ui 一致 —— 排版用的分隔線多得多，
-   * 而預設會唸的話每個頁面都會多出一堆「分隔線」的朗讀。
-   */
-  semantic?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    /** 方向。垂直的要有明確高度（外面給），否則畫不出來。 */
+    orientation?: "horizontal" | "vertical";
+    /**
+     * 這條線有語意（真的在分隔兩段內容），輔具要唸。
+     *
+     * ⚠️ 預設是 `false`（裝飾），與 reka-ui 一致 —— 排版用的分隔線多得多，
+     * 而預設會唸的話每個頁面都會多出一堆「分隔線」的朗讀。
+     */
+    semantic?: boolean;
+  }>(),
+  // ⚠️ 預設值寫在 withDefaults 而不是模板：`orientation` 有 union，
+  // 契約測試會檢查它（理由見 UiTableHeadCell）。
+  { orientation: "horizontal", semantic: false },
+);
 
 const DEFAULT_PARTS: Readonly<Record<UiSeparatorSlot, string>> = {
   separator:
@@ -44,8 +49,8 @@ const parts: Readonly<Record<UiSeparatorSlot, string>> = {
 <template>
   <Separator
     data-slot="separator"
-    :orientation="orientation ?? 'horizontal'"
-    :decorative="semantic !== true"
+    :orientation="props.orientation"
+    :decorative="!props.semantic"
     :class="parts.separator"
   />
 </template>

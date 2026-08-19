@@ -17,15 +17,24 @@ import { NO_OVERRIDE, UI_THEME, type UiTableHeadCellSlot } from "../theme.ts";
  * 而 `conformance` 的 D15 檢查擋的是 import 不是標籤。
  */
 
-defineProps<{
-  /**
-   * 這一格是欄標題（`col`）還是列標題（`row`）。
-   *
-   * `row` 用在第一欄就是識別碼的表格（訂單編號、身分證字號）——
-   * 那時每一列的第一格是那一列的標題。
-   */
-  scope?: "col" | "row";
-}>();
+withDefaults(
+  defineProps<{
+    /**
+     * 這一格是欄標題（`col`）還是列標題（`row`）。
+     *
+     * `row` 用在第一欄就是識別碼的表格（訂單編號、身分證字號）——
+     * 那時每一列的第一格是那一列的標題。
+     */
+    scope?: "col" | "row";
+  }>(),
+  {
+    // ⚠️ 預設值寫在這裡而不是模板的 `?? "col"`：`scope` 有 union，所以契約
+    // 測試的「預設值必須是該 prop 的 union 成員之一」**真的會檢查它** ——
+    // 寫進模板就逃掉了，而打錯成 `"colum"` 的症狀是螢幕閱讀器唸不出欄名。
+    // C76（UiBadge）、C79（UiDatePicker）之後第三次，而這次的檢查是有牙齒的。
+    scope: "col",
+  },
+);
 
 /** 標題內容。 */
 defineSlots<{
@@ -43,7 +52,7 @@ const parts: Readonly<Record<UiTableHeadCellSlot, string>> = {
 </script>
 
 <template>
-  <th data-slot="table-head-cell" :scope="scope ?? 'col'" :class="parts.cell">
+  <th data-slot="table-head-cell" :scope="scope" :class="parts.cell">
     <slot />
   </th>
 </template>

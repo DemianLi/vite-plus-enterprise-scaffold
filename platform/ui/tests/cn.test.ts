@@ -56,11 +56,40 @@ function tokens(namespace: string): readonly string[] {
  * 丟掉）或**多東西**（不認得所以兩個都留，於是 CSS 順序決定，
  * 也就是 twMerge 存在的理由本身失效）。兩種這條斷言都抓得到。
  */
+/**
+ * ⚠️ **方向性寫法要一起問，這是 C80 的 review 逼出來的。**
+ *
+ * C77 修好 `border-control` 之後，`border-b-control` **原封不動地還是壞的** ——
+ * 因為 `twMerge` 把 border-width 拆成十一個族、圓角拆成十五個，而 C77 只
+ * 登記了不帶方向的那一個。當場咬到 `UiTableHead`（`border-b-control
+ * border-line` → 寬度被丟掉 → 表頭沒有下邊框）。
+ *
+ * 而**這支測試當時是綠的**，因為它只組得出基本形式。
+ * 一道只檢查一半情況的閘門比沒有閘門更危險：它讓人以為這件事已經守住了。
+ */
+const BORDER_SIDES = ["t", "r", "b", "l", "x", "y", "s", "e"] as const;
+const CORNERS = [
+  "t",
+  "r",
+  "b",
+  "l",
+  "s",
+  "e",
+  "tl",
+  "tr",
+  "br",
+  "bl",
+  "ss",
+  "se",
+  "ee",
+  "es",
+] as const;
+
 const NAMESPACES = [
-  { css: "border-width", prefix: "border", builtin: "border-2" },
-  { css: "font-weight", prefix: "font", builtin: "font-bold" },
-  { css: "radius", prefix: "rounded", builtin: "rounded-none" },
-  { css: "shadow", prefix: "shadow", builtin: "shadow-xs" },
+  { css: "border-width", prefix: "border", builtin: "border-2", sides: BORDER_SIDES },
+  { css: "font-weight", prefix: "font", builtin: "font-bold", sides: [] },
+  { css: "radius", prefix: "rounded", builtin: "rounded-none", sides: CORNERS },
+  { css: "shadow", prefix: "shadow", builtin: "shadow-xs", sides: [] },
 ] as const;
 
 describe("cn() 認得自訂代幣的類別族", () => {
@@ -71,18 +100,24 @@ describe("cn() 認得自訂代幣的類別族", () => {
     for (const { css } of NAMESPACES) expect(tokens(css).length, css).toBeGreaterThan(0);
   });
 
-  for (const { css, prefix, builtin } of NAMESPACES) {
+  for (const { css, prefix, builtin, sides } of NAMESPACES) {
     describe(`--${css}-*`, () => {
       for (const name of tokens(css)) {
-        const utility = `${prefix}-${name}`;
-        if (utility === builtin) continue;
+        // 基本形式（`border-control`）與每一個方向性形式（`border-b-control`）。
+        const forms = [`${prefix}-${name}`, ...sides.map((side) => `${prefix}-${side}-${name}`)];
 
-        it(`${utility} 與 ${builtin} 同族 —— 後者要贏`, () => {
-          expect(
-            cn(utility, builtin),
-            `${utility} 沒有被歸進 ${builtin} 那一族 —— 請到 cn.ts 的 classGroups 登記`,
-          ).toBe(builtin);
-        });
+        for (const utility of forms) {
+          if (utility === builtin) continue;
+          // 同族的內建對照要跟著換方向：`border-b-control` 要跟 `border-b-2` 比。
+          const sibling = utility.replace(`-${name}`, builtin.slice(prefix.length));
+
+          it(`${utility} 與 ${sibling} 同族 —— 後者要贏`, () => {
+            expect(
+              cn(utility, sibling),
+              `${utility} 沒有被歸進 ${sibling} 那一族 —— 請到 cn.ts 的 classGroups 登記`,
+            ).toBe(sibling);
+          });
+        }
       }
     });
   }
@@ -96,6 +131,10 @@ describe("cn() 認得自訂代幣的類別族", () => {
    */
   const CROSS: readonly (readonly [string, string])[] = [
     ["border-control", "border-line"],
+    // ⚠️ 這一對是 C80 的 review 實際咬到的：`UiTableHead` 的預設就是它，
+    // 而修好 `border-control` 之後它還壞著。
+    ["border-b-control", "border-line"],
+    ["rounded-t-control", "bg-surface"],
     ["border-line", "border-control"],
     ["font-sans", "font-control"],
     ["rounded-control", "bg-surface"],

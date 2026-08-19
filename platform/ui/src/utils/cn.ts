@@ -105,16 +105,70 @@ import { extendTailwindMerge } from "tailwind-merge";
  * 推導代幣名反過來驗它 —— **加一個代幣卻忘了登記會紅**。手寫清單本身
  * 不是問題，沒有東西在守它才是（C71）。
  */
-const twMerge = extendTailwindMerge({
-  extend: {
-    classGroups: {
-      "border-w": [{ border: ["control"] }],
-      "font-weight": [{ font: ["control", "heading"] }],
-      rounded: [{ rounded: ["control", "surface"] }],
-      shadow: [{ shadow: ["overlay"] }],
-    },
-  },
-});
+/**
+ * ⚠️ **方向性的子族也要登記，否則 C77 那個 bug 原封不動地復發。**
+ *
+ * `twMerge` 把 `border-width` 拆成十一個族（`border-w` 加十個方向），
+ * 圓角拆成十五個。C77 只登記了不帶方向的那一個，於是
+ *
+ *   cn("border-b-control border-line")  →  "border-line"
+ *
+ * **完全一樣的症狀，只差一個 `-b-`。** 而它當場就咬到了：`UiTableHead` 的
+ * 預設是 `border-b-control border-line`，所以表頭根本沒有下邊框。
+ *
+ * ⚠️ 更值得記的是**閘門為什麼沒說話**：`cn.test.ts` 從 `@theme` 推導代幣名，
+ * 但只組出基本形式去問。一道只檢查一半情況的閘門比沒有閘門更危險 ——
+ * 它讓人以為這件事已經被守住了。現在那支測試把方向性寫法也組進去。
+ */
+const BORDER_WIDTH_GROUPS = [
+  "border-w",
+  "border-w-x",
+  "border-w-y",
+  "border-w-s",
+  "border-w-e",
+  "border-w-bs",
+  "border-w-be",
+  "border-w-t",
+  "border-w-r",
+  "border-w-b",
+  "border-w-l",
+] as const;
+
+/** `border-w-b` → `border-b`，也就是 utility 的實際前綴。`border-w` → `border`。 */
+const BORDER_PREFIX: Readonly<Record<string, string>> = Object.fromEntries(
+  BORDER_WIDTH_GROUPS.map((id) => [id, id === "border-w" ? "border" : `border-${id.slice(9)}`]),
+);
+
+const ROUNDED_GROUPS = [
+  "rounded",
+  "rounded-s",
+  "rounded-e",
+  "rounded-t",
+  "rounded-r",
+  "rounded-b",
+  "rounded-l",
+  "rounded-ss",
+  "rounded-se",
+  "rounded-ee",
+  "rounded-es",
+  "rounded-tl",
+  "rounded-tr",
+  "rounded-br",
+  "rounded-bl",
+] as const;
+
+const classGroups: Record<string, unknown[]> = {
+  "font-weight": [{ font: ["control", "heading"] }],
+  shadow: [{ shadow: ["overlay"] }],
+};
+for (const id of BORDER_WIDTH_GROUPS) {
+  classGroups[id] = [{ [BORDER_PREFIX[id] as string]: ["control"] }];
+}
+for (const id of ROUNDED_GROUPS) {
+  classGroups[id] = [{ [id]: ["control", "surface"] }];
+}
+
+const twMerge = extendTailwindMerge({ extend: { classGroups } });
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));

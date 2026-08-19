@@ -28,6 +28,16 @@ import { NO_OVERRIDE, UI_THEME, type UiPaginationSlot } from "../theme.ts";
  * **要自己減一** —— 這一格沒有閘門，而錯了的症狀是「永遠少一頁」或
  * 「第一頁看到第二頁的資料」。刻意不在這裡幫忙轉：轉了之後
  * `v-model` 的值與畫面上顯示的數字就不一樣，那更難查。
+ *
+ * ── ⚠️ `show-edges` 不是選配的 ────────────────────────────────────
+ *
+ * reka-ui 的預設是 `false`，而那個預設讓這個元件**有一半是壞的**：
+ * 清單只剩當前頁附近那幾個，**沒有第一頁也沒有最後一頁**，而且因為沒有
+ * 邊緣就**永遠不會出現省略號** —— 下面那個 `PaginationEllipsis` 與它的
+ * `ellipsis` 槽整組是死的。
+ *
+ * 實測（10 頁、當前第 5 頁）：修之前渲染出來是 `3 4 5 6 7`，
+ * 使用者要回第一頁得連按四次上一頁。
  */
 
 const page = defineModel<number>({ default: 1 });
@@ -72,6 +82,7 @@ const parts: Readonly<Record<UiPaginationSlot, string>> = {
     data-slot="pagination"
     :total="total"
     :items-per-page="perPage"
+    show-edges
   >
     <PaginationList v-slot="{ items }" :class="parts.list">
       <PaginationPrev :class="parts.nav">
