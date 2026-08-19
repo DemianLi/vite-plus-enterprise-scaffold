@@ -78,26 +78,56 @@ import { NO_OVERRIDE, UI_THEME, type UiDatePickerSlot } from "../theme.ts";
 
 const value = defineModel<DateValue | undefined>({ default: undefined });
 
-defineProps<{
-  /**
-   * 分段順序與星期名稱的地區。預設 `"zh-TW"`。
-   *
-   * ⚠️ **這個 prop 是 review 逼出來的，而它逼出的是一句不實的檔頭。**
-   * 上面寫著「日期還有曆法、時區、地區格式三個問題」——而不開這個 prop 的話
-   * 第三個根本沒解：reka-ui 的預設是 `en-US`，實測產出是 `8/19/2026`，
-   * 而且**各案換不掉**。一個對外賣「快速換配色與元件樣式」的設計系統，
-   * 在日期欄位上把地區格式寫死，是同一種「寫了但不成立」。
-   *
-   * ⚠️ 預設值刻意是 `"zh-TW"` 而不是跟著瀏覽器：**跟著瀏覽器會讓同一份
-   * 資料在不同人的畫面上長不一樣**，而政府案的表單截圖是要附在公文裡的。
-   * 要跟著使用者的話明確傳 `navigator.language`。
-   *
-   * ⚠️ 刻意**沒有**開 `minValue`／`maxValue`／`isDateUnavailable`。
-   * 那三個是「這個欄位的規則」，而規則屬於表單不屬於設計系統 ——
-   * 真的需要時再開是一筆 minor（新增選填 prop）。
-   */
-  locale?: string;
-}>();
+withDefaults(
+  defineProps<{
+    /**
+     * 分段順序與星期名稱的地區。預設 `"zh-TW"`。
+     *
+     * ⚠️ **這個 prop 是 review 逼出來的，而它逼出的是一句不實的檔頭。**
+     * 上面寫著「日期還有曆法、時區、地區格式三個問題」——而不開這個 prop 的話
+     * 第三個根本沒解：reka-ui 的預設是 `en-US`，實測產出是 `8/19/2026`，
+     * 而且**各案換不掉**。一個對外賣「快速換配色與元件樣式」的設計系統，
+     * 在日期欄位上把地區格式寫死，是同一種「寫了但不成立」。
+     *
+     * ⚠️ 預設值刻意是 `"zh-TW"` 而不是跟著瀏覽器：**跟著瀏覽器會讓同一份
+     * 資料在不同人的畫面上長不一樣**，而政府案的表單截圖是要附在公文裡的。
+     * 要跟著使用者的話明確傳 `navigator.language`。
+     *
+     * ⚠️ 刻意**沒有**開 `minValue`／`maxValue`／`isDateUnavailable`。
+     * 那三個是「這個欄位的規則」，而規則屬於表單不屬於設計系統 ——
+     * 真的需要時再開是一筆 minor（新增選填 prop）。
+     *
+     * ⚠️ **不合法的 locale 會丟例外**（`Invalid language tag: zh-TWW`），
+     * 而那個例外沒有地方接 —— 整片畫面會白掉。實測過。這裡刻意不 try／catch：
+     * 吞掉之後的症狀是「日期格式莫名其妙變成美式」，比白掉難查得多。
+     */
+    locale?: string;
+
+    /**
+     * 這一格驗證失敗。
+     *
+     * ⚠️ **這個 prop 是 review 逼出來的，而它逼出的是三條死掉的 class。**
+     * `field` 槽從第一版就寫著 `aria-invalid:border-danger` 那三條，
+     * 但**沒有任何路徑把 `aria-invalid` 放到那個 `<div>` 上**：
+     * `DatePickerRoot` 是一個不渲染元素的 provider，使用端的 fallthrough
+     * 屬性落在它身上就消失了（實測：field 的 `<div>` 上找不到 `aria-invalid`）。
+     *
+     * 也就是三條**寫了但永遠無效**的 class —— 與 A 批在 `UiSwitch` 抓到的
+     * 死 `peer` 是同一個形狀，兩個批次各一次。
+     *
+     * `UiInput`／`UiTextarea` 不需要這個 prop，因為它們是單根元件、
+     * `aria-invalid` 走 fallthrough 就到位了。這一支的結構不允許，所以要明說。
+     */
+    invalid?: boolean;
+  }>(),
+  {
+    // ⚠️ 預設值寫在 `withDefaults` 而不是模板的 `?? "zh-TW"`：C76 的 review
+    // 才剛把 `UiBadge` 從那個寫法改過來。`locale` 沒有 union 所以契約測試
+    // 今天不會檢查它 —— 但下一個人抄的是離他最近的那一個。
+    locale: "zh-TW",
+    invalid: false,
+  },
+);
 
 const DEFAULT_PARTS: Readonly<Record<UiDatePickerSlot, string>> = {
   field: cn(
@@ -149,8 +179,16 @@ const parts: Readonly<Record<UiDatePickerSlot, string>> = {
 </script>
 
 <template>
-  <DatePickerRoot v-model="value" :locale="locale ?? 'zh-TW'" data-slot="date-picker">
-    <DatePickerField v-slot="{ segments }" :class="parts.field">
+  <DatePickerRoot v-model="value" :locale="locale">
+    <!-- ⚠️ `data-slot` 與 `aria-invalid` 都掛在 field 上，**不是 Root 上**：
+         `DatePickerRoot` 不渲染任何元素，掛上去的屬性會被安靜丟掉。
+         實測第一版把 data-slot 放在 Root，產出裡完全找不到它。 -->
+    <DatePickerField
+      v-slot="{ segments }"
+      data-slot="date-picker"
+      :aria-invalid="invalid || undefined"
+      :class="parts.field"
+    >
       <!-- 分段（年／月／日）由 reka-ui 依 locale 決定順序 —— 那正是自己寫
            一定會錯的一格：日／月的順序在不同地區是相反的。 -->
       <DatePickerInput

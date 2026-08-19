@@ -41,8 +41,10 @@ catalog:
   # UiDatePicker 用。⚠️ **這不是一筆新的供應鏈範圍**：它從第一天就在樹裡
   # （reka-ui 自己相依它），這裡做的只是把「本來就在用」寫成明的 ——
   # platform/ui 要直接 import CalendarDate 才建得出 DateValue。
-  # 版本刻意跟著 reka-ui 的範圍（^3），釘死會在 reka-ui 升版時產生第二份。
-  "@internationalized/date": ^3.12.3
+  # ⚠️ 版本**逐字跟著 reka-ui 自己宣告的範圍**（^3.5.0），不是抄目前解到的
+  # 3.12.3。寫得比它窄的話，reka-ui 哪天需要一個更舊的 3.x 就會產生第二份 ——
+  # 那正是 D15 記過的 lightningcss 兩個版本、MPL-2.0 範圍翻倍的形狀。
+  "@internationalized/date": ^3.5.0
 
   # --- 元件測試（§11 II ⑨ 的執行期那一層）---
   # ⚠️ C47 才剛以「會把瀏覽器二進位拉進供應鏈盤點範圍」為由拒絕 Playwright，

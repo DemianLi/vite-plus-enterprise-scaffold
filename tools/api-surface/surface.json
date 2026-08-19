@@ -509,6 +509,7 @@
         "kind": "component",
         "members": [
           "[emit update:modelValue]: void",
+          "invalid?: boolean",
           "locale?: string",
           "modelValue?: DateValue | undefined"
         ]
