@@ -145,6 +145,32 @@ export interface ReferenceAudit {
 const BARE_VAR = /var\(\s*(--[a-z0-9-]+)\s*\)/g;
 
 /**
+ * **由第三方在執行期設定的自訂屬性** —— 它們永遠不會出現在建置產物裡，
+ * 而那不是缺陷。
+ *
+ * ── 為什麼需要這一格，以及為什麼理由是必填的字串 ────────────────────
+ *
+ * 這道檢查的模型原本是「我們的 CSS 宣告，我們的 CSS 引用」。`UiSelect`
+ * 打破它：reka-ui 的 `SelectContent`（`position="popper"`）會把觸發器的寬度
+ * 用 **inline style** 寫進 `--reka-select-trigger-width`，好讓下拉面板跟觸發器
+ * 一樣寬。那個變數在建置產物裡當然找不到 —— 它在瀏覽器裡才存在。
+ *
+ * ⚠️ **這不是一個「例外清單」，兩者的差別是失敗輪廓。** 一個布林開關
+ * （或一句 `// eslint-disable`）的下一個使用者只會照抄；一個**必填的字串**
+ * 要寫「誰設的、什麼時候設的」，而寫不出來的人就會發現自己其實是在
+ * silence 一個真的缺陷（C41）。
+ *
+ * 判準：**只有「我們無法宣告、而且宣告了反而是錯的」才進這裡。**
+ * 把 `--reka-select-trigger-width` 寫進 `@theme` 會產生一個永遠被 inline
+ * style 蓋掉的死代幣 —— 那比不宣告更糟，因為它看起來像可以調。
+ */
+export const RUNTIME_PROVIDED: Readonly<Record<string, string>> = {
+  "--reka-select-trigger-width":
+    'reka-ui 的 SelectContent（position="popper"）在開啟時以 inline style 寫入觸發器寬度，' +
+    "讓下拉面板與觸發器等寬。宣告在 @theme 裡會變成一個永遠被蓋掉的死代幣。",
+};
+
+/**
  * 把「宣告過的自訂屬性」放到最寬：**整份樣式表裡任何一條規則宣告過**就算數，
  * 外加 `@property` 註冊過的名字。
  *
@@ -189,6 +215,8 @@ export function auditReferences(css: string): ReferenceAudit {
     for (const match of rule.body.matchAll(BARE_VAR)) {
       const name = match[1] as string;
       if (declared.has(name)) continue;
+      // 第三方在執行期設的（見 RUNTIME_PROVIDED）—— 產物裡找不到是正常的。
+      if (name in RUNTIME_PROVIDED) continue;
       const bucket = found.get(name) ?? new Set<string>();
       bucket.add(rule.selector);
       found.set(name, bucket);

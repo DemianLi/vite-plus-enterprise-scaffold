@@ -529,6 +529,47 @@
         "kind": "type",
         "type": "\"input\""
       },
+      "UiLabel": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]", "for: string"]
+      },
+      "UiLabelSlot": {
+        "kind": "type",
+        "type": "\"label\""
+      },
+      "UiRadioGroup": {
+        "kind": "component",
+        "members": [
+          "[emit update:modelValue]: void",
+          "[slot default]: (): VNode[]",
+          "modelValue?: string"
+        ]
+      },
+      "UiRadioGroupSlot": {
+        "kind": "type",
+        "type": "\"group\""
+      },
+      "UiRadioItem": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]", "label?: string", "value: string"]
+      },
+      "UiRadioItemSlot": {
+        "kind": "type",
+        "type": "\"indicator\" | \"item\" | \"label\""
+      },
+      "UiSelect": {
+        "kind": "component",
+        "members": [
+          "[emit update:modelValue]: void",
+          "items: readonly { value: string; label: string }[]",
+          "modelValue?: string",
+          "placeholder: string"
+        ]
+      },
+      "UiSelectSlot": {
+        "kind": "type",
+        "type": "\"chevron\" | \"content\" | \"indicator\" | \"item\" | \"trigger\""
+      },
       "UiSize": {
         "kind": "type",
         "type": "\"md\" | \"sm\""
@@ -540,6 +581,14 @@
       "UiSkeletonSlot": {
         "kind": "type",
         "type": "\"skeleton\""
+      },
+      "UiSwitch": {
+        "kind": "component",
+        "members": ["[emit update:modelValue]: void", "modelValue?: boolean"]
+      },
+      "UiSwitchSlot": {
+        "kind": "type",
+        "type": "\"root\" | \"thumb\""
       },
       "UiTabs": {
         "kind": "component",
@@ -562,6 +611,14 @@
         "kind": "type",
         "type": "\"list\" | \"trigger\""
       },
+      "UiTextarea": {
+        "kind": "component",
+        "members": ["[emit update:modelValue]: void", "modelValue?: string"]
+      },
+      "UiTextareaSlot": {
+        "kind": "type",
+        "type": "\"textarea\""
+      },
       "UiThemeOverride": {
         "kind": "type",
         "members": [
@@ -570,9 +627,15 @@
           "UiCheckbox?: Readonly<Partial<Record<UiCheckboxSlot, string>>> | undefined",
           "UiDialog?: Readonly<Partial<Record<UiDialogSlot, string>>> | undefined",
           "UiInput?: Readonly<Partial<Record<\"input\", string>>> | undefined",
+          "UiLabel?: Readonly<Partial<Record<\"label\", string>>> | undefined",
+          "UiRadioGroup?: Readonly<Partial<Record<\"group\", string>>> | undefined",
+          "UiRadioItem?: Readonly<Partial<Record<UiRadioItemSlot, string>>> | undefined",
+          "UiSelect?: Readonly<Partial<Record<UiSelectSlot, string>>> | undefined",
           "UiSkeleton?: Readonly<Partial<Record<\"skeleton\", string>>> | undefined",
+          "UiSwitch?: Readonly<Partial<Record<UiSwitchSlot, string>>> | undefined",
           "UiTabs?: Readonly<Partial<Record<UiTabsSlot, string>>> | undefined",
-          "UiTabsPanel?: Readonly<Partial<Record<\"panel\", string>>> | undefined"
+          "UiTabsPanel?: Readonly<Partial<Record<\"panel\", string>>> | undefined",
+          "UiTextarea?: Readonly<Partial<Record<\"textarea\", string>>> | undefined"
         ]
       },
       "UiVariant": {

@@ -33,6 +33,12 @@ export { default as UiCheckbox } from "./components/UiCheckbox.vue";
 export { default as UiSkeleton } from "./components/UiSkeleton.vue";
 export { default as UiTabs } from "./components/UiTabs.vue";
 export { default as UiTabsPanel } from "./components/UiTabsPanel.vue";
+export { default as UiLabel } from "./components/UiLabel.vue";
+export { default as UiRadioGroup } from "./components/UiRadioGroup.vue";
+export { default as UiRadioItem } from "./components/UiRadioItem.vue";
+export { default as UiSelect } from "./components/UiSelect.vue";
+export { default as UiSwitch } from "./components/UiSwitch.vue";
+export { default as UiTextarea } from "./components/UiTextarea.vue";
 export { cn } from "./utils/cn.ts";
 
 /**
@@ -50,10 +56,16 @@ export type {
   UiCheckboxSlot,
   UiDialogSlot,
   UiInputSlot,
+  UiLabelSlot,
+  UiRadioGroupSlot,
+  UiRadioItemSlot,
+  UiSelectSlot,
   UiSize,
   UiSkeletonSlot,
+  UiSwitchSlot,
   UiTabsPanelSlot,
   UiTabsSlot,
+  UiTextareaSlot,
   UiThemeOverride,
   UiVariant,
 } from "./theme.ts";
