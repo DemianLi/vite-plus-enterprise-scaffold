@@ -474,6 +474,24 @@
         "kind": "component",
         "members": ["[slot default]: (): VNode[]", "tone?: \"info\" | \"success\" | \"danger\""]
       },
+      "UiAlertDialog": {
+        "kind": "component",
+        "members": [
+          "[emit confirm]: []",
+          "[emit update:open]: void",
+          "[slot default]: (): VNode[]",
+          "cancelLabel?: string",
+          "confirmLabel: string",
+          "confirmVariant?: \"primary\" | \"danger\"",
+          "description: string",
+          "open?: boolean",
+          "title: string"
+        ]
+      },
+      "UiAlertDialogSlot": {
+        "kind": "type",
+        "type": "\"actions\" | \"content\" | \"description\" | \"overlay\" | \"title\""
+      },
       "UiAlertSlot": {
         "kind": "type",
         "type": "\"alert\" | \"danger\" | \"info\" | \"success\""
@@ -726,6 +744,7 @@
         "kind": "type",
         "members": [
           "UiAlert?: Readonly<Partial<Record<UiAlertSlot, string>>> | undefined",
+          "UiAlertDialog?: Readonly<Partial<Record<UiAlertDialogSlot, string>>> | undefined",
           "UiBadge?: Readonly<Partial<Record<UiBadgeSlot, string>>> | undefined",
           "UiButton?: Readonly<Partial<Record<UiButtonSlot, string>>> | undefined",
           "UiCheckbox?: Readonly<Partial<Record<UiCheckboxSlot, string>>> | undefined",

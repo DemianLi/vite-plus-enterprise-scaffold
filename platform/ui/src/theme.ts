@@ -80,6 +80,21 @@ export type UiButtonSlot = UiVariant | UiSize;
 /** `UiDialog` 的可覆寫部位。名稱取自 reka-ui 的基元，見檔頭。 */
 export type UiDialogSlot = "overlay" | "content" | "title" | "description";
 
+/**
+ * `UiAlertDialog` 的可覆寫部位。前四格與 `UiDialogSlot` 同名同義。
+ *
+ * ⚠️ **刻意重複而不共用**（同 C78 §3 對 `UiTextarea` 的處置）：共用一個型別
+ * 別名的話，日後幫對話框加一格會逼確認框跟著長一格，而兩者的結構沒有理由
+ * 永遠一致。**代價寫在這裡**：覆寫了 `UiDialog.content`（例如手機版改成
+ * 底部滑出）的案子**不會**套到確認框，兩個框會長得不一樣 —— 要一致就兩格都寫。
+ *
+ * ⚠️ **多出來的 `actions` 是因為那裡沒有槽。** `UiDialog` 的按鈕列沒有這一格，
+ * 因為它有 `footer` 槽可以整組換掉；`UiAlertDialog` **刻意不給那個槽**
+ * （見元件檔頭：換掉就把焦點保護一起換掉了），所以那一列若再沒有具名槽，
+ * 各案連「改成左右分置」都做不到。**拿掉一個逃生口就要補另一個。**
+ */
+export type UiAlertDialogSlot = "overlay" | "content" | "title" | "description" | "actions";
+
 /** `UiInput` 的可覆寫部位。名稱取自上游的 `data-slot="input"`。 */
 export type UiInputSlot = "input";
 
@@ -198,6 +213,7 @@ export type UiAlertSlot = "alert" | "info" | "success" | "danger";
 export type UiThemeOverride = {
   readonly UiButton?: Readonly<Partial<Record<UiButtonSlot, string>>>;
   readonly UiDialog?: Readonly<Partial<Record<UiDialogSlot, string>>>;
+  readonly UiAlertDialog?: Readonly<Partial<Record<UiAlertDialogSlot, string>>>;
   readonly UiInput?: Readonly<Partial<Record<UiInputSlot, string>>>;
   readonly UiSkeleton?: Readonly<Partial<Record<UiSkeletonSlot, string>>>;
   readonly UiBadge?: Readonly<Partial<Record<UiBadgeSlot, string>>>;

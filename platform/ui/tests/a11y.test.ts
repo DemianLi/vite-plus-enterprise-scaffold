@@ -309,13 +309,20 @@ const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = {
  *     <!-- ⚠️ 刻意**沒有** role="alert"：錯誤透過 aria-describedby 在聚焦時… -->
  *
  * ⚠️ **這一條驗的是原始碼，不是產物。** 它擋得住「有人往模板裡寫註解」，
- * 擋不住「Vue 改變註解的處理方式」。要驗產物就得把每個元件都渲染出來，
- * 而多數元件需要 props 才渲染得動 —— 那是一份逐元件的 fixture，成本遠大於
- * 換到的。同 `theme-verify` README 那句「綠燈的意思是配色與形狀實測可換，
- * 不是設計系統可換」：邊界要自己說出來。
+ * 擋不住「Vue 改變註解的處理方式」。同 `theme-verify` README 那句
+ * 「綠燈的意思是配色與形狀實測可換，不是設計系統可換」：邊界要自己說出來。
  *
- * ⚠️ 產物那一側**有一條**（`field-wiring.test.ts` 的「模板裡不留 HTML 註解」），
- * 但它只渲染 `UiField`。兩條合起來才是完整的：一條深、一條廣。
+ * ⚠️ **而對 portal 元件，產物那一側不是「成本高」，是「做不到」**（C86 實測）。
+ * reka-ui 的 `Teleport.vue` 是 `isMounted || forceMount` 才渲染，
+ * `useMounted()` 在伺服器端是 false —— `UiDialog` 在 `renderToString` 下的
+ * 完整產出是 `<!--[--><!--v-if--><!--]-->`，連 `ctx.teleports` 都是 undefined。
+ * 再多的 fixture 也變不出東西來。這一版寫的是「成本遠大於換到的」，
+ * **那句話對非 portal 元件為真、對 portal 元件為假**。
+ *
+ * ⚠️ 產物那一側現在有兩條，各自只涵蓋一個元件：
+ * `field-wiring.test.ts` 用 SSR 驗 `UiField`、`alert-dialog.test.ts` 用 DOM
+ * 驗 `UiAlertDialog`（portal 元件只有後面那條路走得通）。
+ * 加上這條掃全目錄的，才是完整的：兩條深、一條廣。
  *
  * ⚠️ 別跟 SSR 的 fragment 標記搞混：產物裡的 `<!--[-->` 與 `<!---->` 是 Vue
  * 自己插的，不是作者寫的。這一條讀的是**原始碼**，碰不到它們。
