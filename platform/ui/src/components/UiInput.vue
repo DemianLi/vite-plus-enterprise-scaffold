@@ -76,6 +76,9 @@ const DEFAULT_PARTS: Readonly<Record<UiInputSlot, string>> = {
   ),
 };
 
+// ⚠️ 上面 DEFAULT_PARTS 的 cn() 是**每個實例跑一次**（`<script setup>` 的
+// 本體就是 `setup()`），不是每個 module 一次，也不是每次 render。
+// 量過了，那樣是對的 —— 理由與數字在 utils/cn.ts 的檔頭與 C75。
 const theme = inject(UI_THEME, NO_OVERRIDE);
 const parts: Readonly<Record<UiInputSlot, string>> = {
   input: theme.UiInput?.input ?? DEFAULT_PARTS.input,
