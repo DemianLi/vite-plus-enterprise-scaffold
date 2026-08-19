@@ -100,7 +100,13 @@ const DEFAULT_PARTS: Readonly<Record<UiDialogSlot, string>> = {
   description: "mt-1 text-sm text-fg-muted",
 };
 
-// 覆寫表是凍結的、而且不依賴 props，所以解析一次就好 —— 不需要 computed。
+// 覆寫表是凍結的、而且不依賴 props，所以**每個實例解析一次**就好 ——
+// 不需要 computed。
+//
+// ⚠️ 「一次」指的是**每個實例一次**，不是整個 module 一次：`<script setup>`
+// 的本體就是 `setup()`。上面 DEFAULT_PARTS 裡那個 cn() 也一樣。
+// 量過了，那樣是對的 —— 每個實例 0.26 – 0.29 µs，而實例掛載本身約 2.8 µs，
+// 提到真正的 module 層只會把未命中的成本搬到 import 時（C75、utils/cn.ts）。
 const theme = inject(UI_THEME, NO_OVERRIDE);
 const parts: Readonly<Record<UiDialogSlot, string>> = {
   overlay: theme.UiDialog?.overlay ?? DEFAULT_PARTS.overlay,
