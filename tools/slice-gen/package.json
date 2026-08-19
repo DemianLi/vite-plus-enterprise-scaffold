@@ -9,7 +9,6 @@
   "bin": "./bin/index.ts",
   "type": "module",
   "scripts": {
-    "test": "vp test",
     "check": "vp check",
     "dev": "node bin/index.ts"
   },

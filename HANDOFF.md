@@ -247,6 +247,15 @@ README 那張表的 Tier 2 那格漏了兩道閘門，**不知道漏了多久** 
 grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 ```
 
+### 六、跨套件測試的排程相依只在這條線上，`main` 缺它
+
+`@org/conformance#test` 與 `@org/vue-typecheck#test` 用 `dependsOn` 讓開
+`@org/slice-gen#test`（C87）—— 那三份 `vite.config.ts` **只在 `release/v1`**。
+
+⚠️ 方向跟第五項相反：那一項是守備機制留在 `main`、刻意不進 v1；這一項是修法
+進了 v1、而 `main` 沒有。`main` 的 `tools/` 比這裡多，**哪些 task 也需要讓開
+必須重驗一次**，不是把三份檔案照抄過去就好。
+
 ---
 
 ## 一次跑完所有檢查
