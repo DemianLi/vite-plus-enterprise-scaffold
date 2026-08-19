@@ -16,7 +16,14 @@ import UiAlertDialog from "../src/components/UiAlertDialog.vue";
  *
  *     <!--[--><!--v-if--><!--]-->
  *
- * 連 `ctx.teleports` 都是 `undefined`。**所有 portal 元件在 SSR 下都是空的。**
+ * 連 `ctx.teleports` 都是 `undefined`。
+ *
+ * ⚠️ 量到的是 `DialogPortal`，而**可以推廣的理由是它們共用同一道閘**：
+ * reka-ui 每個 `*Portal` 都只是 `Teleport.vue` 的薄包裝，而 `isMounted`
+ * 那道判斷在 `Teleport.vue` 裡。所以精確的說法是「**包在 reka-ui 的
+ * `Teleport` 裡的內容，SSR 下不渲染**」，不是「portal 元件整個是空的」——
+ * `UiSelect` 的箭頭就在 `SelectTrigger` 裡、`SelectPortal` **外面**，
+ * 它的 SSR 產出是有東西的（C85 量過）。
  *
  * ── 相依：加了兩個套件，供應鏈零變化 ────────────────────────────────
  *
@@ -233,7 +240,7 @@ describe("UiAlertDialog", () => {
     const { content } = await open();
 
     // ⚠️ C85 的原始碼層絆線擋的是「有人寫進模板」，這一條驗的是**產物**。
-    // 而它補的正是 C85 補不到的那一格：portal 元件在 SSR 下什麼都不渲染，
+    // 而它補的正是 C85 補不到的那一格：這個元件整個包在 portal 裡、SSR 下不渲染，
     // 所以 `field-wiring.test.ts` 那條 SSR 檢查對這個元件是空跑的。
     //
     // ⚠️ Vue 自己會插 `<!--v-if-->` 這類標記，所以比對的是「作者寫的註解」：

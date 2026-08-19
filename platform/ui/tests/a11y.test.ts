@@ -312,16 +312,19 @@ const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = {
  * 擋不住「Vue 改變註解的處理方式」。同 `theme-verify` README 那句
  * 「綠燈的意思是配色與形狀實測可換，不是設計系統可換」：邊界要自己說出來。
  *
- * ⚠️ **而對 portal 元件，產物那一側不是「成本高」，是「做不到」**（C86 實測）。
+ * ⚠️ **而對包在 portal 裡的模板，產物那一側不是「成本高」，是「做不到」**（C86 實測）。
  * reka-ui 的 `Teleport.vue` 是 `isMounted || forceMount` 才渲染，
  * `useMounted()` 在伺服器端是 false —— `UiDialog` 在 `renderToString` 下的
  * 完整產出是 `<!--[--><!--v-if--><!--]-->`，連 `ctx.teleports` 都是 undefined。
  * 再多的 fixture 也變不出東西來。這一版寫的是「成本遠大於換到的」，
- * **那句話對非 portal 元件為真、對 portal 元件為假**。
+ * **那句話對渲染得出來的模板為真，對包在 `Teleport` 裡的為假**。
+ *
+ * ⚠️ 界線是 `Teleport` 不是「元件」：`UiSelect` 的箭頭在 `SelectTrigger` 裡、
+ * `SelectPortal` **外面**，所以它的註解當年是真的洩漏到 SSR 的（C85 量過）。
  *
  * ⚠️ 產物那一側現在有兩條，各自只涵蓋一個元件：
  * `field-wiring.test.ts` 用 SSR 驗 `UiField`、`alert-dialog.test.ts` 用 DOM
- * 驗 `UiAlertDialog`（portal 元件只有後面那條路走得通）。
+ * 驗 `UiAlertDialog`（整個包在 portal 裡的元件只有後面那條路走得通）。
  * 加上這條掃全目錄的，才是完整的：兩條深、一條廣。
  *
  * ⚠️ 別跟 SSR 的 fragment 標記搞混：產物裡的 `<!--[-->` 與 `<!---->` 是 Vue

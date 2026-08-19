@@ -6616,7 +6616,7 @@ onMounted(() => {
 ⚠️ 代價要補回來：`UiAlertDialogSlot` 因此比 `UiDialogSlot` 多一格 `actions`。
 沒有它的話，各案連「按鈕改成左右分置」都做不到。**拿掉一個逃生口就要補另一個。**
 
-#### 三、⚠️ SSR 對 portal 元件**一個字都驗不到**
+#### 三、⚠️ SSR 對包在 portal 裡的模板**一個字都驗不到**
 
 `UiField`（C84）用 `renderToString` 驗接線，零新增相依。同一招在這裡是空的：
 
@@ -6626,6 +6626,12 @@ useMounted() 在伺服器端 = false
 → UiDialog 在 renderToString 下的完整產出：<!--[--><!--v-if--><!--]-->
 → ctx.teleports === undefined
 ```
+
+⚠️ **量到的是 `DialogPortal`，能推廣是因為它們共用同一道閘** —— reka-ui 每個
+`*Portal` 都只是 `Teleport.vue` 的薄包裝，`isMounted` 那道判斷在包裝裡。
+界線是 `Teleport` 不是「元件」：`UiSelect` 的箭頭在 `SelectTrigger` 裡、
+`SelectPortal` 外面，所以 C85 量到它真的洩漏。**剛在 §六 講完「量一個不能
+推到五個」，這裡就不要再犯一次。**
 
 所以這是本 package 第一支跑在 DOM 環境的測試。
 ⚠️ **供應鏈零變化**：`happy-dom` 與 `@vue/test-utils` 本來就在 catalog 裡
@@ -6694,7 +6700,7 @@ C85 的標題是「模板註解會進 SSR 產物，而它不只 `UiDialog` 一�
 同 C83 §「沒量就不要報數字」，只是這次錯在「量了一個就當量了全部」。
 
 `a11y.test.ts` 的檔頭同步更正：它原本說產物層檢查「成本遠大於換到的」，
-而對 portal 元件那不是成本問題，**是做不到**。
+而對包在 `Teleport` 裡的模板那不是成本問題，**是做不到**。
 
 #### 七、量到的
 
