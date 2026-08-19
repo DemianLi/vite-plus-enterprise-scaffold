@@ -238,18 +238,29 @@ function typeShape(checker: Checker, symbol: ApiSymbol): ExportShape {
  * 一個實例成員都洩不出去。它的絆線是真的，所以留著。
  *
  * 三個裡兩個是裝飾品，一個是真的 —— 差別在於那個東西**能不能不經宣告就存在**。
+ *
+ * ⚠️ 別把後來補回去的那條絆線與這一條搞混（見 typeLiteralMacro）：
+ * 那條絆的是「**寫了**但這支解析讀不懂」，這條絆的是「寫了」。前者不紅
+ * 就會少算，後者不紅只是少一句限制。
  */
 const SFC_UNSUPPORTED = ["defineExpose"] as const;
 
-const DEFINE_PROPS = /defineProps<\{([\s\S]*?)\}>\(\)/;
-const DEFINE_SLOTS = /defineSlots<\{([\s\S]*?)\}>\(\)/;
-const DEFINE_EMITS = /defineEmits<\{([\s\S]*?)\}>\(\)/;
-const DEFINE_MODEL = /defineModel<([^>]+)>\(\s*"([^"]+)"/g;
+/** 識別字的一個字元 —— `macroPositions` 自己做字界判斷時用。 */
+const IDENT = /[\w$]/;
+const SPACE = /\s/;
+/** 泛型參數之後的 `(` 與其後的空白。 */
+const CALL_OPEN = /^\s*\(\s*/;
+/** `defineModel` 的第一個引數是字串字面值時的名字。單雙引號都認。 */
+const QUOTED_NAME = /^(["'])([^"']+)\1/;
 const LOCAL_TYPE = /^\s*type\s+([A-Za-z_$][\w$]*)\s*=\s*([^;]+);/gm;
 const BLOCK_COMMENT = /\/\*[\s\S]*?\*\//g;
 const LINE_COMMENT = /(^|[^:])\/\/[^\n]*/g;
 const HTML_COMMENT = /<!--[\s\S]*?-->/g;
 const TEMPLATE_BLOCK = /<template[^>]*>([\s\S]*)<\/template>/;
+/** 每一塊 `<script …>`：第 1 組是屬性原文，第 2 組是內容。 */
+const SCRIPT_BLOCK = /<script([^>]*)>([\s\S]*?)<\/script>/g;
+/** `<script setup>` 的 `setup` 屬性（`setup`、`setup lang="ts"` 都算）。 */
+const SETUP_ATTRIBUTE = /(^|\s)setup(\s|=|$)/;
 const SLOT_TAG = /<slot\b([^>]*)>/g;
 // ⚠️ `+` 而不是 `*`：`emit("")` 用 `*` 會match成功，於是空字串被登記成一個
 // 事件名，然後要求 defineEmits 宣告一個叫 `""` 的事件。用 `+` 的話它落到
@@ -404,6 +415,265 @@ function emittedNames(file: string, source: string): ReadonlySet<string> {
   return new Set(literal.map((match) => match[2] as string));
 }
 
+// ── 巨集的位置與它的型別參數 ─────────────────────────────────────────
+
+/**
+ * 巨集在原始碼裡出現的每一個位置（呼叫端已經先剝掉註解）。
+ *
+ * 用 `indexOf` 加自製字界判斷，而不是 `new RegExp(\`\\b${macro}\\b\`)`：
+ * 動態正規式會被 `security/detect-non-literal-regexp` 擋下，而為它加一條
+ * disable 註解，下一個真的在拼接使用者輸入的人會照抄。
+ */
+function macroPositions(source: string, macro: string): readonly number[] {
+  const positions: number[] = [];
+  for (let at = source.indexOf(macro); at >= 0; at = source.indexOf(macro, at + macro.length)) {
+    // `myDefineProps`／`definePropsExtra` 都不是這個巨集。
+    const before = source[at - 1];
+    const after = source[at + macro.length];
+    if (before !== undefined && IDENT.test(before)) continue;
+    if (after !== undefined && IDENT.test(after)) continue;
+    positions.push(at);
+  }
+  return positions;
+}
+
+interface Generic {
+  /** `<…>` 之間的原文。 */
+  readonly text: string;
+  /** 收尾 `>` 的下一個字元位置。 */
+  readonly end: number;
+}
+
+/**
+ * 抓 `巨集<…>` 的型別參數 —— 角括號**配對**，不是 `<([^>]+)>`。
+ *
+ * ⚠️ 「找到第一個 `>` 就收尾」是 2026-08-17 review 抓出來的缺口：
+ * `defineModel<Array<string>>()` 會在內層的 `>` 停手，接著要求一個 `(`
+ * 卻讀到 `>`，於是整條樣式不匹配 —— 而不匹配的結果不是紅燈，是**那個
+ * model 安靜地不進 API 表面**。少算比報錯難發現得多，這是本檔頭的主題。
+ */
+/**
+ * 從引號的位置找到它的收尾引號，回傳收尾引號的位置。
+ *
+ * 沒有收尾就回 `source.length - 1`（呼叫端的迴圈接著自然結束，
+ * 而形狀不完整的來源本來就會在後面被判成不合法）。
+ */
+function closingQuote(source: string, at: number): number {
+  const quote = source[at];
+  for (let scan = at + 1; scan < source.length; scan++) {
+    if (source[scan] === "\\") {
+      scan++;
+      continue;
+    }
+    if (source[scan] === quote) return scan;
+  }
+  return source.length - 1;
+}
+
+function genericArgument(source: string, from: number): Generic | undefined {
+  let at = from;
+  while (SPACE.test(source[at] ?? "")) at++;
+  if (source[at] !== "<") return undefined;
+
+  const start = at + 1;
+  let depth = 1;
+  for (at = start; at < source.length; at++) {
+    const char = source[at];
+    // ⚠️ 字串字面值要整段跳過。少了這一段，`defineProps<{ arrow: "a>b" }>()`
+    // 會在字串裡的 `>` 收尾，接著被判成「不是型別參數形式」—— 一個完全合法的
+    // 宣告被擋下，而訊息叫人改成執行期形式，正好是這支解析禁止的方向。
+    if (char === '"' || char === "'" || char === "`") {
+      at = closingQuote(source, at);
+      continue;
+    }
+    if (char === "<") {
+      depth++;
+      // `=>` 的 `>` 不是泛型的結尾（與 splitMembers 同一個判斷）。
+    } else if (char === ">" && source[at - 1] !== "=") {
+      depth--;
+      if (depth === 0) return { text: source.slice(start, at), end: at + 1 };
+    }
+  }
+  return undefined;
+}
+
+type LiteralMacro = "defineProps" | "defineSlots" | "defineEmits";
+
+/**
+ * `巨集<{…}>()` 的內容。沒寫這個巨集回 `undefined`；**寫了但形式不對就丟例外**。
+ *
+ * ── 為什麼「寫了卻讀不懂」一定要紅 ──────────────────────────────────
+ *
+ * 讀不懂的下一步只有兩條：跳過，或丟例外。跳過的代價是那一整組公開面
+ * 從此不在記錄裡 —— 而不在記錄裡的東西改了不會漂移，於是這道閘門對它
+ * 永遠是綠的。
+ *
+ * `defineProps` 從第一天就有這條絆線，另外兩個沒有。那個不對稱不是設計，
+ * 是漏的：`defineEmits(["picked"])`（執行期陣列形式）在 2026-08-17 之前
+ * 會讓所有事件安靜消失，而基準檔看起來仍然記著一份完整的元件形狀。
+ */
+function typeLiteralMacro(file: string, source: string, macro: LiteralMacro): string | undefined {
+  const positions = macroPositions(source, macro);
+  const at = positions[0];
+  if (at === undefined) return undefined;
+  if (positions.length > 1) {
+    throw new Error(
+      `${basename(file)} 的 ${macro} 出現了 ${positions.length} 次。\n` +
+        "  這支解析只讀第一個，其餘會被安靜忽略 —— 而 Vue 本身也不允許重複呼叫。",
+    );
+  }
+
+  const text = genericArgument(source, at + macro.length)?.text.trim() ?? "";
+  if (!text.startsWith("{") || !text.endsWith("}")) {
+    throw new Error(
+      `${basename(file)} 的 ${macro} 不是型別參數形式。\n` +
+        `  只認 \`${macro}<{…}>()\`。執行期形式（\`${macro}({…})\`）讀不出型別；\n` +
+        `  具名型別別名（\`${macro}<Shape>()\`）這支解析展不開它的成員。\n` +
+        "  兩種都會讓那一整組公開面從記錄裡消失，所以寧可紅。",
+    );
+  }
+  return text.slice(1, -1);
+}
+
+interface ModelDeclaration {
+  readonly name: string;
+  readonly type: string;
+}
+
+const MODEL = "defineModel";
+
+/**
+ * 每一個 `defineModel<T>(…)` 的 prop 名與型別。
+ *
+ * ── 一條路，不是兩條互斥的樣式 ──────────────────────────────────────
+ *
+ * 這裡曾經是兩條正規式（具名一條、不具名一條），靠 `\(\s*[^"'\s]` 這種前瞻
+ * 互相排除。review 在那兩條之間找到三個縫：巢狀泛型、單引號的名字、
+ * 以及完全沒有型別參數。三個縫的症狀一模一樣 —— 那個 model 的 prop 與
+ * `update:` 事件**安靜地不進 API 表面**。
+ *
+ * 縫的來源是「哪一條該命中」被編進了樣式本身。改成**先切出型別參數、
+ * 再看第一個引數是不是字串字面值**之後，兩種形式走的是同一條路，
+ * 中間沒有地方可以漏。
+ */
+function modelDeclarations(file: string, source: string): readonly ModelDeclaration[] {
+  const models: ModelDeclaration[] = [];
+  const seen = new Set<string>();
+
+  /**
+   * ⚠️ 同一個 prop 名不能出現兩次。這條與 `typeLiteralMacro` 對重複巨集的
+   * 判斷是**同一個理由**（Vue 本身也不允許），只是這裡不能靠「巨集只准出現
+   * 一次」—— 多個具名 model 是合法的，衝突的是名字。
+   *
+   * 少了這一段的症狀不是紅燈，是基準檔裡同一個名字兩格
+   *（實測兩個不具名的 `defineModel()` → `modelValue?: string` 與
+   * `modelValue?: number` 並存），而 `compare.ts` 的 `Map<string, Member[]>`
+   * 拿到一個兩元素的陣列，比對行為沒有定義過。
+   */
+  const push = (name: string, type: string): void => {
+    if (seen.has(name)) {
+      throw new Error(
+        `${basename(file)} 的 defineModel 產生了兩個同名的 prop \`${name}\`。\n` +
+          "  不具名的 defineModel() 一律叫 `modelValue`，所以兩個不具名就會撞名。\n" +
+          "  Vue 本身也不允許，而這裡不擋的話基準檔會出現同名兩格。",
+      );
+    }
+    seen.add(name);
+    models.push({ name, type });
+  };
+
+  for (const at of macroPositions(source, MODEL)) {
+    const generic = genericArgument(source, at + MODEL.length);
+    if (generic === undefined) {
+      throw new Error(
+        `${basename(file)} 的 defineModel 沒有型別參數。\n` +
+          "  只認 `defineModel<T>(…)`。執行期形式（`defineModel({ type: String })`）" +
+          "讀不出型別，\n  而記成 `unknown` 之後換掉型別不會漂移 —— 那正是這道閘門要抓的。",
+      );
+    }
+
+    const open = CALL_OPEN.exec(source.slice(generic.end));
+    if (open === null) {
+      throw new Error(
+        `${basename(file)} 的 defineModel<…> 後面不是呼叫。\n` +
+          "  prop 名是從第一個引數判斷的，讀不到引數就分不出具名與不具名。",
+      );
+    }
+
+    const args = source.slice(generic.end + (open[0] as string).length);
+    const quoted = QUOTED_NAME.exec(args);
+    if (quoted !== null) {
+      push(quoted[2] as string, generic.text.trim());
+      continue;
+    }
+    // 第一個引數是選項物件、或根本沒有引數 → Vue 的預設 prop 名 `modelValue`。
+    if (args.startsWith(")") || args.startsWith("{")) {
+      push("modelValue", generic.text.trim());
+      continue;
+    }
+    // 其餘（識別字、樣板字串、展開）讀不出名字。與 emit 的事件名同一條規則：
+    // 讀不出來就記不進公開面，而少記的那一格改了不會漂移。
+    throw new Error(
+      `${basename(file)} 的 defineModel 第一個引數不是字面值。\n` +
+        '  讀不出 prop 名就記不進公開面 —— 請改成 `defineModel<T>("name", …)`。',
+    );
+  }
+
+  return models;
+}
+
+/**
+ * `<script setup>` 的內容 —— 四個巨集只可能在這裡面。
+ *
+ * ── 為什麼不整份掃 ──────────────────────────────────────────────────
+ *
+ * 整份掃的話，**模板裡的一句文字就會被當成巨集**。實測：模板寫
+ * `<p>這個元件刻意不用 defineExpose 對外洩漏實例</p>`，整支解析當場丟例外。
+ * 那與下面記的「讀到自己的警語，然後對自己丟例外」是同一個坑 ——
+ * 當時的修法是剝掉註解，而那只補了註解那一格，模板文字還開著。
+ *
+ * ── 沒有 `<script setup>` 的兩種情形一定要分開 ──────────────────────
+ *
+ * **完全沒有 `<script>`：合法。** 純版型元件（`Separator`／`Skeleton`）
+ * 就長這樣，記成零公開面是對的 —— 那正是放行空形狀要照顧的案例。
+ *
+ * **有 `<script>` 但不是 setup：丟例外。** Options API 的
+ * `export default { props: {…} }` 這支解析一個字都讀不懂。而讀不懂的結果
+ * 不是紅燈，是記成 `members: []` —— 實測種好基準之後再加一個必填 prop，
+ * 閘門輸出「無破壞性變更」、exit 0。**那個元件的公開面從此不受守護，
+ * 而基準檔看起來很正常。** 放行空形狀之前這一格由「空形狀等於沒有守」
+ * 那個例外擋著，拆掉它就要有人接手。
+ */
+function scriptSetup(file: string, source: string): string {
+  let setup: string | undefined;
+  let plain = false;
+
+  for (const match of source.matchAll(SCRIPT_BLOCK)) {
+    if (SETUP_ATTRIBUTE.test(match[1] ?? "")) {
+      if (setup !== undefined) {
+        throw new Error(
+          `${basename(file)} 有兩個 <script setup>。\n` +
+            "  這支解析只讀得懂一個，而 Vue 本身也不允許。",
+        );
+      }
+      setup = match[2] ?? "";
+      continue;
+    }
+    plain = true;
+  }
+
+  if (setup !== undefined) return setup;
+  if (!plain) return "";
+
+  throw new Error(
+    `${basename(file)} 有 <script> 但沒有 <script setup>。\n` +
+      "  這支解析只讀 <script setup> 的四個巨集，讀不懂 Options API 的\n" +
+      "  `export default { props: {…} }` —— 而讀不懂的結果是記成零公開面，\n" +
+      "  於是那個元件之後長出來的每一個 prop 都不會漂移。\n" +
+      "  請改寫成 <script setup>，或先擴充 tools/api-surface/src/shape.ts。",
+  );
+}
+
 function parseComponent(file: string): ExportShape {
   /**
    * 先把註解拿掉，再看有沒有那些巨集。
@@ -425,8 +695,11 @@ function parseComponent(file: string): ExportShape {
     .replace(LINE_COMMENT, "$1")
     .replace(HTML_COMMENT, "");
 
+  // 巨集只在 `<script setup>` 裡找，模板留給 assertDeclared（見 scriptSetup）。
+  const script = scriptSetup(file, source);
+
   for (const marker of SFC_UNSUPPORTED) {
-    if (!source.includes(marker)) continue;
+    if (macroPositions(script, marker).length === 0) continue;
     throw new Error(
       `${basename(file)} 使用了 ${marker}，而這裡不解析它。\n` +
         "  `<script setup>` 預設是封閉的，所以 expose 出去的東西只會來自這個巨集 —— " +
@@ -435,19 +708,21 @@ function parseComponent(file: string): ExportShape {
     );
   }
 
-  const propsBlock = DEFINE_PROPS.exec(source);
-  if (propsBlock?.[1] === undefined) {
-    throw new Error(
-      `${basename(file)} 找不到 defineProps<{…}>()。\n` +
-        "  這支解析只認型別參數形式；改用執行期物件形式的話這裡會少算，" +
-        "所以寧可紅。",
-    );
-  }
+  // ⚠️ **沒有 `defineProps` 是合法的**，不是解析失敗。
+  //
+  // 這裡原本無條件丟例外，而它擋住的第一個真實案例是 `UiInput` ——
+  // 一個只有 `defineModel` 的元件（它的公開面是 `modelValue` 與
+  // `update:modelValue`，兩樣都不經 defineProps）。當時的訊息說
+  // 「找不到 defineProps」，聽起來像元件寫錯了，實際上是解析器的假設太窄。
+  //
+  // 分成兩種情形之後，那條防線還在：**寫了但形式不對**仍然紅，
+  // 而那條現在對四個巨集一視同仁（見 typeLiteralMacro 與 modelDeclarations）。
+  const propsBlock = typeLiteralMacro(file, script, "defineProps");
 
   // 同一個 <script setup> 裡宣告的區域型別別名要就地展開。
   // 它們對消費端不可見，改名不該讓形狀漂移。
   const aliases = new Map<string, string>();
-  for (const match of source.matchAll(LOCAL_TYPE)) {
+  for (const match of script.matchAll(LOCAL_TYPE)) {
     if (match[1] !== undefined && match[2] !== undefined) {
       aliases.set(match[1], match[2].trim().replace(TIGHTEN, " "));
     }
@@ -455,40 +730,52 @@ function parseComponent(file: string): ExportShape {
   const expand = (text: string): string =>
     text.replace(/\b[A-Za-z_$][\w$]*\b/g, (name) => aliases.get(name) ?? name);
 
-  const members = parseBlock(file, "props", propsBlock[1], expand);
+  const members = propsBlock === undefined ? [] : parseBlock(file, "props", propsBlock, expand);
 
-  const slotsBlock = DEFINE_SLOTS.exec(source);
+  const slotsBlock = typeLiteralMacro(file, script, "defineSlots");
   const declaredSlots = new Set<string>();
-  if (slotsBlock?.[1] !== undefined) {
-    for (const member of parseBlock(file, "slots", slotsBlock[1], expand)) {
+  if (slotsBlock !== undefined) {
+    for (const member of parseBlock(file, "slots", slotsBlock, expand)) {
       members.push(member);
       declaredSlots.add((/^\[slot ([^\]]+)\]/.exec(member)?.[1] ?? "").trim());
     }
   }
 
-  const emitsBlock = DEFINE_EMITS.exec(source);
+  const emitsBlock = typeLiteralMacro(file, script, "defineEmits");
   const declaredEmits = new Set<string>();
-  if (emitsBlock?.[1] !== undefined) {
-    for (const member of parseBlock(file, "emits", emitsBlock[1], expand)) {
+  if (emitsBlock !== undefined) {
+    for (const member of parseBlock(file, "emits", emitsBlock, expand)) {
       members.push(member);
       declaredEmits.add((/^\[emit ([^\]]+)\]/.exec(member)?.[1] ?? "").trim());
     }
   }
 
   // defineModel 同時產生一個 prop 與一個 update:<name> 事件，兩邊都是公開面。
-  for (const match of source.matchAll(DEFINE_MODEL)) {
-    const [, type, name] = match;
-    members.push(`${name}?: ${(type ?? "unknown").trim()}`);
-    members.push(`[emit update:${name}]: void`);
-    declaredEmits.add(`update:${name}`);
+  for (const model of modelDeclarations(file, script)) {
+    members.push(`${model.name}?: ${expand(model.type)}`);
+    members.push(`[emit update:${model.name}]: void`);
+    declaredEmits.add(`update:${model.name}`);
   }
 
   assertDeclared(file, source, declaredSlots, declaredEmits);
 
-  if (members.length === 0) {
-    throw new Error(`${basename(file)} 的 defineProps 解析結果是空的 —— 空形狀等於沒有守`);
-  }
-
+  /**
+   * ⚠️ **零公開面是合法的**，這裡不再丟例外（2026-08-17）。
+   *
+   * 原本的訊息是「空形狀等於沒有守」。那句話對，但它守錯了東西：真正要擋的是
+   * **巨集寫成了解析不了的形式**，而那件事現在由四道絆線各自擋著 ——
+   * `typeLiteralMacro`（props／slots／emits）、`modelDeclarations`、
+   * `SFC_UNSUPPORTED`（expose），再加上 `assertDeclared` 掃模板裡**真的存在**的
+   * slot 與 emit。走到這裡還是空的，就是真的空。
+   *
+   * ⚠️ 順序不能顛倒：先放行空形狀、再補絆線的話，中間那段時間裡任何寫錯
+   * 形式的巨集都會安靜地變成一個「合法的零公開面元件」。
+   *
+   * 留著那個例外的代價是純版型元件（`Separator`／`Skeleton` 這種）根本進不了
+   * `platform/ui`。而空清單**不等於不比對**：`compare.ts` 判的是
+   * `members !== undefined`，所以之後長出來的第一個 prop 仍然會漂移
+   *（negative.test.ts 有一條測試就在問這件事）。
+   */
   return { kind: "component", members: sortMembers(members) };
 }
 

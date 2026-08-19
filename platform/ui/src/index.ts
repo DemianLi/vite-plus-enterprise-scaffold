@@ -27,6 +27,7 @@
 
 export { default as UiButton } from "./components/UiButton.vue";
 export { default as UiDialog } from "./components/UiDialog.vue";
+export { default as UiInput } from "./components/UiInput.vue";
 export { cn } from "./utils/cn.ts";
 
 /**
@@ -38,4 +39,11 @@ export { cn } from "./utils/cn.ts";
  * 「按鈕變成一個看不見但點得到的方塊」。
  */
 export { createUiTheme } from "./theme.ts";
-export type { UiButtonSlot, UiDialogSlot, UiSize, UiThemeOverride, UiVariant } from "./theme.ts";
+export type {
+  UiButtonSlot,
+  UiDialogSlot,
+  UiInputSlot,
+  UiSize,
+  UiThemeOverride,
+  UiVariant,
+} from "./theme.ts";
