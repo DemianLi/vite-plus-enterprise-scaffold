@@ -1,5 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge } from "tailwind-merge";
 
 /**
  * 合併 Tailwind class，後者覆蓋前者。
@@ -70,6 +70,52 @@ import { twMerge } from "tailwind-merge";
  *   - 兩支獨立的量測（單獨量 `cn()`／放進真的掛載裡量增量）**對得上**
  *     才可以寫下來。
  */
+/**
+ * ⚠️ **本 repo 的自訂代幣要登記，否則 `twMerge` 會把它們分錯族。**
+ *
+ * `twMerge` 認得的是 **Tailwind 出廠的**類別族。`border-control` 這種名字
+ * 它只能猜，而它猜錯 —— `border-<名字>` 看起來像顏色，所以它把
+ * `border-control`（寬度）歸進 `border-color`，於是
+ *
+ *   cn("border-control border-line")  →  "border-line"
+ *
+ * **寬度那一格被丟掉了。** 而 Tailwind 的 preflight 是 `border: 0 solid`，
+ * 所以少了寬度 utility ＝ **邊框寬度 0 ＝ 完全看不見**。
+ *
+ * 2026-08-19 的 review 實測發現這件事**已經上線了**：`UiButton` 的
+ * `secondary`（**預設**那個 variant）、`UiInput`、以及當時剛寫好的
+ * `UiCheckbox`，三個的邊框全都是 0。畫面上是一塊白底、沒有框，
+ * 而**沒有任何閘門說話** —— `theme-verify` 驗的是 CSS 產物與懸空引用，
+ * 而這一格的 CSS 完全正確，是**執行期被丟掉的**。
+ *
+ * 那正是這個檔案上面那段（「看情況成功或失敗，而且失敗時沒有錯誤」）
+ * 描述的形狀，發生在它自己身上。
+ *
+ * 四個分錯族的（都實測過）：
+ *
+ *   border-control                 被當成顏色 → 與 border-line 互斥
+ *   font-control / font-heading    被當成字族 → 吃掉 font-sans
+ *   rounded-control / -surface     不被認得   → 與 rounded-lg 兩個都留
+ *   shadow-overlay                 不被認得   → 與 shadow-xs 兩個都留
+ *
+ * 前兩個是**少東西**（安靜壞掉），後兩個是**多東西**（CSS 順序決定，
+ * 也就是 `twMerge` 存在的理由本身失效）。
+ *
+ * ⚠️ 這份清單是手寫的，所以 `tests/cn.test.ts` 從 `styles/index.css`
+ * 推導代幣名反過來驗它 —— **加一個代幣卻忘了登記會紅**。手寫清單本身
+ * 不是問題，沒有東西在守它才是（C71）。
+ */
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      "border-w": [{ border: ["control"] }],
+      "font-weight": [{ font: ["control", "heading"] }],
+      rounded: [{ rounded: ["control", "surface"] }],
+      shadow: [{ shadow: ["overlay"] }],
+    },
+  },
+});
+
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }

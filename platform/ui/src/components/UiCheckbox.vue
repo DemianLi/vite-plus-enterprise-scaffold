@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { CheckboxIndicator, CheckboxRoot, Label } from "reka-ui";
-import { inject, type VNode } from "vue";
+import { inject, useId, type VNode } from "vue";
 import { cn } from "../utils/cn.ts";
 import { NO_OVERRIDE, UI_THEME, type UiCheckboxSlot } from "../theme.ts";
 
@@ -45,14 +45,39 @@ import { NO_OVERRIDE, UI_THEME, type UiCheckboxSlot } from "../theme.ts";
 const checked = defineModel<boolean>({ default: false });
 
 defineProps<{
-  /** 與方塊關聯的文字。空字串代表「這個方塊自己沒有標籤」，由外面的表格欄位說明。 */
-  label: string;
+  /**
+   * 標籤文字。
+   *
+   * ⚠️ **選填**，因為預設 slot 一旦給了就完全取代它。第一版寫成必填，
+   * 於是「只想在標籤裡放一個連結」的使用端被迫傳一個永遠不會顯示的字串。
+   */
+  label?: string;
 }>();
 
 /** 標籤位置的內容。給的話取代 `label` 純文字 —— 需要放連結時用得到。 */
 defineSlots<{
   default(): VNode[];
 }>();
+
+/**
+ * ⚠️ **`label` 與 slot 兩個都不給，這個方塊就沒有名字**（螢幕閱讀器會報
+ * 「未命名的核取方塊」）。沒有閘門守得住 —— slot 有沒有內容是執行期才知道的，
+ * 而 `label` 必填會逼出上面那個「傳一個不會顯示的字串」。所以寫在這裡。
+ *
+ * ── 下面這個 id 是 review 補的，而少了它整個元件的無障礙是壞的 ──────
+ *
+ * 第一版的 `<Label>` 沒有 `for`、也沒有包住 `CheckboxRoot`，而 `CheckboxRoot`
+ * 沒有 `id` —— **兩者完全沒有關聯**。實測 SSR 產出：
+ * `<button role="checkbox" aria-checked="false">` 沒有任何 accessible name，
+ * 旁邊一個沒有 `for` 的 `<label>`。點標籤不會切換，輔具讀不到名字。
+ *
+ * 那正是這個檔案開頭說「選 reka-ui 就是為了不要自己扛這些」的那一類 ——
+ * 用了基元不等於接對了，而**畫面看起來完全正常**。
+ *
+ * `useId()` 是 Vue 3.5 的內建，SSR 與用戶端會產生同一個值（不會 hydration
+ * mismatch），所以不需要自己拼一個計數器。
+ */
+const inputId = useId();
 
 const DEFAULT_PARTS: Readonly<Record<UiCheckboxSlot, string>> = {
   root: cn(
@@ -76,7 +101,7 @@ const parts: Readonly<Record<UiCheckboxSlot, string>> = {
 
 <template>
   <div class="inline-flex items-center gap-2">
-    <CheckboxRoot v-model="checked" data-slot="checkbox" :class="parts.root">
+    <CheckboxRoot :id="inputId" v-model="checked" data-slot="checkbox" :class="parts.root">
       <CheckboxIndicator :class="parts.indicator">
         <!-- 勾勾是內嵌 SVG 而不是圖示套件：多一個相依就是多一筆 SCA 範圍、
              多一筆鏡像清單。而 currentColor 讓它跟著上面那格代幣走。 -->
@@ -92,7 +117,7 @@ const parts: Readonly<Record<UiCheckboxSlot, string>> = {
         </svg>
       </CheckboxIndicator>
     </CheckboxRoot>
-    <Label :class="parts.label">
+    <Label :for="inputId" :class="parts.label">
       <slot>{{ label }}</slot>
     </Label>
   </div>

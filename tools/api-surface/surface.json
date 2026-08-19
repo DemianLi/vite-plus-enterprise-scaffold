@@ -476,7 +476,7 @@
       },
       "UiBadgeSlot": {
         "kind": "type",
-        "type": "\"accent\" | \"danger\" | \"neutral\""
+        "type": "\"accent\" | \"badge\" | \"danger\" | \"neutral\""
       },
       "UiButton": {
         "kind": "component",
@@ -497,7 +497,7 @@
         "members": [
           "[emit update:modelValue]: void",
           "[slot default]: (): VNode[]",
-          "label: string",
+          "label?: string",
           "modelValue?: boolean"
         ]
       },

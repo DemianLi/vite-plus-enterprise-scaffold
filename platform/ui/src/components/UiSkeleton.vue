@@ -23,9 +23,18 @@ import { NO_OVERRIDE, UI_THEME, type UiSkeletonSlot } from "../theme.ts";
  * 做成 `size` union 只會逼出 `sm`／`md`／`lg` 三個猜出來的值，然後第四種
  * 需求出現時要改 `platform/`。
  *
- * 這裡靠 Vue 的 fallthrough：單根元件會自動合併使用端傳進來的 `class`，
- * 所以 `<UiSkeleton class="h-4 w-32" />` 直接就對。多宣告一個 `class` prop
- * 只會讓 api-surface 多記一格，而那一格什麼都沒多守（同 `UiInput`）。
+ * 這裡靠 Vue 的 fallthrough：單根元件會自動合併使用端傳進來的 `class`。
+ * 多宣告一個 `class` prop 只會讓 api-surface 多記一格，而那一格什麼都沒多守
+ * （同 `UiInput`）。
+ *
+ * ⚠️ **但 fallthrough 是字串串接，不是 `twMerge`。** `<UiSkeleton
+ * class="h-4 w-32" />` 對，因為尺寸與下面三條不衝突；而
+ * `<UiSkeleton class="rounded-full" />` 產生的是
+ * `rounded-control rounded-full` **兩個都在**，誰贏取決於產生的 CSS 裡誰排
+ * 後面 —— 正是 `utils/cn.ts` 檔頭說 `twMerge` 存在就是為了防的那件事。
+ *
+ * 要換下面這三條裡的任何一條，走 `UiThemeOverride` 的 `UiSkeleton.skeleton`
+ * （整條替換），不要靠 fallthrough 疊上去。
  *
  * ── 動畫用 `animate-pulse` 而不是自訂 keyframes ───────────────────
  *

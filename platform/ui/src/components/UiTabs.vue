@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { TabsList, TabsRoot, TabsTrigger } from "reka-ui";
-import { inject, type VNode } from "vue";
+import { computed, inject, type VNode } from "vue";
 import { cn } from "../utils/cn.ts";
 import { NO_OVERRIDE, UI_THEME, type UiTabsSlot } from "../theme.ts";
 
@@ -45,7 +45,7 @@ import { NO_OVERRIDE, UI_THEME, type UiTabsSlot } from "../theme.ts";
  */
 const active = defineModel<string>({ default: "" });
 
-defineProps<{
+const props = defineProps<{
   /**
    * 分頁清單，順序就是顯示順序。`value` 要與 `UiTabsPanel` 的 `value` 對上。
    *
@@ -60,6 +60,24 @@ defineProps<{
 defineSlots<{
   default(): VNode[];
 }>();
+
+/**
+ * 沒給初始值時選第一個分頁。
+ *
+ * ⚠️ 這是 review 補的，而少了它的症狀是**一整片空白**：`TabsRoot` 是受控的，
+ * 空字串對不到任何 `items[].value`，於是實測 SSR 產出裡兩個 trigger 都是
+ * `aria-selected="false"`、panel 是 `hidden`。使用端看到一排按鈕和一片空白，
+ * 得自己想到要給 `v-model` 並且手動初始化 —— 而它不會報任何錯。
+ *
+ * 上游 shadcn 用 `defaultValue` 走非受控路線避開這件事；這裡已經是受控的
+ * （因為要對外提供 `v-model`），所以在這一層補。
+ */
+const current = computed<string>({
+  get: () => (active.value === "" ? (props.items[0]?.value ?? "") : active.value),
+  set: (value: string) => {
+    active.value = value;
+  },
+});
 
 const DEFAULT_PARTS: Readonly<Record<UiTabsSlot, string>> = {
   list: "inline-flex items-center gap-1 rounded-surface bg-surface-hover p-1",
@@ -80,7 +98,7 @@ const parts: Readonly<Record<UiTabsSlot, string>> = {
 </script>
 
 <template>
-  <TabsRoot v-model="active" data-slot="tabs">
+  <TabsRoot v-model="current" data-slot="tabs">
     <TabsList :class="parts.list">
       <TabsTrigger
         v-for="item in items"

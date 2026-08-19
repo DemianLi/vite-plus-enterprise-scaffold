@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { inject, type VNode } from "vue";
+import { cn } from "../utils/cn.ts";
 import { NO_OVERRIDE, UI_THEME, type UiBadgeSlot } from "../theme.ts";
 
 /**
@@ -32,14 +33,24 @@ import { NO_OVERRIDE, UI_THEME, type UiBadgeSlot } from "../theme.ts";
  * variant 而標籤被迫跟著長一格。分開的代價只是多一個 union。
  */
 
-defineProps<{
-  /**
-   * ⚠️ 刻意寫成字面值 union，**不用型別別名**。理由與 `UiButton` 同一條：
-   * `api-surface` 記錄的是 `defineProps` 的原文，換成別名之後
-   * 「union 少一個成員」這道閘門就看不見了。契約測試第 ④ 條在守這件事。
-   */
-  tone?: "neutral" | "accent" | "danger";
-}>();
+const props = withDefaults(
+  defineProps<{
+    /**
+     * ⚠️ 刻意寫成字面值 union，**不用型別別名**。理由與 `UiButton` 同一條：
+     * `api-surface` 記錄的是 `defineProps` 的原文，換成別名之後
+     * 「union 少一個成員」這道閘門就看不見了。契約測試第 ④ 條在守這件事。
+     */
+    tone?: "neutral" | "accent" | "danger";
+  }>(),
+  {
+    // ⚠️ 預設值一定要寫在 `withDefaults` 裡，**不能寫成模板裡的
+    // `parts[tone ?? "neutral"]`**。契約測試的「預設值必須是該 prop 的 union
+    // 成員之一」是讀 `withDefaults` 的 —— 寫進模板就落在那道檢查的視窗外，
+    // 而打錯字的症狀是 `parts[未知鍵]` 回 `undefined`、Vue 直接丟掉那個 class：
+    // 一個沒上色的標籤，沒有錯誤也沒有紅燈。實測過。
+    tone: "neutral",
+  },
+);
 
 /** 標籤的內容。 */
 defineSlots<{
@@ -47,6 +58,15 @@ defineSlots<{
 }>();
 
 const DEFAULT_PARTS: Readonly<Record<UiBadgeSlot, string>> = {
+  /**
+   * 版型（圓角、內距、字級）自己一格。
+   *
+   * ⚠️ 第一版把這一條寫死在模板的 `class` 上，於是各案換得掉顏色、
+   * **換不掉圓角** —— 一個要求 pill 形狀的案子只能來改 `platform/`。
+   * 契約測試第 ⑤ 條擋的是「模板引用預設表」，擋不到「模板自己寫了一條」。
+   * 「接縫夠不夠」是 review 的職責，不是靜態檢查的（同 `UiDialog`）。
+   */
+  badge: "inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-xs font-control",
   neutral: "border-control border-line bg-surface-hover text-fg",
   accent: "bg-accent text-on-accent",
   danger: "bg-danger text-on-danger",
@@ -54,6 +74,7 @@ const DEFAULT_PARTS: Readonly<Record<UiBadgeSlot, string>> = {
 
 const theme = inject(UI_THEME, NO_OVERRIDE);
 const parts: Readonly<Record<UiBadgeSlot, string>> = {
+  badge: theme.UiBadge?.badge ?? DEFAULT_PARTS.badge,
   neutral: theme.UiBadge?.neutral ?? DEFAULT_PARTS.neutral,
   accent: theme.UiBadge?.accent ?? DEFAULT_PARTS.accent,
   danger: theme.UiBadge?.danger ?? DEFAULT_PARTS.danger,
@@ -61,11 +82,7 @@ const parts: Readonly<Record<UiBadgeSlot, string>> = {
 </script>
 
 <template>
-  <span
-    data-slot="badge"
-    class="inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-xs font-control"
-    :class="parts[tone ?? 'neutral']"
-  >
+  <span data-slot="badge" :class="cn(parts.badge, parts[props.tone])">
     <slot />
   </span>
 </template>

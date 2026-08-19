@@ -92,12 +92,15 @@ export type UiInputSlot = "input";
 export type UiSkeletonSlot = "skeleton";
 
 /**
- * `UiBadge` 的可覆寫部位 —— 名字就是 `tone` 的三個值。
+ * `UiBadge` 的可覆寫部位 —— `badge` 是版型，另外三個是 `tone` 的值。
+ *
+ * ⚠️ `badge` 那一格是 review 補的：第一版把圓角與內距寫死在模板的 `class`
+ * 上，於是各案換得掉顏色、**換不掉形狀**。
  *
  * ⚠️ 刻意**不叫** `UiVariant`：那是按鈕的軸（含 `ghost`），標籤沒有它。
  * 共用的話，日後幫按鈕加一個 variant 會逼標籤跟著長一格。
  */
-export type UiBadgeSlot = "neutral" | "accent" | "danger";
+export type UiBadgeSlot = "badge" | "neutral" | "accent" | "danger";
 
 /** `UiCheckbox` 的可覆寫部位。名稱取自 reka-ui 的基元與 `Label`。 */
 export type UiCheckboxSlot = "root" | "indicator" | "label";
