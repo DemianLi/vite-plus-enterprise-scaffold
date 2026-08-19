@@ -114,8 +114,37 @@ describe("樣式入口", () => {
   it("@source 一律加引號", () => {
     // Tailwind 4.3.3 對沒加引號的直接報錯（實測：`@source` paths must be quoted），
     // 但錯誤訊息不會告訴你是哪一行 —— 在這裡擋比在建置時擋便宜。
-    const withoutQuotes = [...entry().matchAll(/@source\s+([^"\s][^;]*);/g)];
+    //
+    // ⚠️ 這裡先把 `not ` 正規化掉，而不是在正則裡加一個可選群組。
+    // 試過 `/@source\s+(?:not\s+)?([^"\s][^;]*);/` —— **它照樣紅**，因為
+    // 可選群組匹配不下去時正則會**回溯**成不匹配，於是 `not` 本身變成了
+    // 「那個沒加引號的路徑」。看起來對、跑起來錯，只有實測分得出來。
+    //
+    // ⚠️ 放寬這種檢查的風險是換來一個洞，所以變異驗過：把某一行寫成
+    // `@source not ../../../../**/tests/**;`（真的沒引號），這條仍然紅。
+    const normalized = entry().replace(/@source\s+not\s+/g, "@source ");
+    const withoutQuotes = [...normalized.matchAll(/@source\s+([^"\s][^;]*);/g)];
     expect(withoutQuotes.map((m) => m[0])).toEqual([]);
+  });
+
+  it("測試檔要被排除在掃描之外", () => {
+    // ⚠️ Tailwind 的抽取器不解析語法 —— 它連**註解裡**長得像 utility 的字串
+    // 都會撈出來變成規則。實測（2026-08-19，apps/console）：少了這兩條排除，
+    // 交付的 CSS 多 0.84 kB，13 條選擇器全部來自測試檔。
+    //
+    // ⚠️ 這裡守的只有「宣告還在」。「排除真的生效」由 tools/theme-verify
+    // 的哨兵守（那一邊有真的建置）—— 邊界要自己說出來。
+    const excluded = [...entry().matchAll(/@source\s+not\s+"([^"]+)"/g)].map(
+      (match) => match[1] as string,
+    );
+    expect(excluded.some((glob) => glob.includes("tests/"))).toBe(true);
+    expect(excluded.some((glob) => glob.includes(".test.ts"))).toBe(true);
+    // 與上面那條同樣的理由：綁死目錄佈局的話，換個佈局就靜靜失效。
+    // ⚠️ 差別在後果 —— 上面那條失效會讓畫面壞掉，這兩條失效只是產物變胖。
+    expect(
+      excluded.every((glob) => glob.startsWith("..") && glob.includes("**")),
+      `@source not 有固定路徑（${excluded.join("、")}）`,
+    ).toBe(true);
   });
 });
 
