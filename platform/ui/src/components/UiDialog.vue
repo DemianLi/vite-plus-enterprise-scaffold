@@ -79,6 +79,18 @@ defineSlots<{
  * 因為當時的檢查是 `readFileSync("UiButton.vue")`，寫死一個檔名。
  * 現在改成掃目錄（`../tests/component-contract.test.ts`）。
  *
+ * ── ⚠️ 不要新增 `UiSheet`：它就是 `content` 槽（C81）────────────────
+ *
+ * shadcn 的 `Sheet`（從側邊滑出的對話框）**不是另一個元件**，是這一格的
+ * 覆寫：`fixed inset-y-0 right-0 h-full w-96` 取代下面那串
+ * `top-1/2 left-1/2 -translate-*`。焦點鎖定、Esc、外側點擊、`aria-modal`
+ * 全部原封不動 —— 上面那段「手機版底部滑出」講的就是這件事。
+ *
+ * 新增一個 `UiSheet` 的代價不是多一個檔案，是**兩份無障礙接線從此各自
+ * 漂移** —— 而其中一份壞掉的時候畫面完全正常。
+ *
+ * ⚠️ `Drawer` 不同：它靠拖曳手勢關閉，那個換不出來，要新的基元。
+ *
  * ── 四個槽名的來源 ──────────────────────────────────────────────────
  *
  * 不是我們取的：它們就是上面 import 的 reka-ui 基元名，也是 shadcn-vue 的
