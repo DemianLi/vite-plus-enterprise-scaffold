@@ -141,9 +141,13 @@ export const FACTS: readonly Fact[] = [
      */
     source: "git ls-files platform/ui/src/components 底下的 .vue 數",
     citations: [
-      // README〈已知限制〉：「platform/ui 目前只有八個元件」
-      // HANDOFF〈已知的誠實缺口〉：「platform/ui 只有八個元件」
-      /`platform\/ui` (?:目前)?只有 (\d+) 個元件/,
+      // README：「**`platform/ui` 有 24 個元件**」
+      // HANDOFF〈已知的誠實缺口〉的標題：「`platform/ui` 有 24 個元件，範圍是被定義過的」
+      //
+      // ⚠️ `只` 是選配的：這句話在 2026-08-19 從「**只**有 8 個元件」（一句限制）
+      // 變成「有 24 個元件」（一句涵蓋範圍）。樣式跟著放寬而不是改寫，
+      // 是因為兩種語氣都還會出現 —— 下一個能力補完之前它又會是「只有」。
+      /`platform\/ui` (?:目前)?(?:只)?有 (\d+) 個元件/,
       // HANDOFF 承諾三：「…三個元件都被檢查過」／〈缺口〉：「…都被檢查器驗過」
       /\*\*(\d+) 個元件都被檢查/,
     ],
