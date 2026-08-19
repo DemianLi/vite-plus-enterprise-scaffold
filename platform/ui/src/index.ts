@@ -44,6 +44,7 @@ export { default as UiTableHead } from "./components/UiTableHead.vue";
 export { default as UiTableHeadCell } from "./components/UiTableHeadCell.vue";
 export { default as UiTableRow } from "./components/UiTableRow.vue";
 export { default as UiLabel } from "./components/UiLabel.vue";
+export { default as UiField } from "./components/UiField.vue";
 export { default as UiRadioGroup } from "./components/UiRadioGroup.vue";
 export { default as UiRadioItem } from "./components/UiRadioItem.vue";
 export { default as UiSelect } from "./components/UiSelect.vue";
@@ -69,6 +70,7 @@ export type {
   UiDialogSlot,
   UiInputSlot,
   UiLabelSlot,
+  UiFieldSlot,
   UiPaginationSlot,
   UiRadioGroupSlot,
   UiRadioItemSlot,

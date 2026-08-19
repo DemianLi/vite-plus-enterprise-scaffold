@@ -542,6 +542,19 @@
         "kind": "type",
         "type": "\"content\" | \"description\" | \"overlay\" | \"title\""
       },
+      "UiField": {
+        "kind": "component",
+        "members": [
+          "[slot default]: (props: { control: Readonly<Record<string, string | true | undefined>> }): VNode[]",
+          "description?: string",
+          "error?: string",
+          "label: string"
+        ]
+      },
+      "UiFieldSlot": {
+        "kind": "type",
+        "type": "\"description\" | \"error\" | \"field\""
+      },
       "UiInput": {
         "kind": "component",
         "members": ["[emit update:modelValue]: void", "modelValue?: string | number"]
@@ -718,6 +731,7 @@
           "UiCheckbox?: Readonly<Partial<Record<UiCheckboxSlot, string>>> | undefined",
           "UiDatePicker?: Readonly<Partial<Record<UiDatePickerSlot, string>>> | undefined",
           "UiDialog?: Readonly<Partial<Record<UiDialogSlot, string>>> | undefined",
+          "UiField?: Readonly<Partial<Record<UiFieldSlot, string>>> | undefined",
           "UiInput?: Readonly<Partial<Record<\"input\", string>>> | undefined",
           "UiLabel?: Readonly<Partial<Record<\"label\", string>>> | undefined",
           "UiPagination?: Readonly<Partial<Record<UiPaginationSlot, string>>> | undefined",

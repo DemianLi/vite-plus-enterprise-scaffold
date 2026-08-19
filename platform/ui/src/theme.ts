@@ -120,6 +120,13 @@ export type UiTabsPanelSlot = "panel";
 /** `UiLabel` 的可覆寫部位。 */
 export type UiLabelSlot = "label";
 
+/**
+ * ⚠️ **沒有 `label` 那一格。** 標籤走 `UiLabel` 的槽 —— `UiField` 是第一個
+ * import 別的元件的元件，理由見它的檔頭。再開一格會讓同一個東西有兩個
+ * 覆寫入口，而設計師講「標籤要更小」時前端得猜是哪一個。
+ */
+export type UiFieldSlot = "field" | "description" | "error";
+
 /** `UiTextarea` 的可覆寫部位。⚠️ 與 `UiInputSlot` 刻意分開，見元件檔頭。 */
 export type UiTextareaSlot = "textarea";
 
@@ -198,6 +205,7 @@ export type UiThemeOverride = {
   readonly UiTabs?: Readonly<Partial<Record<UiTabsSlot, string>>>;
   readonly UiTabsPanel?: Readonly<Partial<Record<UiTabsPanelSlot, string>>>;
   readonly UiLabel?: Readonly<Partial<Record<UiLabelSlot, string>>>;
+  readonly UiField?: Readonly<Partial<Record<UiFieldSlot, string>>>;
   readonly UiTextarea?: Readonly<Partial<Record<UiTextareaSlot, string>>>;
   readonly UiSwitch?: Readonly<Partial<Record<UiSwitchSlot, string>>>;
   readonly UiRadioGroup?: Readonly<Partial<Record<UiRadioGroupSlot, string>>>;

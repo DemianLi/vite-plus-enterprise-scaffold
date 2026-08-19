@@ -6386,6 +6386,134 @@ C81／C82 剛好在講「宣稱自己是純文件卻夾帶行為變更」，這�
 
 ---
 
+### C84 — `UiField`：上游的版本不做接線，所以這一個刻意不照抄（2026-08-19）
+
+C81 裁決出三個「三層全過」的元件，這是第一個。挑 `Field` 先，因為它補的洞
+**現在就破著**。
+
+#### 一、⚠️ 動手前發現 C81 給它的理由被上游推翻了一半
+
+C81 §五 寫的是「`Field` 就是設 `aria-invalid` 的地方」。查了上游實際的樣子：
+
+```vue
+<Field data-invalid>
+  <FieldLabel for="email">Email</FieldLabel>
+  <Input id="email" aria-invalid />   <!-- ← 使用者自己寫 -->
+  <FieldError>…</FieldError>
+</Field>
+```
+
+**它是九個子元件的版型家族**（`FieldSet`／`FieldLegend`／`FieldGroup`／`Field`／
+`FieldContent`／`FieldLabel`／`FieldTitle`／`FieldDescription`／`FieldSeparator`／
+`FieldError`），而 `aria-describedby` 與 `aria-invalid` 全部手動。
+
+照抄的話：**過不了 C81 自己的層 2**（純版型，缺了看得出來），而且那個洞一個
+都沒補到。所以這一個不照抄。
+
+#### 二、它補的兩個洞，兩份原始碼裡都已經自己承認了
+
+| 檔頭原話                                                 | 出處                  |
+| -------------------------------------------------------- | --------------------- |
+| 「`for` 是**使用端的責任**，而這裡沒有任何閘門守得住它」 | `UiLabel`             |
+| 三條 `aria-invalid:*` 是**死的** —— 沒有任何東西在設它   | `UiDatePicker`（C79） |
+
+⚠️ 這比 C81 原本的理由強，因為它是 **repo 內的證據**而不是上游的行為。
+
+#### 三、Vue 的 slot 改不了內容的 props，所以「自動接線」只有三條路
+
+|                                       |                                                                                                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 照抄上游（純版型）                    | ❌ C81 的理由會變成假的                                                                                                                                       |
+| `provide`／`inject`，控制項主動接     | ❌ 要動 `UiInput`／`UiSelect`／`UiTextarea`／`UiDatePicker` 全部，讓它們長出看不見的耦合。而 `UiInput` 現在是零 prop 的，它的檔頭說「多宣告一格什麼都沒多守」 |
+| **scoped slot 給一個 `control` 物件** | ✅ 值由 `UiField` 產生，綁定由使用端寫一行                                                                                                                    |
+
+```vue
+<UiField label="電子郵件" :error="errors.email" v-slot="{ control }">
+  <UiInput v-model="email" v-bind="control" />
+</UiField>
+```
+
+⚠️ **使用端忘了 `v-bind="control"` 的話接線還是斷的**，而且畫面正常 ——
+沒有閘門守得住，只有檔頭那句話。換到的是「該有哪些值」不用再想。
+
+#### 四、⚠️ 這是第一個 import 別的元件的元件
+
+在此之前 `platform/ui` 裡沒有先例。用 `UiLabel` 而不是自己再包一次 reka-ui 的
+`Label`，理由是**行為會漂移**：`UiLabel` 用基元是為了「按兩下不選取文字」，
+自己再寫一份的話兩份哪天不一樣沒有人會發現。
+
+⚠️ 與 C78 §3「`UiTextarea` 刻意重複不抽共用」不衝突 —— 那條講的是**樣式**
+（具名槽的語意是整條替換），這裡是**行為**。所以 `UiFieldSlot` 裡刻意
+**沒有 `label` 那一格**：再開一格會讓同一個東西有兩個覆寫入口。
+
+#### 五、測試改用 SSR，而且零新增依賴
+
+本 package 其他測試都是**讀原始碼文字**（沒有 `jsdom`／`@vue/test-utils`）。
+⚠️ 但這個元件的**全部價值都在執行期算出來的 `control` 上** —— 那條 `computed`
+可以整個寫錯而每一個字串斷言照樣綠。
+
+`vue/server-renderer` 是 `vue` 自己的進入點，本 package 已經依賴 vue。
+代價寫在測試檔頭：它證明的是伺服器端渲染的 HTML，不是瀏覽器算出來的
+無障礙樹 —— 但屬性值與 id 對應這一層，兩者是同一件事。
+
+#### 六、⚠️ 三個「看起來對、跑起來錯」，全部是實測抓到的
+
+**（一）模板註解會進 SSR 產物。** 第一版把「為什麼沒有 `role="alert"`」寫成
+模板註解，SSR 輸出裡就有一段中文論證：
+
+```html
+<input id="v-0" aria-describedby="v-1 v-2" aria-invalid="true" />
+<!-- ⚠️ 刻意**沒有** role="alert"：錯誤透過 aria-describedby 在聚焦時… -->
+```
+
+`renderToString` 不移除註解（用戶端 production build 會）。**同 C83 的形狀**：
+寫在原始碼裡的東西進了交付物。論證移到檔頭，並加一條斷言擋它。
+⚠️ `UiDialog` 的模板裡也有一段，另案處理。
+
+**（二）假綠：抽取函式認得什麼，決定了斷言抓得到什麼。** 「兩個都沒有時
+`aria-describedby` 不存在」那條，第一版是問「值是不是 undefined」——
+變異驗證時**沒有紅**。實測 Vue 的 SSR：
+
+```
+""        → <input aria-describedby>   ← 沒有等號
+undefined → <input>
+false     → <input aria-invalid="false">
+```
+
+空字串渲染成 **bare attribute**，而只認 `="…"` 的正則對它是盲的。
+在瀏覽器裡那等於一個指向空的引用。改成問「這個屬性在不在」。
+
+**（三）放寬正則之前先想它會不會被 lint 擋。** 屬性解析第一版用
+`/\s([a-zA-Z-]+)(?:="([^"]*)")?/`，被 `security/detect-unsafe-regex` 判成
+有回溯風險（本 repo 0-warnings）。拆成兩條線性的：帶值的先收，
+再把那些整段挖掉、剩下的按空白切。
+⚠️ 不能直接切 —— `aria-describedby="v-1 v-2"` 的值裡有空白，會拆出假屬性名。
+
+#### 七、`h()` 收不了 `.vue` 的具名 props —— HANDOFF #26 的具體代價
+
+`.vue` 沒有型別檢查，tsc 看到的是 `declare module "*.vue"` 的 shim，
+於是 `h(UiField, { label: "…" }, …)` 挑到最後一個 overload 而報 TS2769。
+轉成 `Component` 讓 props 走寬鬆的那條，而**代價寫進測試檔頭**：
+props 打錯字不會被型別擋。
+
+#### 八、量到的
+
+|               |                                                                     |
+| ------------- | ------------------------------------------------------------------- |
+| 元件          | **24 → 25**                                                         |
+| `api-surface` | **142 → 144** 個 export，進入點不變、**零刪除**（minor 不是 major） |
+| 新增測試      | 10 條接線斷言，**八個變異全部驗過會紅**                             |
+| 新增依賴      | **0**                                                               |
+
+#### 九、⚠️ 沒有守到的那一半
+
+- **使用端忘了 `v-bind="control"`** —— 沒有閘門。
+- **`aria-describedby` 指到的元素真的存在**這一條只驗到 `UiField` 自己
+  渲染的那兩個。使用端另外塞一個 `aria-describedby` 覆蓋掉的話，
+  fallthrough 是**後者贏**，而這裡看不到。
+
+---
+
 ## 實作順序
 
 依賴關係決定順序，不是重要性。
