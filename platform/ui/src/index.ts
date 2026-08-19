@@ -33,6 +33,7 @@ export { default as UiCheckbox } from "./components/UiCheckbox.vue";
 export { default as UiSkeleton } from "./components/UiSkeleton.vue";
 export { default as UiTabs } from "./components/UiTabs.vue";
 export { default as UiTabsPanel } from "./components/UiTabsPanel.vue";
+export { default as UiDatePicker } from "./components/UiDatePicker.vue";
 export { default as UiLabel } from "./components/UiLabel.vue";
 export { default as UiRadioGroup } from "./components/UiRadioGroup.vue";
 export { default as UiRadioItem } from "./components/UiRadioItem.vue";
@@ -54,6 +55,7 @@ export type {
   UiBadgeSlot,
   UiButtonSlot,
   UiCheckboxSlot,
+  UiDatePickerSlot,
   UiDialogSlot,
   UiInputSlot,
   UiLabelSlot,

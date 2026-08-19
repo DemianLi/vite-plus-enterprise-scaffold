@@ -184,6 +184,26 @@ const parts = DEFAULT_PARTS;
     expect(consumedOverrides(`const x = theme.UiButton?.primary;`).has("UiDialog")).toBe(false);
   });
 
+  it("★ 換行式的 union 也解析得出來", () => {
+    /**
+     * `UiDatePicker` 有八格，格式化器會把它換行成 `=` 之後一個前導 `|`。
+     * 第一版的錨點是 `export type X = `（含尾空格），於是整個找不到。
+     *
+     * ⚠️ 症狀是紅燈不是恆真（`block()` 是丟例外的，那一步當初就選對了），
+     * 但訊息會指向錨點而不是真正的原因：**解析假設了 union 與 `=` 同一行**。
+     */
+    const wrapped = ["export type UiWrappedSlot =", '  | "a"', '  | "b"', '  | "c";', ""].join(
+      "\n",
+    );
+    expect(sorted(resolveUnion(wrapped, "UiWrappedSlot"))).toEqual(["a", "b", "c"]);
+  });
+
+  it("🔴 解析不出任何成員 → 丟例外，不是回傳空集合", () => {
+    // 「跳過空字串」那一行同時打開了這個洞：空陣列去比另一個空陣列是恆真。
+    // 與 block() 丟例外而不回 null 是同一條理由，只是換了位置重新出現。
+    expect(() => resolveUnion("export type UiEmptySlot = ;", "UiEmptySlot")).toThrow("恆真");
+  });
+
   it("④ props 寫成型別別名", () => {
     const props = definePropsBlock(`defineProps<{
   slot?: UiFakeSlot;

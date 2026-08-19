@@ -325,7 +325,7 @@ Tier 2 的三條規則——不快取、不做 affected 過濾、必須有時間
 checker 抽出每個 `platform/*` 進入點的**型別形狀**，與已提交的基準比對。
 **移除、改名、或改變形狀就讓閘門失敗**，除非基準已登記對應的 codemod。
 
-目前守著的範圍：`api-surface（10 個進入點／122 個 export）`。
+目前守著的範圍：`api-surface（10 個進入點／124 個 export）`。
 這兩個數字由 `vpr doc-facts` 從基準檔推導核對 —— 抄錯或過期會擋下 PR。
 
 「形狀」的意思是連 `interface` 的成員、class 的建構子、`.vue` 元件的 props
@@ -392,10 +392,10 @@ checker 抽出每個 `platform/*` 進入點的**型別形狀**，與已提交的
   內自帶一份 TypeScript 6.0.3。上游支援後即可移除。
 - `vp run` **沒有** changed-since 過濾器。affected 偵測若要做，得自己算 git diff。
   目前靠任務快取提速（實測 4/5 命中）。
-- **`platform/ui` 目前有 14 個元件。** 表單那一排（`UiInput`、`UiTextarea`、
-  `UiSelect`、`UiCheckbox`、`UiRadioGroup`／`UiRadioItem`、`UiSwitch`、`UiLabel`）
-  已經補齊，加上 `UiButton`、`UiDialog`、`UiBadge`、`UiSkeleton`、
-  `UiTabs`／`UiTabsPanel`。⚠️ **還缺表格、分頁與日期**。
+- **`platform/ui` 目前有 15 個元件。** 表單那一排（`UiInput`、`UiTextarea`、
+  `UiSelect`、`UiCheckbox`、`UiRadioGroup`／`UiRadioItem`、`UiSwitch`、`UiLabel`、
+  `UiDatePicker`）已經補齊，加上 `UiButton`、`UiDialog`、`UiBadge`、`UiSkeleton`、
+  `UiTabs`／`UiTabsPanel`。⚠️ **還缺表格與分頁**。
   ⚠️ 這個數字自 2026-08-19 起由 `tools/doc-facts` 從 `git ls-files` 數出來 ——
   在那之前它被抄在三個地方而沒有任何東西在守（同 C71 的形狀）。
 - ⚠️ **v1.0.0 沒有任何無障礙檢查。** 政府採購案的 AA 是立法院決議要求 ——
