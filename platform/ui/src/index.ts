@@ -27,6 +27,7 @@
 
 export { default as UiButton } from "./components/UiButton.vue";
 export { default as UiDialog } from "./components/UiDialog.vue";
+export { default as UiAlertDialog } from "./components/UiAlertDialog.vue";
 export { default as UiInput } from "./components/UiInput.vue";
 export { default as UiBadge } from "./components/UiBadge.vue";
 export { default as UiCheckbox } from "./components/UiCheckbox.vue";
@@ -62,6 +63,7 @@ export { cn } from "./utils/cn.ts";
  */
 export { createUiTheme } from "./theme.ts";
 export type {
+  UiAlertDialogSlot,
   UiAlertSlot,
   UiBadgeSlot,
   UiButtonSlot,
