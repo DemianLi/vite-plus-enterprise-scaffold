@@ -31,6 +31,11 @@ import { NO_OVERRIDE, UI_THEME, type UiSelectSlot } from "../theme.ts";
  * Portal 會把面板掛到 `<body>` 底下，所以**外層的 `overflow: hidden`
  * 不會裁到它** —— 那正是自己寫下拉最常撞的那面牆。
  *
+ * ── 箭頭是內嵌 SVG 而不是圖示套件 ────────────────────────────────
+ *
+ * 少一個圖示套件就是少一筆 SCA 範圍。它帶 `aria-hidden` —— `SelectTrigger`
+ * 自己就有 role 與可及名稱，箭頭再被唸一次只是噪音。
+ *
  * ── 為什麼用 `items` 陣列而不是 Root ＋ Item ──────────────────────
  *
  * 判準與 `UiRadioGroup` 那一條相同（那裡選了兩個檔案）：**項目的內容是不是
@@ -125,8 +130,6 @@ const parts: Readonly<Record<UiSelectSlot, string>> = {
   <SelectRoot v-model="selected">
     <SelectTrigger data-slot="select" :class="parts.trigger">
       <SelectValue :placeholder="placeholder" />
-      <!-- 箭頭是內嵌 SVG 而不是圖示套件：少一個相依就是少一筆 SCA 範圍。
-           aria-hidden 因為 SelectTrigger 自己就有 role 與名字。 -->
       <svg viewBox="0 0 16 16" :class="parts.chevron" aria-hidden="true">
         <path
           d="M4 6l4 4 4-4"

@@ -24,6 +24,12 @@ import { NO_OVERRIDE, UI_THEME, type UiDialogSlot } from "../theme.ts";
  *
  * reka-ui 把這些做完了，而且**不帶任何樣式**，所以外觀仍然是我們的。
  *
+ * ── 遮罩：色相在代幣、不透明度留在元件 ────────────────────────────
+ *
+ * `overlay` 那一格寫的是 `bg-overlay/40`。⚠️ 不要為了那個 40 再開一個
+ * `--color-overlay-40` 代幣 —— 那會讓**每換一次濃淡就多一格**，而濃淡是
+ * 逐案調的東西。`styles/index.css` 對這一條有更完整的說明。
+ *
  * ── CSP：這個元件零執行期樣式注入 ──────────────────────────────────
  *
  * reka-ui 全套件唯一會 `document.createElement("style")` 的地方是
@@ -131,8 +137,6 @@ const parts: Readonly<Record<UiDialogSlot, string>> = {
 <template>
   <DialogRoot v-model:open="open">
     <DialogPortal>
-      <!-- 色相在代幣、不透明度留在元件。`--color-overlay-40` 那種代幣會讓
-           每換一次濃淡就多一格，見 styles/index.css 對這一條的說明。 -->
       <DialogOverlay :class="parts.overlay" />
       <DialogContent :class="parts.content">
         <DialogTitle :class="parts.title">{{ title }}</DialogTitle>
