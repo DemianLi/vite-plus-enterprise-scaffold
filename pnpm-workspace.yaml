@@ -38,6 +38,11 @@ catalog:
   # 少一個相依就是少一筆 SCA 範圍（與 D2 對 YAML parser 的同一條理由）。
   clsx: ^2.1.1
   tailwind-merge: ^3.4.1
+  # UiDatePicker 用。⚠️ **這不是一筆新的供應鏈範圍**：它從第一天就在樹裡
+  # （reka-ui 自己相依它），這裡做的只是把「本來就在用」寫成明的 ——
+  # platform/ui 要直接 import CalendarDate 才建得出 DateValue。
+  # 版本刻意跟著 reka-ui 的範圍（^3），釘死會在 reka-ui 升版時產生第二份。
+  "@internationalized/date": ^3.12.3
 
   # --- 元件測試（§11 II ⑨ 的執行期那一層）---
   # ⚠️ C47 才剛以「會把瀏覽器二進位拉進供應鏈盤點範圍」為由拒絕 Playwright，

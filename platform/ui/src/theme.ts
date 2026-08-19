@@ -136,6 +136,23 @@ export type UiRadioItemSlot = "item" | "indicator" | "label";
 export type UiSelectSlot = "trigger" | "content" | "item" | "indicator" | "chevron";
 
 /**
+ * `UiDatePicker` 的可覆寫部位。名稱取自 reka-ui 的基元。
+ *
+ * ⚠️ 八格是這個 repo 目前最多的 —— 日期選擇器本來就是一個小應用
+ *（輸入分段 ＋ 觸發器 ＋ 面板 ＋ 導航 ＋ 表頭 ＋ 日格）。合併成幾格會讓
+ * 各案想改一個星期標題就得把整片日曆的 class 抄過來（覆寫是整條替換）。
+ */
+export type UiDatePickerSlot =
+  | "field"
+  | "segment"
+  | "trigger"
+  | "content"
+  | "nav"
+  | "heading"
+  | "headCell"
+  | "day";
+
+/**
  * 各案的覆寫表：**元件名 → 槽名 → 整條 class 字串**。
  *
  * ⚠️ 語意是**整條替換**，不是附加。想要「在預設值上加一點東西」請把預設值
@@ -158,6 +175,7 @@ export type UiThemeOverride = {
   readonly UiRadioGroup?: Readonly<Partial<Record<UiRadioGroupSlot, string>>>;
   readonly UiRadioItem?: Readonly<Partial<Record<UiRadioItemSlot, string>>>;
   readonly UiSelect?: Readonly<Partial<Record<UiSelectSlot, string>>>;
+  readonly UiDatePicker?: Readonly<Partial<Record<UiDatePickerSlot, string>>>;
 };
 
 /**

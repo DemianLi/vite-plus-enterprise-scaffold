@@ -13,6 +13,7 @@
     "check": "vp check"
   },
   "dependencies": {
+    "@internationalized/date": "catalog:",
     "clsx": "catalog:",
     "reka-ui": "catalog:",
     "tailwind-merge": "catalog:",

@@ -131,11 +131,30 @@ export function resolveUnion(
   if (seen.has(typeName)) throw new Error(`型別別名循環引用：${typeName}`);
 
   const clean = stripComments(themeSource);
-  const body = block(clean, `export type ${typeName} = `, ";");
+  /**
+   * ⚠️ 錨點是 `export type X =`（**不含後面那個空格**）。
+   *
+   * 第一版寫成 `… = `，於是格式化器把一個長 union 換行成
+   *
+   *     export type UiDatePickerSlot =
+   *       | "field"
+   *       | …
+   *
+   * 之後就整個找不到 —— 而 `block()` 是丟例外的，所以症狀是紅燈不是恆真
+   *（那一步當初就選對了）。但訊息會說「找不到區塊起點」，指向錨點而不是
+   * 真正的原因：**這支解析假設了 union 與 `=` 在同一行**。
+   *
+   * 那個假設不是規則，只是當時的元件剛好都夠短。`UiDatePicker` 有八格。
+   */
+  const body = block(clean, `export type ${typeName} =`, ";");
 
   const members: string[] = [];
+  // 換行式的 union 開頭會有一個空的前導 `|`，切出來是空字串 —— 跳過它。
+  // ⚠️ 不能用 filter(Boolean) 一了百了：那樣連「真的解析不出東西」也會
+  // 安靜地變成空集合，而空集合對空集合是相等的（見 block() 的說明）。
   for (const part of body.split("|")) {
     const trimmed = part.trim();
+    if (trimmed.length === 0) continue;
     const literal = /^"([^"]+)"$/.exec(trimmed);
     if (literal !== null) {
       members.push(literal[1] as string);
@@ -144,6 +163,18 @@ export function resolveUnion(
     // 不是字串字面值就當成別名往下走。認不出來的形狀（泛型、交集）
     // 會在遞迴時因為找不到 `export type X = ` 而丟，不會安靜地少算成員。
     members.push(...resolveUnion(clean, trimmed, new Set([...seen, typeName])));
+  }
+
+  /**
+   * ⚠️ 解析不出任何成員一律丟例外。
+   *
+   * 上面那個「跳過空字串」是為了換行式 union 的前導 `|`，但它同時打開了一個
+   * 洞：一個怎麼也解析不出東西的 union 會回傳空陣列，而呼叫端拿空集合去比
+   * 另一個空集合 —— **恆真**。這正是 `block()` 那段說明在防的事，
+   * 只是換了一個位置重新出現。
+   */
+  if (members.length === 0) {
+    throw new Error(`${typeName} 解析不出任何成員 —— 空集合對空集合會恆真`);
   }
   return members;
 }
