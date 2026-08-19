@@ -295,3 +295,40 @@ const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = {
     expect(css).not.toMatch(REDUCED_MOTION_RULE);
   });
 });
+
+/**
+ * ── 模板裡不得留 HTML 註解（C85）─────────────────────────────────────
+ *
+ * `renderToString` **不移除**註解 —— 用戶端的 production build 會，SSR 不會。
+ * 所以寫在 `<template>` 裡的中文論證會出現在使用 Nuxt 那類 SSR 的專案
+ * **下載的 HTML 裡**。⚠️ 同 C83 的形狀：寫在原始碼裡的東西進了交付物。
+ *
+ * 實測（C84，`UiField` 的 SSR 產出）：
+ *
+ *     <input id="v-0" aria-describedby="v-1 v-2" aria-invalid="true">
+ *     <!-- ⚠️ 刻意**沒有** role="alert"：錯誤透過 aria-describedby 在聚焦時… -->
+ *
+ * ⚠️ **這一條驗的是原始碼，不是產物。** 它擋得住「有人往模板裡寫註解」，
+ * 擋不住「Vue 改變註解的處理方式」。要驗產物就得把每個元件都渲染出來，
+ * 而多數元件需要 props 才渲染得動 —— 那是一份逐元件的 fixture，成本遠大於
+ * 換到的。同 `theme-verify` README 那句「綠燈的意思是配色與形狀實測可換，
+ * 不是設計系統可換」：邊界要自己說出來。
+ *
+ * ⚠️ 產物那一側**有一條**（`field-wiring.test.ts` 的「模板裡不留 HTML 註解」），
+ * 但它只渲染 `UiField`。兩條合起來才是完整的：一條深、一條廣。
+ *
+ * ⚠️ 別跟 SSR 的 fragment 標記搞混：產物裡的 `<!--[-->` 與 `<!---->` 是 Vue
+ * 自己插的，不是作者寫的。這一條讀的是**原始碼**，碰不到它們。
+ */
+describe("模板不留 HTML 註解", () => {
+  for (const { name, source } of COMPONENTS) {
+    it(`${name} 的 <template> 裡沒有註解`, () => {
+      const template = /<template>([\s\S]*)<\/template>/.exec(source)?.[1];
+
+      // ⚠️ 解析不到 <template> 就直接紅，不是跳過 —— 「沒有模板的元件」
+      // 在這個 repo 不存在，而 undefined 會讓下面那條斷言恆真。
+      expect(template, `${name} 解析不出 <template> 區塊`).toBeDefined();
+      expect(template).not.toContain("<!--");
+    });
+  }
+});

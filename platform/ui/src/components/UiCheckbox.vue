@@ -25,6 +25,12 @@ import { NO_OVERRIDE, UI_THEME, type UiCheckboxSlot } from "../theme.ts";
  *   data-[state=checked]:bg-primary    → data-[state=checked]:bg-accent
  *   rounded-sm                         → rounded-control
  *
+ * ── 勾勾是內嵌 SVG 而不是圖示套件 ────────────────────────────────
+ *
+ * 多一個圖示套件就是多一筆 SCA 範圍、多一筆鏡像清單 —— 而換到的是一條
+ * 八個字元的 path。`currentColor` 讓它跟著 `indicator` 那格代幣走，
+ * 所以換配色時不必動到 SVG。
+ *
  * ── 為什麼 `defineModel<boolean>()` 不具名 ───────────────────────
  *
  * 不具名的那一個產生 `modelValue` 與 `update:modelValue`，也就是
@@ -103,8 +109,6 @@ const parts: Readonly<Record<UiCheckboxSlot, string>> = {
   <div class="inline-flex items-center gap-2">
     <CheckboxRoot :id="inputId" v-model="checked" data-slot="checkbox" :class="parts.root">
       <CheckboxIndicator :class="parts.indicator">
-        <!-- 勾勾是內嵌 SVG 而不是圖示套件：多一個相依就是多一筆 SCA 範圍、
-             多一筆鏡像清單。而 currentColor 讓它跟著上面那格代幣走。 -->
         <svg viewBox="0 0 16 16" class="size-3" aria-hidden="true">
           <path
             d="M3.5 8.5l3 3 6-7"

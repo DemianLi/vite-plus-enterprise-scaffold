@@ -49,6 +49,19 @@ import { NO_OVERRIDE, UI_THEME, type UiDatePickerSlot } from "../theme.ts";
  *（它們在 `main`），所以這裡沒有清單要跟著更新。在 `main` 上加這一筆時
  * 要回頭看 D15 記的那四件事。
  *
+ * ── ⚠️ `data-slot` 與 `aria-invalid` 掛在 field 上，**不是 Root 上** ──
+ *
+ * `DatePickerRoot` 是**非渲染的 provider**，掛在它身上的屬性會被安靜丟掉。
+ * 實測第一版把 `data-slot` 放在 Root，產出裡完全找不到它 —— ⚠️ 而
+ * `theme-verify` 的靜態掃描讀的是**原始碼**，所以它看得到那個字串、
+ * 閘門全綠，只有真的渲染出來才發現不見了。
+ *
+ * ── 分段順序由 locale 決定，那正是自己寫一定會錯的一格 ────────────
+ *
+ * 年／月／日的排列在不同地區是相反的（`MM/DD/YYYY` vs `DD/MM/YYYY`），
+ * 而 reka-ui 的 `segments` 已經照 `locale` 排好。自己拼的話症狀是
+ * 「某些地區的使用者把生日打反」—— 而在開發者自己的機器上永遠正常。
+ *
  * ── 值的型別是 `DateValue`，不是 `Date` ──────────────────────────
  *
  * 這是**刻意的**，而且是這個元件最容易被「簡化」掉的一格。
@@ -180,17 +193,12 @@ const parts: Readonly<Record<UiDatePickerSlot, string>> = {
 
 <template>
   <DatePickerRoot v-model="value" :locale="locale">
-    <!-- ⚠️ `data-slot` 與 `aria-invalid` 都掛在 field 上，**不是 Root 上**：
-         `DatePickerRoot` 不渲染任何元素，掛上去的屬性會被安靜丟掉。
-         實測第一版把 data-slot 放在 Root，產出裡完全找不到它。 -->
     <DatePickerField
       v-slot="{ segments }"
       data-slot="date-picker"
       :aria-invalid="invalid || undefined"
       :class="parts.field"
     >
-      <!-- 分段（年／月／日）由 reka-ui 依 locale 決定順序 —— 那正是自己寫
-           一定會錯的一格：日／月的順序在不同地區是相反的。 -->
       <DatePickerInput
         v-for="item in segments"
         :key="item.part"
