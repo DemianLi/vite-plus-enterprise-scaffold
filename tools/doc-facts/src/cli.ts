@@ -5,7 +5,12 @@ import { fileURLToPath } from "node:url";
 
 import { CONTRACT_ITEMS } from "@org/bff-contract";
 
-import { actionCounts, codeownersEntryCount, workspacePackageCount } from "./derive.ts";
+import {
+  actionCounts,
+  codeownersEntryCount,
+  uiComponentCount,
+  workspacePackageCount,
+} from "./derive.ts";
 import { FACTS, checkFacts, type DocumentSource } from "./facts.ts";
 
 /**
@@ -51,6 +56,7 @@ function deriveTruth(): Record<string, number> {
       0,
     ),
     "contract-items": CONTRACT_ITEMS.length,
+    "ui-components": uiComponentCount(ROOT),
     "workspace-packages": workspacePackageCount(ROOT),
     "action-refs": actions.refs,
     "distinct-actions": actions.distinct,

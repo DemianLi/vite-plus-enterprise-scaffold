@@ -96,9 +96,10 @@ createUiTheme({
 就是 reka-ui 的基元名，也是 shadcn-vue 的 part 名、以及 shadcn Figma kit 的圖層名。
 設計師說「overlay 要更淡」，前端要改的那一格就叫 `overlay` —— 這條對應不需要翻譯表。
 
-⚠️ **這一條是「機制完整、內容很少」。** `platform/ui` 目前只有
-`UiButton`、`UiDialog`、`UiInput` 三個元件 —— 接縫是通的、而且**三個元件都被
-檢查過**，但**能換的東西還不多**。補元件是 v1.x 的工作。
+⚠️ **這一條是「機制完整、內容很少」。** `platform/ui` 目前只有 8 個元件
+（`UiButton`、`UiDialog`、`UiInput`、`UiBadge`、`UiCheckbox`、`UiSkeleton`、
+`UiTabs`、`UiTabsPanel`）—— 接縫是通的、而且**8 個元件都被檢查過**，
+但**能換的東西還不多**。補元件是 v1.x 的工作。
 
 ⚠️ **shadcn 沒有安裝。** 這個 repo 用的是它的三個原料
 （reka-ui ＋ clsx ＋ tailwind-merge）與它的模型（原始碼在自己手上）。
@@ -183,10 +184,15 @@ createUiTheme({
 
 也就是說：**遮罩在 v1 是慣例，不是機制。**
 
-### 二、`platform/ui` 只有三個元件
+### 二、`platform/ui` 只有 8 個元件
 
-接縫（代幣／具名槽／slot）都通了、**三個元件都被檢查器驗過**，
-但實際能換的東西只有按鈕、對話框與輸入框。要拼出一個完整版型，元件還要補。
+接縫（代幣／具名槽／slot）都通了、**8 個元件都被檢查器驗過**，
+但要拼出一個完整版型，元件還要補 —— 表格、下拉、日期都還沒有。
+
+⚠️ 這個數字自 2026-08-19 起由 `tools/doc-facts` 從
+`platform/ui/src/components` 數出來。在那之前它被抄在三個地方（這裡、
+上面承諾三、README〈已知限制〉）而**沒有任何東西在守** —— 與第五條
+記的閘門清單是同一個形狀。
 
 ⚠️ 補元件的最快路徑是用 shadcn-vue 的 CLI 把原始碼**抄進來**（不是相依它），
 抄進來之後接上具名槽 —— 檢查器會告訴你哪一個沒接上。那是 v1.x 的工作。

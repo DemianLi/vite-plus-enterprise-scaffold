@@ -80,6 +80,29 @@ export function workspacePackageCount(root: string): number {
   return workspacePackages(root).length;
 }
 
+/**
+ * `platform/ui` 的元件數。
+ *
+ * ── 為什麼要有這一筆 ────────────────────────────────────────────────
+ *
+ * 「`platform/ui` 目前只有 N 個元件」這句話寫在三個地方（README 的
+ * 〈已知限制〉、HANDOFF 的〈已知的誠實缺口〉兩處），而在 2026-08-19 之前
+ * **沒有任何東西在守它**。那是 C71 記的同一個形狀：一份被抄在多處的清單，
+ * 沒有人在斷言它們一致。
+ *
+ * 而它是**團隊評估要不要拉 v1 時讀的那一格** —— 抄漏一次，看到的是一個
+ * 比實際少的數字，然後決定自己寫元件。
+ *
+ * ⚠️ 數的是目錄下的 `.vue`，不是 `index.ts` 的 export 數：那兩個不相等
+ *（`index.ts` 還匯出 `cn`、`createUiTheme` 與一堆型別），而句子講的是元件。
+ * 「元件有沒有被匯出」是另一條規則，由 `platform/ui/tests` 的契約測試守。
+ */
+export function uiComponentCount(root: string): number {
+  return readdirSync(join(root, "platform/ui/src/components")).filter((name) =>
+    name.endsWith(".vue"),
+  ).length;
+}
+
 const USES = /^\s*-?\s*uses:\s*(\S+)/gm;
 
 /** workflow 裡的 action 引用。回傳「引用處數」與「不重複 action 數」兩個。 */

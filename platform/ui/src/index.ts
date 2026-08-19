@@ -28,6 +28,11 @@
 export { default as UiButton } from "./components/UiButton.vue";
 export { default as UiDialog } from "./components/UiDialog.vue";
 export { default as UiInput } from "./components/UiInput.vue";
+export { default as UiBadge } from "./components/UiBadge.vue";
+export { default as UiCheckbox } from "./components/UiCheckbox.vue";
+export { default as UiSkeleton } from "./components/UiSkeleton.vue";
+export { default as UiTabs } from "./components/UiTabs.vue";
+export { default as UiTabsPanel } from "./components/UiTabsPanel.vue";
 export { cn } from "./utils/cn.ts";
 
 /**
@@ -40,10 +45,15 @@ export { cn } from "./utils/cn.ts";
  */
 export { createUiTheme } from "./theme.ts";
 export type {
+  UiBadgeSlot,
   UiButtonSlot,
+  UiCheckboxSlot,
   UiDialogSlot,
   UiInputSlot,
   UiSize,
+  UiSkeletonSlot,
+  UiTabsPanelSlot,
+  UiTabsSlot,
   UiThemeOverride,
   UiVariant,
 } from "./theme.ts";
