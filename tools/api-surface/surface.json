@@ -470,6 +470,14 @@
         "kind": "function",
         "type": "(override: UiThemeOverride) => Plugin"
       },
+      "UiBadge": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]", "tone?: \"neutral\" | \"accent\" | \"danger\""]
+      },
+      "UiBadgeSlot": {
+        "kind": "type",
+        "type": "\"accent\" | \"badge\" | \"danger\" | \"neutral\""
+      },
       "UiButton": {
         "kind": "component",
         "members": [
@@ -483,6 +491,19 @@
       "UiButtonSlot": {
         "kind": "type",
         "type": "\"danger\" | \"ghost\" | \"md\" | \"primary\" | \"secondary\" | \"sm\""
+      },
+      "UiCheckbox": {
+        "kind": "component",
+        "members": [
+          "[emit update:modelValue]: void",
+          "[slot default]: (): VNode[]",
+          "label?: string",
+          "modelValue?: boolean"
+        ]
+      },
+      "UiCheckboxSlot": {
+        "kind": "type",
+        "type": "\"indicator\" | \"label\" | \"root\""
       },
       "UiDialog": {
         "kind": "component",
@@ -512,12 +533,46 @@
         "kind": "type",
         "type": "\"md\" | \"sm\""
       },
+      "UiSkeleton": {
+        "kind": "component",
+        "members": []
+      },
+      "UiSkeletonSlot": {
+        "kind": "type",
+        "type": "\"skeleton\""
+      },
+      "UiTabs": {
+        "kind": "component",
+        "members": [
+          "[emit update:modelValue]: void",
+          "[slot default]: (): VNode[]",
+          "items: readonly { value: string; label: string }[]",
+          "modelValue?: string"
+        ]
+      },
+      "UiTabsPanel": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]", "value: string"]
+      },
+      "UiTabsPanelSlot": {
+        "kind": "type",
+        "type": "\"panel\""
+      },
+      "UiTabsSlot": {
+        "kind": "type",
+        "type": "\"list\" | \"trigger\""
+      },
       "UiThemeOverride": {
         "kind": "type",
         "members": [
+          "UiBadge?: Readonly<Partial<Record<UiBadgeSlot, string>>> | undefined",
           "UiButton?: Readonly<Partial<Record<UiButtonSlot, string>>> | undefined",
+          "UiCheckbox?: Readonly<Partial<Record<UiCheckboxSlot, string>>> | undefined",
           "UiDialog?: Readonly<Partial<Record<UiDialogSlot, string>>> | undefined",
-          "UiInput?: Readonly<Partial<Record<\"input\", string>>> | undefined"
+          "UiInput?: Readonly<Partial<Record<\"input\", string>>> | undefined",
+          "UiSkeleton?: Readonly<Partial<Record<\"skeleton\", string>>> | undefined",
+          "UiTabs?: Readonly<Partial<Record<UiTabsSlot, string>>> | undefined",
+          "UiTabsPanel?: Readonly<Partial<Record<\"panel\", string>>> | undefined"
         ]
       },
       "UiVariant": {

@@ -84,6 +84,40 @@ export type UiDialogSlot = "overlay" | "content" | "title" | "description";
 export type UiInputSlot = "input";
 
 /**
+ * `UiSkeleton` 的可覆寫部位。只有一格 —— 這個元件就是一個方塊。
+ *
+ * ⚠️ 一格也要有：沒有這一格的話，各案想把骨架從灰色改成品牌淡色就得
+ * 改 `platform/`，而那正是具名槽存在的理由。
+ */
+export type UiSkeletonSlot = "skeleton";
+
+/**
+ * `UiBadge` 的可覆寫部位 —— `badge` 是版型，另外三個是 `tone` 的值。
+ *
+ * ⚠️ `badge` 那一格是 review 補的：第一版把圓角與內距寫死在模板的 `class`
+ * 上，於是各案換得掉顏色、**換不掉形狀**。
+ *
+ * ⚠️ 刻意**不叫** `UiVariant`：那是按鈕的軸（含 `ghost`），標籤沒有它。
+ * 共用的話，日後幫按鈕加一個 variant 會逼標籤跟著長一格。
+ */
+export type UiBadgeSlot = "badge" | "neutral" | "accent" | "danger";
+
+/** `UiCheckbox` 的可覆寫部位。名稱取自 reka-ui 的基元與 `Label`。 */
+export type UiCheckboxSlot = "root" | "indicator" | "label";
+
+/**
+ * `UiTabs` 的可覆寫部位。
+ *
+ * ⚠️ **不含 panel** —— 那是 `UiTabsPanel` 自己的一格。兩個檔案各有一格，
+ * 因為覆寫的語意是整條替換：合成一格的話，各案想只改 panel 的內距
+ * 就得把 trigger 那一整條也抄過來。
+ */
+export type UiTabsSlot = "list" | "trigger";
+
+/** `UiTabsPanel` 的可覆寫部位。見 `UiTabsSlot` 為什麼分開。 */
+export type UiTabsPanelSlot = "panel";
+
+/**
  * 各案的覆寫表：**元件名 → 槽名 → 整條 class 字串**。
  *
  * ⚠️ 語意是**整條替換**，不是附加。想要「在預設值上加一點東西」請把預設值
@@ -95,6 +129,11 @@ export type UiThemeOverride = {
   readonly UiButton?: Readonly<Partial<Record<UiButtonSlot, string>>>;
   readonly UiDialog?: Readonly<Partial<Record<UiDialogSlot, string>>>;
   readonly UiInput?: Readonly<Partial<Record<UiInputSlot, string>>>;
+  readonly UiSkeleton?: Readonly<Partial<Record<UiSkeletonSlot, string>>>;
+  readonly UiBadge?: Readonly<Partial<Record<UiBadgeSlot, string>>>;
+  readonly UiCheckbox?: Readonly<Partial<Record<UiCheckboxSlot, string>>>;
+  readonly UiTabs?: Readonly<Partial<Record<UiTabsSlot, string>>>;
+  readonly UiTabsPanel?: Readonly<Partial<Record<UiTabsPanelSlot, string>>>;
 };
 
 /**

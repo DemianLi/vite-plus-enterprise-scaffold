@@ -130,6 +130,25 @@ export const FACTS: readonly Fact[] = [
     ],
   },
   {
+    id: "ui-components",
+    describe: "platform/ui 的元件數",
+    /**
+     * 2026-08-19 補（#56）。⚠️ **補的當下那句話是對的，但它一路上錯過三次**
+     * —— `UiInput` 進來時（#54）README 與 HANDOFF 三處都得手改，
+     * 而漏改不會有任何檢查說話。這一批一次加五個，那三處要一起動。
+     *
+     * 登記它的成本是這幾行；不登記的成本是每一批元件都重新賭一次。
+     */
+    source: "git ls-files platform/ui/src/components 底下的 .vue 數",
+    citations: [
+      // README〈已知限制〉：「platform/ui 目前只有八個元件」
+      // HANDOFF〈已知的誠實缺口〉：「platform/ui 只有八個元件」
+      /`platform\/ui` (?:目前)?只有 (\d+) 個元件/,
+      // HANDOFF 承諾三：「…三個元件都被檢查過」／〈缺口〉：「…都被檢查器驗過」
+      /\*\*(\d+) 個元件都被檢查/,
+    ],
+  },
+  {
     id: "workspace-packages",
     describe: "workspace 內的 package 數",
     source: "pnpm-workspace.yaml 的 packages 樣式底下的 package.json 數",
