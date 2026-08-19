@@ -6721,6 +6721,101 @@ C85 的標題是「模板註解會進 SSR 產物，而它不只 `UiDialog` 一�
 
 ---
 
+### C87 — 兩支測試搶同一個 repo，第二次；而這次兩條斷言直接相反（2026-08-20）
+
+C61 是同一個成因的第一次發作（`doc-facts` 數 workspace 套件數），修法是讓數數的
+那一側認得 `zz-` 前綴。這次發作在 `tools/conformance`：PR #79 的 Tier 1 紅在
+`tests/negative.test.ts` 最後一條，**前 30 次 CI 全綠，重跑就過**。
+
+#### 一、為什麼 C61 的修法在這裡不成立
+
+兩條斷言指著同一個真實根目錄，而且**要求相反的狀態**：
+
+| 誰                              | 對真 repo 斷言                                  |
+| ------------------------------- | ----------------------------------------------- |
+| `conformance/tests/negative.ts` | 一致性檢查是**綠的**                            |
+| `slice-gen/tests/e2e.ts`        | 一致性檢查是**紅的**（含「擁有權」與 1 項違規） |
+
+slice-gen 那條要的就是「產出的切片過得了真的閘門，除了必須由人指派的那一項」——
+它必須在真的 `features/` 底下建真的檔案，因為 `tools/conformance` 讀的是真的檔案。
+
+⚠️ 沿用 C61 的做法（讓 conformance 也跳過 `zz-`）**會把 slice-gen 那條弄壞**：
+閘門一旦略過那個切片，就不再報「擁有權」，那條斷言隨即變成恆真。
+C61 能成立是因為 doc-facts 只是在數數；這裡兩邊都在對同一件事做相反的判定。
+
+所以修的是**排程**，不是斷言。
+
+#### 二、修法：三個 package 的 `test` 從 script 改成 task
+
+`dependsOn` 只認 task，而 `test` 原本是 `package.json` 的 script，所以三支各加一份
+`vite.config.ts`。conformance 與 vue-typecheck 都宣告 `dependsOn:
+["@org/slice-gen#test"]` —— slice-gen 跑完、`afterAll` 清完，它們才開始。
+
+⚠️ 同一個名字**不能同時**存在於 `package.json` 的 scripts 與 `run.tasks`：
+會是 `Failed to load task graph`，整批測試連跑都不會開始。三支的 script 都已移除。
+
+⚠️ `vp run --parallel` 會**忽略 task 相依**，這道防護會安靜失效。CI 跑的是
+`vp run -r test`，沒有 `--parallel`。
+
+副作用：slice-gen 紅的時候，conformance 與 vue-typecheck 整條不跑。這對上 C61
+自己寫下的原則 ——「讓一道閘門去報另一道閘門的問題，只會讓兩邊的訊息都變模糊」。
+
+#### 三、`cache: false`：拿間歇紅燈換永久殘留
+
+slice-gen 的 task 另外宣告 `cache: false`。一支**會寫真 repo** 的測試不可以進快取：
+cache hit 時 Vite Task 會把該次的產出 restore 回來，而那些產出就落在真的
+`features/` 底下 —— 換來的不是間歇紅燈，是**永久殘留**，而且那次根本沒跑，
+e2e 自己那條「`features/` 只剩真正的切片」也不會紅。
+
+⚠️ 實測時 vp 會自己判定 `not cached because it modified its input` 而略過快取，
+所以拿掉這一行**看起來**也是對的。這裡要的是宣告，不是靠那個判定：建了又刪、
+淨改變為零的那一次，自動偵測不保證還會這樣判。
+
+#### 四、順手把還沒發作的那一個一起關掉
+
+`vue-typecheck/tests/programs.test.ts` 是同一個形狀，只是還沒紅過：
+`discoverPrograms(ROOT)` 在 collection 期算一次、`allViews(ROOT)` 在執行期又算一次，
+`zz-` 切片若在這兩次之間出現或消失，「非 fixture 的 `.vue` 一個都不能漏」比的就是
+**兩份不同時刻**的清單。
+
+⚠️ 這條連 C61 的做法都救不了：兩份清單都會跳過 `zz-`，不一致的來源是時刻不同，
+不是認不認得。
+
+（`api-surface` 掃的是 `platform/`，與 `features/` 不重疊，不需要讓開。）
+
+#### 五、變異
+
+順序訊號用「相依被 graph 採納」驗，不看紅不紅 —— 窗口太窄，跑一次綠什麼都不證明。
+讓 `@org/slice-gen#test` 直接 `exit 1`：
+
+| 設定                      | conformance    | vue-typecheck |
+| ------------------------- | -------------- | ------------- |
+| 兩支都有 `dependsOn`      | **完全不執行** | 完全不執行    |
+| 拿掉 conformance 的那一條 | 出現在執行列表 | 完全不執行    |
+
+（`--last-details` 另外印出 `@org/slice-gen#test → Cache disabled in task
+configuration`，第三節那一行確實生效。）
+
+改動前後測試條數一致：conformance 79、slice-gen 71、vue-typecheck 24。
+加 package 層 `vite.config.ts` 會改變 `vp test` 找設定的來源，所以這個比對是必要的。
+
+#### 六、分支：刻意只進 `release/v1`，而 `main` 缺這個修法
+
+照 C78／C81 的判準這是**面向開發流程**，該進 `main`。這次刻意不那樣做：紅的那次
+（#79）就發生在 `release/v1`，不修的話這條線上每個 PR 都留著一道擲銅板的閘門。
+
+⚠️ 代價記在這裡：**`main` 沒有這個修法**，兩條線的排程層從此分岔。`main` 要補的話
+三份 `vite.config.ts` 可以直接搬，但 `main` 的 `tools/` 比這裡多（`gate-roster`、
+`supply-chain`、`pii-check` 等），**哪些 task 也需要讓開必須重驗一次**，不能照抄。
+
+#### 七、順帶：兩條沒帶訊息參數的斷言
+
+`negative.test.ts` 裡唯二沒寫成 `expect(result.red, result.output)` 的是
+`:562`（對真 repo）與 `:352`（對 sandbox）。前者正是這次紅的那一條 ——
+於是 CI 日誌只給得出 `expected true to be false`，查不到原因。兩條都補齊。
+
+---
+
 ## 實作順序
 
 依賴關係決定順序，不是重要性。

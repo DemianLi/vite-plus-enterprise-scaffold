@@ -12,7 +12,6 @@
     "./report": "./src/report.ts"
   },
   "scripts": {
-    "test": "vp test",
     "check": "vp check"
   },
   "dependencies": {
