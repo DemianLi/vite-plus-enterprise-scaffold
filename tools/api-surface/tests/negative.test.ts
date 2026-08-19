@@ -978,6 +978,109 @@ describe(".vue 元件的公開面", () => {
     expect(result.red, `註解裡的字被當成程式碼了\n${result.output}`).toBe(false);
   });
 
+  it("★ 只在**模板文字**裡提到 defineExpose → 不得紅", () => {
+    /**
+     * 上面那條的孿生兄弟，而且是 review 抓出來的：當時的修法是「掃原始碼前
+     * 先剝掉註解」，但模板裡的**文字節點**不是註解 —— 一句
+     * `<p>這個元件刻意不用 defineExpose…</p>` 照樣讓整支解析丟例外。
+     *
+     * 同一個坑補了一半。現在巨集只在 `<script setup>` 裡找（見 scriptSetup），
+     * 模板整塊留給 assertDeclared。
+     */
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("{{ label }}", "{{ label }}<span>不用 defineExpose 洩漏實例</span>"),
+    );
+    expect(result.red, `模板文字被當成程式碼了\n${result.output}`).toBe(false);
+  });
+
+  it("🔴 有 <script> 但不是 setup → 紅（Options API 讀不懂就是零公開面）", () => {
+    /**
+     * ⚠️ 這一格在「放行空形狀」與這條絆線之間曾經是開著的。實測：把元件換成
+     * `export default { props: { label: {…} } }`，基準記成 `members: []`，
+     * 接著**再加一個必填 prop，閘門輸出「無破壞性變更」exit 0** ——
+     * 那個元件的公開面從此完全不受守護，而基準檔看起來很正常。
+     *
+     * 舊的「空形狀等於沒有守」那個例外剛好蓋著這一格。拆掉它就要有人接手。
+     */
+    const result = runFixtureFile(FIXTURE_COMPONENT, () =>
+      [
+        '<script lang="ts">',
+        "export default { props: { label: { type: String, required: true } } };",
+        "</script>",
+        "",
+        "<template>",
+        '  <button type="button">{{ label }}</button>',
+        "</template>",
+        "",
+      ].join("\n"),
+    );
+    expect(result.red, `Options API 的元件被記成零公開面\n${result.output}`).toBe(true);
+    // ⚠️ 不能只斷言 "SampleWidget.vue"：這個檔案裡幾乎每條錯誤訊息都有它。
+    expect(result.output).toContain("沒有 <script setup>");
+  });
+
+  it("★ 完全沒有 <script> 的純版型元件 → 解析得出來，而且是零公開面", () => {
+    /**
+     * 上一條的反面，而且是這組裡最容易寫錯的一條：`Separator`／`Skeleton`
+     * 這種元件**根本沒有 `<script>`**，而它們正是「放行空形狀」要照顧的案例。
+     * 絆線收得太寬（例如寫成「沒有 `<script setup>` 就紅」）就把它們一起擋了。
+     *
+     * ⚠️ 這裡不能用 runFixtureFile：換掉整個元件會讓既有的五個成員消失，
+     * 於是紅燈來自「破壞性變更」而不是解析 —— 兩者都是紅，意思完全不同。
+     * 所以種一份新的基準來問。
+     */
+    const dir = sandbox();
+    cpSync(pristineFixture, dir, { recursive: true });
+    writeFileSync(join(dir, FIXTURE_COMPONENT), "<template>\n  <hr>\n</template>\n");
+
+    const baseline = join(dir, "layout-only.json");
+    const seeded = run(["--platform", dir, "--baseline", baseline, "--update"]);
+    expect(seeded.red, `純版型元件解析不了\n${seeded.output}`).toBe(false);
+    expect(widgetMembers(JSON.parse(readFileSync(baseline, "utf8")) as Baseline)).toEqual([]);
+  });
+
+  it("★ 型別參數裡的字串字面值含 `>` → 不得紅", () => {
+    /**
+     * `genericArgument` 做角括號配對，但一開始不跳過字串字面值 ——
+     * 於是 `defineProps<{ arrow: "a>b" }>()` 在字串裡的 `>` 收尾，
+     * 接著被判成「不是型別參數形式」。
+     *
+     * 那個宣告完全合法，而訊息叫人改成執行期形式 —— **正好是這支解析
+     * 禁止的方向**。誤報比漏報好，但把人推向錯誤的修法不是。
+     */
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("  label: string;", '  arrow: "a>b";\n  label: string;'),
+    );
+    expect(result.red, `字串字面值裡的 > 被當成泛型收尾\n${result.output}`).toBe(true);
+    // 這個改動**應該**漂移（多一個必填 prop），但要是因為多了一格而紅，
+    // 不是因為解析不了。兩者的訊息完全不同。
+    expect(result.output).toContain("arrow");
+    expect(result.output).not.toContain("不是型別參數形式");
+  });
+
+  it("🔴 兩個不具名 defineModel → 紅（撞名會讓基準出現同名兩格）", () => {
+    /**
+     * `typeLiteralMacro` 對重複的巨集會紅，理由是「只讀第一個等於安靜忽略
+     * 其餘」。`defineModel` 不能照抄那條 —— **多個具名 model 是合法的**，
+     * 衝突的是名字。
+     *
+     * 少了這條的症狀不是紅燈：實測基準寫進
+     * `["[emit update:modelValue]: void", "[emit update:modelValue]: void",
+     * "modelValue?: number", "modelValue?: string"]`，同一個名字兩格，
+     * 而 compare.ts 的 `Map<string, Member[]>` 拿到一個兩元素的陣列。
+     */
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace(
+        /defineProps<\{[\s\S]*?\}>\(\);/,
+        "const one = defineModel<string>();\nconst two = defineModel<number>();",
+      ),
+    );
+    expect(result.red, `兩個不具名的 defineModel 撞名沒被擋下\n${result.output}`).toBe(true);
+    // ⚠️ 拿掉這條絆線之後閘門仍然會紅（少了 label／tone 是破壞性變更）——
+    // 所以斷言只有這條路會印的字。
+    expect(result.output).toContain("兩個同名的 prop");
+  });
+
   /**
    * ── slot 與 emit：2026-08-17 之前這一整組問不出來 ──────────────────
    *
