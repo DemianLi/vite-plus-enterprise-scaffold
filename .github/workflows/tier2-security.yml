@@ -81,6 +81,24 @@ jobs:
       - name: 文件數字與事實來源一致
         run: node tools/doc-facts/src/cli.ts
 
+      # ── SCOPE.md vs. 版控裡真正存在的目錄（C73）────────────────────
+      # 緊接在上一步後面，因為兩者中間就是那條縫：**doc-facts 守數字，
+      # 這一步守清單。** 寫 SCOPE.md 的那一版順手抓到 README 的目錄樹列著
+      # `tools/sast/`，而那個目錄從來不在這條線的樹上 —— 整行是假的，
+      # 而當時全套閘門照樣全綠。
+      #
+      # ⚠️ 它擺在 Tier 2 **不是因為檔頭那三條規則**。SCOPE.md 與版控兩邊都在
+      # git 裡，程式碼不動它就不會失效 —— 用檔頭的判準去套，這一步該在 Tier 1。
+      # 放這裡的理由與 doc-facts 同一條：它跨整個 repo，不該因為
+      # 「這次改動與它無關」而被 affected 過濾跳過。
+      #
+      # ⚠️ 而且**別拿「每日排程也會再掃一次」當理由**：GitHub 的 schedule
+      # 只吃預設分支上的 workflow 檔，在 `release/v1` 上面那個 cron 是啞的
+      # （實測：這個 workflow 的排程執行 headBranch 全部是 main）。
+      # 這條線上唯一會觸發它的是 pull_request。
+      - name: SCOPE.md 與版控內容一致
+        run: node tools/scope-check/src/cli.ts
+
       # ── 安全 lint（D5）─────────────────────────────────────────────
       # 只裝安全規則，與 oxlint 零重疊。存在的首要理由是 oxlint 沒有
       # vue/no-v-html —— Vue 專案最主要的 XSS 入口。

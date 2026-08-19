@@ -1,22 +1,18 @@
 {
-  "name": "@org/conformance",
+  "name": "@org/scope-check",
   "version": "0.0.0",
   "private": true,
-  "description": "切片一致性檢查（D4 第 1 層邊界防護 + D9 防漂移）",
+  "description": "SCOPE.md 列的東西與版控裡真正存在的東西是否一致",
   "bin": {
-    "conformance": "./src/cli.ts"
+    "scope-check": "./src/cli.ts"
   },
   "type": "module",
-  "exports": {
-    "./finding": "./src/finding.ts",
-    "./report": "./src/report.ts"
-  },
   "scripts": {
     "test": "vp test",
     "check": "vp check"
   },
   "dependencies": {
-    "@org/slice-kit": "workspace:*"
+    "@org/conformance": "workspace:*"
   },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
