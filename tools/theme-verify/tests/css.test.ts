@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import {
   RUNTIME_PROVIDED,
   auditReferences,
@@ -143,6 +145,29 @@ describe("懸空引用", () => {
     for (const [name, reason] of entries) {
       expect(name.startsWith("--"), name).toBe(true);
       expect(reason.length, `${name} 的理由太短，講不出誰在什麼時候設它`).toBeGreaterThan(40);
+    }
+  });
+
+  it("🔴 登記表裡不得有死掉的那一筆 —— 每個名字都要真的還在元件裡被引用", () => {
+    /**
+     * ⚠️ 上面兩條驗的是「出口窄不窄」，這條驗的是**出口會不會爛掉**。
+     *
+     * reka-ui 哪天把 `--reka-select-trigger-width` 改名、或我們不再用
+     * `position="popper"`，那一筆會永遠留在清單裡默默把出口撐大 ——
+     * 新名字仍然會紅（那一半是對的），但**沒有人會知道舊那筆已經是死的**。
+     *
+     * 那正是 C71 的形狀：一份清單被寫下來，而沒有東西在斷言它還成立。
+     * 這裡從元件原始碼反查 —— 沒有人在用的名字就是該刪掉的名字。
+     */
+    const dir = join(import.meta.dirname, "../../../platform/ui/src/components");
+    const sources = readdirSync(dir)
+      .filter((name) => name.endsWith(".vue"))
+      .map((name) => readFileSync(join(dir, name), "utf8"))
+      .join("\n");
+
+    expect(sources.length, "讀不到元件原始碼的話這條會恆真").toBeGreaterThan(1000);
+    for (const name of Object.keys(RUNTIME_PROVIDED)) {
+      expect(sources.includes(name), `${name} 已經沒有任何元件在用了，請從登記表刪掉`).toBe(true);
     }
   });
 

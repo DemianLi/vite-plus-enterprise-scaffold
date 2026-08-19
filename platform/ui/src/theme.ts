@@ -133,7 +133,7 @@ export type UiRadioGroupSlot = "group";
 export type UiRadioItemSlot = "item" | "indicator" | "label";
 
 /** `UiSelect` 的可覆寫部位。名稱取自 reka-ui 的基元。 */
-export type UiSelectSlot = "trigger" | "content" | "item" | "indicator";
+export type UiSelectSlot = "trigger" | "content" | "item" | "indicator" | "chevron";
 
 /**
  * 各案的覆寫表：**元件名 → 槽名 → 整條 class 字串**。

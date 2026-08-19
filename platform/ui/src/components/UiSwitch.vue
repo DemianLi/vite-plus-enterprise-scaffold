@@ -35,14 +35,28 @@ import { NO_OVERRIDE, UI_THEME, type UiSwitchSlot } from "../theme.ts";
 
 const checked = defineModel<boolean>({ default: false });
 
-defineProps<{
-  /** 對應 `UiLabel` 的 `for`。⚠️ 沒有標籤的開關是沒有名字的，見 UiLabel 檔頭。 */
-  id: string;
-}>();
+/**
+ * ⚠️ **`id` 刻意不宣告成 prop，靠 fallthrough。**
+ *
+ * 第一版把它宣告成必填，理由是「這個元件是多根的，fallthrough 可能掉」——
+ * **那個理由沒有查證，而且是錯的**：reka-ui 的基元自己 `v-bind="$attrs"`，
+ * 實測拿掉宣告之後 `<UiSwitch id="c" />` 的產出仍然是 `id="c"`。
+ *
+ * 必填的代價是真的：`<UiSwitch v-model="dark" aria-label="深色模式" />`
+ * 會**過不了型別檢查**，而那是一個完全合法、無障礙也正確的寫法。
+ *
+ * ⚠️ 這個元件**沒有內建標籤**（`UiCheckbox` 與 `UiRadioItem` 有）。
+ * 所以名字只能來自外面：`<UiLabel for="…">` ＋ 同名的 `id`，或者 `aria-label`。
+ * 兩個都不給的話開關是沒有名字的 —— 沒有閘門守得住，只有這句話。
+ */
 
 const DEFAULT_PARTS: Readonly<Record<UiSwitchSlot, string>> = {
   root: cn(
-    "peer inline-flex h-6 w-11 shrink-0 items-center rounded-full",
+    // ⚠️ 這裡刻意**沒有** `peer`：這個元件裡沒有任何 `peer-*` 的兄弟，
+    // 而外面的 `UiLabel` 不是兄弟節點（`peer-*` 只作用在同層的後續兄弟）。
+    // 第一版寫了它 —— 一條寫了但永遠無效的 class，正是 `UiInput` 的檔頭
+    // 拿掉 `dark:` 變體的同一個理由。
+    "inline-flex h-6 w-11 shrink-0 items-center rounded-full",
     "border-control border-transparent transition-colors outline-none",
     "focus-visible:ring-3 focus-visible:ring-focus/50",
     "disabled:cursor-not-allowed disabled:opacity-50",
@@ -63,7 +77,7 @@ const parts: Readonly<Record<UiSwitchSlot, string>> = {
 </script>
 
 <template>
-  <SwitchRoot :id="id" v-model="checked" data-slot="switch" :class="parts.root">
+  <SwitchRoot v-model="checked" data-slot="switch" :class="parts.root">
     <SwitchThumb :class="parts.thumb" />
   </SwitchRoot>
 </template>

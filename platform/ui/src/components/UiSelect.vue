@@ -61,11 +61,24 @@ const selected = defineModel<string>({ default: "" });
 defineProps<{
   /** 選項清單，順序就是顯示順序。 */
   items: readonly { value: string; label: string }[];
-  /** 沒有選取時顯示的字。 */
-  placeholder?: string;
-  /** 對應 `UiLabel` 的 `for`。 */
-  id: string;
+  /**
+   * 沒有選取時顯示的字。
+   *
+   * ⚠️ **必填**。選填時 `placeholder ?? ""` 會讓未選取的觸發器變成一個
+   * 只有箭頭的空框 —— 套著淡色文字的樣式卻什麼都沒顯示，
+   * 使用者看不出那是一個選單。
+   */
+  placeholder: string;
 }>();
+
+/**
+ * ⚠️ **`id` 刻意不宣告成 prop，靠 fallthrough**（實測 reka-ui 的基元自己
+ * `v-bind="$attrs"`，帶得動）。宣告成必填會讓
+ * `<UiSelect aria-label="排序方式" …/>` 過不了型別檢查。
+ *
+ * 這個元件沒有內建標籤，所以名字只能來自 `<UiLabel for="…">` ＋ 同名的
+ * `id`、或 `aria-label`。兩個都不給就是一個沒有名字的 combobox。
+ */
 
 const DEFAULT_PARTS: Readonly<Record<UiSelectSlot, string>> = {
   trigger: cn(
@@ -88,6 +101,14 @@ const DEFAULT_PARTS: Readonly<Record<UiSelectSlot, string>> = {
     "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
   ),
   indicator: "absolute right-3 flex items-center text-accent",
+  /**
+   * 觸發器右邊那個箭頭。
+   *
+   * ⚠️ 這一格是 review 補的：第一版把 `text-fg-muted` 寫死在 `<svg>` 的
+   * `class` 上，於是各案換得掉觸發器、**換不掉箭頭**（元素自己的 class 贏）。
+   * 與 C76 在 `UiBadge` 上抓到的是同一個形狀，隔一個版本又發生一次。
+   */
+  chevron: "size-4 text-fg-muted",
 };
 
 const theme = inject(UI_THEME, NO_OVERRIDE);
@@ -96,16 +117,17 @@ const parts: Readonly<Record<UiSelectSlot, string>> = {
   content: theme.UiSelect?.content ?? DEFAULT_PARTS.content,
   item: theme.UiSelect?.item ?? DEFAULT_PARTS.item,
   indicator: theme.UiSelect?.indicator ?? DEFAULT_PARTS.indicator,
+  chevron: theme.UiSelect?.chevron ?? DEFAULT_PARTS.chevron,
 };
 </script>
 
 <template>
   <SelectRoot v-model="selected">
-    <SelectTrigger :id="id" data-slot="select" :class="parts.trigger">
-      <SelectValue :placeholder="placeholder ?? ''" />
+    <SelectTrigger data-slot="select" :class="parts.trigger">
+      <SelectValue :placeholder="placeholder" />
       <!-- 箭頭是內嵌 SVG 而不是圖示套件：少一個相依就是少一筆 SCA 範圍。
            aria-hidden 因為 SelectTrigger 自己就有 role 與名字。 -->
-      <svg viewBox="0 0 16 16" class="size-4 text-fg-muted" aria-hidden="true">
+      <svg viewBox="0 0 16 16" :class="parts.chevron" aria-hidden="true">
         <path
           d="M4 6l4 4 4-4"
           fill="none"

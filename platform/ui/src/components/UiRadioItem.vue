@@ -35,6 +35,12 @@ defineSlots<{
   default(): VNode[];
 }>();
 
+/**
+ * ⚠️ **`label` 與 slot 兩個都不給，這一項就沒有名字** —— 畫面上是一個沒有
+ * 文字的圓點，螢幕閱讀器報「未命名的單選鈕」。與 `UiCheckbox` 同一條：
+ * slot 有沒有內容是執行期才知道的，沒有閘門守得住，所以寫在這裡。
+ */
+
 const itemId = useId();
 
 const DEFAULT_PARTS: Readonly<Record<UiRadioItemSlot, string>> = {

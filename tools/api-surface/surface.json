@@ -561,15 +561,14 @@
         "kind": "component",
         "members": [
           "[emit update:modelValue]: void",
-          "id: string",
           "items: readonly { value: string; label: string }[]",
           "modelValue?: string",
-          "placeholder?: string"
+          "placeholder: string"
         ]
       },
       "UiSelectSlot": {
         "kind": "type",
-        "type": "\"content\" | \"indicator\" | \"item\" | \"trigger\""
+        "type": "\"chevron\" | \"content\" | \"indicator\" | \"item\" | \"trigger\""
       },
       "UiSize": {
         "kind": "type",
@@ -585,7 +584,7 @@
       },
       "UiSwitch": {
         "kind": "component",
-        "members": ["[emit update:modelValue]: void", "id: string", "modelValue?: boolean"]
+        "members": ["[emit update:modelValue]: void", "modelValue?: boolean"]
       },
       "UiSwitchSlot": {
         "kind": "type",
