@@ -181,7 +181,13 @@ describe("★ 產物實測：原始碼裡的那個字真的變成規則", () => 
    * ⚠️ **這一條守的是版面，不是無障礙。** 可及名稱是文字內容、不依賴 CSS：
    * `sr-only` 編不出來的時候名字還在，壞的是「那行字會顯示在按鈕上」。
    * 把它讀成「名字的保險」是反的 —— 元件檔頭有同一段說明，而那個方向
-   * 正是選 `sr-only` 而不選 `aria-label` 的第三個理由（壞得吵）。
+   * 正是選 `sr-only` 而不選 `aria-label` 的理由之一（壞得吵）。
+   *
+   * ⚠️ **下面那個正則釘住的形狀不只這裡在用。** `<span class="sr-only">`
+   * 直接包住 `{{ label }}`、而且 class 只有一個 token —— 同一個形狀被
+   * `dropdown-menu.test.ts` 的「★ 名字的載體還在 DOM 裡」釘著。改成
+   * `sr-only shrink-0` 這種寫法，兩個檔案會**同時紅**，而那是一件事不是兩件。
+   * 誰依賴這個形狀寫在元件檔頭（`UiDropdownMenu.vue`），動它之前先看那裡。
    */
   const srOnlyCandidate = ((): string => {
     const source = COMPONENTS.find(({ name }) => name === "UiDropdownMenu")?.source ?? "";
