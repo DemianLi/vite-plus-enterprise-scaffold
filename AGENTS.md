@@ -25,3 +25,28 @@ release. Add a tool name to select part of the graph. For example, run
 - [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
 
 <!--VITE PLUS END-->
+
+<!-- 以下為手寫內容，刻意放在 VITE PLUS END 標記之後 —— `vp` 只重寫標記之間。 -->
+
+## Agent skills
+
+這一節設定 [mattpocock/skills](https://github.com/mattpocock/skills) 那套工程技能
+（`/triage`、`/to-tickets`、`/to-spec`、`/wayfinder` 等）在本 repo 的接線。
+細節在 `docs/agents/` 底下，這裡只放一句話與指路。
+
+### Issue tracker
+
+Issue 住在本 repo 的 GitHub Issues，一律用 `gh` CLI 操作。見 `docs/agents/issue-tracker.md`。
+
+### Triage labels
+
+沿用五個標準名稱（`needs-triage`／`needs-info`／`ready-for-agent`／`ready-for-human`／`wontfix`），
+不另立對映。見 `docs/agents/triage-labels.md`。
+
+### Domain docs
+
+單一 context（根層 `CONTEXT.md` + `docs/adr/`）。⚠️ **兩者今天只有骨架，內容未遷** ——
+決策紀錄的 439KB 全部還在 `DECISIONS.md`，探索時要讀的是那一份。遷移是長期工作，
+見 `docs/agents/domain.md` 與 [ADR-0001](docs/adr/0001-migrate-decisions-to-adr.md)。
+
+⚠️ **這段 ⚠️ 文字在遷移完成時要一併刪除** —— 它是 ADR-0001 驗收條件的第三個對象。
