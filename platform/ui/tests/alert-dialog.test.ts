@@ -141,6 +141,21 @@ describe("UiAlertDialog", () => {
   });
 
   it("標題與說明真的被 aria 接上（不是只有畫面上有）", async () => {
+    /**
+     * ⚠️ **這一條走的是代理，不是可及名稱**（C89）。它解 `aria-labelledby`／
+     * `aria-describedby` 到元素，然後比對 `textContent` —— 而
+     * **`textContent` 不是可及名稱**：`aria-label` 會蓋掉它、`aria-hidden`
+     * 的子節點不算數、`display: none` 的文字也不算。
+     *
+     * ⚠️ **規格來源，本 repo 量不到**：page JS 沒有算可及名稱的 API
+     * （`computedName` 只在 DevTools protocol），happy-dom 也沒有 accname 實作。
+     * 所以代理是**唯一走得通的路**，不是偷懶 —— 但它會在哪裡分岔要寫下來。
+     *
+     * 分岔的形狀在 `dropdown-menu.test.ts` 量過：把名字從內容搬到
+     * `aria-label`，真瀏覽器裡名字照樣解得出來，這種斷言卻會紅；而
+     * 「名字整個刪掉」（真缺陷）紅的是同一組。**代理對缺陷與非缺陷
+     * 可以給出逐字相同的判決。**
+     */
     const { content } = await open();
 
     const labelledBy = content.getAttribute("aria-labelledby");

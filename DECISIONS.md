@@ -7200,6 +7200,7 @@ fallthrough 到位）—— **同一個屬性在同一個 library 裡，一個�
 | `CHANGELOG.md`                | v1.1.0 那段留更正引言                                        |
 | `tests/dropdown-menu.test.ts` | 拆成三條（★ 前置條件／★ 金絲雀／aria 接線）                  |
 | `tests/a11y.test.ts`          | 指出正則釘的形狀不只它在用                                   |
+| `tests/alert-dialog.test.ts`  | 同一個代理也在那裡，補上記號（§二 那條邊界的第二個案例）     |
 | 測試                          | **393 綠**，四列變異重量                                     |
 
 ## 實作順序
