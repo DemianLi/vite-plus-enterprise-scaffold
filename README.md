@@ -325,7 +325,7 @@ Tier 2 的三條規則——不快取、不做 affected 過濾、必須有時間
 checker 抽出每個 `platform/*` 進入點的**型別形狀**，與已提交的基準比對。
 **移除、改名、或改變形狀就讓閘門失敗**，除非基準已登記對應的 codemod。
 
-目前守著的範圍：`api-surface（10 個進入點／148 個 export）`。
+目前守著的範圍：`api-surface（10 個進入點／151 個 export）`。
 這兩個數字由 `vpr doc-facts` 從基準檔推導核對 —— 抄錯或過期會擋下 PR。
 
 「形狀」的意思是連 `interface` 的成員、class 的建構子、`.vue` 元件的 props

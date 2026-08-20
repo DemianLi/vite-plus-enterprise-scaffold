@@ -88,7 +88,33 @@
     "@org/bff-mock": {
       "BffMockOptions": {
         "kind": "type",
-        "members": ["allowInProduction?: boolean | undefined", "sessionCookie?: string | undefined"]
+        "members": [
+          "allowInProduction?: boolean | undefined",
+          "extraPermissions?: readonly string[] | undefined",
+          "routes?: readonly BffMockRoute[] | undefined",
+          "sessionCookie?: string | undefined"
+        ]
+      },
+      "BffMockReply": {
+        "kind": "type",
+        "members": ["body?: unknown", "status?: number | undefined"]
+      },
+      "BffMockRequest": {
+        "kind": "type",
+        "members": [
+          "body: unknown",
+          "params: Readonly<Record<string, string>>",
+          "permissions: readonly string[]",
+          "query: URLSearchParams"
+        ]
+      },
+      "BffMockRoute": {
+        "kind": "type",
+        "members": [
+          "handle: (request: BffMockRequest) => BffMockReply | Promise<BffMockReply>",
+          "method?: string | undefined",
+          "path: string"
+        ]
       },
       "createBffMock": {
         "kind": "function",

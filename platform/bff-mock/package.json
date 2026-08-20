@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node src/cli.ts",
+    "test": "vp test",
     "check": "vp check"
   },
   "dependencies": {

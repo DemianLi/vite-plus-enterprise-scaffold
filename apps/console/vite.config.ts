@@ -12,6 +12,20 @@ export default defineConfig(({ mode }) => {
   // VITE_API_SECRET」直接變成建置失敗，而不是上線後被 gitleaks 掃出來。
   assertNoUndeclaredEnv(env);
 
+  // ── dev proxy 的 BFF 目標 ───────────────────────────────────────────
+  //
+  // 兩邊都要讀。`.env.example` 教的是在 `.env` 寫 `BFF_ORIGIN`，而 `.env`
+  // 的值只會進到上面那個 `env` —— 這一行原本只讀 `process.env`，於是
+  // 照文件設定的人**什麼都不會發生，也不會有錯誤訊息**（#95 的 ②b）。
+  //
+  // 順序不能反：真的環境變數是 CI 與「臨時指去別的 gateway」用的，
+  // `.env` 是躺在磁碟上的預設值。
+  //
+  // 刻意用 `||` 而不是 `??`：`BFF_ORIGIN=` 這種空值要當成沒設，
+  // 否則 proxy target 會變成空字串 —— dev server 照常啟動，
+  // 而每一個 /api 請求都失敗。
+  const bffOrigin = process.env["BFF_ORIGIN"] || env["BFF_ORIGIN"] || "http://localhost:8080";
+
   return {
     plugins: [
       vue(),
@@ -64,7 +78,7 @@ export default defineConfig(({ mode }) => {
         // 這個 proxy 指向一個沒有東西在聽的埠 —— D8 的整條路徑
         //（登入 → 帶 cookie → 被 CSRF 擋 → 補標頭 → 通過）在本機從未被走過一次。
         "/api": {
-          target: process.env["BFF_ORIGIN"] ?? "http://localhost:8080",
+          target: bffOrigin,
           changeOrigin: false,
         },
       },

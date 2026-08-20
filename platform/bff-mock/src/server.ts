@@ -46,6 +46,55 @@ interface Session {
   readonly permissions: readonly string[];
 }
 
+/** 注入的路由處理器拿得到的東西。刻意不透出 node 的 req／res —— 見 `BffMockRoute`。 */
+export interface BffMockRequest {
+  /** 路徑參數。`/api/customer/:id` 命中 `/api/customer/C-1001` 時是 `{ id: "C-1001" }`。 */
+  readonly params: Readonly<Record<string, string>>;
+  readonly query: URLSearchParams;
+  /** 已解析的 JSON body。沒有 body 或不是 JSON 時是 `undefined`。 */
+  readonly body: unknown;
+  /** 這個 session 持有的權限碼（含 `extraPermissions` 追加的）。 */
+  readonly permissions: readonly string[];
+}
+
+/** 處理器的回應。`body` 省略時只回狀態碼（預設 204），這樣才寫得出「取消成功、沒有內容」。 */
+export interface BffMockReply {
+  readonly status?: number;
+  readonly body?: unknown;
+}
+
+/**
+ * 一條由**應用端**宣告的資料端點。
+ *
+ * ── 為什麼需要這個 ──────────────────────────────────────────────────
+ *
+ * v1 的採用演練（#95）撞到的阻斷級問題：加一片新切片之後沒有資料端點，
+ * 而唯一能補的位置在 `platform/` —— 一個採用團隊不准改的地方。
+ * 於是「照文件做完，畫面還是錯誤分支」。
+ *
+ * ── 刻意不透出 node 的 req／res ────────────────────────────────────
+ *
+ * 透出去的話，寫路由的人可以自己 `res.writeHead()`，於是可以繞過下面
+ * 那道 401／CSRF 的順序 —— 而那正是這個 mock 存在的全部理由。
+ * 收斂成 `MockRequest → MockReply` 之後，繞不過去是型別層面的事實，
+ * 不是一句「請不要這樣做」。
+ *
+ * ── 型別怎麼拿 ──────────────────────────────────────────────────────
+ *
+ * 用 `satisfies readonly BffMockRoute[]` 宣告路由陣列，行內處理器的參數
+ * 型別會自己推導出來（範例見 `apps/console/bff-routes.ts`）。要寫成具名
+ * 函式的話，`BffMockRequest`／`BffMockReply` 也匯出了 —— 它們本來就出現在
+ * 這個介面的公開簽章裡，不匯出的話消費端沒有名字可以稱呼它們
+ *（`tools/api-surface` 有一道閘門就是在守這件事）。
+ */
+export interface BffMockRoute {
+  /** 預設 `GET`。 */
+  readonly method?: string;
+  /** 支援 `:name` 參數段。段數必須完全相同 —— 這裡沒有萬用字元。 */
+  readonly path: string;
+  readonly handle: (request: BffMockRequest) => BffMockReply | Promise<BffMockReply>;
+}
+
 export interface BffMockOptions {
   /** session cookie 名稱。契約不綁名字，只綁屬性。 */
   readonly sessionCookie?: string;
@@ -56,6 +105,20 @@ export interface BffMockOptions {
    * 必須寫在原始碼裡、會出現在 code review 的動作。
    */
   readonly allowInProduction?: boolean;
+  /**
+   * 應用端自己的資料端點（見 `BffMockRoute`）。
+   *
+   * 比對順序是**契約端點 → 401 閘門 → 這裡 → 示範資料 → 404**：
+   * 契約那幾條蓋不掉，示範資料蓋得掉。
+   */
+  readonly routes?: readonly BffMockRoute[];
+  /**
+   * 追加到 mock session 的權限碼。**追加，不是取代。**
+   *
+   * 取代的話，採用團隊加一片切片就得把示範切片的權限碼重列一次，
+   * 而漏列的症狀是示範切片安靜地壞掉 —— 沒有東西會說話。
+   */
+  readonly extraPermissions?: readonly string[];
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
@@ -124,6 +187,99 @@ function clearedCookie(name: string): string {
   return `${name}=; Max-Age=0; Path=/`;
 }
 
+interface RouteMatch {
+  readonly route: BffMockRoute;
+  readonly params: Readonly<Record<string, string>>;
+}
+
+/**
+ * 逐段比對，段數必須相同。
+ *
+ * 刻意不用正則：路徑樣式是使用者提供的字串，把它編進正則等於讓
+ * 應用端的一個手誤變成這支行程的 ReDoS（C19 擋的就是這一類）。
+ * 逐段比對還有一個好處 —— `/api/customer` 不會意外命中 `/api/customer/C-1`。
+ */
+function matchPath(pattern: string, path: string): Readonly<Record<string, string>> | undefined {
+  const expected = pattern.split("/");
+  const actual = path.split("/");
+  if (expected.length !== actual.length) return undefined;
+
+  const params: Record<string, string> = {};
+  for (const [index, segment] of expected.entries()) {
+    const value = actual[index] ?? "";
+    if (segment.startsWith(":")) {
+      params[segment.slice(1)] = decodeURIComponent(value);
+      continue;
+    }
+    if (segment !== value) return undefined;
+  }
+  return params;
+}
+
+/** 先宣告的先贏。兩條樣式都命中時，順序是應用端寫在陣列裡的順序。 */
+function matchRoute(
+  routes: readonly BffMockRoute[],
+  method: string,
+  path: string,
+): RouteMatch | undefined {
+  for (const route of routes) {
+    if ((route.method ?? "GET").toUpperCase() !== method) continue;
+    const params = matchPath(route.path, path);
+    if (params !== undefined) return { route, params };
+  }
+  return undefined;
+}
+
+/**
+ * 讀完 body 並試著當 JSON 解析。解析不了就是 `undefined`，不丟例外 ——
+ * 這個 mock 不是在驗使用者的 payload，那是真正的 gateway 的事。
+ */
+async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
+  const raw = Buffer.concat(chunks).toString("utf8");
+  if (raw.length === 0) return undefined;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+}
+
+async function serveRoute(
+  matched: RouteMatch,
+  req: IncomingMessage,
+  res: ServerResponse,
+  permissions: readonly string[],
+): Promise<void> {
+  try {
+    const reply = await matched.route.handle({
+      params: matched.params,
+      query: new URLSearchParams((req.url ?? "").split("?")[1] ?? ""),
+      body: await readJsonBody(req),
+      permissions,
+    });
+
+    // body 省略 ＝ 只回狀態碼。`json(res, 204, null)` 會送出字串 "null"，
+    // 而 204 依規範不得有 body —— 那種回應在瀏覽器端的症狀很難查。
+    if (reply.body === undefined) {
+      res.writeHead(reply.status ?? 204).end();
+      return;
+    }
+    json(res, reply.status ?? 200, reply.body);
+  } catch (error) {
+    // ⚠️ 不要讓它安靜地變成 404。路由寫錯與處理器炸掉是兩種不同的問題，
+    // 而 404 會把人送去查一個沒有錯的路徑。
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[bff-mock] ${matched.route.path} 的處理器丟出例外：${reason}`);
+    json(res, 500, {
+      error: "route_handler_failed",
+      route: `${(matched.route.method ?? "GET").toUpperCase()} ${matched.route.path}`,
+      reason,
+    });
+  }
+}
+
 export function createBffMock(options: BffMockOptions = {}) {
   if (process.env["NODE_ENV"] === "production" && options.allowInProduction !== true) {
     throw new Error(
@@ -136,6 +292,10 @@ export function createBffMock(options: BffMockOptions = {}) {
 
   const sessionCookie = options.sessionCookie ?? DEFAULT_SESSION_COOKIE;
   const sessions = new Map<string, Session>();
+  const routes = options.routes ?? [];
+  // 去重但保留順序：重複的權限碼在回應裡出現兩次，會讓「照著印出來的清單
+  // 去對」的人以為自己看錯了。
+  const permissions = [...new Set([...MOCK_PERMISSIONS, ...(options.extraPermissions ?? [])])];
 
   // 與 dev server 中介層同一份政策（@org/security-headers 是唯一定義）。
   // report-only：mock 是開發用的，enforce 只會讓人第一件事就是把它關掉。
@@ -195,12 +355,12 @@ export function createBffMock(options: BffMockOptions = {}) {
     if (path === DEFAULT_ENDPOINTS.login && method === "POST") {
       const sid = randomUUID();
       const csrfToken = randomUUID();
-      sessions.set(sid, { user: "dev@example.internal", csrfToken, permissions: MOCK_PERMISSIONS });
+      sessions.set(sid, { user: "dev@example.internal", csrfToken, permissions });
       res.setHeader("Set-Cookie", [
         sessionCookieValue(sessionCookie, sid),
         csrfCookieValue(csrfToken),
       ]);
-      json(res, 200, { user: "dev@example.internal", permissions: MOCK_PERMISSIONS });
+      json(res, 200, { user: "dev@example.internal", permissions });
       return;
     }
 
@@ -239,6 +399,27 @@ export function createBffMock(options: BffMockOptions = {}) {
 
     if (path === DEFAULT_ENDPOINTS.probe) {
       json(res, 200, { pong: true, method });
+      return;
+    }
+
+    // ── 應用端注入的資料端點（options.routes）────────────────────────
+    //
+    // 位置是這一段唯一重要的事，而且兩邊都有理由：
+    //
+    //   **在 401 閘門之後** —— 放到前面的話，這道接縫同時是一條
+    //   「不用登入就拿得到資料」的路。這個 mock 存在的全部理由是證明
+    //   D8 那條路徑（登入 → 帶 cookie → 被 CSRF 擋 → 補標頭 → 通過）
+    //   走得通；開一條繞過它的路，等於把它自己推翻。
+    //
+    //   **在契約端點之後** —— session／CSRF／401／403 是 @org/bff-contract
+    //   在驗的東西。蓋得掉的話，一份「通過契約」的參考實作可以被一行
+    //   設定改成不通過，而契約測試不會知道。
+    //
+    // 示範資料則刻意在**後面**：那幾條不是契約，覆寫它們是合理的需求
+    //（例如各案想換掉訂單的假資料）。
+    const matched = matchRoute(routes, method, path);
+    if (matched !== undefined) {
+      void serveRoute(matched, req, res, session.permissions);
       return;
     }
 
