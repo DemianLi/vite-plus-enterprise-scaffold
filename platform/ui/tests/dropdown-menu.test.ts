@@ -172,10 +172,23 @@ describe("UiDropdownMenu", () => {
     expect((named?.textContent ?? "").trim()).toBe("");
   });
 
-  it("觸發器的名字來自內容裡的 sr-only，不是 aria-label", async () => {
-    // ⚠️ 差別不是風格。`aria-label` 會蓋掉內容，於是日後把觸發器改成
-    // 有字的那一天，看得見的字與唸出來的字會不一致（WCAG 2.5.3）。
-    // 而且名稱走內容才進得了上一條那個 `aria-labelledby`。
+  it("★ 名字的載體還在 DOM 裡 —— 上面那兩條 ⭐ 的前置條件", async () => {
+    /**
+     * ⚠️ **這一條不是行為閘門，它是上面那兩條 ⭐ 的前置條件。**
+     *
+     * 名字改走觸發器身上的 `aria-label`，可及名稱**一樣解得出來** ——
+     * 由 `aria-labelledby` 觸發的遞迴會忽略被指元素自己的 `aria-labelledby`，
+     * 但 `aria-label` 照用（⚠️ **規格來源，本 repo 量不到**：page JS 沒有算
+     * 可及名稱的 API，`computedName` 只存在於 DevTools protocol）。
+     * 也就是說「換過去」在真瀏覽器裡不是缺陷。壞的是**這裡**：名字一離開
+     * DOM 的文字內容，上面那兩條就只剩「屬性在不在」可以斷言，再也證明不到
+     * `role="menu"` 真的拿到了名字。
+     *
+     * ⚠️ 所以這條紅的時候要看的不是無障礙，是**上面那兩條還算不算數**。
+     *
+     * 形狀的擁有者是元件檔頭（`UiDropdownMenu.vue`），誰依賴這個形狀列在那裡 ——
+     * `a11y.test.ts` 的正則釘的是同一個形狀，改一個字兩邊會一起紅。
+     */
     mountMenu();
     await settle();
     const trigger = triggerEl();
@@ -183,6 +196,54 @@ describe("UiDropdownMenu", () => {
     expect(trigger.getAttribute("aria-label"), "名字不該走 aria-label").toBeNull();
     expect((trigger.textContent ?? "").trim()).toBe(LABEL);
     expect(trigger.querySelector("span")?.getAttribute("class")).toBe("sr-only");
+  });
+
+  it("★ 觸發器今天沒有可見文字 —— WCAG 2.5.3 那條理由還沒上膛", async () => {
+    /**
+     * 絆線，不是缺陷偵測器 —— 同 `a11y.test.ts`「★ 真的有元件在用動畫」的
+     * 形狀：它紅的時候，發生的是一個**合法的**修改。
+     *
+     * §二 選 `sr-only` 的理由之一是「日後把觸發器改成有字的（『匯出 ▾』），
+     * `aria-label` 與看得見的字不一致就違反 WCAG 2.5.3」。**那個條件今天
+     * 不成立** —— 觸發器裡只有一個 `aria-hidden` 的圖示。一條沒有對象的理由
+     * 會安靜地留在檔頭當裝飾品，而這個 repo 對那種東西已經表過態。
+     *
+     * 這一條讓它出聲：有人加了可見文字的那天它會紅，而紅的意思是
+     * **「回去看 §二，那條理由現在開始有對象了」**，不是「你弄壞了什麼」。
+     *
+     * ⚠️ 它判的是「不在 `sr-only` 裡的文字」，**不是「使用者看得見的文字」**。
+     * happy-dom 沒有版面，算不出可見性（同本檔檔頭那兩個限制）。
+     *
+     * ⚠️ **所以它有兩種紅法，而訊息要兩種都講得出來**（實測，C89 §四）：
+     *
+     *   一、有人在觸發器裡加了可見文字 —— 這是它設計時要抓的那一種。
+     *   二、**名字的載體換掉了**。把 `sr-only` 改成 `hidden`（舊 M11）就是
+     *       這一種：那行字不再在 `.sr-only` 裡，於是這條紅。它紅得有道理 ——
+     *       `display: none` 的文字算不進可及名稱，那個變異在真瀏覽器裡
+     *       是**真的把名字弄掉了** —— 但紅的理由與 WCAG 2.5.3 無關。
+     */
+    mountMenu();
+    await settle();
+    const clone = triggerEl().cloneNode(true) as HTMLElement;
+    for (const node of [...clone.querySelectorAll(".sr-only")]) {
+      node.remove();
+    }
+
+    expect(
+      (clone.textContent ?? "").trim(),
+      "觸發器出現了不在 `sr-only` 裡的文字 —— 兩種可能：有人加了可見文字" +
+        "（回去看 §二 的 WCAG 2.5.3），或名字的載體被換掉了（`.sr-only` 不再是名字所在）",
+    ).toBe("");
+  });
+
+  it("觸發器的 aria 接線：圖示藏起來、haspopup 是 menu", async () => {
+    // ⚠️ 這兩條與上面那條慣例**沒有關係**，拆出來是因為它們是這個檔案裡唯二
+    // 守住它們的地方 —— 混在一個叫「不是 aria-label」的標題底下，等於在
+    // 「這條慣例還值不值得留」的討論裡把它們一起押上去。
+    mountMenu();
+    await settle();
+    const trigger = triggerEl();
+
     // 圖示對輔具隱藏，否則名字會被唸兩次（同 `UiSelect` 的箭頭）。
     expect(trigger.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
     expect(trigger.getAttribute("aria-haspopup")).toBe("menu");

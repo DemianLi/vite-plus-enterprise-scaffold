@@ -167,6 +167,14 @@ export type UiSelectSlot = "trigger" | "content" | "item" | "indicator" | "chevr
  * **而畫面一個像素都不會變**。同 `UiAlertDialog` 不給 `footer` 槽的形狀：
  * 覆寫是整條替換，所以能被覆寫的東西不能是保護。
  *
+ * ⚠️ **「唯一」是量過的，不是推的**（C89）：使用端寫
+ * `<UiDropdownMenu aria-label="…">`，那個屬性會被**安靜吃掉** —— 元件的
+ * 根節點鏈是 `DropdownMenuRoot → MenuRoot → PopperRoot`，最後渲染的是
+ * `<slot/>`，而這裡的 slot 內容是「觸發器 ＋ portal」兩個節點的 fragment，
+ * fallthrough 落不到任何元素上，**連警告都沒有**。所以外面也塞不進第二個
+ * 名字來源。⚠️ 同一句話在 `UiSwitch` 上是**會動的**（單根元件），
+ * 這個不一致記在 `DECISIONS.md` C89。
+ *
  * ⚠️ `danger` 這一格是**加在 `item` 之上**的，不是取代它（模板寫成
  * `[parts.item, parts.danger]`）。所以覆寫 `danger` 只該寫顏色；把版型也寫進去
  * 的話會和 `item` 疊出兩份。這與 `UiBadge` 把 tone 攤平成獨立槽是同一個做法，
