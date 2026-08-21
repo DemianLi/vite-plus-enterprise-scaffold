@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp run console#dev",
-    "bff": "node platform/bff-mock/src/cli.ts",
+    "bff": "BFF_MOCK_ROUTES=apps/console/bff-routes.ts node platform/bff-mock/src/cli.ts",
     "check": "vp check",
     "test": "vp run -r test",
     "build": "vp run -r build",

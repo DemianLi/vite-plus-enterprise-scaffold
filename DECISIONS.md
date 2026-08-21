@@ -7203,6 +7203,160 @@ fallthrough 到位）—— **同一個屬性在同一個 library 裡，一個�
 | `tests/alert-dialog.test.ts`  | 同一個代理也在那裡，補上記號（§二 那條邊界的第二個案例）     |
 | 測試                          | **393 綠**，四列變異重量                                     |
 
+### C91 — 採用演練的三個阻斷級症狀是同一句話：補的位置在 `platform/`（2026-08-21）
+
+> ⚠️ **這條線跳過 C90**：`main` 已經用掉那個號（〈記號：分開「量過的」與「查規格來的」〉，
+> `ceca983`）。兩條線的編號從 C70 起就各走各的，但 `main` 那次是**刻意跳到 C89 後面**
+> 去避開撞號 —— 這裡不把它拿回來用，同一個號指兩件事會讓所有交叉引用變成陷阱。
+> 動手前查的是本機 `main`，而它落後一個 commit；`git fetch` 之後才看得到（C89 §那條
+> 「開 PR 前再查一次最大號」又應驗一次）。
+
+#### 一、三個症狀，一個成因
+
+[#95](https://github.com/DemianLi/vite-plus-enterprise-scaffold/issues/95) 的阻斷級第 2 項是三則疊起來的：
+
+| 症狀                                      | 演練當下的繞法                             |
+| ----------------------------------------- | ------------------------------------------ |
+| 新切片沒有資料端點（mock 的路由寫死兩片） | 在 repo 外面自己寫一支 mock BFF            |
+| `.env` 的 `BFF_ORIGIN` 設了沒有效果       | 改用真的環境變數                           |
+| 跑起來的應用沒有登入畫面，mock 一律 401   | 讓自己那支 mock 對第一個請求自動發 session |
+
+三個繞法都成立，而且都不是採用團隊該做的事。共同的形狀與那一項的頭條
+（三道閘門的補救路徑假設你擁有這個 repo）是同一句話：**唯一能補的位置在
+`platform/`，而那是各案不准動的地方。**
+
+#### 二、②a 接縫的形狀 —— 順序就是設計
+
+`BffMockOptions` 加兩格：`routes` 與 `extraPermissions`。難的不是欄位，是位置。
+比對順序固定為：
+
+```
+契約端點（login／logout／session／ping／admin-ping）
+  → 401 閘門
+    → 注入的路由
+      → 示範資料（/api/orders、/api/shipment）
+        → 404
+```
+
+**在 401 之後**：放到前面的話，這道接縫同時是一條「不用登入就拿得到資料」的路，
+而這個 mock 存在的全部理由是證明 D8 那條路徑走得通 —— 開一條繞過它的路等於把
+它自己推翻。**在契約端點之後**：蓋得掉的話，一份「通過契約」的參考實作可以被
+一行設定改成不通過，而契約測試不會知道。示範資料則刻意在後面，覆寫它們是合理需求。
+
+變異驗過：把注入點搬到 401 閘門之前，`platform/bff-mock/tests/routes.test.ts`
+紅**兩條**（「沒有 session 時回 401」與「契約端點蓋不掉」），其餘十條照樣綠 ——
+那十條在改動前後都綠，它們是護欄不是驗收。
+
+`extraPermissions` 是**追加**不是取代。取代的話，加一片切片就得把示範切片的權限碼
+重列一次，而漏列的症狀是示範切片安靜地壞掉。預設值仍不含 `admin`，那是契約要驗
+401 與 403 分開的前提，另有一條測試釘住它。
+
+路徑走環境變數 `BFF_MOCK_ROUTES`（`BFF_MOCK_PORT` 已立下慣例），不走約定的
+`apps/<app>/…`：`SCOPE.md` 說各案會把 `apps/` 整個換掉，讓 `platform/` 依賴一個
+承諾被換掉的東西，方向是反的。
+
+⚠️ 路由處理器**刻意不透出 node 的 `req`／`res`**。透出去的話寫路由的人可以自己
+`writeHead`，於是可以繞過上面那個順序 —— 收斂成 `BffMockRequest → BffMockReply`
+之後，繞不過去是型別層面的事實，不是一句「請不要這樣做」。
+
+#### 三、②b 修的是實作，不是文件
+
+`apps/console/vite.config.ts` 的 proxy target 讀 `process.env["BFF_ORIGIN"]`，而
+`.env.example` 教的是在 `.env` 寫它 —— `.env` 的值只進到 `loadEnv` 回傳的區域變數
+`env`，**從來沒有人讀它**。只改文件的話等於把 bug 寫成規格，所以改的是那一行：
+`process.env` 優先，其次 `env`，再退回預設。
+
+刻意用 `||` 而不是 `??`：`BFF_ORIGIN=` 這種空值要當成沒設，否則 proxy target 會變成
+空字串 —— dev server 照常啟動，而每一個 `/api` 請求都失敗。
+
+⚠️ 測試的儀器有一格不能省：`.env` 被 `.gitignore` 排掉（`!.env.example` 是唯一例外），
+所以 fixture 由測試自己寫進暫存目錄再 `chdir` 過去。放不進版控就代表 CI 上量到的
+會是另一件事。
+
+#### 四、②c 為什麼是一顆按鈕，不是登入畫面
+
+`platform/bff-mock` 的檔頭自己寫著它為什麼停在參考實作：「腳手架裡一個**看起來
+很完整**的認證服務，會被複製到 production。」一個有帳號密碼欄位的登入頁正是那個
+形狀，所以這裡只有一顆按鈕，而且它自己說明白 production 不會有這個畫面。
+
+也刻意**不**讓 mock 自動建 session（演練那支繞法就是這樣做的）：那樣的話 D8 的
+「登入 → 帶 cookie → 被 CSRF 擋 → 補標頭 → 通過」在本機永遠走不到，而它走得通
+正是這整套東西存在的理由。按一下按鈕，那條路徑就真的被走了一次。
+
+元件在 production 建置裡整個被搖掉（`import.meta.env.DEV` 三元式 ＋ 動態 import），
+而守它的測試**真的建置兩次**：production 那次要找不到探針，development 那次要
+找得到。只建一次的話，「產物裡沒有那串字」有一個很無聊的解釋 —— 那串字根本不存在。
+
+#### 五、三道沒被預期到的閘門
+
+| 閘門                              | 說了什麼                                   |
+| --------------------------------- | ------------------------------------------ |
+| `api-surface`                     | 公開簽章**不得引用未匯出的型別**           |
+| `vp run -r test`                  | `platform/bff-mock` 根本沒有 `test` script |
+| `no-unsanitized/method`（eslint） | 動態 `import()` 的引數不是字面值           |
+
+第一道最有價值：`BffMockRoute.handle` 的簽章引用了兩個未匯出的介面，閘門要求
+「把它 export 出去（它本來就出現在你的公開簽章裡，消費端沒有名字可以稱呼它），
+或者行內展開」。照它說的做，於是 `BffMockRequest`／`BffMockReply` 也成了公開面。
+`api-surface` 的 export 數 148 → 151，README 那一句跟著改 —— 那正是 `doc-facts`
+存在的用途，不是它誤報。
+
+第二道是**測試白寫的形狀**：這個 package 一支測試都沒有，補的測試若不加 script，
+`vpr ready` 一條都不會跑而且全綠。補了之後確認 `vp run -r test` 真的多跑一支。
+
+第三道照 `tools/codemods/run.ts` 已經立下的先例處理：`existsSync` 先確認、單獨成行的
+`eslint-disable-next-line` 緊貼目標、豁免理由寫在上面（開發者自己設的環境變數、
+dev-only、且那支伺服器預設拒絕在 `NODE_ENV=production` 啟動）。
+
+#### 六、壞掉的是儀器，不是東西
+
+搖樹那支測試第一版紅了，而**產物是對的**：命令列跑出來的 `dist/` 裡一個字都沒有。
+成因是 Vite 判定 `isProduction` 看的是 `NODE_ENV || mode`，而 vitest 會把 `NODE_ENV`
+設成 `"test"` —— 於是只傳 `mode: "production"` 的建置，`import.meta.env.DEV` 仍然是
+`true`。
+
+⚠️ 記在這裡的理由不是這個成因，是**失敗方向**：這次斷言的方向是「找不到」，儀器壞
+就會紅，所以被抓到了。方向反過來的話（斷言「找得到」），同一個儀器故障會讓測試
+安靜地通過。
+
+#### 七、④ 只寫順序與指標
+
+`HANDOFF.md` 從「換 CODEOWNERS」直接跳到「跑全套檢查」，中間四段（裝相依、開切片、
+接資料、用元件）一段都沒有。新增的那一節只給順序與指標，唯有「接資料」寫實體內容 ——
+其餘三段的答案 README 與元件原始碼已經有了，抄過來就是第五份手抄本。
+
+⚠️ 那一節**刻意一個數字都沒有**。`doc-facts` 守的是被登記過的句子，新寫的數字不會
+自動被守 —— 一句沒被登記的「有 N 個元件」，過期時沒有任何東西會說話。
+
+⚠️ 那一節的程式碼範例第一版**過不了這個 repo 自己的閘門**：`apps/<app>/bff-routes.ts`
+在 tsconfig 的 `include` 之外，但 `vp check` 照樣檢查它，而沒有標註型別的解構參數
+是 TS7031。也就是說那段範例本身就是這一輪在修的那個病 ——「照文件做完，閘門紅，
+而補救路徑文件沒寫」。現在的版本是逐字存成 `.ts` 檔跑過 `vp check` 的（零錯誤零告警），
+而且範例裡那個 `RouteRequest` 介面連同「為什麼不能省」一起寫進去了。
+
+#### 八、這一輪刻意沒做的
+
+阻斷級第 1 項（三道閘門）與第 3 項（深色模式）不在這個改動裡。第 3 項另開一個
+小 PR（C92）；第 1 項的形狀取決於「這棵樹怎麼知道自己是不是上游」，那是 issue #91
+在問的問題，②④③ 做完再開一輪。
+
+#### 九、動到的
+
+| 檔案                                     |                                                             |
+| ---------------------------------------- | ----------------------------------------------------------- |
+| `platform/bff-mock/src/server.ts`        | `routes`／`extraPermissions`、逐段路徑比對、注入點的位置    |
+| `platform/bff-mock/src/cli.ts`           | `BFF_MOCK_ROUTES` 載入 ＋ 形狀驗證 ＋ 把載到的路由印出來    |
+| `platform/bff-mock/tests/routes.test.ts` | 新增（這個 package 原本零測試，`test` script 也一併補上）   |
+| `apps/console/bff-routes.ts`             | 新增：取消訂單那條端點（`cancelOrder()` 原本一定 404）      |
+| `apps/console/vite.config.ts`            | proxy target 改讀 `env`，`process.env` 仍優先               |
+| `apps/console/src/DevSession.vue`        | 新增：dev-only 的 session 入口，production 建置裡不存在     |
+| `apps/console/src/App.vue`               | 動態 import ＋ `import.meta.env.DEV`，形狀是刻意的          |
+| `HANDOFF.md`                             | 新增〈從這裡到第一個能操作的畫面〉                          |
+| `README.md`                              | api-surface 的 export 數 148 → 151                          |
+| 測試                                     | 新增 23 條（bff-mock 12、console 11），變異驗過一次（2 紅） |
+
+---
+
 ## 實作順序
 
 依賴關係決定順序，不是重要性。

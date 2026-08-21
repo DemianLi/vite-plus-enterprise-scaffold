@@ -28,6 +28,117 @@ grep -n "@org/" CODEOWNERS
 
 ---
 
+## 從這裡到第一個能操作的畫面
+
+上面那一步做完之後，下一步**不是**跑全套檢查。中間有四段，順序如下。
+
+前兩段與最後一段的答案在別處，這裡**只給指標，不抄內容** —— 抄過來就會
+長出第二份會漂的清單，而這個 repo 在「同一件事寫在多處、卻沒有東西斷言
+它們一致」上已經栽過好幾次（`tools/doc-facts` 存在的全部理由就是這個）。
+
+1. **裝相依** → README〈安裝指南〉。三種環境各一條路，包含「機器上既沒有
+   pnpm 也沒有 corepack」的那條。
+2. **開一片切片** → README〈1 分鐘：新增一個切片並掛上系統〉。
+   產生器跑完會把接下來要改的檔案印在終端機上。
+3. **接資料** → 下面那一節。這一段以前哪份文件裡都沒有。
+4. **用元件** → `platform/ui/src/components/` 底下每一個 `.vue` 檔的檔頭。
+   每個元件的用途、取捨與踩過的坑都寫在它自己的原始碼裡；
+   ⚠️ **沒有一份獨立的元件使用說明**，這是 v1 的現況。
+
+四段走完，才是〈一次跑完所有檢查〉。
+
+### 把畫面接上資料
+
+dev 的拓撲刻意鏡像 production：**SPA 與 BFF 同源，由 `/api` 路徑前綴分流**，
+proxy 的另一端是一個獨立行程。所以要看到資料，得有東西在那一端聽。
+
+**一、起 BFF。** 另開一個終端機：
+
+```bash
+./node_modules/.bin/vpr bff
+```
+
+它會印出自己的位址、**載入了哪些應用端路由**、以及實作的契約條目。
+那份路由清單是唯一看得出「有沒有真的載到」的地方 —— 對不上就往下看第三步。
+
+**二、起應用，然後建立一次本機 session。**
+
+```bash
+./node_modules/.bin/vpr dev
+```
+
+畫面最上面有一條 **只在 dev 存在** 的橫幅。第一次進來時它會說「尚未建立
+本機 session」—— 那不是壞掉：`@org/bff-mock` 的資料端點全部要 session，
+沒有 session 的話每一片切片都停在錯誤分支。按下「建立本機 session」，
+D8 的那條路徑（登入 → 帶 cookie → 被 CSRF 擋 → 補標頭 → 通過）就真的被
+走了一次。
+
+> ⚠️ **這條橫幅不是登入畫面，production 也不會有它。** 正式環境的登入由
+> 組織的 gateway 處理；橫幅本身在 production 建置裡整個被搖掉
+> （`apps/console/tests/dev-session-stripped.test.ts` 會真的建置一次，再去產物裡找它）。
+> 腳手架裡一個「看起來很完整」的認證服務，最後都會被複製到 production ——
+> 所以這裡刻意只有一顆按鈕。
+
+**三、新切片要自己的資料端點時，補在應用這一側。**
+
+`@org/bff-mock` 只帶示範切片的資料，**新切片的端點不要去改 `platform/`** ——
+那是各案不該動的地方。改的是應用自己的路由檔，這個 repo 的是
+`apps/console/bff-routes.ts`：
+
+```ts
+// ⚠️ 這個介面不能省。`@org/bff-mock` 確實匯出了 `BffMockRequest`，但這個檔案
+// **刻意不 import 它** —— 正式環境的 app 不該相依一支開發用的 mock（理由寫在
+// apps/console/bff-routes.ts 的檔頭）。少了標註，`vp check` 會紅 TS7031。
+interface RouteRequest {
+  readonly params: Readonly<Record<string, string>>;
+  readonly query: URLSearchParams;
+  readonly body: unknown;
+  readonly permissions: readonly string[];
+}
+
+export const routes = [
+  {
+    path: "/api/customer",
+    handle: ({ query }: RouteRequest) => ({ body: { items: [], keyword: query.get("q") } }),
+  },
+  {
+    method: "POST",
+    path: "/api/customer",
+    handle: ({ body }: RouteRequest) => ({ status: 201, body }),
+  },
+  {
+    method: "PUT",
+    path: "/api/customer/:id",
+    handle: ({ params, body }: RouteRequest) => ({ body: { id: params.id, ...(body as object) } }),
+  },
+];
+
+// 追加到 mock session 的權限碼（追加，不是取代）
+export const extraPermissions = ["customer:read"];
+```
+
+處理器回傳 `{ status?, body? }`，省略 `body` 就是只回狀態碼（預設 204）。
+路徑的 `:id` 是參數段；非安全方法一樣要通過 CSRF —— 這道接縫不繞過 D8，
+注入的路由排在 401 閘門**之後**。
+
+> 上面那段是**逐字驗過**的：存成一個 `.ts` 檔跑 `vp check`，零錯誤零告警。
+> 現成的一份在 `apps/console/bff-routes.ts`，照著它的形狀寫最省事。
+
+換一個 app 名字的話，把根 `package.json` 的 `bff` script 裡那個
+`BFF_MOCK_ROUTES=` 改成新的路徑。檔案找不到或形狀不對，它會**拒絕啟動**
+並指出是第幾條，不會安靜地當作沒有路由。
+
+**四、已經有真的 gateway 的話，把 proxy 指過去。**
+
+```bash
+BFF_ORIGIN=https://gateway.internal ./node_modules/.bin/vpr dev
+```
+
+也可以寫在 `apps/<你的 app>/.env`（`.env.example` 有一份）。兩邊都設的話，
+**真的環境變數優先**。
+
+---
+
 ## v1.0.0 承諾什麼
 
 五條，每一條都有會失敗的檢查在守。**能守的與不能守的，各條自己會講。**
