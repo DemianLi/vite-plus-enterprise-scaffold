@@ -208,6 +208,109 @@ describe("設計代幣", () => {
   });
 });
 
+/**
+ * 取出 `@layer base { … }` 的內容。
+ *
+ * 逐字數括號，而且**先認引號** —— 兩件事各有理由，而且是同一課的兩半：
+ *
+ * 一、巢狀的 `{}` 正則數不了。
+ * 二、引號裡的 `{` 不是括號。這份 CSS 自己就有
+ *     `@source "../../../../**\/*.{vue,ts}"` 這種字面值，而上面那支
+ *     `stripCssComments` 的檔頭已經為同一件事付過一次代價：
+ *     **要比對程式碼就得先分辨程式碼與字面值。**
+ *
+ * 今天 `@layer base` 裡沒有帶引號的字串，所以這一段現在不會被用到 ——
+ * 寫成這樣是因為它失效的方式跟那次一樣安靜：數錯了就取到半截區塊，
+ * 而下面三條斷言會對著半截區塊照常給答案。
+ */
+function layerBase(css: string): string | undefined {
+  const start = css.indexOf("@layer base");
+  if (start === -1) return undefined;
+  const open = css.indexOf("{", start);
+  if (open === -1) return undefined;
+
+  let depth = 0;
+  for (let index = open; index < css.length; index++) {
+    const char = css[index];
+
+    if (char === '"' || char === "'") {
+      index++;
+      while (index < css.length && css[index] !== char) index++;
+      continue;
+    }
+
+    if (char === "{") depth++;
+    else if (char === "}") {
+      depth--;
+      if (depth === 0) return css.slice(open + 1, index);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * 文件本體的底色與前景色（#95 的阻斷級第 3 項）。
+ *
+ * ── 少了它會發生什麼 ────────────────────────────────────────────────
+ *
+ * 在偏好深色的機器上整個應用是黑底黑字。實測 `apps/console`：
+ * `body` 的 `background-color` 是 `rgba(0, 0, 0, 0)`、`color` 是
+ * `rgb(0, 0, 0)`，而 `--color-surface`（`#fff`）與 `--color-fg` 兩個代幣
+ * **一直都在、而且是對的** —— 只是沒有任何一條規則把它們用在文件上。
+ *
+ * ⚠️ **這支測試量的是宣告，不是畫面。** 它答得出「入口有沒有把代幣塗上去」，
+ * 答不出「使用者看到的對比是多少」——後者是瀏覽器的事，這個 repo 量不到
+ *（同一條界線在 `tools/theme-verify` 的檔頭與 C89 各講過一次）。
+ * 建置後那些 `var()` 沒有懸空，由 theme-verify 的第二段守。
+ */
+describe("文件本體", () => {
+  it("★ body 同時被塗上底色與前景色", () => {
+    // 只塗一個就是黑底黑字的另一半：塗了底色沒塗字色，深色偏好下
+    // base reset 的黑字配白底還能看；反過來就看不見了。
+    const base = layerBase(entry());
+    expect(base, "入口沒有 @layer base 區塊").toBeDefined();
+    expect(base).toContain("body");
+    expect(base, "body 沒有底色 —— 深色偏好的機器上畫布是瀏覽器的").toContain("background-color:");
+    expect(base, "body 沒有前景色").toContain("color:");
+  });
+
+  it("★ 必須在 @layer base 裡，不能寫在 layer 外面", () => {
+    // Tailwind v4 走 cascade layers：寫在 layer 外面的規則贏過所有 layered
+    // utility，於是 `<body class="bg-…">` 從此無效，而且沒有東西會說話。
+    const css = entry();
+    const base = layerBase(css);
+    const outside = base === undefined ? css : css.replace(base, "");
+
+    expect(outside, "@layer base 之外還有一條 body 規則").not.toContain("body");
+  });
+
+  it("取值器認得引號裡的括號", () => {
+    // 這一條守的是上面 layerBase 的第二半：`content: "{"` 這種字面值
+    // 不可以被當成一層巢狀。少了它，那段註解只是一個沒人驗過的宣稱。
+    const fake = '@layer base {\n  body { content: "{"; color: red; }\n}\nbody { color: blue; }\n';
+
+    expect(layerBase(fake)).toContain("red");
+    expect(layerBase(fake), "數到 layer 外面去了").not.toContain("blue");
+  });
+
+  it("★ 用的是語意代幣，而且那些代幣真的宣告過", () => {
+    // 寫死 `#fff` 的話各案換不掉；指向一個不存在的代幣則會是
+    // 「宣告了但求值成空」—— 兩種都讓這一格看起來修好了。
+    const css = entry();
+    const base = layerBase(css) ?? "";
+    const used = [...base.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((match) => match[1] as string);
+
+    expect(used.length, "body 沒有引用任何代幣").toBeGreaterThan(0);
+
+    const declared = new Set(
+      [...css.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((match) => match[1] as string),
+    );
+    for (const token of used) {
+      expect(declared.has(token), `body 引用了沒有宣告的 ${token}`).toBe(true);
+    }
+  });
+});
+
 describe("公開契約", () => {
   it("index.ts 匯出每一個 components/ 裡的元件", () => {
     // 元件寫好了卻忘了匯出，使用端只會得到「找不到 UiXxx」——
