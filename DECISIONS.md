@@ -7481,9 +7481,16 @@ utility** —— 於是任何人在 `<body>` 加 `class="bg-…"` 都不生效�
 ⚠️ **查掉了一個會翻掉這整則的反駁。** 「`.claude/` 和 `.github/` 早就在 v1 樹上了，
 那不也是維護者的東西？」—— 查過：`.claude/` 只有 `launch.json`（dev server 埠號），
 `.github/` 只有兩支 CI workflow，而 `SCOPE.md:115` 講 `.semgrep/` 時自己就引用了
-`tier2-security.yml`。`release/v1` 上**沒有**既存的「放 agent／維護者設定」慣例，
-`#94` 是第一件。這個反駁如果成立，結論會從「`#94` 違規」變成
-「`SCOPE.md` 的排除清單不完整，而 `#94` 只是暴露它的那一件」。它不成立。
+`tier2-security.yml`。
+
+⚠️ **分界不是「在哪個目錄」，是「內容在說什麼」** —— 光靠目錄位置答不了這個反駁，
+因為 `.claude/` 確實是 Claude Code 專用的目錄。`launch.json` 的內容是**專案描述**
+（埠號 5173、`vp run console#dev`），沒有一個字設定 agent 的行為；
+`docs/agents/issue-tracker.md` 設定的是 **agent 該怎麼開 issue**。
+按這條分界，`release/v1` 上**沒有**既存的「設定 agent 行為」慣例，`#94` 是第一件。
+
+這個反駁如果成立，結論會從「`#94` 違規」變成「`SCOPE.md` 的排除清單不完整，
+而 `#94` 只是暴露它的那一件」。它不成立。
 
 #### 四、為什麼不能只撤一部分
 
@@ -7512,6 +7519,16 @@ utility** —— 於是任何人在 `<body>` 加 `class="bg-…"` 都不生效�
 內容保留在 `f240484`，解凍後 `git cherry-pick f240484` 取得回來。
 ⚠️ **沒有任何機制在守這一句。** `#86` 解凍時如果沒有人記得，`#94` 的六個檔就是
 永久遺失 —— 這一段話本身就是那個缺口的全部防護。
+
+⚠️ **撤掉的不只是檔案，是一個現在還在用的能力。** `#94` 本文寫著那些檔的用途：
+「`/triage`、`/to-tickets`、`/to-spec`、`/wayfinder` 讀這些」。這次撤回之後，
+`docs/agents/` **在這個 repo 的任何分支上都不存在**（`main` 上只有 `vp` 產生的
+`AGENTS.md`）。技能本身還在（裝在使用者層），但**接線要等 `#86` 解凍後
+cherry-pick 才回得來**。
+
+⚠️ **沒有閘門讀 `docs/agents/`，所以 `vpr ready` 與 CI 對這件事結構性地看不見** ——
+全綠證明不了它沒發生。寫在這裡，是因為三週後 `/triage` 行為變了的時候，
+唯一能把它接回這個 PR 的線索就是這一段。
 
 `#94` 順帶在 GitHub 上建的四個 triage 標籤（`needs-triage`／`needs-info`／
 `ready-for-agent`／`ready-for-human`）留著不動：標籤不在版控樹上，不是範疇對象。
