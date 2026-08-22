@@ -125,22 +125,10 @@ function collectViews(dir: string, out: Map<string, string>): void {
 const consumerSources = new Map<string, string>();
 for (const root of CONSUMER_ROOTS) collectViews(join(ROOT, root), consumerSources);
 
-/**
- * 從命中的類別名取回那個上游代幣的裸名。
- *
- * 兩種形狀都要處理：utility（`hover:bg-primary` → `primary`）與任意屬性
- * 語法切出來的裸代幣（`--muted-foreground` → `muted-foreground`）。
- */
-function upstreamName(className: string): string {
-  const utility = className.slice(className.lastIndexOf(":") + 1);
-  if (utility.startsWith("--")) return utility.slice(2);
-  return (utility.slice(utility.indexOf("-") + 1).split("/")[0] ?? "").trim();
-}
-
 function describeUntranslated(violation: PaletteViolation): string {
   return (
     `${violation.file}:${violation.line} 用了 ${violation.className}` +
-    ` —— \`--${upstreamName(violation.className)}\` 是 shadcn 的代幣名，這個 repo 沒有宣告它`
+    ` —— \`--${violation.upstream ?? ""}\` 是 shadcn 的代幣名，這個 repo 沒有宣告它`
   );
 }
 
@@ -150,7 +138,7 @@ function describeUntranslated(violation: PaletteViolation): string {
  * 仍然對不到名字（承諾三的整個重點是槽名不需要翻譯表）。
  */
 function untranslatedFix(violation: PaletteViolation): string {
-  const name = upstreamName(violation.className);
+  const name = violation.upstream ?? "";
   const ours = translationFor(name);
 
   if (ours !== null) {

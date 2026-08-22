@@ -191,6 +191,32 @@ describe("第三類的兩份資料", () => {
   it("★ 解析不到 @theme 時回空集合，由 cli.ts 擋", () => {
     expect(declaredColorTokens("/* 沒有 theme 區塊 */").size).toBe(0);
   });
+
+  it("★ 訊息引用的 UiButton VARIANTS 真的有 secondary 那一鍵", () => {
+    // 無對應那一支訊息寫著「`secondary` 在這裡是一組 class（見 UiButton 的
+    // VARIANTS）」。⚠️ **那是一句指向外部原始碼的引用，而引用會過期** ——
+    // 改名或重構掉那張表，訊息就把人送去一個不存在的東西。
+    //
+    // 這條與上面「翻譯目標真的存在」同一個形狀（C97 §三之二），
+    // 而它差一點沒有被寫下來：驗了 `VARIANTS` 在，沒驗 `secondary` 在裡面。
+    const button = readFileSync(join(ROOT, "platform/ui/src/components/UiButton.vue"), "utf8");
+    const table = /const VARIANTS: [^=]*= \{([\s\S]*?)\n\};/.exec(button);
+    expect(table).not.toBeNull();
+    expect(table?.[1]).toContain("secondary:");
+    // 而且它真的是「一組 class」而不是單一代幣 —— 訊息說的就是這件事。
+    const secondary = /secondary: "([^"]*)"/.exec(table?.[1] ?? "");
+    expect((secondary?.[1] ?? "").split(" ").length).toBeGreaterThan(1);
+  });
+
+  it("★ 裸名帶在 violation 上，不是訊息端再解析一次", () => {
+    // ⚠️ 這條釘住的是「不要有第二份剖析」。`cli.ts` 曾經自己從 className
+    // 再切一次（去 variant 前綴、取第一個連字號之後、丟 /opacity）——
+    // 那是同一段邏輯的第二份手抄本。
+    const hits = findPaletteUsage("F.vue", `"hover:bg-primary text-muted-foreground/70"`, DECLARED);
+    expect(hits.map((h) => h.upstream)).toEqual(["primary", "muted-foreground"]);
+    // 前兩類沒有裸名。
+    expect(findPaletteUsage("F.vue", `"bg-gray-50"`, DECLARED)[0]?.upstream).toBeNull();
+  });
 });
 
 describe("usedClassNames", () => {

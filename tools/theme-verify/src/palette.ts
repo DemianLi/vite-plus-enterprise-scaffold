@@ -230,6 +230,16 @@ export interface PaletteViolation {
   /** 命中的完整類別，含 variant 前綴（例如 `hover:bg-gray-50`）。 */
   readonly className: string;
   readonly kind: "builtin" | "palette" | "untranslated";
+  /**
+   * 第三類專用：命中的**上游裸代幣名**（`primary`、`muted-foreground`），
+   * 前兩類是 `null`。
+   *
+   * ⚠️ 帶在這裡而不是讓 `cli.ts` 從 `className` 再解析一次 —— 那會是同一段
+   * 剖析的第二份手抄本（去掉 variant 前綴、取第一個連字號之後、丟掉
+   * `/opacity`），而這個 repo 栽在「兩份手抄本沒有東西斷言它們一致」上
+   * 已經很多次。訊息與判定看到的一定是同一個名字。
+   */
+  readonly upstream: string | null;
 }
 
 const COLOR_PREFIX_SET = new Set<string>(COLOR_PREFIXES);
@@ -274,7 +284,12 @@ function isUntranslated(name: string, declared: ReadonlySet<string>): boolean {
  * ⚠️ **不合法的形狀要列舉，合法的不要列舉**（見檔頭）。所以這裡回答的是
  * 「它是不是原始顏色」，任何認不出來的形狀一律當成合法。
  */
-function classify(token: string, declared: ReadonlySet<string>): PaletteViolation["kind"] | null {
+interface Classified {
+  readonly kind: PaletteViolation["kind"];
+  readonly upstream: string | null;
+}
+
+function classify(token: string, declared: ReadonlySet<string>): Classified | null {
   // `hover:`／`focus-visible:`／`dark:md:` —— 只有最後一段是 utility 本體。
   // 少了這一步，`hover:bg-gray-50` 會被漏掉，而那正是轉換前 secondary 的那一格。
   const utility = token.slice(token.lastIndexOf(":") + 1);
@@ -294,7 +309,8 @@ function classify(token: string, declared: ReadonlySet<string>): PaletteViolatio
   // ⚠️ 用**完整相等**而不是前綴比對：我們自己有 `--border-width-control`，
   // 而 shadcn 有 `--border`。前綴比對會把自己的形狀代幣報成違規。
   if (utility.startsWith("--")) {
-    return isUntranslated(utility.slice(2), declared) ? "untranslated" : null;
+    const bare = utility.slice(2);
+    return isUntranslated(bare, declared) ? { kind: "untranslated", upstream: bare } : null;
   }
 
   const dash = utility.indexOf("-");
@@ -303,12 +319,12 @@ function classify(token: string, declared: ReadonlySet<string>): PaletteViolatio
 
   // `bg-black/40` —— 色相與不透明度分開看，不透明度不影響判定。
   const rest = utility.slice(dash + 1).split("/")[0] ?? "";
-  if (rest === "white" || rest === "black") return "builtin";
+  if (rest === "white" || rest === "black") return { kind: "builtin", upstream: null };
 
   // ⚠️ **這一格必須在數字後綴那段之前。** `bg-primary` 的 `rest` 一個連字號
   // 都沒有，`bg-muted-foreground` 的最後一段不是數字 —— 兩者都會被下面
   // 那兩行 `return null` 丟掉。放到後面去就是一道**永遠跑不到**的檢查。
-  if (isUntranslated(rest, declared)) return "untranslated";
+  if (isUntranslated(rest, declared)) return { kind: "untranslated", upstream: rest };
 
   // `gray-50`／`brand-600`：最後一段全是數字時，前面那一段才是色階名。
   const lastDash = rest.lastIndexOf("-");
@@ -319,8 +335,8 @@ function classify(token: string, declared: ReadonlySet<string>): PaletteViolatio
   if (!/^\d+$/.test(rest.slice(lastDash + 1))) return null;
 
   const ramp = rest.slice(0, lastDash);
-  if (BUILTIN_SET.has(ramp)) return "builtin";
-  if (PALETTE_SET.has(ramp)) return "palette";
+  if (BUILTIN_SET.has(ramp)) return { kind: "builtin", upstream: null };
+  if (PALETTE_SET.has(ramp)) return { kind: "palette", upstream: null };
   return null;
 }
 
@@ -351,8 +367,10 @@ export function findPaletteUsage(
     if (isComment(text)) return;
 
     for (const token of tokenize(text)) {
-      const kind = classify(token, declared);
-      if (kind !== null) violations.push({ file, line: index + 1, className: token, kind });
+      const hit = classify(token, declared);
+      if (hit !== null) {
+        violations.push({ file, line: index + 1, className: token, ...hit });
+      }
     }
   });
 
