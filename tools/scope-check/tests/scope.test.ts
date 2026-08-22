@@ -184,3 +184,68 @@ describe("版控是唯一的事實來源", () => {
     expect(() => trackedDirectories(notARepo, "tools")).toThrow(/讀不到版控內容/);
   });
 });
+
+describe("登記了、但那一格是空的", () => {
+  /**
+   * 逐列指定的 `SCOPE.md` —— 用來造出「第一格有路徑、後面留白」那種列。
+   * `scopeDoc()` 造不出來，它每一列都是填好的。
+   */
+  function docWithRows(toolsRows: readonly string[], platformRows: readonly string[]): string {
+    const header = ["| 路徑 | 守什麼 | 受益者 |", "| --- | --- | --- |"];
+    return [
+      "# v1 的範疇",
+      "",
+      "## `tools/` —— 准許存在的",
+      "",
+      ...header,
+      ...toolsRows,
+      "",
+      "## `platform/` —— 准許存在的",
+      "",
+      ...header,
+      ...platformRows,
+      "",
+    ].join("\n");
+  }
+
+  it("後面的欄位留白會紅", () => {
+    // SCOPE.md 從 `v1.0.5` 就宣稱「這道閘門保證的是沒有人可以跳過那一格」，
+    // 而在 C94 之前那句話是假的 —— 解析只捕捉第一格，這一列會安靜地通過。
+    const root = repo({ tracked: ["tools/a"], untracked: [] });
+    expect(rules(root, docWithRows(["| `tools/a` | x |  |"], []))).toEqual([
+      "登記了、但那一格是空的",
+    ]);
+  });
+
+  it("中間那一欄留白一樣紅 —— 驗的不是「最後一欄」", () => {
+    // 只驗最後一欄的話，「守什麼」留白就溜掉了 —— 那一列一樣是登記了沒判斷過。
+    const root = repo({ tracked: ["tools/a"], untracked: [] });
+    expect(rules(root, docWithRows(["| `tools/a` |  | y |"], []))).toEqual([
+      "登記了、但那一格是空的",
+    ]);
+  });
+
+  it("兩張表的訊息不一樣 —— platform 沒有受益者欄，也不會有", () => {
+    // 用同一句訊息會對著 `platform/` 那張表要求一個**文件自己說不該存在**的
+    // 欄位（那一節明寫「逐一寫受益者沒有意義」），而下一個人只會照著補。
+    const root = repo({ tracked: ["tools/a", "platform/b"], untracked: [] });
+    const findings = checkScope(
+      root,
+      docWithRows(["| `tools/a` | x |  |"], ["| `platform/b` | x |  |"]),
+    );
+    const fixFor = (path: string): string =>
+      findings.find((finding) => finding.detail.includes(path))?.fix ?? "";
+
+    expect(fixFor("tools/a")).toContain("受益者是拉 v1 的團隊");
+    expect(fixFor("platform/b")).toContain("是什麼");
+    expect(fixFor("platform/b")).not.toContain("受益者");
+  });
+
+  it("填 `x` 就過得了 —— 那是邊界，不是漏洞", () => {
+    // 「有沒有寫」機器讀得出來，「寫得對不對」讀不出來。這道閘門只買到前者，
+    // 而 SCOPE.md 那一節現在把這條界線寫出來了。少了這一條，下一個人會以為
+    // 它在驗內容，然後在它綠的時候不去讀那幾格。
+    const root = repo({ tracked: ["tools/a"], untracked: [] });
+    expect(checkScope(root, docWithRows(["| `tools/a` | x | x |"], []))).toEqual([]);
+  });
+});
