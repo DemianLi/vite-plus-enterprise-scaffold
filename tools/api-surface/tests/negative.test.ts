@@ -274,6 +274,71 @@ describe("對照組：沒動過的東西是綠的", () => {
 
 // ── export 層級：名稱不見了 ───────────────────────────────────────────
 
+describe("形狀參考（C100）", () => {
+  /**
+   * `#95` 非阻斷級：**27 個元件零份使用說明**。修法是從 `surface.json` 產生，
+   * 不是手寫 —— 手抄 27 個元件的 prop 名字正是這個 repo 一再栽的病。
+   *
+   * ⚠️ 這一組守的是**接線**：`docs.test.ts` 驗渲染，這裡驗「CLI 真的比對了」。
+   * C98 §四之三 記過同一個形狀 —— 純函式測得好好的，而把呼叫它的那段刪掉
+   * 紅零條。
+   */
+  function withReference(mutate: (reference: string) => void) {
+    const dir = sandbox();
+    cpSync(pristineFixture, dir, { recursive: true });
+    const baseline = join(dir, "surface.json");
+    const reference = join(dir, "API.md");
+    const seed = run([
+      "--platform",
+      dir,
+      "--baseline",
+      baseline,
+      "--reference",
+      reference,
+      "--update",
+    ]);
+    expect(seed.red, seed.output).toBe(false);
+    mutate(reference);
+    return run(["--platform", dir, "--baseline", baseline, "--reference", reference]);
+  }
+
+  it("★ --update 之後立刻再跑 → 綠", () => {
+    const result = withReference(() => {});
+    expect(result.red, result.output).toBe(false);
+  });
+
+  it("🔴 手改參考 → 紅", () => {
+    const result = withReference((reference) => {
+      writeFileSync(reference, `${readFileSync(reference, "utf8")}\n手改的一行\n`);
+    });
+    expect(result.red, `參考被手改了還是綠的\n${result.output}`).toBe(true);
+    expect(result.output).toContain("--update");
+  });
+
+  it("🔴 參考不見了 → 紅，而且說得出它不存在", () => {
+    // 少了這一條，「檔案被刪掉」與「內容不對」會給出同一句話，
+    // 而前者的第一個念頭是「是不是我 clone 壞了」。
+    const result = withReference((reference) => rmSync(reference));
+    expect(result.red).toBe(true);
+    expect(result.output).toContain("它不存在");
+  });
+
+  it("🔴 --platform 指到別處又沒給 --reference → **不得**碰根層那份", () => {
+    /**
+     * ⚠️ 這一條是踩到才有的。第一版無條件寫 `ROOT/API.md`，而
+     * `beforeAll` 那次 seed fixture 的 `--update` 正是 `--platform <tmpdir>`
+     * —— **跑一次測試就把 repo 根層的參考換成 fixture 的內容**。
+     */
+    const before = readFileSync(join(ROOT, "API.md"), "utf8");
+    const dir = sandbox();
+    cpSync(pristineFixture, dir, { recursive: true });
+    const result = run(["--platform", dir, "--baseline", join(dir, "surface.json"), "--update"]);
+    expect(result.red, result.output).toBe(false);
+    expect(readFileSync(join(ROOT, "API.md"), "utf8"), "根層 API.md 被動到了").toBe(before);
+    expect(result.output, "沒說參考那一份沒有寫").toContain("形狀參考沒有寫");
+  });
+});
+
 describe("整個 export 不見了", () => {
   it("🔴 基準說有、現況沒有的 export → 紅", () => {
     const path = baselineCopy((baseline) => {

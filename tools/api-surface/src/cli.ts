@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { extractSurface, type EntryPoint } from "./shape.ts";
@@ -11,6 +11,7 @@ import {
   type Baseline,
   type Finding,
 } from "./compare.ts";
+import { renderReference } from "./docs.ts";
 import { checkIndexAgreement, trackedPackageDirs } from "./tracked.ts";
 
 /**
@@ -114,6 +115,35 @@ function parsePlatformDir(argv: readonly string[]): string {
 }
 
 const PLATFORM = parsePlatformDir(process.argv.slice(2));
+
+/**
+ * 產出的形狀參考。放根層是為了被找得到 —— 演練那個人光是找產生器就花了五到十分鐘。
+ *
+ * ⚠️ 可以用 `--reference <path>` 指到別處，理由與 `--baseline`／`--platform` 同一條：
+ * **測試要吃得到這條路徑**。寫死的話，「漂移就紅」那道檢查在測試環境裡
+ * 永遠不會被觸發，而唯一能驗它的辦法是去動真的 `API.md` —— 被中斷就留下殘骸。
+ * （C98 §四之三 記過同一個形狀：絆線沒掛在接線上。）
+ */
+function parseReferencePath(argv: readonly string[]): string | null {
+  const at = argv.indexOf("--reference");
+  if (at === -1) {
+    // ⚠️ **沒有 `--reference` 時，只有跑真正的 `platform/` 才碰根層那份。**
+    //
+    // 這一條是踩到才加的：`tests/negative.test.ts` 有一處 `--update` 是拿來
+    // seed fixture 的（`--platform <tmpdir>`），而第一版無條件寫 `ROOT/API.md`
+    // —— 於是**跑一次測試就把 repo 根層的參考換成 fixture 的內容**。
+    // 叫測試補參數也能修，但那把陷阱留在原地等下一個人。
+    return PLATFORM === PLATFORM_DIR ? join(ROOT, "API.md") : null;
+  }
+  const value = argv[at + 1];
+  if (value === undefined || value.startsWith("--")) {
+    console.error("--reference 後面要接一個檔案路徑");
+    process.exit(1);
+  }
+  return resolve(value);
+}
+
+const REFERENCE_PATH = parseReferencePath(process.argv.slice(2));
 
 /**
  * ⚠️ 回傳值多帶一個 `dirs` —— **它收下了哪幾個目錄**。
@@ -300,7 +330,7 @@ if (breaking.length > 0) {
       "    2. 在 tools/api-surface/surface.json 的 codemods 登記它：\n" +
       "       移除 export 寫進 removes，形狀改變寫進 changes\n" +
       "    3. 執行 node tools/codemods/run.ts <name> 遷移全 repo\n" +
-      "    4. 執行 node tools/api-surface/src/cli.ts --update 更新基準\n",
+      "    4. 執行 node tools/api-surface/src/cli.ts --update\n       （它會一起更新基準與根層的 API.md，兩份都要進同一個 PR）\n",
   );
   process.exit(1);
 }
@@ -343,8 +373,19 @@ if (shouldUpdate) {
     process.exit(1);
   }
 
+  // ⚠️ **兩份產物一起寫。** 分成兩個指令的話，只跑其中一個就會讓
+  // `API.md` 與基準對不上 —— 而那正是下面那道檢查在防的事。
+  // 訊息也要一起講（見 breaking／compatible 兩段），否則就是「說得比做得少」。
+  if (REFERENCE_PATH !== null) writeFileSync(REFERENCE_PATH, renderReference(current));
+
   const shapes = Object.values(current).reduce((sum, entry) => sum + Object.keys(entry).length, 0);
-  console.log(`✓ 基準已更新（${Object.keys(current).length} 個進入點，${shapes} 個 export）`);
+  console.log(
+    `✓ 基準${REFERENCE_PATH === null ? "" : "與 API.md "}已更新` +
+      `（${Object.keys(current).length} 個進入點，${shapes} 個 export）` +
+      (REFERENCE_PATH === null
+        ? "\n  ⚠️ --platform 指到別處且沒給 --reference，形狀參考沒有寫"
+        : ""),
+  );
   process.exit(0);
 }
 
@@ -372,10 +413,39 @@ const shapeCount = Object.values(current).reduce(
  *   ② `--platform` 指到別處時**那道檢查沒有跑** —— 沉默的略過，
  *      跟這個 repo 剛付過兩次代價的「看起來在守、其實沒有」是同一形狀。
  */
+/**
+ * `API.md` 與基準對不對得上。
+ *
+ * ⚠️ **放在最後，是刻意的。** `surface.json` 一旦與樹對不上（幽靈進入點、
+ * 破壞性變更、相容變更未登記），從它渲染出來的參考當然也對不上 ——
+ * 那時候多印一條紅燈，是**同一個原因報兩次**。這裡只在其他全綠時才問。
+ * 同一條理由 `privateReferences` 那段已經寫過（「違規時比對本身就不可信」）。
+ */
+const expectedReference = REFERENCE_PATH === null ? "" : renderReference(current);
+const actualReference =
+  REFERENCE_PATH !== null && existsSync(REFERENCE_PATH) ? readFileSync(REFERENCE_PATH, "utf8") : "";
+if (REFERENCE_PATH !== null && actualReference !== expectedReference) {
+  console.error(
+    `\n✗ ${relative(ROOT, REFERENCE_PATH)} 與基準對不上\n\n` +
+      (actualReference === ""
+        ? "  它不存在。\n\n"
+        : "  它是產生出來的檔案，手改會被下一次 --update 蓋掉。\n\n") +
+      "  這份參考回答的是採用團隊問得最多的那個問題（「這個元件收哪些 prop」）——\n" +
+      "  採用演練裡，讀 27 個元件的原始碼自己整理 API，花掉的時間比其他所有步驟\n" +
+      "  加起來還多。它過期的話，讀的人會照著錯的形狀寫，而畫面不會說話。\n\n" +
+      "  執行：\n\n" +
+      "    node tools/api-surface/src/cli.ts --update\n",
+  );
+  process.exit(1);
+}
+
 console.log(
   `✓ platform/ API 形狀無破壞性變更（${Object.keys(current).length} 個進入點，${shapeCount} 個 export）\n` +
     (verifiedInIndex === null
       ? "  ⚠️ --platform 指到 platform/ 以外，「進入點在不在版控裡」那道檢查沒有跑"
       : `  進入點來自 ${verifiedInIndex} 個套件目錄，每一個都驗過在版控裡` +
-        `（git ls-files，見 src/tracked.ts）—— 進入點數比它多，因為一個套件可以宣告多個 subpath`),
+        `（git ls-files，見 src/tracked.ts）—— 進入點數比它多，因為一個套件可以宣告多個 subpath`) +
+    (REFERENCE_PATH === null
+      ? "\n  ⚠️ --platform 指到別處且沒給 --reference，形狀參考那道檢查沒有跑"
+      : `\n  ${relative(ROOT, REFERENCE_PATH)} 與這份基準一致（產生出來的，不要手改）`),
 );
