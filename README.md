@@ -92,8 +92,11 @@ corepack enable && corepack prepare pnpm@11.21.0 --activate && pnpm install
 npx --yes --package vite-plus@0.2.9 vp -C ./<repo-dir> install
 ```
 
-> 內部 registry 環境下，這個 bootstrap 抓取是**第一個會斷的地方**（見 HANDOFF 的 R3／R5）：
+> 內部 registry 環境下，這個 bootstrap 抓取是**第一個會斷的地方**：
 > 需另外設定 `npm_config_registry` 與 `NODE_EXTRA_CA_CERTS`。
+>
+> ⚠️ **那兩個環境變數就是 v1 這棵樹在這件事上的全部內容**，沒有更詳細的一節。
+> 寫出來，是因為指向一節不存在的內容比不指路更糟：讀的人會以為自己漏讀了。
 
 裝完之後 `node_modules/.bin` 就有 `vp`、`vpr`、`eslint`，**後續一律用它們**：
 
