@@ -54,6 +54,22 @@ import { runVueTsc } from "./run.ts";
  * 不開的代價是抓不到「prop 名字打錯」。已經抓得到的：prop 型別、缺必填 prop、
  * slot payload 型別（那一條正是 #24 留下的第一個殘留）。
  *
+ * ⚠️ **那個代價在採用演練裡真的被踩到了**（`#95`）：照 `UiButton` 的習慣寫
+ * `<UiAlert variant="danger">`，全套閘門綠，而錯誤提示安靜地渲染成 info 色。
+ *
+ * ⚠️ **所以 C101 又量了一次 —— 這次是單獨的那顆旋鈕，不是 `strictTemplates`。**
+ * 上面那段講「五個旋鈕」，而 C55 那 2 條誤報全是 **events**，所以
+ * 「只開 `checkUnknownProps`」看起來是一條沒被試過的路。量下來：
+ *
+ *     只開 checkUnknownProps                → 28 條，**全部**是 `data-slot`
+ *     把 data-slot 用型別擴充正名之後        → 換成 `aria-invalid`／`aria-describedby` 那一批
+ *
+ * 後面那一批正是 `UiField` 的 `control` 物件靠 fallthrough 傳下去的東西 ——
+ * **這個元件庫的設計整體建立在 fallthrough attrs 上**，而這顆旋鈕與那個設計
+ * 衝突，不是設定沒調對。結論與 C55 相同，只是量得更細。
+ *
+ * **不要再量第三次。** 要改的話，要改的是元件的接線設計，不是這顆旋鈕。
+ *
  * ── 這支工具抓不到什麼 ──────────────────────────────────────────────
  *
  * `<template #不存在的slot>` 不會紅，開 `strictTemplates` 也不會。

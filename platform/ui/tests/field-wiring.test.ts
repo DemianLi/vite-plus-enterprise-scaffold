@@ -3,6 +3,7 @@ import { createSSRApp, h, type Component } from "vue";
 import { renderToString } from "vue/server-renderer";
 
 import UiField from "../src/components/UiField.vue";
+import UiSelect from "../src/components/UiSelect.vue";
 
 /**
  * `UiField` 的接線驗收。
@@ -228,5 +229,68 @@ describe("渲染與否", () => {
     const html = await render({ label: "電子郵件", description: "說明", error: "錯誤" });
     expect(html).not.toContain("<!--#");
     expect(/<!--[^[\]]/.test(html), `SSR 產物裡有註解：${html}`).toBe(false);
+  });
+});
+
+describe("UiField 包 UiSelect：`control` 要真的落到觸發鈕上（C101）", () => {
+  /**
+   * `#95` 非阻斷級。採用演練在瀏覽器裡量到：畫面上看得到「分級」兩個字，
+   * 而那個 `<label for="v-60">` **指向一個不存在的元素**，那顆下拉沒有任何
+   * 程式可讀的名稱 —— `document.getElementById('v-60')` 是 `null`。
+   *
+   * 成因：`UiSelect` 的根是 `SelectRoot`（提供 context 的無渲染元件），
+   * fallthrough 的 attrs 落在那裡等於掉進地上。`UiInput`／`UiTextarea`
+   * 是原生元素所以接得到 —— **同一個寫法，三個元件裡兩個能用。**
+   *
+   * ⚠️ 三道相關閘門當時全綠（`vue-typecheck` 認為 fallthrough 不是型別錯、
+   * `component-contract` 讀原始碼文字、`a11y` 也是）。
+   */
+  const Select = UiSelect as Component;
+
+  async function renderSelect(props: Attributes = { label: "分級" }): Promise<string> {
+    return await renderToString(
+      createSSRApp({
+        render: () =>
+          h(Field, props, {
+            default: ({ control }: { control: Record<string, unknown> }) =>
+              h(Select, {
+                ...control,
+                items: [{ value: "a", label: "A" }],
+                placeholder: "選一個",
+              } as never),
+          }),
+      }),
+    );
+  }
+
+  it("🔴 `<label for>` 指到的 id 真的存在於產出的 HTML 裡", () => {
+    // 這一條就是那個缺陷本身：for 有值、而那個 id 在文件裡不存在。
+    return renderSelect().then((html) => {
+      const label = /<label[^>]*\sfor="([^"]+)"/.exec(html);
+      expect(label, "連 label 都沒渲染出來 —— 這條測試失去意義").not.toBeNull();
+      const id = label![1]!;
+      expect(html.includes(`id="${id}"`), `for="${id}" 指向一個不存在的元素`).toBe(true);
+    });
+  });
+
+  it("🔴 `control` 的三格要一起落到觸發鈕上，不是只有 id", () => {
+    /**
+     * ⚠️ 修法是把 `$attrs` 整包轉過去（不是加一個選填 `id` prop），
+     * 所以三格一次接齊。只驗 id 的話，把修法退化成單一 prop 也照樣綠 ——
+     * 而那個退化版本正是稽核標記裡提過、會踩到 `api-surface` 的那條路。
+     *
+     * ⚠️ 所以要帶 `description` 與 `error` 進去把另外兩格叫出來：
+     * `control` 在沒有它們的時候，那兩格是 `undefined`（刻意的，見 UiField），
+     * 於是「只接得到 id」的實作也會通過一個只驗 id 的測試。
+     */
+    return renderSelect({ label: "分級", description: "選一個等級", error: "必填" }).then(
+      (html) => {
+        const trigger = /<button[^>]*>/.exec(html);
+        expect(trigger, "沒有渲染出觸發鈕").not.toBeNull();
+        expect(trigger![0], "觸發鈕上沒有 id").toMatch(/\sid="/);
+        expect(trigger![0], "aria-describedby 沒有落到觸發鈕上").toMatch(/aria-describedby="/);
+        expect(trigger![0], "aria-invalid 沒有落到觸發鈕上").toMatch(/aria-invalid/);
+      },
+    );
   });
 });
