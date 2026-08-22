@@ -828,7 +828,7 @@
     {
       "name": "drop-a11y-config-for-v1",
       "removes": ["@org/eslint-config/a11y#default"],
-      "reason": "v1.0.0 的範圍縮減：無障礙整條移到 v2（論證在 main 的 DECISIONS.md C69）。這不是 API 演進而是產品線範圍的決定 —— 需要無障礙靜態檢查的案子要用 main 那條線，不是把它加回 v1。codemod 只移除 import 不補替代方案，因為沒有替代方案；讓升級的人當場看見少了一道閘門，比安靜地少掉危險得多。"
+      "reason": "v1.0.0 的範圍縮減：無障礙整條移到 v2（論證在這個腳手架上游 main 分支的 DECISIONS.md C69；fork 了 v1 的團隊手上沒有那條線，這一則對你們就是「v1 不含無障礙靜態檢查」這句話本身）。這不是 API 演進而是產品線範圍的決定 —— 需要無障礙靜態檢查的案子要用 main 那條線，不是把它加回 v1。codemod 只移除 import 不補替代方案，因為沒有替代方案；讓升級的人當場看見少了一道閘門，比安靜地少掉危險得多。"
     },
     {
       "name": "flatten-ui-theme-to-components",
