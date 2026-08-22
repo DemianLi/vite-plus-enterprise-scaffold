@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { FACTS, checkFacts, type Fact } from "../src/facts.ts";
+import { FACTS, REMEDIATION, checkFacts, type Fact } from "../src/facts.ts";
 
 /**
  * 文件數字守衛的**反向測試**。
@@ -68,6 +68,49 @@ describe("checkFacts：該紅的時候會紅", () => {
   it("🔴 事實來源讀不出值 → 紅", () => {
     const problems = checkFacts(docs("這裡共 5 個示範。"), {}, [FACT]);
     expect(problems.map((problem) => problem.kind)).toContain("never-cited");
+  });
+
+  it("🔴 一個樣式都沒有的事實 → 紅（C97：那條逃生口通到的洞）", () => {
+    /**
+     * 這條守的是**紅燈訊息自己指出去的那條路**。
+     *
+     * 「樣式對不到句子」的補救是「同步更新 src/facts.ts 的樣式」，而在 C97
+     * 之前，把 `citations` 清成 `[]` 會讓閘門 exit=0、全綠、測試 29 passed ——
+     * 唯一的痕跡是綠燈裡的樣式計數少一，而沒有人有那個基準。
+     *
+     * 也就是說：這支工具的整個用途（不讓東西看不見地失效）對**它自己的
+     * 登記表**是關掉的。
+     */
+    const hollow: Fact = { ...FACT, citations: [] };
+    const problems = checkFacts(docs("這裡共 5 個示範。"), { demo: 5 }, [hollow]);
+    expect(problems.map((problem) => problem.kind)).toContain("unguarded");
+  });
+
+  it("★ 零樣式的訊息要說得出合法的做法是「移除整個 Fact」", () => {
+    // 只說「這樣不行」的話，讀到的人會把 citations 再清一次然後困惑。
+    // 差別在 diff 看不看得見：移掉整個 Fact 看得見，清空 citations 看不見。
+    const hollow: Fact = { ...FACT, citations: [] };
+    const detail = checkFacts(docs("x"), { demo: 5 }, [hollow])[0]?.detail ?? "";
+    expect(detail).toContain("移除整個 Fact");
+  });
+
+  it("★ 樣式對不到時，訊息要把「被刪了」那一支也講出來", () => {
+    /**
+     * C97、#95 第 1 項。這道閘門接在 `vpr ready` 上，而那是 HANDOFF 叫
+     * **拉 v1 去做案子的團隊**第一個跑的東西 —— 他們把 README 換成自己
+     * 產品的之後會拿到 7 條這種紅燈（演練實測）。
+     *
+     * 原本的訊息問「句子被改寫了，還是那段被刪了？」，卻只給了前者的做法。
+     * 後者對 fork 團隊才是常態，而它的做法有一個陷阱（見上一條），
+     * 所以訊息必須兩支都講，而且要把人接到零樣式那條規則上。
+     */
+    const detail =
+      checkFacts(docs("這裡有五個示範。"), { demo: 5 }, [FACT]).find(
+        (problem) => problem.kind === "never-cited",
+      )?.detail ?? "";
+    expect(detail, "沒講「改寫」那一支").toContain("被改寫");
+    expect(detail, "沒講「被刪」那一支").toContain("被刪");
+    expect(detail, "沒把人接到零樣式那條規則").toContain("citations: []");
   });
 
   it("🔴 一份文件都沒讀到 → 紅", () => {
@@ -201,6 +244,22 @@ describe("登記表本身", () => {
     }
   });
 
+  it("🔴 每個事實至少有一個樣式（C97）", () => {
+    /**
+     * ⚠️ **這條不是上面那條 runtime 檢查的重複。**
+     *
+     * `checkFacts` 在 `documents.length === 0` 時**提早回傳** —— 一棵文件
+     * 讀不到的樹上，零樣式的事實根本走不到那個檢查。這一條無條件成立。
+     *
+     * 而它在這棵樹上抓到過真東西：`action-refs` 的 `citations` 原本只有
+     * 一行寫著「所以**只有它**被登記」的註解、**沒有 regex** —— 一個從登記
+     * 進來那天起就一個字都沒守過的事實，而全套閘門一路綠到 `v1.2.0`。
+     */
+    for (const fact of FACTS) {
+      expect(fact.citations.length, `${fact.id} 一個引用樣式都沒有`).toBeGreaterThan(0);
+    }
+  });
+
   it("★ 沒有任何樣式帶 g 旗標", () => {
     // 這些是模組層級的共用物件，而 checkFacts 用的是 exec。帶 g 的 regex
     // 會在物件上累積 lastIndex，於是同一個樣式跑到第二行時從中間開始比對 ——
@@ -214,6 +273,47 @@ describe("登記表本身", () => {
 
   it("每個事實都寫了來源", () => {
     for (const fact of FACTS) expect(fact.source.length, fact.id).toBeGreaterThan(10);
+  });
+});
+
+describe("紅燈尾巴：它也會被拉 v1 的團隊讀到（C97）", () => {
+  it("★ 訊息要對 fork 團隊說話 —— 不去判斷讀的人是誰", () => {
+    /**
+     * `#95` 第 1 項。這道閘門接在 `scripts.gate` ＝ `vpr ready` 上，而那是
+     * HANDOFF 叫**拉 v1 去做案子的團隊**第一個跑的東西。演練實測的觸發點：
+     * 加第一片切片 → 2 條 mismatch（workspace 套件數、CODEOWNERS 條目數），
+     * 而加切片正是採用指南教的第一件事。
+     *
+     * ⚠️ 跟 C95 一樣**不去偵測「這棵樹是不是上游」** —— 那是 `#91` 在問的，
+     * 答案還沒有，而猜錯的偵測會給出看起來很確定的錯訊息。
+     */
+    expect(REMEDIATION, "沒有對 fork 那一種讀者說話").toContain("fork");
+  });
+
+  it("★ 要講出「與上游分歧」是預期的", () => {
+    // 這是 #95 真正指認出來的代價：改完之後那幾句話描述的是他們自己的樹，
+    // 每個案子都會這樣改一次。不講的話，他們會以為自己弄壞了什麼。
+    expect(REMEDIATION).toContain("分歧");
+  });
+
+  it("🔴 訊息裡不得出現「這個 repo」", () => {
+    /**
+     * 在一棵 fork 的樹上，那四個字指的是**他們的** repo —— 而「一再栽跟頭」的
+     * 不是他們。一句話同時對兩種讀者說時，指示代名詞就不能指向作者的樹。
+     *
+     * ⚠️ 這是 C95 §四 那條的同一個形狀（裸寫 `C72` 會把人送去讀 `main` 的
+     * 另一則決策）：**訊息把人指錯地方，不會有任何東西說話。**
+     */
+    expect(REMEDIATION, "「這個 repo」在 fork 的樹上指錯對象").not.toContain("這個 repo");
+  });
+
+  it("🔴 「拿去跟採購與資安講的話」不得被當成上游敘事刪掉", () => {
+    /**
+     * ⚠️ 這條守的是一個**我差點犯的錯**：把這句話當成「上游味道」一起刪掉。
+     * 它對一個企業採用團隊只會更真，不會更假。C95 修的是一個 fork 團隊
+     * **做不到的動作**，不是一句動機說明 —— 刪掉後者只會讓訊息更模糊。
+     */
+    expect(REMEDIATION).toContain("採購與資安");
   });
 });
 
