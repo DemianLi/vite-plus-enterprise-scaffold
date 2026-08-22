@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { findPaletteUsage, usedClassNames } from "../src/palette.ts";
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import {
+  TRANSLATION_TARGETS,
+  declaredColorTokens,
+  findPaletteUsage,
+  translationFor,
+  usedClassNames,
+} from "../src/palette.ts";
 
 /**
  * 「元件裡不准出現原始顏色」這條規則本身的驗收。
@@ -8,7 +18,17 @@ import { findPaletteUsage, usedClassNames } from "../src/palette.ts";
  * 這幾條測試會**在規則壞掉時照樣通過**（空集合等於空集合）。
  */
 
-const scan = (source: string) => findPaletteUsage("Fixture.vue", source).map((v) => v.className);
+const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
+const THEME_CSS = readFileSync(join(ROOT, "platform/ui/src/styles/index.css"), "utf8");
+
+/**
+ * 第三類的減數。**用真的那一份**，不是人造集合 ——
+ * 這幾條測試要問的是「這個 repo 的代幣詞彙下，那些名字算不算違規」。
+ */
+const DECLARED = declaredColorTokens(THEME_CSS);
+
+const scan = (source: string) =>
+  findPaletteUsage("Fixture.vue", source, DECLARED).map((v) => v.className);
 
 describe("內建色階", () => {
   it("🔴 直接用 gray → 紅", () => {
@@ -78,6 +98,124 @@ describe("註解", () => {
     // 這條測試釘住的是**行首**才豁免 —— 否則在字串後面補一個 `//`
     // 就成了萬用出口（與 exit-drill 那個 HISTORICAL 豁免同一個顧慮）。
     expect(scan(`const x = "bg-gray-50"; // 之後要改`)).toEqual(["bg-gray-50"]);
+  });
+});
+
+describe("未翻譯的 shadcn 代幣", () => {
+  it("🔴 utility 形式 → 紅，而且訊息說得出替代品", () => {
+    // `bg-primary` 的 rest 一個連字號都沒有；`bg-muted-foreground` 的最後
+    // 一段不是數字。兩者都會被「數字後綴」那兩行丟掉 —— 所以這一類的判定
+    // **必須排在它們之前**。這條測試釘住的就是那個順序：放到後面去，
+    // 這裡會拿到空陣列。
+    expect(scan(`"bg-primary text-muted-foreground border-input ring-ring"`)).toEqual([
+      "bg-primary",
+      "text-muted-foreground",
+      "border-input",
+      "ring-ring",
+    ]);
+    expect(translationFor("primary")).toBe("--color-accent");
+    expect(translationFor("muted-foreground")).toBe("--color-fg-muted");
+    expect(translationFor("ring")).toBe("--color-focus");
+  });
+
+  it("🔴 任意屬性語法切出來的裸代幣也要抓到", () => {
+    // Tailwind v4 的「前綴 ＋ 括號 ＋ 代幣名」會被切成兩個詞，裸代幣的第一個
+    // 連字號在 index 0 —— 落到 `dash <= 0` 那行就沒了。
+    //
+    // ⚠️ 這裡刻意用字串拼接寫出那個語法，不寫成字面值：Tailwind 掃這份檔案
+    // （連註解一起），寫成字面值就會在產物裡編出一條指向不存在代幣的規則，
+    // 然後 `auditReferences` 紅。寫這一類的時候真的踩過一次（C104 §三）。
+    const arbitrary = `"bg-` + `(--primary) text-` + `(--muted-foreground)"`;
+    expect(scan(arbitrary)).toEqual(["--primary", "--muted-foreground"]);
+  });
+
+  it("🔴 帶 variant 前綴的也要抓到", () => {
+    expect(scan(`"hover:bg-primary focus-visible:ring-ring"`)).toEqual([
+      "hover:bg-primary",
+      "focus-visible:ring-ring",
+    ]);
+  });
+
+  it("★ 兩邊同名的不能誤報 —— 減法是活的", () => {
+    // `accent` 是今天唯一的碰撞，而 `bg-accent` 在元件裡用了十幾次。
+    // 判準若寫成「shadcn 的詞彙全部擋掉」，這一格會全紅然後規則被關掉（C41）。
+    expect(DECLARED.has("accent")).toBe(true);
+    expect(scan(`"bg-accent hover:bg-accent-hover text-on-accent"`)).toEqual([]);
+  });
+
+  it("★ 我們自己的形狀代幣不能被前綴比對誤報", () => {
+    // shadcn 有 `--border`，我們有 `--border-width-control`。用前綴比對的話
+    // 後者會被報成違規 —— 而它是這個 repo 自己宣告的代幣，真的在用。
+    const source = `border-bottom: var(--border-width-control) solid var(--color-line);`;
+    expect(scan(source)).toEqual([]);
+  });
+
+  it("★ 沒有對應的代幣不編一個出來", () => {
+    // `secondary` 在這裡是一組 class，`sidebar-*`／`chart-*` 這個 repo 沒有
+    // 那個概念。硬給對應比不給更糟：它讓人以為換掉一個代幣就等價。
+    expect(scan(`"bg-secondary bg-sidebar text-chart-1"`)).toEqual([
+      "bg-secondary",
+      "bg-sidebar",
+      "text-chart-1",
+    ]);
+    expect(translationFor("secondary")).toBeNull();
+    expect(translationFor("sidebar")).toBeNull();
+    expect(translationFor("chart-1")).toBeNull();
+  });
+});
+
+describe("第三類的兩份資料", () => {
+  it("★ 每個翻譯目標都真的宣告在 index.css 裡", () => {
+    // ⚠️ **這一條與詞彙表的失敗方向不同。** 詞彙表漏一個 → 少擋一次；
+    // 翻譯目標寫錯 → 訊息把人送去一個**不存在的代幣**，那是錯的方向。
+    // `--color-muted` → `--color-fg-muted` 那次改名證明這個風險是真的：
+    // 少了這條斷言，那次改名會讓這道閘門開始指路指到空氣。
+    expect(TRANSLATION_TARGETS.length).toBeGreaterThan(0);
+    for (const target of TRANSLATION_TARGETS) {
+      expect(DECLARED.has(target.slice("--color-".length))).toBe(true);
+    }
+  });
+
+  it("★ 減數是從真的 CSS 推導出來的，不是人造的", () => {
+    // 這條釘住的是**接線**：`declaredColorTokens` 若解析不到東西，
+    // 減數變空 → 所有同名代幣都變違規 → 真元件的 `bg-accent` 全紅。
+    // 那個失敗是吵的，但這裡直接把它變成一條會紅的斷言。
+    expect(DECLARED.size).toBeGreaterThan(10);
+    expect(DECLARED.has("fg-muted")).toBe(true);
+    expect(DECLARED.has("line")).toBe(true);
+    // 反向：`@theme` 沒宣告的名字不能混進來。
+    expect(DECLARED.has("primary")).toBe(false);
+    expect(DECLARED.has("muted-foreground")).toBe(false);
+  });
+
+  it("★ 解析不到 @theme 時回空集合，由 cli.ts 擋", () => {
+    expect(declaredColorTokens("/* 沒有 theme 區塊 */").size).toBe(0);
+  });
+
+  it("★ 訊息引用的 UiButton VARIANTS 真的有 secondary 那一鍵", () => {
+    // 無對應那一支訊息寫著「`secondary` 在這裡是一組 class（見 UiButton 的
+    // VARIANTS）」。⚠️ **那是一句指向外部原始碼的引用，而引用會過期** ——
+    // 改名或重構掉那張表，訊息就把人送去一個不存在的東西。
+    //
+    // 這條與上面「翻譯目標真的存在」同一個形狀（C97 §三之二），
+    // 而它差一點沒有被寫下來：驗了 `VARIANTS` 在，沒驗 `secondary` 在裡面。
+    const button = readFileSync(join(ROOT, "platform/ui/src/components/UiButton.vue"), "utf8");
+    const table = /const VARIANTS: [^=]*= \{([\s\S]*?)\n\};/.exec(button);
+    expect(table).not.toBeNull();
+    expect(table?.[1]).toContain("secondary:");
+    // 而且它真的是「一組 class」而不是單一代幣 —— 訊息說的就是這件事。
+    const secondary = /secondary: "([^"]*)"/.exec(table?.[1] ?? "");
+    expect((secondary?.[1] ?? "").split(" ").length).toBeGreaterThan(1);
+  });
+
+  it("★ 裸名帶在 violation 上，不是訊息端再解析一次", () => {
+    // ⚠️ 這條釘住的是「不要有第二份剖析」。`cli.ts` 曾經自己從 className
+    // 再切一次（去 variant 前綴、取第一個連字號之後、丟 /opacity）——
+    // 那是同一段邏輯的第二份手抄本。
+    const hits = findPaletteUsage("F.vue", `"hover:bg-primary text-muted-foreground/70"`, DECLARED);
+    expect(hits.map((h) => h.upstream)).toEqual(["primary", "muted-foreground"]);
+    // 前兩類沒有裸名。
+    expect(findPaletteUsage("F.vue", `"bg-gray-50"`, DECLARED)[0]?.upstream).toBeNull();
   });
 });
 

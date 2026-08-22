@@ -17,7 +17,7 @@ import {
   SLICE_DESIGN_SYSTEM_IMPORTS,
 } from "@org/slice-kit/contract";
 
-import { findPaletteUsage } from "@org/theme-verify/palette";
+import { declaredColorTokens, findPaletteUsage } from "@org/theme-verify/palette";
 
 import { buildSliceFiles } from "../src/files.ts";
 import { flattenPaths, assertCoversContract } from "../src/contract-shape.ts";
@@ -44,14 +44,18 @@ function fileAt(path: string): string {
 }
 
 /** 設計系統 `@theme` 區塊裡宣告的代幣名。讀原始碼而不是抄一份清單（A1）。 */
-function declaredThemeTokens(): ReadonlySet<string> {
+function themeCss(): string {
   const path = resolve(
     fileURLToPath(import.meta.url),
     "../../../..",
     "platform/ui/src/styles/index.css",
   );
-  const block = /@theme\s*\{([\s\S]*)\}/.exec(readFileSync(path, "utf8"));
-  if (block === null) throw new Error(`${path} 裡找不到 @theme 區塊 —— 讀不到就不要給判決`);
+  return readFileSync(path, "utf8");
+}
+
+function declaredThemeTokens(): ReadonlySet<string> {
+  const block = /@theme\s*\{([\s\S]*)\}/.exec(themeCss());
+  if (block === null) throw new Error("index.css 裡找不到 @theme 區塊 —— 讀不到就不要給判決");
   return new Set(
     [...(block[1] as string).matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1] as string),
   );
@@ -355,7 +359,14 @@ describe("產出的切片符合 D15 設計系統規則", () => {
     const views = flattenPaths(files).filter((path) => path.endsWith(".vue"));
     expect(views.length).toBeGreaterThan(0);
 
-    const violations = views.flatMap((path) => findPaletteUsage(path, fileAt(path)));
+    // 第三類（未翻譯的 shadcn 代幣）需要「我們宣告過的名字」當減數。
+    // ⚠️ 這一份**也從 index.css 讀**，而且用的是 theme-verify 匯出的同一支
+    // 解析器 —— 自己再寫一份的話，就是「同一件事兩份手抄本」那個病，
+    // 而這條測試存在的全部理由正是不要各持一份。
+    const declared = declaredColorTokens(themeCss());
+    expect(declared.size).toBeGreaterThan(10);
+
+    const violations = views.flatMap((path) => findPaletteUsage(path, fileAt(path), declared));
     expect(violations.map((violation) => `${violation.file} ${violation.className}`)).toEqual([]);
   });
 
