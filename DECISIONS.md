@@ -8474,6 +8474,90 @@ repo 裡推導不出來 —— 而 `facts.test.ts` 有一條斷言**專門釘住
 
 ---
 
+### C101 — UiSelect 接不到 control，以及一個決定留著的缺口（2026-08-22）
+
+`#95` 非阻斷級最後兩則。一則是真的程式缺陷，一則量完之後**決定留著**。
+
+#### 一、⭐ `UiField` 包 `UiSelect` 會產生一個指向不存在元素的 `<label for>`
+
+`UiField` 的 slot 交出 `control`（`id`／`aria-describedby`／`aria-invalid`），
+使用端 `v-bind="control"` 到控制項上。`UiInput`／`UiTextarea` 是原生元素，
+fallthrough 直接落到位；**`UiSelect` 接不到** —— 它的根是 `SelectRoot`，
+一個提供 context 的無渲染元件，attrs 落在那裡等於掉進地上。
+
+演練在瀏覽器裡量到：
+
+```
+labels:  {"label":"分級","for":"v-60"}
+trigger: {"id":""}
+document.getElementById('v-60')  →  null
+```
+
+畫面上看得到「分級」，而那個 `<label for>` **指向一個不存在的元素**，
+那顆下拉沒有任何程式可讀的名稱。**滑鼠使用者完全看不出來**，
+而 `vue-typecheck`／`component-contract`／`a11y` 三道全綠。
+
+⚠️ **修法刻意不是「加一個選填 `id` prop」。** 那只接得到三格裡的一格，
+而且會改動公開形狀（`api-surface` 判 `compatible` 但一樣 `exit(1)`，
+連帶要重寫 `surface.json` 與剛加的 `API.md`）。
+改成 `defineOptions({ inheritAttrs: false })` ＋ 把 `$attrs` 轉給 `SelectTrigger`
+—— **三格一次接齊，`defineProps` 一個字都沒動**（實測 `surface.json` 與
+`API.md` 零變更）。
+
+⚠️ **本 package 第一個關掉 `inheritAttrs` 的元件**，而它有一個無聲的失敗模式：
+**忘了 `v-bind="$attrs"` 就是全部 attrs 消失，而畫面完全正常。**
+變異驗過（只拿掉 `v-bind`、保留 `inheritAttrs: false`）→ 紅 2 條。
+
+⚠️ 測試走 SSR（`field-wiring.test.ts` 既有的機制），**零新增依賴** ——
+`SelectTrigger` 不在 portal 裡，所以 SSR 渲染得到（`UiDialog` 那次不行，
+理由見 C86）。
+
+⚠️ 我自己寫的第二條斷言第一版是 `expect(trigger).toBeDefined()` —— **恆真**。
+改成帶 `description` 與 `error` 進去，把另外兩格叫出來再驗
+（`control` 沒有它們時那兩格是 `undefined`，於是「只接得到 id」的實作
+也會通過一個只驗 id 的測試）。
+
+#### 二、prop 名字打錯不會紅 —— 量完之後**決定留著**
+
+`UiButton` 是 `variant`，`UiAlert`／`UiBadge` 是 `tone`。照前者的習慣寫
+`<UiAlert variant="danger">` 全套閘門綠，而提示安靜地渲染成 info 色。
+
+⚠️ **`vue-typecheck` 的檔頭早就寫著這個代價**（「不開 `strictTemplates` 的代價
+是抓不到 prop 名字打錯」，C55／C41）。但它同一段也寫著
+`@vue/language-core` 有**五個旋鈕**，而 C55 那 2 條誤報**全是 events** ——
+所以「只開 `checkUnknownProps`」是一條沒被試過的路。量了：
+
+| 開什麼                                  | 結果                                                               |
+| --------------------------------------- | ------------------------------------------------------------------ |
+| `strictTemplates`（C55）                | 2 條，都是 `<UiButton @click>`；修法會關掉 fallthrough，是真的迴歸 |
+| **只開 `checkUnknownProps`**（本則）    | **28 條，全部是 `data-slot`**                                      |
+| 上一列 ＋ 用型別擴充把 `data-slot` 正名 | 換成 `aria-invalid`／`aria-describedby` 那一批                     |
+
+最後一列正是 §一 那個 `control` 物件靠 fallthrough 傳下去的東西。
+⚠️ **這個元件庫的設計整體建立在 fallthrough attrs 上**，而這顆旋鈕與那個設計
+衝突 —— 不是設定沒調對。結論與 C55 相同，只是量得更細。
+
+處置照 `#95` 對非阻斷級的指示：**進〈已知的誠實缺口〉**，把兩次量測都寫進去
+（「不要再量第三次」），並指出已經好一點的那一半 —— C100 產生的根層 `API.md`
+現在列得出每個元件的 prop 名字。
+
+#### 三、順帶：〈已知的誠實缺口〉那段重複兩次的文字
+
+C88 就記過的既有缺陷（`HANDOFF.md` 兩段幾乎一樣的「要幾個才算夠」）。
+移除較短的那一段，保留寫得完整的那一段。⚠️ 移除前確認過它不含
+`doc-facts` 守著的任何數字，移除後閘門仍綠。
+
+#### 四、動到的檔案
+
+| 檔案                                      |                                               |
+| ----------------------------------------- | --------------------------------------------- |
+| `platform/ui/src/components/UiSelect.vue` | `inheritAttrs: false` ＋ `v-bind="$attrs"`    |
+| `platform/ui/tests/field-wiring.test.ts`  | 新增 2 條（10 → **12**）                      |
+| `HANDOFF.md`                              | 新增〈使用端把 prop 名字打錯…〉、移除重複段落 |
+| `tools/vue-typecheck/src/cli.ts`          | 檔頭補上這次的量測                            |
+
+---
+
 ## 實作順序
 
 依賴關係決定順序，不是重要性。

@@ -308,11 +308,29 @@ C62 那句產品要求（「一套基礎的 UI 版型和互動方式」）——
 Popover／Combobox／Avatar／Progress／Toast）。那是一個可以被反駁的決定，
 不是一份被當成既定事實的記憶。
 
-⚠️ **「要幾個才算夠」沒有任何文件定義過。** 2026-08-19 查過 HANDOFF、
-SCOPE、DECISIONS 與 git 歷史：從來沒有列過 v1 要有哪些元件。唯一的依據是
-C62 那句產品要求（「一套基礎的 UI 版型和互動方式」）—— 那是判準不是清單。
-現在的清單是 C78 定的，而它是一個**被寫下來、可以被反駁**的決定，
-不是一份被當成既定事實的記憶。
+### ⚠️ 使用端把 prop 名字打錯，不會有任何東西說話
+
+`UiButton` 的是 `variant`，`UiAlert` 與 `UiBadge` 的是 **`tone`**。
+照 `UiButton` 的習慣寫 `<UiAlert variant="danger">` —— **全套閘門綠**，
+而那塊錯誤提示會安靜地渲染成 info 色（灰底），`<div variant="danger">`
+留在 DOM 裡看起來像有設。
+
+成因是 Vue 的 fallthrough attrs：不存在的 prop 變成 DOM 屬性，不是型別錯。
+
+**兩次量測（不要再量第三次）：**
+
+| 開什麼                                    | 結果                                                                                                                                                              |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `strictTemplates`（C55 量的）             | 多 2 條，都是 `<UiButton @click>`；而加 `defineEmits` 會**關掉 fallthrough**，是真的行為迴歸                                                                      |
+| **只開 `checkUnknownProps`**（C101 量的） | **28 條，全部是 `data-slot`**；把 `data-slot` 正名之後變成 `aria-invalid`／`aria-describedby` 那一批 —— 也就是 `UiField` 的 `control` 靠 fallthrough 傳下去的東西 |
+
+⚠️ **這個元件庫的設計整體建立在 fallthrough attrs 上**，而
+`checkUnknownProps` 與那個設計衝突 —— 不是設定沒調對。**留著這個缺口是決定，
+不是疏忽。**
+
+⚠️ 已經好一點的一半：`platform/*` 每個 export 的形狀現在列在根層
+[`API.md`](API.md) 裡（產生的，由 `api-surface` 守著）—— 寫之前查一下，
+比事後發現快。
 
 ⚠️ 這個數字自 2026-08-19 起由 `tools/doc-facts` 從 **`git ls-files`** 數出來
 （不是掃磁碟，理由見 C73）。在那之前它被抄在三個地方（這裡、上面承諾三、

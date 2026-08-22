@@ -61,6 +61,33 @@ import { NO_OVERRIDE, UI_THEME, type UiSelectSlot } from "../theme.ts";
  * 所以減法之後它不在清單裡）。只有人讀得出來。
  */
 
+/**
+ * ⚠️ **本 package 第一個關掉 `inheritAttrs` 的元件（C101）。**
+ *
+ * `UiField` 的 slot 交出一個 `control` 物件（`id`／`aria-describedby`／
+ * `aria-invalid`），使用端 `v-bind="control"` 到控制項上。`UiInput` 與
+ * `UiTextarea` 是原生元素，fallthrough 直接落到位；**`UiSelect` 接不到** ——
+ * 它的根是 `SelectRoot`，一個提供 context 的無渲染元件，attrs 落在那裡等於
+ * 掉進地上。採用演練在瀏覽器裡量到的：
+ *
+ *     labels:  {"label":"分級","for":"v-60"}
+ *     trigger: {"id":""}
+ *     document.getElementById('v-60')  →  null
+ *
+ * 也就是畫面上看得到「分級」，而那個 `<label for>` **指向一個不存在的元素**，
+ * 那顆下拉沒有任何程式可讀的名稱。滑鼠使用者完全看不出來，
+ * 而 `vue-typecheck`／`component-contract`／`a11y` 三道全綠。
+ *
+ * ⚠️ **修法刻意不是「加一個選填 `id` prop」。** 那只接得到三個屬性裡的一個，
+ * 而且會改動公開形狀（`api-surface` 判 `compatible` 但一樣 `exit(1)`，
+ * 連帶要重寫 `surface.json` 與 `API.md`）。把 `$attrs` 整包轉給觸發鈕，
+ * **`control` 的三格一次接齊**，而 `defineProps` 一個字都沒動。
+ *
+ * ⚠️ 關掉 `inheritAttrs` 之後，**忘了 `v-bind="$attrs"` 就是全部 attrs 消失**，
+ * 而畫面完全正常 —— 所以 `field-wiring.test.ts` 有一條 SSR 斷言守著它。
+ */
+defineOptions({ inheritAttrs: false });
+
 const selected = defineModel<string>({ default: "" });
 
 defineProps<{
@@ -128,7 +155,7 @@ const parts: Readonly<Record<UiSelectSlot, string>> = {
 
 <template>
   <SelectRoot v-model="selected">
-    <SelectTrigger data-slot="select" :class="parts.trigger">
+    <SelectTrigger v-bind="$attrs" data-slot="select" :class="parts.trigger">
       <SelectValue :placeholder="placeholder" />
       <svg viewBox="0 0 16 16" :class="parts.chevron" aria-hidden="true">
         <path
