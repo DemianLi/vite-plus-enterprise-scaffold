@@ -11,7 +11,7 @@ import {
   type Baseline,
   type Finding,
 } from "./compare.ts";
-import { PHANTOM_REMEDIATION, phantomEntryPoints, trackedPackageDirs } from "./tracked.ts";
+import { checkIndexAgreement, trackedPackageDirs } from "./tracked.ts";
 
 /**
  * `platform/` 的公開 API 表面快照與破壞性變更偵測（D12）。
@@ -230,14 +230,20 @@ const scopedToRepo = PLATFORM === PLATFORM_DIR;
 let verifiedInIndex: number | null = null;
 if (scopedToRepo) {
   const tracked = trackedPackageDirs(ROOT, PLATFORM);
-  const phantom = phantomEntryPoints(entryDirs, tracked);
-  verifiedInIndex = entryDirs.length - phantom.length;
-  if (phantom.length > 0) {
-    console.error(`\n✗ platform/ 底下有 ${phantom.length} 個進入點不在版控裡\n`);
-    for (const name of phantom) console.error(`  ✗ platform/${name}`);
-    console.error(PHANTOM_REMEDIATION);
+  const problems = checkIndexAgreement(entryDirs, tracked, readdirSync(PLATFORM));
+
+  // ⚠️ 一個迴圈吃掉所有方向 —— 少一個方向要動 `checkIndexAgreement`，
+  // 而那支函式是直接被測的。理由見 tracked.ts 該函式的檔頭。
+  if (problems.length > 0) {
+    for (const problem of problems) {
+      console.error(`\n✗ ${problem.headline}\n`);
+      for (const name of problem.dirs) console.error(`  ✗ platform/${name}`);
+      console.error(problem.remediation);
+    }
     process.exit(1);
   }
+
+  verifiedInIndex = entryDirs.length;
 }
 
 /**

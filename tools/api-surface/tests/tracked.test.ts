@@ -5,7 +5,14 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { PHANTOM_REMEDIATION, phantomEntryPoints, trackedPackageDirs } from "../src/tracked.ts";
+import {
+  PHANTOM_REMEDIATION,
+  VANISHED_REMEDIATION,
+  phantomEntryPoints,
+  checkIndexAgreement,
+  trackedPackageDirs,
+  vanishedPackageDirs,
+} from "../src/tracked.ts";
 
 /**
  * 「進得了基準的東西必須在版控裡」（C98）。
@@ -103,6 +110,36 @@ describe("phantomEntryPoints", () => {
   });
 });
 
+describe("vanishedPackageDirs：反方向（C73「兩個方向都要驗」）", () => {
+  it("🔴 版控裡有、磁碟上沒有 → 指出來", () => {
+    /**
+     * 鏡像的病理：`rm -rf platform/pii` 之後它列不進進入點，基準裡它的 export
+     * 全部變成「移除」→ 破壞性變更 → 要求為一個**仍然在版控裡**的套件寫 codemod。
+     * 一樣沒有合法出口。
+     */
+    expect(vanishedPackageDirs(new Set(["pii", "ui"]), ["ui"])).toEqual(["pii"]);
+  });
+
+  it("★ 兩邊一致 → 空陣列（好好地 git rm 不該被擋）", () => {
+    // ⚠️ 這道檢查擋的**不是移除**，是兩邊不一致。`git rm -r` 之後 index 與磁碟
+    // 都沒有它，這裡就該放行 —— 那是一次真的破壞性變更，codemod 那條路為它準備的。
+    expect(vanishedPackageDirs(new Set(["ui"]), ["ui"])).toEqual([]);
+  });
+
+  it("🔴 磁碟清單要餵完整的，不是「有貢獻進入點的那些」", () => {
+    /**
+     * ⚠️ 這條釘的是一個會**每次都誤報**的寫法。`platform/tsconfig` 在版控裡、
+     * 在磁碟上，而它沒有 `exports`，所以正當地貢獻零個進入點 ——
+     * 拿它跟進入點清單比，它會每一次都被判成「消失了」。
+     */
+    expect(vanishedPackageDirs(new Set(["tsconfig"]), ["tsconfig"])).toEqual([]);
+  });
+
+  it("★ 多個全部列出、且排序穩定", () => {
+    expect(vanishedPackageDirs(new Set(["z", "a"]), [])).toEqual(["a", "z"]);
+  });
+});
+
 describe("紅燈訊息", () => {
   it("★ 要說得出那條路的盡頭是什麼", () => {
     // 只說「不在版控裡」的話，讀的人的下一個動作就是跑 --update（它會變綠）。
@@ -120,9 +157,61 @@ describe("紅燈訊息", () => {
     expect(PHANTOM_REMEDIATION).toContain("staged");
   });
 
+  it("★ 反方向的訊息要把兩條出路都給出來", () => {
+    expect(VANISHED_REMEDIATION, "沒講怎麼拿回來").toContain("git restore");
+    expect(VANISHED_REMEDIATION, "沒講真的要移除該怎麼做").toContain("git rm");
+  });
+
+  it("🔴 反方向的訊息要講明「擋的不是移除」", () => {
+    // 不講的話，讀的人會以為這道閘門在阻止他刪套件 —— 而它擋的是
+    // index 與磁碟不一致。好好地 `git rm` 之後走 codemod 那條路才是對的。
+    expect(VANISHED_REMEDIATION).toContain("擋的不是移除");
+  });
+
   it("🔴 要講明 .gitignore 不是出路", () => {
     // 最直覺的錯誤動作：把它加進 .gitignore。那不會讓它離開磁碟，
     // 而這道檢查看的是版控 —— 加了照樣紅，而且理由看起來莫名其妙。
     expect(PHANTOM_REMEDIATION).toContain(".gitignore");
+  });
+});
+
+describe("checkIndexAgreement：兩個方向都要在同一支裡", () => {
+  /**
+   * ⚠️ 這一組守的是**接線**，不是那兩個純函式。
+   *
+   * 兩個方向各自接在 `cli.ts` 裡的時候，變異「把反方向那段刪掉」**紅零條** ——
+   * 純函式的測試照樣全過（函式還在），而 CLI 那條路在測試環境裡永遠不會觸發：
+   * 這棵樹是乾淨的，而 `--platform` 刻意略過這道檢查。
+   *
+   * 合成一支之後，少一個方向就得動這支函式，而它在這裡被直接測。
+   */
+  it("🔴 幽靈方向會回報", () => {
+    const out = checkIndexAgreement(["ghost"], new Set(), ["ghost"]);
+    expect(out.map((p) => p.kind)).toEqual(["phantom"]);
+  });
+
+  it("🔴 消失方向會回報", () => {
+    const out = checkIndexAgreement([], new Set(["pii"]), []);
+    expect(out.map((p) => p.kind)).toEqual(["vanished"]);
+  });
+
+  it("🔴 兩個方向同時壞 → 兩則都回報，不是只報第一個", () => {
+    // 只報一個的話，清完一邊要再跑一次才知道還有另一邊。
+    const out = checkIndexAgreement(["ghost"], new Set(["pii"]), ["ghost"]);
+    expect(out.map((p) => p.kind)).toEqual(["phantom", "vanished"]);
+  });
+
+  it("★ 兩邊一致 → 零則", () => {
+    expect(checkIndexAgreement(["ui"], new Set(["ui", "tsconfig"]), ["ui", "tsconfig"])).toEqual(
+      [],
+    );
+  });
+
+  it("★ 每一則都帶得出自己的標題與做法", () => {
+    // cli.ts 那端是一個泛用迴圈，不認得 kind —— 訊息要由這裡帶過去。
+    for (const problem of checkIndexAgreement(["ghost"], new Set(["pii"]), ["ghost"])) {
+      expect(problem.headline, problem.kind).not.toBe("");
+      expect(problem.remediation, problem.kind).toContain("兩條出路");
+    }
   });
 });

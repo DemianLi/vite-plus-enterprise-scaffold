@@ -79,6 +79,33 @@ export function phantomEntryPoints(
 }
 
 /**
+ * 反方向：**版控裡有、磁碟上沒有**的套件目錄。
+ *
+ * ⚠️ **同一個病理，鏡像的形狀。** `rm -rf platform/pii`（或一次沒收乾淨的
+ * stash／merge／`mv`）之後：`readdirSync` 列不到它 → 沒有進入點 →
+ * 基準裡 `@org/pii` 的 export 全部變成「移除」→ **判成破壞性變更，
+ * 要求你為一個仍然在版控裡的套件寫 codemod**。一樣沒有合法出口。
+ *
+ * ⚠️ **好好地移除不是這一種**：`git rm -r platform/pii` 之後 index 與磁碟
+ * 是一致的，那是一次**真的**破壞性變更，codemod 那條路正是為它準備的。
+ * 病的是**兩邊不一致**，不是移除本身。
+ *
+ * C73 那張表就是這麼寫的：**兩個方向都要驗，因為壞掉的方式有兩種。**
+ * 只補一個方向，等於把同一個沒有出口的紅燈留在鏡子的另一面。
+ *
+ * ⚠️ `onDisk` 要餵 **`readdirSync` 的完整清單**，不是「有貢獻進入點的那些」——
+ * `platform/tsconfig` 在版控裡、在磁碟上，而它沒有 `exports` 所以正當地
+ * 貢獻零個進入點。拿它跟進入點清單比，會每一次都誤報。
+ */
+export function vanishedPackageDirs(
+  tracked: ReadonlySet<string>,
+  onDisk: readonly string[],
+): readonly string[] {
+  const present = new Set(onDisk);
+  return [...tracked].filter((name) => !present.has(name)).sort();
+}
+
+/**
  * 幽靈進入點的紅燈尾巴。
  *
  * ⚠️ **住在這裡是為了掛得上絆線**（C97 §五 學到的）：`cli.ts` 頂層就會
@@ -98,3 +125,66 @@ export const PHANTOM_REMEDIATION =
   "  · 它只是暫時的 —— 把它移出 `platform/`。\n" +
   "    ⚠️ 加進 .gitignore **不夠**：這道檢查看的是版控，不是 ignore 規則，\n" +
   "    而上面那條路徑照樣會走完。\n";
+
+/** 反方向的紅燈尾巴。理由同上，掛絆線的理由同 `PHANTOM_REMEDIATION`。 */
+export const VANISHED_REMEDIATION =
+  "\n  它們在版控裡，但磁碟上沒有 —— 而進入點是從磁碟列的。\n" +
+  "  照現在這條路走下去會是這樣：\n\n" +
+  "    它們列不進進入點 → 基準裡它們的 export 全部變成「移除」\n" +
+  "    → 判成破壞性變更，要求你為一個**仍然在版控裡**的套件寫 codemod\n\n" +
+  "  那個紅燈一樣沒有合法出口，所以在這裡先擋。\n\n" +
+  "  兩條出路，挑一條：\n" +
+  "  · 不小心刪掉的 —— `git restore platform/<名字>` 把它拿回來。\n" +
+  "  · 真的要移除 —— `git rm -r platform/<名字>`，讓 index 跟磁碟一致。\n" +
+  "    那之後它就是一次**真的**破壞性變更，走 codemod 那條路（D12）——\n" +
+  "    這道檢查擋的不是移除，是**兩邊不一致**。\n";
+
+export interface IndexProblem {
+  readonly kind: "phantom" | "vanished";
+  readonly dirs: readonly string[];
+  /** 印在清單後面的那段「該怎麼辦」。 */
+  readonly remediation: string;
+  readonly headline: string;
+}
+
+/**
+ * index 與磁碟對不對得上 —— **兩個方向合成一支**。
+ *
+ * ⚠️ **合成一支不是為了整齊，是為了絆線咬得到「接線」。**
+ * 兩個方向各自接在 `cli.ts` 裡的時候，變異「把反方向那段刪掉」**紅零條** ——
+ * 純函式的測試照樣全過（函式還在），而 CLI 那條路在測試環境裡永遠不會觸發
+ * （這棵樹是乾淨的，`--platform` 又刻意略過）。
+ *
+ * 合成之後，`cli.ts` 那端是一個**吞不掉任何方向的迴圈**：要少一個方向，
+ * 就得動這支函式，而這支函式是直接被測的。
+ * 形狀同 `doc-facts` 的 `checkFacts()` 回傳一串 `FactProblem`。
+ */
+export function checkIndexAgreement(
+  entryDirs: readonly string[],
+  tracked: ReadonlySet<string>,
+  onDisk: readonly string[],
+): readonly IndexProblem[] {
+  const problems: IndexProblem[] = [];
+
+  const phantom = phantomEntryPoints(entryDirs, tracked);
+  if (phantom.length > 0) {
+    problems.push({
+      kind: "phantom",
+      dirs: phantom,
+      headline: `platform/ 底下有 ${phantom.length} 個進入點不在版控裡`,
+      remediation: PHANTOM_REMEDIATION,
+    });
+  }
+
+  const vanished = vanishedPackageDirs(tracked, onDisk);
+  if (vanished.length > 0) {
+    problems.push({
+      kind: "vanished",
+      dirs: vanished,
+      headline: `platform/ 底下有 ${vanished.length} 個套件在版控裡、磁碟上卻沒有`,
+      remediation: VANISHED_REMEDIATION,
+    });
+  }
+
+  return problems;
+}
