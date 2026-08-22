@@ -65,3 +65,43 @@ export function trackedDirectories(root: string, parent: string): string[] {
   }
   return [...directories];
 }
+
+/**
+ * 版控裡的**根層**有哪些東西 —— 頂層目錄與根層檔案。
+ *
+ * ── 為什麼這是新函式，不是 `trackedDirectories` 加一個參數 ──────────
+ *
+ * 上面那支問的是「`<parent>/` 底下有哪些第一層目錄」，它把每一條路徑切成
+ * `segments[0]/segments[1]` 兩段。根層要的是**另一種切法**：有斜線的取第一段
+ * （那是頂層目錄），沒斜線的整條就是一個根層檔。硬塞進同一支函式，那個
+ * `if` 會住在最不該有分支的地方 —— 決定「這道閘門看到什麼」的那一行。
+ *
+ * ⚠️ **事實來源沒有換。** 一樣是 `git ls-files`，一樣是 index 而不是 HEAD、
+ * 不是磁碟。上面那整段關於殘骸、staged、以及「找不到 git 就直接失敗」的論證
+ * 原封不動繼續成立 —— 這一支只是把同一份輸出換個方式切。
+ *
+ * ⚠️ **目錄帶尾斜線，檔案不帶。** `.github/` 與 `LICENSE` 在清單上要看得出
+ * 是哪一種，而 `SCOPE.md` 那張表登記的就是這裡回傳的字串原樣。少了它，
+ * 一個叫 `docs` 的檔案跟一個叫 `docs` 的目錄在表上長得一模一樣。
+ */
+export function trackedRootEntries(root: string): string[] {
+  const result = spawnSync("git", ["ls-files"], { cwd: root, encoding: "utf8" });
+
+  if (result.error !== undefined || result.status !== 0) {
+    const reason = result.error?.message ?? result.stderr.trim();
+    throw new Error(
+      `讀不到版控內容（git ls-files）：${reason}\n` +
+        `      這道閘門刻意不退回去掃磁碟 —— 磁碟上有切分支留下的殘骸，` +
+        `用它當事實來源會在開發機紅、在 CI 綠。`,
+    );
+  }
+
+  const entries = new Set<string>();
+  for (const line of result.stdout.split("\n")) {
+    const path = line.trim();
+    if (path.length === 0) continue;
+    const slash = path.indexOf("/");
+    entries.add(slash === -1 ? path : `${path.slice(0, slash)}/`);
+  }
+  return [...entries];
+}
