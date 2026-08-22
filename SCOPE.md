@@ -121,6 +121,7 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 | `.git-blame-ignore-revs` | 大規模機械性格式化 commit 的清單，`git blame` 會跳過（D13）                                                          |
 | `.gitignore`             | 版控忽略清單                                                                                                         |
 | `.npmrc`                 | 供應鏈設定（D1／D6）：內部 registry、`ignore-scripts=true`                                                           |
+| `API.md`                 | `platform/*` 的形狀參考，**由 `tools/api-surface` 產生**，同一道閘門守著它與基準對得上。⚠️ 不要手改 —— 跑 `--update` |
 | `AGENTS.md`              | `vp` 產生的 agent 指示。⚠️ 標記之外的手寫內容在 **C93** 被撤回，加回去之前先讀那一則                                 |
 | `CHANGELOG.md`           | 版本沿革。SemVer 的承諾對象是 `platform/*` 的型別形狀                                                                |
 | `CODEOWNERS`             | 擁有權對照（D12）。一致性檢查驗每個 `features/*` 都有條目                                                            |
