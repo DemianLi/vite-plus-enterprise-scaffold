@@ -69,6 +69,134 @@ const BUILTIN_RAMPS = [
 const PALETTE_RAMPS = ["brand", "danger"] as const;
 
 /**
+ * ── 第三類：從 shadcn 抄元件時忘了翻譯的代幣 ────────────────────────
+ *
+ * 這個 repo 用 shadcn 的**模型**（原始碼在自己手上）與它的三個原料，
+ * 但**不用它的代幣詞彙**：它的 `--primary` 在這裡叫 `--color-accent`，
+ * `--muted-foreground` 叫 `--color-fg-muted`（見 HANDOFF 承諾三）。
+ *
+ * 抄一個元件進來的時候，翻譯表有十幾條。**忘掉其中一條，那一格顏色就
+ * 換不掉** —— 而前兩類都抓不到它：它不是內建色階，也不是色票層，
+ * 它是一個「合法但不是我們的」名字。
+ *
+ * ⚠️ **判準不是「shadcn 的詞彙全部擋掉」。** `accent` 兩邊剛好同名，
+ * 那樣寫會把 `bg-accent`（元件裡用了 19 次的合法寫法）全部誤報。
+ * 判準是 **shadcn 的詞彙 減去 我們 `@theme` 裡真的宣告過的名字** ——
+ * 碰撞的自動被排除，而且那一半是**推導**出來的，不是手抄的。
+ *
+ * ⚠️ 那份 `@theme` 由 `cli.ts` 從 `platform/ui/src/styles/index.css` 讀進來，
+ * 不寫死在這裡。寫死的話，改一個代幣名（`--color-muted` → `--color-fg-muted`
+ * 真的發生過）就會讓這道檢查**靜靜地開始誤報或漏報**。
+ */
+
+/**
+ * shadcn 的代幣詞彙。**手抄的上游事實**，與 `BUILTIN_RAMPS` 同一個理由：
+ * 漏列一個的代價只是少擋一次，所以照抄不做「我們大概只會用到某幾個」的猜測。
+ *
+ * ⚠️ 只收**顏色**代幣。`--radius` 不在這裡 —— 它在我們這邊是
+ * `--radius-control`／`--radius-surface`，而形狀那一半的翻譯還沒有累積到
+ * 值得列舉的程度（第一類與第二類也都只守顏色）。
+ */
+const SHADCN_TOKENS = [
+  "background",
+  "foreground",
+  "card",
+  "card-foreground",
+  "popover",
+  "popover-foreground",
+  "primary",
+  "primary-foreground",
+  "secondary",
+  "secondary-foreground",
+  "muted",
+  "muted-foreground",
+  "accent",
+  "accent-foreground",
+  "destructive",
+  "destructive-foreground",
+  "border",
+  "input",
+  "ring",
+  "chart-1",
+  "chart-2",
+  "chart-3",
+  "chart-4",
+  "chart-5",
+  "sidebar",
+  "sidebar-foreground",
+  "sidebar-primary",
+  "sidebar-primary-foreground",
+  "sidebar-accent",
+  "sidebar-accent-foreground",
+  "sidebar-border",
+  "sidebar-ring",
+] as const;
+
+/**
+ * 上游名 → 我們的名字。**紅燈訊息必須說得出替代品**：少了它，最短的修法
+ * 是把上游名字加進 `@theme`，而那正好是錯的方向（多一層沒有人用的代幣）。
+ *
+ * ⚠️ **這張表與 `SHADCN_TOKENS` 的失敗方向不同，所以守法也不同。**
+ * 詞彙表漏一個 → 少擋一次。**這裡的目標寫錯 → 訊息把人送去一個不存在的
+ * 代幣**，那是錯的方向不是漏掉。所以 `tests/palette.test.ts` 有一條斷言
+ * 每個目標都真的出現在 `index.css` 的 `@theme` 裡 ——
+ * `--color-muted` → `--color-fg-muted` 那次改名證明這個風險是真的。
+ */
+const TRANSLATION: Readonly<Record<string, string>> = {
+  background: "--color-surface",
+  foreground: "--color-fg",
+  card: "--color-surface",
+  "card-foreground": "--color-fg",
+  popover: "--color-surface",
+  "popover-foreground": "--color-fg",
+  primary: "--color-accent",
+  "primary-foreground": "--color-on-accent",
+  muted: "--color-surface-hover",
+  "muted-foreground": "--color-fg-muted",
+  "accent-foreground": "--color-on-accent",
+  destructive: "--color-danger",
+  "destructive-foreground": "--color-on-danger",
+  border: "--color-line",
+  input: "--color-line",
+  ring: "--color-focus",
+};
+
+const SHADCN_SET = new Set<string>(SHADCN_TOKENS);
+
+/**
+ * 這個上游代幣在我們這裡叫什麼；沒有單一對應時回傳 `null`。
+ *
+ * ⚠️ **`secondary` 與 `sidebar-*`／`chart-*` 刻意沒有對應。** 前者在這裡不是
+ * 一個顏色代幣而是一組 class（`border-control border-accent bg-surface`），
+ * 後兩者這個 repo 根本沒有那個概念。**硬給一個對應比不給更糟** ——
+ * 它會讓人以為換掉那一個代幣就等價，而實際上少了三格。
+ */
+export function translationFor(token: string): string | null {
+  return TRANSLATION[token] ?? null;
+}
+
+/** 給測試用：驗每個翻譯目標都真的存在。 */
+export const TRANSLATION_TARGETS: readonly string[] = [...new Set(Object.values(TRANSLATION))];
+
+/**
+ * 從 `index.css` 的 `@theme` 區塊解析出我們宣告過的顏色代幣名。
+ *
+ * ⚠️ **只取 `--color-*`，而且去掉那個前綴** —— 比對的對象是 shadcn 的
+ * 裸名（`primary`、`muted-foreground`）。
+ */
+export function declaredColorTokens(css: string): ReadonlySet<string> {
+  const start = css.indexOf("@theme");
+  if (start < 0) return new Set<string>();
+
+  const names = new Set<string>();
+  for (const line of css.slice(start).split("\n")) {
+    const match = /^\s*--color-([a-z0-9-]+)\s*:/.exec(line);
+    if (match?.[1] !== undefined) names.add(match[1]);
+  }
+  return names;
+}
+
+/**
  * 吃顏色的 utility 前綴。
  *
  * ⚠️ 只列**顏色**的。`rounded-lg`／`text-sm`／`shadow-xl` 不在這裡 ——
@@ -101,7 +229,7 @@ export interface PaletteViolation {
   readonly line: number;
   /** 命中的完整類別，含 variant 前綴（例如 `hover:bg-gray-50`）。 */
   readonly className: string;
-  readonly kind: "builtin" | "palette";
+  readonly kind: "builtin" | "palette" | "untranslated";
 }
 
 const COLOR_PREFIX_SET = new Set<string>(COLOR_PREFIXES);
@@ -130,15 +258,44 @@ function tokenize(line: string): readonly string[] {
 }
 
 /**
+ * 這個裸名是不是「shadcn 有、而我們沒宣告」的那一類。
+ *
+ * ⚠️ **減法在這裡，不在常數表裡。** 兩邊同名的（今天只有 `accent`）自動
+ * 被排除，所以清單是推導出來的 —— 加一個 `--color-input` 到 `@theme` 的
+ * 那天，`border-input` 就自動變成合法的，不必記得回來改這支檔案。
+ */
+function isUntranslated(name: string, declared: ReadonlySet<string>): boolean {
+  return SHADCN_SET.has(name) && !declared.has(name);
+}
+
+/**
  * 判定一個詞是不是違規，是的話回傳它屬於哪一層。
  *
  * ⚠️ **不合法的形狀要列舉，合法的不要列舉**（見檔頭）。所以這裡回答的是
  * 「它是不是原始顏色」，任何認不出來的形狀一律當成合法。
  */
-function classify(token: string): PaletteViolation["kind"] | null {
+function classify(token: string, declared: ReadonlySet<string>): PaletteViolation["kind"] | null {
   // `hover:`／`focus-visible:`／`dark:md:` —— 只有最後一段是 utility 本體。
   // 少了這一步，`hover:bg-gray-50` 會被漏掉，而那正是轉換前 secondary 的那一格。
   const utility = token.slice(token.lastIndexOf(":") + 1);
+
+  // ⚠️ **裸代幣名要在 `dash <= 0` 之前攔。** Tailwind v4 的任意屬性語法
+  // （前綴後面接一對括號、裡面放代幣名）被 tokenize 切成兩個詞：`bg-` 與
+  // 裸代幣名。而後者的第一個連字號在 index 0 —— 落到下面那行就被當成
+  // 「不是類別名」丟掉。
+  //
+  // ⚠️ 上一句刻意不把那個語法寫完整，理由見檔頭最後一段：Tailwind 連註解
+  // 一起掃，寫完整就是在這裡編出一條指向不存在代幣的規則。
+  // **寫這一格的時候真的踩了一次**，`auditReferences` 當場紅（C104 §三）。
+  //
+  // 這一格不是補完性的：檔頭記著第一次量顏色的 grep 認不得那個語法，
+  // 而**它漏掉的正好是唯一被正確代幣化的那一類**。同一個語法，同一個漏法。
+  //
+  // ⚠️ 用**完整相等**而不是前綴比對：我們自己有 `--border-width-control`，
+  // 而 shadcn 有 `--border`。前綴比對會把自己的形狀代幣報成違規。
+  if (utility.startsWith("--")) {
+    return isUntranslated(utility.slice(2), declared) ? "untranslated" : null;
+  }
 
   const dash = utility.indexOf("-");
   if (dash <= 0) return null;
@@ -147,6 +304,11 @@ function classify(token: string): PaletteViolation["kind"] | null {
   // `bg-black/40` —— 色相與不透明度分開看，不透明度不影響判定。
   const rest = utility.slice(dash + 1).split("/")[0] ?? "";
   if (rest === "white" || rest === "black") return "builtin";
+
+  // ⚠️ **這一格必須在數字後綴那段之前。** `bg-primary` 的 `rest` 一個連字號
+  // 都沒有，`bg-muted-foreground` 的最後一段不是數字 —— 兩者都會被下面
+  // 那兩行 `return null` 丟掉。放到後面去就是一道**永遠跑不到**的檢查。
+  if (isUntranslated(rest, declared)) return "untranslated";
 
   // `gray-50`／`brand-600`：最後一段全是數字時，前面那一段才是色階名。
   const lastDash = rest.lastIndexOf("-");
@@ -178,14 +340,18 @@ function isComment(line: string): boolean {
  * 收的是**內容**而不是路徑：讀檔留在 cli.ts，這裡保持純函式，才有辦法
  * 用人造來源把每一種違規都測過一次（與 exit-drill 的兩張帳目同一個切法）。
  */
-export function findPaletteUsage(file: string, source: string): readonly PaletteViolation[] {
+export function findPaletteUsage(
+  file: string,
+  source: string,
+  declared: ReadonlySet<string>,
+): readonly PaletteViolation[] {
   const violations: PaletteViolation[] = [];
 
   source.split("\n").forEach((text, index) => {
     if (isComment(text)) return;
 
     for (const token of tokenize(text)) {
-      const kind = classify(token);
+      const kind = classify(token, declared);
       if (kind !== null) violations.push({ file, line: index + 1, className: token, kind });
     }
   });

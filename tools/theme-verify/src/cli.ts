@@ -6,7 +6,13 @@ import { fileURLToPath } from "node:url";
 import { build } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 
-import { findPaletteUsage, usedClassNames, type PaletteViolation } from "./palette.ts";
+import {
+  declaredColorTokens,
+  findPaletteUsage,
+  translationFor,
+  usedClassNames,
+  type PaletteViolation,
+} from "./palette.ts";
 import { auditReferences, customProperties, resolve as resolveVar, ruleFor, rules } from "./css.ts";
 // fixture 的探針類別。**從 fixture 讀進來，不在這支程式裡寫死** —— 理由見下面
 // 那條斷言旁邊的說明（寫死的話這支工具自己會讓斷言恆真）。
@@ -63,6 +69,7 @@ import { EXCLUDED_PROBE, EXCLUDED_PROBE_MARK } from "../tests/excluded-probe.ts"
 const ROOT = resolvePath(fileURLToPath(import.meta.url), "../../../..");
 const COMPONENTS = join(ROOT, "platform/ui/src/components");
 const FIXTURES = join(ROOT, "tools/theme-verify/fixtures");
+const THEME_CSS = join(ROOT, "platform/ui/src/styles/index.css");
 
 let failures = 0;
 
@@ -118,6 +125,54 @@ function collectViews(dir: string, out: Map<string, string>): void {
 const consumerSources = new Map<string, string>();
 for (const root of CONSUMER_ROOTS) collectViews(join(ROOT, root), consumerSources);
 
+/**
+ * 從命中的類別名取回那個上游代幣的裸名。
+ *
+ * 兩種形狀都要處理：utility（`hover:bg-primary` → `primary`）與任意屬性
+ * 語法切出來的裸代幣（`--muted-foreground` → `muted-foreground`）。
+ */
+function upstreamName(className: string): string {
+  const utility = className.slice(className.lastIndexOf(":") + 1);
+  if (utility.startsWith("--")) return utility.slice(2);
+  return (utility.slice(utility.indexOf("-") + 1).split("/")[0] ?? "").trim();
+}
+
+function describeUntranslated(violation: PaletteViolation): string {
+  return (
+    `${violation.file}:${violation.line} 用了 ${violation.className}` +
+    ` —— \`--${upstreamName(violation.className)}\` 是 shadcn 的代幣名，這個 repo 沒有宣告它`
+  );
+}
+
+/**
+ * ⚠️ **訊息一定要說得出替代品。** 少了它，最短的修法是把上游名字加進
+ * `@theme` —— 而那正好是錯的方向：多一層沒有人用的代幣，設計稿上那一格
+ * 仍然對不到名字（承諾三的整個重點是槽名不需要翻譯表）。
+ */
+function untranslatedFix(violation: PaletteViolation): string {
+  const name = upstreamName(violation.className);
+  const ours = translationFor(name);
+
+  if (ours !== null) {
+    const utility = violation.className.slice(violation.className.lastIndexOf(":") + 1);
+    const prefix = utility.startsWith("--") ? null : utility.slice(0, utility.indexOf("-"));
+    const suggestion = prefix === null ? ours : `\`${prefix}-${ours.slice("--color-".length)}\``;
+    return (
+      `這個 repo 的語意層叫 \`${ours}\` —— 改成 ${suggestion}。\n` +
+      `    ⚠️ 不要把 \`--${name}\` 加進 @theme：那會多一層沒有人用的代幣，` +
+      "而設計稿上那一格仍然對不到名字"
+    );
+  }
+
+  return (
+    `這個 repo **沒有** \`--${name}\` 的單一對應，所以沒有一行改法。\n` +
+    "    · `secondary` 在這裡是一組 class（見 UiButton 的 VARIANTS），不是一個顏色代幣\n" +
+    "    · `sidebar-*`／`chart-*` 這個 repo 沒有那個概念 —— 抄進來的元件如果需要它，\n" +
+    "      那是一個要先做的設計決定（哪些格子可換、叫什麼名字），不是一次改名\n" +
+    `    ⚠️ 同樣不要把 \`--${name}\` 加進 @theme 了事 —— 那會讓它看起來像有人決定過`
+  );
+}
+
 // ── 一、靜態：元件只准用語意代幣 ──────────────────────────────────────
 
 function runStatic(): void {
@@ -141,12 +196,38 @@ function runStatic(): void {
     return;
   }
 
+  /**
+   * 第三類（未翻譯的 shadcn 代幣）要用的減數：我們 `@theme` 裡真的宣告過的名字。
+   *
+   * ⚠️ **從 CSS 讀，不寫死在偵測器裡。** 寫死的話，改一個代幣名就會讓那一類
+   * 靜靜地開始誤報或漏報 —— 而 `--color-muted` → `--color-fg-muted` 這種
+   * 改名真的發生過（見 index.css 那一格的註解）。
+   */
+  const declared = declaredColorTokens(readFileSync(THEME_CSS, "utf8"));
+  if (declared.size === 0) {
+    fail(
+      "@theme 解析不出任何顏色代幣",
+      `${relative(ROOT, THEME_CSS)} 的 @theme 區塊沒有讀到 --color-*`,
+      "第三類的判準是「shadcn 的詞彙**減去**這一份」——" +
+        "減數是空的時候它會把所有同名代幣都報成違規，所以這裡先紅",
+    );
+    return;
+  }
+
   const violations: PaletteViolation[] = [];
-  for (const [file, source] of componentSources) violations.push(...findPaletteUsage(file, source));
-  for (const [file, source] of consumerSources) violations.push(...findPaletteUsage(file, source));
+  for (const [file, source] of componentSources) {
+    violations.push(...findPaletteUsage(file, source, declared));
+  }
+  for (const [file, source] of consumerSources) {
+    violations.push(...findPaletteUsage(file, source, declared));
+  }
 
   if (violations.length > 0) {
     for (const violation of violations) {
+      if (violation.kind === "untranslated") {
+        fail("未翻譯的 shadcn 代幣", describeUntranslated(violation), untranslatedFix(violation));
+        continue;
+      }
       const layer = violation.kind === "builtin" ? "Tailwind 內建色階" : "色票層";
       fail(
         "原始顏色",
