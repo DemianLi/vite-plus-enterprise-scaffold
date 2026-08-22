@@ -249,3 +249,56 @@ describe("登記了、但那一格是空的", () => {
     expect(checkScope(root, docWithRows(["| `tools/a` | x | x |"], []))).toEqual([]);
   });
 });
+
+describe("紅燈訊息預設的讀者是誰（#66）", () => {
+  /**
+   * 這道閘門接在 `scripts.gate` 也就是 `vpr ready` 上，而那正是 HANDOFF 叫
+   * **拉 v1 去做案子的團隊**第一個跑的東西。判定是對的，錯的是它預設讀訊息的
+   * 人是這條線的維護者。
+   */
+  const hintFor = (root: string, source: string, rule: string): string =>
+    checkScope(root, source).find((finding) => finding.rule === rule)?.fix ?? "";
+
+  it("「樹上有、沒登記」同時對 fork 的人與上游維護者說話", () => {
+    // 原本的訊息叫人「寫出**受益者是拉 v1 的團隊**那一句，寫不出來就送 `main`」——
+    // 對一個 fork 了 v1 的團隊，那句話**依定義寫不出來**（他們自己就是那個團隊），
+    // 而 `main` 是這個 repo 的分支，不是他們的。
+    const root = repo({ tracked: ["tools/a", "platform/theirs"], untracked: [] });
+    const hint = hintFor(root, scopeDoc(["tools/a"], []), "樹上有、沒登記");
+
+    expect(hint).toContain("fork");
+    expect(hint).toContain("寫你們自己的理由");
+    expect(hint).toContain("跟你們無關");
+    // 上游那一半不能因此消失 —— 判準對維護者仍然成立。
+    expect(hint).toContain("受益者是拉 v1 的團隊");
+  });
+
+  it("C72 不裸寫 —— C 編號在 C70 就分岔了", () => {
+    // `main` 的 C72 是另一則決策（「收回一條寫在程式碼裡的規則」）。
+    // 裸寫 `C72` 在這個 repo 是有歧義的，而訊息把人送去讀錯的那一則
+    // 不會有任何東西說話。
+    const root = repo({ tracked: ["tools/a", "tools/newcomer"], untracked: [] });
+    const hint = hintFor(root, scopeDoc(["tools/a"], []), "樹上有、沒登記");
+    expect(hint).toContain("`release/v1` 的 C72");
+  });
+
+  it("「登記了、但那一格是空的」也不預設讀者", () => {
+    // C94 那一條同樣叫人去填「為什麼受益者是拉 v1 的團隊」那一欄。
+    const root = repo({ tracked: ["tools/a"], untracked: [] });
+    const source = [
+      "# x",
+      "",
+      "## `tools/` —— 准許存在的",
+      "",
+      "| 路徑 | 守什麼 | 受益者 |",
+      "| --- | --- | --- |",
+      "| `tools/a` | x |  |",
+      "",
+      "## `platform/` —— 准許存在的",
+      "",
+      "| 路徑 | 是什麼 |",
+      "| --- | --- |",
+    ].join("\n");
+    expect(hintFor(root, source, "登記了、但那一格是空的")).toContain("寫你們自己的理由");
+  });
+});
