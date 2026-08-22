@@ -41,6 +41,24 @@ function cellsOf(line: string): string[] {
  */
 const HEADING = /^##\s+/;
 
+/** 根層那一節的鍵。它沒有目錄前綴，所以標題長得跟另外兩節不一樣。 */
+export const ROOT = "根層";
+
+/**
+ * 某一層在標題裡怎麼被認出來。
+ *
+ * ⚠️ **這是具名特例，刻意不一般化成「任何 `—— 准許存在的` 標題」。**
+ * 這個檔案上面那整段在講**登記的定義為什麼要窄**（「散文裡怎麼提都不算數」）。
+ * 一般化錨點會讓同一件事在章節層級重演：**新增一個章節就變成一次無聲的
+ * 治理範圍擴大** —— 有人加一節 `## docs/ —— 准許存在的`，這道閘門就開始
+ * 管一個沒有人決定過要管的東西，而且是綠的。
+ *
+ * 每一層的納入都該是**改這個函式**，也就是一次寫得出來、看得見的決定。
+ */
+function needle(parent: string): string {
+  return parent === ROOT ? ROOT : `\`${parent}/\``;
+}
+
 export interface Section {
   /** 這份清單管的是哪一層（`tools` 或 `platform`）。 */
   readonly parent: string;
@@ -72,7 +90,7 @@ export interface Section {
 export function sectionFor(source: string, parent: string): Section | undefined {
   const lines = source.split("\n");
   const start = lines.findIndex(
-    (line) => HEADING.test(line) && line.includes(`\`${parent}/\``) && line.includes("准許存在的"),
+    (line) => HEADING.test(line) && line.includes(needle(parent)) && line.includes("准許存在的"),
   );
   if (start === -1) return undefined;
 
@@ -92,4 +110,30 @@ export function sectionFor(source: string, parent: string): Section | undefined 
       skipped.push(match[1]);
   }
   return { parent, listed, skipped };
+}
+
+/**
+ * 這份文件裡所有寫著「准許存在的」的章節標題，原樣。
+ *
+ * ── 為什麼需要它 ────────────────────────────────────────────────────
+ *
+ * `needle()` 是具名特例，這擋住了「**新增一個章節 = 無聲的治理範圍擴大**」。
+ * 但它同時放進了相反的洞：有人加一節 `## \`docs/\` —— 准許存在的`，
+ * 那一節**看起來在治理 `docs/`**、下面列著一張表、而 `GOVERNED` 沒有它，
+ * 於是它**完全惰性，而且是綠的**。
+ *
+ * 那正是 `tools/sast` 那個病的形狀：一個假的東西待在最會被讀的地方，
+ * 而全套閘門照樣全綠。所以錨點窄之外還要再驗一次：
+ * **每一節「准許存在的」都必須對應到一個真的被檢查的層。**
+ */
+export function declaredSections(source: string): string[] {
+  return source
+    .split("\n")
+    .filter((line) => HEADING.test(line) && line.includes("准許存在的"))
+    .map((line) => line.replace(HEADING, "").trim());
+}
+
+/** 這個標題是不是那一層的。給 `check.ts` 反查「這一節有沒有人在檢查」用。 */
+export function headingIsFor(heading: string, parent: string): boolean {
+  return heading.includes(needle(parent));
 }

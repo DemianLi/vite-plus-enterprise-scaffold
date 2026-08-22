@@ -100,6 +100,48 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 
 ---
 
+## 根層 —— 准許存在的
+
+版控裡的**頂層目錄與根層檔案**。事實來源與上面兩節是同一條 `git ls-files` ——
+有斜線的取第一段（目錄，帶尾斜線），沒斜線的整條就是一個根層檔。
+
+⚠️ **這一節刻意只有兩欄，沒有「受益者是拉 v1 的團隊」那一欄。**
+替 `LICENSE`、`.gitignore`、`pnpm-lock.yaml` 寫那一句是**儀式不是判斷**。
+它守的是**根層有哪些東西**，判準本身仍然在上面〈判準〉那一節。
+
+| 名字                     | 這是什麼                                                                                                             |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `.claude/`               | dev server 的啟動設定（埠號 5173、`vp run console#dev`）。⚠️ **專案描述，不是 agent 行為設定** —— 那條分界見 C93 §三 |
+| `.github/`               | 兩支 CI workflow：Tier 1 品質快軌、Tier 2 安全                                                                       |
+| `.semgrep/`              | 承諾五的自寫 SAST 汙點傳遞規則。在 v1 內，只是不在 `tools/`／`platform/` 底下                                        |
+| `apps/`                  | 示範應用外殼。⚠️ **目錄准許存在，底下的內容不治理** —— 各案會整個換掉                                                |
+| `features/`              | 示範切片。同上                                                                                                       |
+| `platform/`              | 交付物本體。**底下有自己的清單**，見上面那一節                                                                       |
+| `tools/`                 | 閘門。**底下有自己的清單**，見上面那一節                                                                             |
+| `.git-blame-ignore-revs` | 大規模機械性格式化 commit 的清單，`git blame` 會跳過（D13）                                                          |
+| `.gitignore`             | 版控忽略清單                                                                                                         |
+| `.npmrc`                 | 供應鏈設定（D1／D6）：內部 registry、`ignore-scripts=true`                                                           |
+| `AGENTS.md`              | `vp` 產生的 agent 指示。⚠️ 標記之外的手寫內容在 **C93** 被撤回，加回去之前先讀那一則                                 |
+| `CHANGELOG.md`           | 版本沿革。SemVer 的承諾對象是 `platform/*` 的型別形狀                                                                |
+| `CODEOWNERS`             | 擁有權對照（D12）。一致性檢查驗每個 `features/*` 都有條目                                                            |
+| `DECISIONS.md`           | 有日期的決策日誌，**涵蓋範圍大於 v1**                                                                                |
+| `HANDOFF.md`             | 交接文件 —— 拉 v1 去做案子的團隊讀的那一份                                                                           |
+| `LICENSE`                | 授權條款                                                                                                             |
+| `README.md`              | 入口。裡面的數字由 `tools/doc-facts` 守著                                                                            |
+| `SCOPE.md`               | **這份文件**。由 `tools/scope-check` 守著                                                                            |
+| `eslint.config.js`       | Tier 2 安全閘門的進入點（D10）—— 刻意**不**經由 `vp` 執行                                                            |
+| `package.json`           | 根 workspace ＋ `scripts.gate` 那條閘門鏈                                                                            |
+| `pnpm-lock.yaml`         | 鎖定檔。⚠️ 共用 lockfile，所以 catalog 是唯一能讓 CVE 全 repo 同步升級的機制（D6）                                   |
+| `pnpm-workspace.yaml`    | workspace 成員 ＋ catalog（D6）                                                                                      |
+| `renovate.json`          | 升級提案機制（D16）—— 補「該升了」那一半，其餘閘門答的是「升完什麼壞了」                                             |
+| `tsconfig.json`          | 根 TypeScript 設定                                                                                                   |
+| `vite.config.ts`         | Tier 1 品質快軌設定（D5／D10）＋ 本機模板註冊                                                                        |
+
+⚠️ **`tools/` 與 `platform/` 自己也列在這裡。** 它們是頂層目錄，所以要
+登記；而它們**底下**有什麼由上面那兩張表管。兩層各答各的問題。
+
+---
+
 ## 刻意在外的
 
 **`tools/gate-roster`** —— 守的是 CI 閘門清單的內部一致性（`package.json`、
@@ -115,11 +157,16 @@ HANDOFF〈v1.0.0 **不**涵蓋什麼〉—— 那是另一條軸，這裡不重�
 ## 這份文件**不**涵蓋什麼
 
 - **`apps/` 與 `features/` 底下的東西。** 那些是示範切片，各案會整個換掉，
-  不是治理對象。
-- **根層的設定檔與文件。**
+  不是治理對象。⚠️ **那兩個目錄本身**登記在〈根層 —— 准許存在的〉——
+  「准不准**存在**」與「內容受不受**治理**」是兩件不同的事。
+- **根層項目的**內容**。** 清單在〈根層 —— 准許存在的〉那一節：這道閘門管的是
+  **根層有哪些東西**，不管每一個裡面寫什麼。
+  ⚠️ **`v1.0.5` 到 C96 之間，這裡寫的是「根層的設定檔與文件」整項不涵蓋** ——
+  而 [#94](https://github.com/DemianLi/vite-plus-enterprise-scaffold/pull/94) 靠的正是那一行（經過見 C93）。
 - **`.semgrep/`。** 承諾五的自寫 SAST 汙點傳遞規則住在那裡，由
   `.github/workflows/tier2-security.yml` 用釘住 digest 的容器跑。
-  它在 v1 內，只是不在這兩個目錄底下。
+  它在 v1 內，只是**不在 `tools/` 與 `platform/` 底下** —— 所以它登記在
+  根層那一節，不在上面那兩張表。
 
 ---
 
