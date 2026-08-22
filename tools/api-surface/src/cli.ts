@@ -11,6 +11,7 @@ import {
   type Baseline,
   type Finding,
 } from "./compare.ts";
+import { checkIndexAgreement, trackedPackageDirs } from "./tracked.ts";
 
 /**
  * `platform/` 的公開 API 表面快照與破壞性變更偵測（D12）。
@@ -114,8 +115,15 @@ function parsePlatformDir(argv: readonly string[]): string {
 
 const PLATFORM = parsePlatformDir(process.argv.slice(2));
 
-function listEntryPoints(): EntryPoint[] {
+/**
+ * ⚠️ 回傳值多帶一個 `dirs` —— **它收下了哪幾個目錄**。
+ *
+ * 沒有它的話，「這個進入點在不在版控裡」只能在外面把「有沒有 package.json、
+ * 裡面有沒有 exports」那段判斷再寫一次 —— 而兩份會漂。見 tracked.ts 的檔頭。
+ */
+function listEntryPoints(): { entries: EntryPoint[]; dirs: string[] } {
   const entries: EntryPoint[] = [];
+  const dirs: string[] = [];
   for (const name of readdirSync(PLATFORM)) {
     const dir = join(PLATFORM, name);
     if (!statSync(dir).isDirectory()) continue;
@@ -131,6 +139,7 @@ function listEntryPoints(): EntryPoint[] {
         ? { ".": pkg.exports }
         : (pkg.exports as Record<string, string>);
 
+    let contributed = false;
     for (const [subpath, relative] of Object.entries(declared)) {
       // 只處理 JS/TS 進入點；.json、.css 之類的資產沒有 API 表面。
       if (!/\.(ts|js|mjs)$/.test(relative)) continue;
@@ -139,9 +148,11 @@ function listEntryPoints(): EntryPoint[] {
         config: existsSync(config) ? config : undefined,
         file: join(dir, relative),
       });
+      contributed = true;
     }
+    if (contributed) dirs.push(name);
   }
-  return entries.sort((a, b) => a.key.localeCompare(b.key));
+  return { entries: entries.sort((a, b) => a.key.localeCompare(b.key)), dirs: dirs.sort() };
 }
 
 function loadBaseline(): Baseline {
@@ -192,7 +203,48 @@ function printFindings(findings: readonly Finding[]): void {
 
 // ── 執行 ──────────────────────────────────────────────────────────────
 const baseline = loadBaseline();
-const { surface: current, privateReferences } = extractSurface(PLATFORM, listEntryPoints());
+const { entries: entryPoints, dirs: entryDirs } = listEntryPoints();
+const { surface: current, privateReferences } = extractSurface(PLATFORM, entryPoints);
+
+/**
+ * 前置條件先擋（之一）：進得了基準的東西，必須在版控裡。
+ *
+ * 這一段跟下面那段一樣放在**比對之前** —— 有幽靈進入點時比對本身就不可信：
+ * 基準裡會多出一批 CI 上不存在的 export，而那正是 ③ 那個沒有出口的紅燈。
+ *
+ * ⚠️ **只在跑真正的 `platform/` 時問。** `--platform` 指到 repo 外面時，
+ * 「在不在這個 repo 的 index 裡」不是一個有意義的問題 —— 而那正是這支工具
+ * 自己的負向測試在做的事（fixture 複製到 tmpdir）。經過見 tracked.ts 檔頭。
+ */
+const scopedToRepo = PLATFORM === PLATFORM_DIR;
+
+/**
+ * 驗過在版控裡的進入點數；`--platform` 指到別處時是 `null`（那道檢查沒有跑）。
+ *
+ * ⚠️ **綠燈印的是這個數字，不是另外數一次。** 第一版的綠燈自己寫著
+ * 「每一個都驗過在版控裡」，而那句話與檢查之間**沒有任何東西連著** ——
+ * 拿掉整段檢查，綠燈照樣那樣說，而變異表當場給了一個零。
+ * 這正是這個 repo 剛付過兩次代價的「說得比做得多」（C94、C97），
+ * 而這次是我自己在補那個病的 PR 裡造的。
+ */
+let verifiedInIndex: number | null = null;
+if (scopedToRepo) {
+  const tracked = trackedPackageDirs(ROOT, PLATFORM);
+  const problems = checkIndexAgreement(entryDirs, tracked, readdirSync(PLATFORM));
+
+  // ⚠️ 一個迴圈吃掉所有方向 —— 少一個方向要動 `checkIndexAgreement`，
+  // 而那支函式是直接被測的。理由見 tracked.ts 該函式的檔頭。
+  if (problems.length > 0) {
+    for (const problem of problems) {
+      console.error(`\n✗ ${problem.headline}\n`);
+      for (const name of problem.dirs) console.error(`  ✗ platform/${name}`);
+      console.error(problem.remediation);
+    }
+    process.exit(1);
+  }
+
+  verifiedInIndex = entryDirs.length;
+}
 
 /**
  * 前置條件先擋：公開形狀裡不得出現非匯出的本地型別。
@@ -230,9 +282,17 @@ if (breaking.length > 0) {
   printFindings(breaking);
   console.error(
     "\n  在 D3 的單一 monorepo 裡，platform/ 就是腳手架本身：改它等於同時改動\n" +
-      "  所有切片、所有團隊。而 platform/* 會發成內部套件給各案升級，\n" +
-      "  所以「下游」也包含不在這個 repo 裡的人。因此 breaking change 必須附\n" +
-      "  codemod，並由提出者在同一個 PR 跑完全 repo。\n\n" +
+      "  所有切片、所有團隊。因此 breaking change 必須附 codemod，\n" +
+      "  並由提出者在同一個 PR 跑完全 repo。\n\n" +
+      // ⚠️ 「下游是誰」原本只寫了上游那一種（「發成內部套件給各案升級，
+      // 所以也包含不在這個 repo 裡的人」）—— 對一個 fork 了 v1 的團隊那是**假的**：
+      // 他們就是「各案」，不是發布方。而這句話正是這道閘門嚴厲程度的理由，
+      // 讀錯了會以為這道閘門與自己無關。同 C95／C97，**不去偵測你是哪一種**。
+      "  ⚠️ 「下游」是誰，取決於你是誰：\n" +
+      "  · 你 fork 了 v1 在做自己的案子 —— 下游是你們自己的 apps/ 與 features/，\n" +
+      "    codemod 在同一個 PR 裡跑完就到底了。\n" +
+      "  · 你在維護這條線 —— platform/* 會發成內部套件給各案升級，\n" +
+      "    所以下游也包含不在這個 repo 裡的人，遷移路徑要能被別人執行。\n\n" +
       "  做不到 codemod 的改動，就不是 breaking change，是新 API —— 請改為\n" +
       "  新增 export／新增選填成員，把舊的標 @deprecated 保留一個 release 週期。\n\n" +
       "  補救步驟：\n" +
@@ -305,6 +365,17 @@ const shapeCount = Object.values(current).reduce(
   (sum, entry) => sum + Object.keys(entry).length,
   0,
 );
+/**
+ * ⚠️ **綠燈訊息也是宣稱**（C96）。這一段講兩件會被讀錯的事：
+ *   ① 進入點是從磁碟列的，但每一個都驗過在版控裡 —— 不講的話，
+ *      讀的人會以為這個數字就是版控裡的數字（C98 之前它真的不是）。
+ *   ② `--platform` 指到別處時**那道檢查沒有跑** —— 沉默的略過，
+ *      跟這個 repo 剛付過兩次代價的「看起來在守、其實沒有」是同一形狀。
+ */
 console.log(
-  `✓ platform/ API 形狀無破壞性變更（${Object.keys(current).length} 個進入點，${shapeCount} 個 export）`,
+  `✓ platform/ API 形狀無破壞性變更（${Object.keys(current).length} 個進入點，${shapeCount} 個 export）\n` +
+    (verifiedInIndex === null
+      ? "  ⚠️ --platform 指到 platform/ 以外，「進入點在不在版控裡」那道檢查沒有跑"
+      : `  進入點來自 ${verifiedInIndex} 個套件目錄，每一個都驗過在版控裡` +
+        `（git ls-files，見 src/tracked.ts）—— 進入點數比它多，因為一個套件可以宣告多個 subpath`),
 );

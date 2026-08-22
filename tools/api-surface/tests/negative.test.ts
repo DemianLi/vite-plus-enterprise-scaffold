@@ -233,11 +233,42 @@ describe("對照組：沒動過的東西是綠的", () => {
     expect(result.red, result.output).toBe(false);
   });
 
+  it("★ 真 repo 的綠燈要講出進入點驗過在版控裡（C98）", () => {
+    /**
+     * ⚠️ **綠燈訊息也是宣稱**（C96）。C98 之前，這個「10 個進入點」是**磁碟上**
+     * 的數字 —— 一個沒進版控的 `platform/foo/` 會被算進去，`--update` 會把它
+     * 寫進基準，然後 CI 的乾淨 clone 上它全部變成「移除」→ 破壞性變更 →
+     * 要求為一個從來不存在於版控的 API 寫 codemod，而那種紅燈沒有合法出口。
+     */
+    const result = run([]);
+    expect(result.output, "綠燈沒講事實來源").toContain("版控");
+    // ⚠️ 這一條才是掛在被守的東西上的：那句話只有在檢查**真的跑過**時才印得出來
+    //（`verifiedInIndex` 是它算出來的）。少了它，綠燈會退回「那道檢查沒有跑」。
+    //
+    // 第一版沒有這一條，於是「拿掉整段檢查」這個變異紅零條 —— 綠燈照樣宣稱
+    // 它驗過。那正是這個 PR 在修的病，我自己在修它的時候又犯一次。
+    expect(result.output, "檢查沒跑，而綠燈卻宣稱驗過").not.toContain("那道檢查沒有跑");
+  });
+
   it("fixture 原封不動 → 通過", () => {
     const dir = sandbox();
     cpSync(pristineFixture, dir, { recursive: true });
     const result = run(["--platform", dir, "--baseline", join(dir, "surface.json")]);
     expect(result.red, result.output).toBe(false);
+  });
+
+  it("🔴 --platform 指到別處時，綠燈要講明那道檢查**沒有跑**", () => {
+    /**
+     * ⚠️ 這一條守的是一個**沉默的略過**。fixture 在 tmpdir 裡，不在任何 index，
+     * 所以「進入點在不在版控裡」那道檢查對它沒有意義、刻意不開 ——
+     * 但不講的話，這個綠燈看起來跟真 repo 的綠燈一模一樣。
+     *
+     * 這個 repo 剛為「看起來在守、其實沒有」付過兩次代價（C94、C97）。
+     */
+    const dir = sandbox();
+    cpSync(pristineFixture, dir, { recursive: true });
+    const result = run(["--platform", dir, "--baseline", join(dir, "surface.json")]);
+    expect(result.output, "沒說那道檢查沒跑").toContain("沒有跑");
   });
 });
 
@@ -255,6 +286,28 @@ describe("整個 export 不見了", () => {
     expect(result.output).toContain("zzRemovedOnPurpose");
     // 訊息必須講出補救步驟，否則看到紅燈的人只會把 export 加回去。
     expect(result.output).toContain("codemod");
+  });
+
+  it("★ 訊息要對兩種讀者說「下游是誰」，而不去判斷你是哪一種（C98）", () => {
+    /**
+     * `#95` 第 1 項。這道閘門接在 `vpr ready` 上，而那是 HANDOFF 叫**拉 v1 去做
+     * 案子的團隊**第一個跑的東西 —— 給 `platform/ui` 的元件加一個選填 prop 就會撞到。
+     *
+     * 原本的理由只寫了上游那一種：「`platform/*` 會發成內部套件給各案升級，
+     * 所以『下游』也包含不在這個 repo 裡的人」。對一個 fork 了 v1 的團隊那是
+     * **假的** —— 他們就是「各案」，不是發布方。而這句話正是這道閘門嚴厲程度的
+     * 理由，讀錯了會以為它與自己無關。
+     *
+     * ⚠️ 跟 C95／C97 一樣**不去偵測「這棵樹是不是上游」** —— 那是 `#91` 在問的。
+     */
+    const path = baselineCopy((baseline) => {
+      const module = anyModule(baseline);
+      baseline.surface[module]!["zzTwoReaders"] = { kind: "value", type: "1" };
+    });
+    const result = run(["--baseline", path]);
+    expect(result.red).toBe(true);
+    expect(result.output, "沒對 fork 那一種讀者說話").toContain("fork");
+    expect(result.output, "沒講上游那一種讀者").toContain("內部套件");
   });
 
   it("一次移除多個 → 全部列出，不是只報第一個", () => {
