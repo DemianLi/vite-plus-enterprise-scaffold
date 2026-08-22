@@ -11,7 +11,7 @@ import {
   uiComponentCount,
   workspacePackageCount,
 } from "./derive.ts";
-import { FACTS, checkFacts, type DocumentSource } from "./facts.ts";
+import { FACTS, REMEDIATION, checkFacts, type DocumentSource } from "./facts.ts";
 
 /**
  * 文件裡的數字與 repo 內部事實來源是否一致。
@@ -94,11 +94,7 @@ function main(): number {
 
   console.error(`✗ 文件數字與事實來源不符：${problems.length} 項\n`);
   for (const problem of problems) console.error(`  [${problem.kind}] ${problem.detail}`);
-  console.error(
-    "\n  這些數字是拿去跟採購與資安講的話。每次相依變動它們就會變，\n" +
-      "  而這個 repo 在「人抄下來的數字沒有人再推導一次」上一再栽跟頭。\n" +
-      "  請把上列位置改成推導出來的值；句子被改寫的話，同步更新 src/facts.ts 的樣式。",
-  );
+  console.error(REMEDIATION);
   return 1;
 }
 
