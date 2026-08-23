@@ -12,14 +12,15 @@
 
 ---
 
-## 兩份清單，兩條軸 —— 刻意不互相抄
+## 三份清單，三條軸 —— 刻意不互相抄
 
 | 文件                             | 軸       | 它回答的問題                               |
 | -------------------------------- | -------- | ------------------------------------------ |
 | HANDOFF〈v1.0.0 **不**涵蓋什麼〉 | **能力** | 「我的案子要無障礙／SBOM，該用哪條分支？」 |
 | 本檔                             | **目錄** | 「這個目錄准不准出現在 v1 的樹上？」       |
+| [TESTING.md](TESTING.md)         | **正確性** | 「這個腳手架的對，是靠哪幾層守的？」       |
 
-⚠️ **兩邊不重述對方的內容，只互相指過去。** 同一件事抄成兩份、而沒有東西
+⚠️ **三邊不重述對方的內容，只互相指過去。** 同一件事抄成兩份、而沒有東西
 斷言它們一致 —— 那正是 `v1.0.3` 才剛付過代價的病（HANDOFF〈已知的誠實缺口〉
 第五條）。加一份清單而不加守它的機制，是在製造第五份手抄本。
 
@@ -122,7 +123,7 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 | `.gitignore`             | 版控忽略清單                                                                                                         |
 | `.npmrc`                 | 供應鏈設定（D1／D6）：內部 registry、`ignore-scripts=true`                                                           |
 | `API.md`                 | `platform/*` 的形狀參考，**由 `tools/api-surface` 產生**，同一道閘門守著它與基準對得上。⚠️ 不要手改 —— 跑 `--update` |
-| `AGENTS.md`              | `vp` 產生的 agent 指示。⚠️ 標記之外的手寫內容在 **C93** 被撤回，加回去之前先讀那一則                                 |
+| `AGENTS.md`              | `vp` 產生的 agent 指示 ＋ 標記外的**下發給採用團隊的 agent 契約**（C109 §七 履行了 **C93** 要求的舉證）。⚠️ 再加內容之前先讀那兩則 |
 | `CHANGELOG.md`           | 版本沿革。SemVer 的承諾對象是 `platform/*` 的型別形狀                                                                |
 | `CODEOWNERS`             | 擁有權對照（D12）。一致性檢查驗每個 `features/*` 都有條目                                                            |
 | `DECISIONS.md`           | 有日期的決策日誌，**涵蓋範圍大於 v1**                                                                                |
@@ -130,6 +131,7 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 | `LICENSE`                | 授權條款                                                                                                             |
 | `README.md`              | 入口。裡面的數字由 `tools/doc-facts` 守著                                                                            |
 | `SCOPE.md`               | **這份文件**。由 `tools/scope-check` 守著                                                                            |
+| `TESTING.md`             | **測試層級模型** —— 這個腳手架的正確性靠哪幾層守。由 `tools/scope-check` 守著它的存在                                |
 | `eslint.config.js`       | Tier 2 安全閘門的進入點（D10）—— 刻意**不**經由 `vp` 執行                                                            |
 | `package.json`           | 根 workspace ＋ `scripts.gate` 那條閘門鏈                                                                            |
 | `pnpm-lock.yaml`         | 鎖定檔。⚠️ 共用 lockfile，所以 catalog 是唯一能讓 CVE 全 repo 同步升級的機制（D6）                                   |
