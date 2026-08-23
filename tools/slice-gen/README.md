@@ -80,6 +80,17 @@ vp create slice -- --directory=../features/shipment --slice=shipment --title=出
 規格打的也是 usecase。改成讓 composable 直接呼叫 `api.ts` 的話，規格驗的東西
 與畫面跑的東西就是兩條路 —— 那條也有絆線守著。
 
+## ⚠️ 產完 `vp install` 會看到兩行 WARN，那不是你裝壞了
+
+```
+[WARN] Failed to create bin at …/node_modules/.bin/vitest-cucumber.
+       ENOENT: … @amiceli/vitest-cucumber/dist/cli-generate.js
+```
+
+上游 `@amiceli/vitest-cucumber@7.0.0` 宣告了一個 bin 指向 `dist/cli-generate.js`，
+而發佈的套件裡沒有那個檔案。**不影響任何功能** —— 這條線用的是它的 API，
+不是它的 CLI。升級那個套件時可以順手看看修掉了沒（C115 §十二）。
+
 ## 為什麼產生器不自動改那三個檔案
 
 `CODEOWNERS` 決定權責歸屬、`features.ts` 決定系統由哪些切片組成、

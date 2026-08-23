@@ -15,9 +15,10 @@
     "vue-typecheck": "node tools/vue-typecheck/src/cli.ts",
     "theme-verify": "node tools/theme-verify/src/cli.ts",
     "gate": "node tools/conformance/src/cli.ts && node tools/api-surface/src/cli.ts && node tools/vue-typecheck/src/cli.ts && node tools/theme-verify/src/cli.ts && node tools/doc-facts/src/cli.ts && node tools/scope-check/src/cli.ts && eslint . --max-warnings=0",
-    "ready": "vp check && vp run -r test && vp run -r build && vpr gate",
+    "ready": "vp check && vp run -r test -- --reporter=default --reporter=json --outputFile=.vitest-results.json && vp run -r build && vpr gate && node tools/spec-report/src/cli.ts --check",
     "doc-facts": "node tools/doc-facts/src/cli.ts",
-    "scope-check": "node tools/scope-check/src/cli.ts"
+    "scope-check": "node tools/scope-check/src/cli.ts",
+    "spec-report": "node tools/spec-report/src/cli.ts"
   },
   "devDependencies": {
     "@org/eslint-config": "workspace:*",
