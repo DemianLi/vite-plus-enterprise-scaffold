@@ -113,6 +113,20 @@ describe("一、產生器真的產出那份設定", () => {
     expect(USECASE_COVERAGE_GLOB.startsWith("src/usecases/")).toBe(true);
   });
 
+  it("★ `test` 宣告成 task 並把 coverage/ 排除在輸入外 —— 否則它永遠不會 cache", () => {
+    // v8 provider 每跑一次都讀寫 `coverage/.tmp/`，而 `vp run` 的自動追蹤
+    // 看到「讀了自己寫的檔案」就判定不可快取。任務快取是 Tier 1 的主要
+    // 提速手段（D10），而這件事會發生在每一個切片上。
+    expect(viteConfig).toContain('"!coverage/**"');
+    expect(viteConfig).toContain('output: ["coverage/**"]');
+
+    // ⚠️ 同一個名字不能同時在 scripts 與 tasks 裡，會是 Failed to load task graph。
+    const pkg = JSON.parse(generated["package.json"] as string) as {
+      scripts: Record<string, string>;
+    };
+    expect(pkg.scripts["test"]).toBeUndefined();
+  });
+
   it("provider 與 vue plugin 列在切片自己的相依裡（C111）", () => {
     const pkg = JSON.parse(generated["package.json"] as string) as {
       devDependencies: Record<string, string>;

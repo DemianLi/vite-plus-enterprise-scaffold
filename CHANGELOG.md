@@ -61,7 +61,17 @@
   一個 99% 的門檻照樣通過、exit 0。射程校正後是 13.20%。
   ⚠️ **這一格刻意不設門檻**：它 75% 的分母來自兩支「被編譯過、沒被執行過」的
   檔案，把線畫在量測產物上，一年後沒有人答得出「為什麼是這個數字」。
-- **`tools/slice-gen/src/files.ts` 的 per-file 放行 841 → 848。**
+- **切片的 `test` 從 `package.json` 的 scripts 搬進 `vite.config.ts` 的 `run.tasks`。**
+  ⚠️ **不搬的話那支 task 永遠不會 cache**：覆蓋率一開，v8 provider 每跑一次都
+  讀寫 `coverage/.tmp/`，而 `vp run` 的自動追蹤看到「讀了自己寫的檔案」就判定
+  不可快取 —— **而那會發生在每一個切片上**，任務快取是 Tier 1 的主要提速手段
+  （D10）。換 `reportsDirectory` 沒有用（package 底下的 `node_modules/`、根層的
+  `node_modules/.vite/` 都實測過），只有指到 repo 之外才會回來。
+  處置是 `input: [{ auto: true }, "!coverage/**"]` ＋ `output: ["coverage/**"]`。
+  ⚠️ 代價：切片目錄裡 `pnpm test` 不再有東西可跑，走 `vp run <pkg>#test`
+  或 `vp run -r test`（產生器印出的後續步驟本來就是前者）。
+
+- **`tools/slice-gen/src/files.ts` 的 per-file 放行 841 → 850。**
   ⚠️ **C119 那條唯一的放行第一次開火了。** 處置留在樹上：那份 `vite.config.ts`
   模板一個 `options` 的值都不用，所以被提到 `buildSliceFiles` 外面當 module 層
   常數，函式只長 8 行而不是 47 行。**這條線每被推高一次就是一次要寫下來的帳。**

@@ -19,6 +19,30 @@ import { USECASE_COVERAGE_GLOB, USECASE_COVERAGE_MIN } from "@org/slice-kit/cont
 export default defineConfig({
   plugins: [vue()],
 
+  // ── 覆蓋率的產物落在 package 底下，而 `vp run` 會把它算成輸入（C120）──
+  //
+  // ⚠️ 不宣告這一段的話，這支 task **永遠不會 cache**：v8 provider 每跑一次
+  // 都會讀寫 `coverage/.tmp/coverage-N.json`，而 `vp run` 的自動追蹤看到
+  // 「讀了自己寫的檔案」就判定不可快取（實測訊息：`Not cached: read and
+  // wrote 'coverage/.tmp/coverage-0.json'`）。任務快取是 Tier 1 的主要提速
+  // 手段（D10），而這件事會發生在**每一個**切片上。
+  //
+  // ⚠️ 換 `reportsDirectory` 沒有用 —— 只要落在 repo 之內都會被追蹤
+  // （`node_modules/` 底下、`node_modules/.vite/` 底下都實測過，一樣不 cache）。
+  //
+  // ⚠️ 所以 `test` 從 `package.json` 的 scripts **搬到這裡**：同一個名字不能
+  // 同時存在於兩邊，會是 `Failed to load task graph`，整批測試連跑都不會開始
+  // （同 `tools/slice-gen/vite.config.ts` 的那條註解）。
+  run: {
+    tasks: {
+      test: {
+        command: "vp test",
+        input: [{ auto: true }, "!coverage/**"],
+        output: ["coverage/**"],
+      },
+    },
+  },
+
   test: {
     coverage: {
       // ⚠️ **`enabled` 這一行才是門檻真的會跑的原因。** 覆蓋率預設是關的，

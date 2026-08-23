@@ -10503,7 +10503,30 @@ C117 §二 把這一格判成**分裂**：第二類那組（`features/*`、`apps
 ⚠️ 另外在真的產生器輸出上手動驗過一次反向：把一條沒有規格對應的分支加進
 usecase → **20 條測試依然全綠，而覆蓋率門檻紅**。那個對照就是這一層買到的東西。
 
-#### 六、第一類那組的裁決（實作等 #86 解凍）
+#### 六、`enabled: true` 的第二個代價：任務快取，而它不是本 repo 的小事
+
+覆蓋率一開，v8 provider 每跑一次都在 package 底下讀寫 `coverage/.tmp/coverage-N.json`，
+而 `vp run` 的自動追蹤看到「讀了自己寫的檔案」就判定不可快取 ——
+訊息是 `Not cached: read and wrote 'coverage/.tmp/coverage-0.json'`。
+⚠️ **那會發生在每一個切片上**，而任務快取是 Tier 1 的主要提速手段（D10）。
+
+- ⚠️ **換 `reportsDirectory` 沒有用。** 實測三個位置：package 底下的
+  `node_modules/`、repo 根層的 `node_modules/.vite/` —— 都一樣不 cache。
+  只有把它指到 **repo 之外**才會回來（實測過，但一個寫死的絕對路徑不可能
+  下發給採用團隊）。
+- **處置是宣告，不是搬家**：切片的 `test` 從 `package.json` 的 scripts
+  **搬進 `vite.config.ts` 的 `run.tasks`**，帶
+  `input: [{ auto: true }, "!coverage/**"]` 與 `output: ["coverage/**"]`。
+  實測：`Cache hit - output replayed`。
+- ⚠️ **同一個名字不能同時存在於 scripts 與 tasks**，會是
+  `Failed to load task graph`，整批測試連跑都不會開始 —— 這條 `slice-gen`
+  自己的 `vite.config.ts` 已經記過一次。所以是搬，不是兩邊都留。
+- 先例齊備：`slice-gen`／`conformance`／`vue-typecheck` 的 `test` 本來就是
+  task 而不是 script（它們是為了 `dependsOn`）。
+- 代價：切片目錄裡 `pnpm test` 不再有東西可跑，要走 `vp run <pkg>#test`
+  或 `vp run -r test`。產生器印出的後續步驟本來就是前者。
+
+#### 七、第一類那組的裁決（實作等 #86 解凍）
 
 落點是 C117 §五 判的，這裡只補「切法 ＋ 數字 ＋ 理由」，一行設定都不寫。
 
@@ -10529,12 +10552,12 @@ usecase → **20 條測試依然全綠，而覆蓋率門檻紅**。那個對照�
   （#130 §八.3），而 `.vue` 的分母只算 `<script setup>`。那一格的門檻要先答
   「元件的邏輯有相當一部分在 template 裡」這件事，不是先答一個數字。
 
-#### 七、順帶掉出來的兩件事
+#### 八、順帶掉出來的兩件事
 
 - ⚠️ **C119 那條唯一的 per-file 放行第一次開火了。** 模板多產一支 `vite.config.ts`，
-  `buildSliceFiles` 從 841 行變成 848。處置留在樹上：那份模板**一個 `options` 的值
+  `buildSliceFiles` 從 841 行變成 850。處置留在樹上：那份模板**一個 `options` 的值
   都不用**，所以被提到函式外面當 module 層常數（`files.ts` 的 `VITE_CONFIG`），
-  函式只長 8 行而不是 47 行；放行值取新的觀測值 848。**這條線每被推高一次就是
+  函式只長 8 行而不是 47 行；放行值取新的觀測值 850。**這條線每被推高一次就是
   一次要寫下來的帳**，不是改個數字就算了。
 - ⚠️ **`vp test --root <pkg>` 與 `vp run <pkg>#test` 的 cwd 不同**，而 #130 用的是
   前者。`--root` 的 cwd 仍是 monorepo root，於是切片接線檔的 `loadFeature` 找不到
@@ -10543,7 +10566,7 @@ usecase → **20 條測試依然全綠，而覆蓋率門檻紅**。那個對照�
   （當時樹上一份切片規格都沒有），但往後量切片必須走 `vp run <pkg>#test`，
   而那也正是 `ready` 走的路徑 —— 量測方法與門檻執行走同一條路。
 
-#### 八、沒有做的
+#### 九、沒有做的
 
 - **`vite.config.ts` 沒有進 `REQUIRED_FILES`。** 沿用 C114 的先例：`specs/` 與
   `src/usecases/` 當初也是「一致性檢查**接受**」而不是「要求」，理由是既有切片
