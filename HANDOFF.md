@@ -382,6 +382,21 @@ README 那張表的 Tier 2 那格漏了兩道閘門，**不知道漏了多久** 
 grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 ```
 
+### 五、複雜度閘門看不見你的 `<script setup>`
+
+`vp check` 從 v1.9.0 起會擋過長的函式、過深的巢狀、過多的參數（C119）。
+⚠️ **但那四條規則全部是函式範圍的**，而 `<script setup>` 的主體是 module 層
+程式碼 —— 不在任何函式裡。落到實際數字上：這個腳手架自己的 `platform/ui`
+有 **24 個 `.vue` 一個函式都沒有，合計 1992 行 script，在四個維度裡是 0**。
+`UiDropdownMenu.vue`（script 275 行）在複雜度閘門下**零違規**。
+
+只有 `max-depth` 是例外（它不限函式），`vue/max-props` 補回「參數個數」
+那一格。`<template>` 裡的條件與迴圈**沒有任何維度在看**。
+
+⚠️ **所以「複雜度全綠」不等於「元件不複雜」。** 這不是設定沒調對 ——
+用 ESLint 量出來一模一樣，而區塊行數那一格 oxlint 沒有對應規則。
+**寫元件的時候這條線得自己拉。**
+
 ---
 
 ## 一次跑完所有檢查
