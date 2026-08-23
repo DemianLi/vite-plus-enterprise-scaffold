@@ -121,9 +121,14 @@ HANDOFF 那句「一支只 grep `@theme` 有沒有寫的測試，量的是『有
 
 **裁決（C107 §七）：`v2.0.0` 執行刪除的同時，機械化突變測試升回必要，
 與刪除同一個 PR。** 用同一把尺刪掉手工版，就得補上機械版。
-⚠️ 可行性實測因此是**阻斷項**：module-alias 會破壞 Stryker 的 sandbox，
-而這條線有 catalog、workspace symlink 與多處 path alias；C87 的排程互斥
-在沙箱裡也不會被尊重。**跑不起來的話，刪除的前提不成立。**
+⚠️ 可行性實測因此是**阻斷項** —— **而它已經做完了（C108）：跑得起來，
+`platform/slice-kit` 實測 58.66% 分數、6 秒、零錯誤零逾時。** 兩個真阻斷
+（TypeScript 7 移除了 Stryker 依賴的 compiler API、isolated node_modules 讓
+runner plugin 找不到）都有繞法，**阻斷項解除**。
+
+⚠️ 但這件事本身留下一條教訓：本檔初稿在這裡寫過「module-alias 會破壞
+sandbox」—— 那是照方法來源的風險清單抄的，而這條線根本沒有 path alias。
+**借座標會連別人的風險清單一起借過來，那跟門檻值一樣是別人專案的產物。**
 
 ---
 

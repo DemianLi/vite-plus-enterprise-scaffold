@@ -9163,11 +9163,13 @@ oxlint 管不到的安全與邊界，刻意零重疊、刻意不 extend 任何 r
 正是那組座標的元層本體。**用同一把尺刪掉手工版，就得補上機械版**，
 否則等於拿五層當理由刪東西，卻不補五層要求的東西。
 
-⚠️ **這讓可行性實測變成 `v2.0.0` 的阻斷項，不是選配的調查。** 已知的硬衝突：
-module-alias 會破壞 Stryker 的 sandbox（它從專案本體而非沙箱解析），而這條線
-有 catalog、pnpm workspace symlink、以及要在多處同步的 path alias；C87 的
-`dependsOn` 排程互斥在沙箱裡也不會被尊重。**實測要在 `v2.0.0` 動工前做完，
-不是之後** —— 跑不起來的話，刪除的前提就不成立，整個裁決要重議。
+⚠️ **這讓可行性實測變成 `v2.0.0` 的阻斷項，不是選配的調查** —— 跑不起來的話，
+刪除的前提就不成立，整個裁決要重議。**實測已經做完，結果見 C108：跑得起來，
+而阻斷不是這裡原本預期的那個。**
+
+⚠️ **本則初稿在這一格寫過一句假的話**：「module-alias 會破壞 Stryker 的
+sandbox，而這條線有要在多處同步的 path alias」。那是照方法來源的警告寫的，
+**沒有實測** —— 而這條線的 `tsconfig.json` 根本沒有 `paths`。更正見 C108 §一。
 
 ⚠️ 通則：**裁決是按「機制對不對應五層」逐支下的，而被刪的東西同時是
 別的層的支撐點。** 逐支判斷看不見這種耦合，要整張表一起看才看得到。
@@ -9177,6 +9179,97 @@ module-alias 會破壞 Stryker 的 sandbox（它從專案本體而非沙箱解�
 這一版只發文件（`TESTING.md` ＋ `SCOPE.md` 登記），刪除與層 3 各自獨立 PR。
 沿用 `v1.0.4 → v1.0.5` 已驗證的順序 —— 反過來做，補設定的動機會變成
 「讓閘門轉綠」而不是「把判準真的跑一遍」。
+
+### C108 — Stryker 可行性實測：跑得起來，而**阻斷不是文件警告的那個**（2026-08-23）
+
+C107 §七 把可行性列為 `v2.0.0` 的阻斷項。實測在 worktree 隔離下跑完
+（`platform/slice-kit`，純 TS，四個 src 檔）。
+
+#### 一、⚠️ 先更正 C107 §七 的一句假話
+
+初稿寫「module-alias 會破壞 Stryker 的 sandbox，而這條線有要在多處同步的
+path alias」。**兩個半句都不成立**：`tsconfig.json` 只有五個 compilerOptions，
+**沒有 `paths`**；`vite.config.ts` 也沒有 alias；切片內部走相對路徑帶 `.ts`
+副檔名（`moduleResolution: nodenext` ＋ `allowImportingTsExtensions`）。
+
+⚠️ **那句話是照方法來源的警告抄的，沒有查樹。** 借來的座標會連同它的
+**風險清單**一起借過來，而風險清單跟門檻值一樣是別人專案的產物 ——
+[[check-usage-before-recommending]] 的同一個形狀：先查它在不在，再說它會不會壞。
+
+#### 二、三個數字
+
+| 量的東西 | 結果 |
+| --- | --- |
+| 能不能跑起來 | **可以**，繞過兩個阻斷之後 |
+| 初始分數 | **58.66%**（covered 60.00%）：105 killed／70 survived／4 no-cov／**0 errors／0 timeout** |
+| 全跑時間 | **6.0s**（三次量測 6.8／6.1／6.0 取最小值；179 個 mutant、concurrency 4） |
+
+分數三次完全一致（確定性）。分檔：`register.ts` 95.83%、`define-feature.ts`
+53.16%、`contract.ts` 52.63%。
+
+#### 三、兩個真阻斷，都有繞法
+
+| 阻斷 | 症狀 | 繞法 |
+| --- | --- | --- |
+| **TypeScript 7 的 API 不相容** | `TypeError: ts.parseConfigFileTextToJson is not a function`，發生在 sandbox 的 `TSConfigPreprocessor` | `"tsconfigFile": "tsconfig.does-not-exist.json"` —— 前處理器整個跳過 |
+| **`node-linker=isolated` ＋ `hoist=false`** | `Cannot find TestRunner plugin "vitest"`（根目錄裝的 runner 在 package 目錄看不見） | `plugins` 用絕對路徑指向 runner |
+
+⚠️ **第一個的根因值得記**：catalog 釘的是 `typescript: ^7.0.2`，而 TS 7 是原生
+移植版 —— `parseConfigFileTextToJson`、`readConfigFile`、`parseJsonConfigFileContent`、
+`createProgram` **全部 `undefined`**。任何依賴舊 compiler API 的工具在這條線上
+都會這樣死，Stryker 只是第一個撞到的。
+
+⚠️ **第二個不是 bug，是 D6 的設計在起作用**：`.npmrc` 刻意不 hoist、用 isolated
+linker 保 SBOM 不失真。**「沒有 phantom dependency」的代價，就是外部工具要被
+明確告知路徑。**
+
+⚠️ **繞法一的沉默取捨**：跳過 `TSConfigPreprocessor` 等於 sandbox 內的 tsconfig
+`extends` 路徑不會被改寫。對 vitest（不做型別檢查）無害，但這一格將來若要
+mutate 需要型別資訊的東西，要重新評估。
+
+#### 四、兩個對裁決有直接影響的發現
+
+**其一 —— 方法來源的起手值會讓第一次跑就紅。** 那份整理建議 break 門檻 **60**，
+實測 **58.66**。照抄 60，CI 第一天就紅，而紅的原因不是程式碼變差。
+**這是「借層次不借數值」最乾淨的實例**，與 C107 §一 是同一條。
+
+**其二 —— 存活的 mutant 裡有一個是真缺口**：
+
+```
+[Survived] ArrowFunction  platform/slice-kit/src/register.ts:51:25
+-   names: features.map((f) => f.name),
++   names: features.map(() => undefined),
+```
+
+四個測試跑過這一行、全部通過 —— **覆蓋到了，但沒有任何一條斷言 `names` 的
+內容**。手工反向測試守的是閘門自己，守不到產品碼裡這種空頭斷言。
+⚠️ 這一條就是元層存在的理由的實物證據，而它是**這次實測順手掉出來的**，
+不是設計出來的例子。
+
+（另一個存活的 `if (import.meta.env.DEV) → if (true)` 是合理存活，
+DEV 分支本來就測不到。）
+
+#### 五、外推與結論
+
+`platform/` 的純 TS src 共 20 個檔（`slice-kit` 佔 4，`.vue` 依 C107 的裁決
+不 mutate）。密度相近的話，全 `platform` 約在**數十秒**量級 —— **放得進 PR CI，
+不必降級成 nightly。**
+
+> **結論：C107 §七 的阻斷項解除，`v2.0.0` 刪除裁決的前提成立。**
+
+⚠️ 仍未驗的一項：C87 的 `dependsOn` 排程互斥在 sandbox 裡會不會被尊重。
+這次的目標 `slice-kit` 不涉及 `conformance`／`slice-gen`，**所以這一格是繞過去
+的，不是驗過的** —— 真正 mutate 到那兩支的範圍時要重驗。
+
+#### 六、實測環境
+
+worktree 隔離（`spike/stryker`）。⚠️ **worktree 給的是檔案系統隔離，不是 git
+隔離** —— `.git` 是一個指回主 repo 的檔案，`git remote -v` 照樣是真的 origin。
+對「裝套件不污染主樹」這個目的足夠，對「模擬外部團隊 clone」不足夠（見 #95）。
+
+⚠️ 兩件順帶確認的好消息：`vp add` **自動把新套件寫成 `catalog:` 引用**
+（D6 不需要手動遵守）；`@stryker-mutator/vitest-runner@10` 的 peer 是
+`vitest >=2.0.0`，涵蓋被釘死的 4.1.10。
 
 ---
 

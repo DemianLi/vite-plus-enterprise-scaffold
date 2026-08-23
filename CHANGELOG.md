@@ -69,8 +69,26 @@
 反對意見與兩個前置條件都寫在 `DECISIONS.md` 的 **C107**。
 
 ⚠️ **其中一個前置是阻斷級的**：刪除會把「元層非空」挖空，所以刪除的同時
-必須把機械化突變測試升回必要 —— 而 module-alias 會破壞 Stryker 的 sandbox，
-C87 的排程互斥在沙箱裡也不被尊重。**可行性實測跑不起來，刪除的前提就不成立。**
+必須把機械化突變測試升回必要 —— **跑不起來的話，刪除的前提就不成立。**
+
+### 那個阻斷項已經實測解除（C108）
+
+`platform/slice-kit` 跑完 Stryker：**58.66% 分數、6.0 秒、179 個 mutant、
+零錯誤零逾時**（三次量測分數完全一致，時間取最小值）。
+
+⚠️ **而阻斷不是方法來源警告的那個。** C107 初稿寫著「module-alias 會破壞
+Stryker 的 sandbox，而這條線有要在多處同步的 path alias」—— **那句話是假的**，
+這條線的 `tsconfig.json` 根本沒有 `paths`。本版已更正，經過記在 C108 §一。
+
+真正撞到的兩個都有繞法：**TypeScript 7 移除了 Stryker 依賴的 compiler API**
+（`parseConfigFileTextToJson` 等全部 `undefined` —— 任何依賴舊 compiler API 的
+工具在這條線上都會這樣死），以及 **`node-linker=isolated` 讓 runner plugin
+在 package 目錄裡看不見**（那不是 bug，是 D6 保 SBOM 不失真的設計代價）。
+
+⚠️ **方法來源建議的 break 門檻是 60，實測 58.66 —— 照抄就是 CI 第一天紅。**
+而存活的 mutant 裡有一個是真缺口：`register.ts:51` 的 `features.map((f) => f.name)`
+被改成 `map(() => undefined)` **照樣全綠** —— 四個測試覆蓋到那一行，
+沒有一條斷言 `names` 的內容。**這是元層存在理由的實物證據。**
 
 ---
 
