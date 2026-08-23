@@ -81,10 +81,21 @@ jobs:
         run: node tools/vue-typecheck/src/cli.ts
 
       - name: 測試
-        run: ./node_modules/.bin/vp run -r test
+        run: ./node_modules/.bin/vp run -r test -- --reporter=default --reporter=json --outputFile=.vitest-results.json
 
       - name: 建置
         run: ./node_modules/.bin/vp run -r build
+
+      # ── 驗收規格的完成率（TESTING.md 層 3 / C115）────────────────────
+      #
+      # ⚠️ **必須在 Tier 1、必須在測試之後** —— 它讀的是上一步留下的
+      # `.vitest-results.json`，而那些檔案跨 workflow 拿不到。
+      #
+      # ⚠️ 它與上一步**不是重複的閘門**：測試看不見「規格一條都沒跑」
+      # （接線檔的副檔名取錯時，測試本身是全綠的 —— C114 §二），
+      # 而那正是這一步唯一守得住的東西。
+      - name: 驗收規格完成率
+        run: node tools/spec-report/src/cli.ts --check
 
       # ── 設計系統接縫（HANDOFF 第 24 項 / C62）─────────────────────────
       #

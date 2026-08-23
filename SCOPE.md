@@ -70,6 +70,7 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 | `tools/codemods`      | 破壞性變更的遷移腳本，由提出者跑完全 repo        | 升級平台時不必逐處手改；`api-surface` 擋的就是沒附的那些 |
 | `tools/doc-facts`     | `README`／`HANDOFF` 裡的數字 vs. repo 的事實來源 | 那兩份文件是交付物，他們照著做事                         |
 | `tools/scope-check`   | **這份文件**與版控內容一致                       | 它紅了，擋下的是「v1 悄悄多了一個他們沒預期的東西」      |
+| `tools/spec-report`   | 驗收規格的通過率 ＝ **業務功能完成率**           | 他們拿它對外報進度                                       |
 
 ⚠️ **`doc-facts` 不對應五條承諾中的任何一條** —— 它守的是那五條**寫下來的樣子
 可不可信**。硬把它塞進某一條承諾表，會重演 C70 那個錯（同一份證據掛在兩條
@@ -131,6 +132,7 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 | `LICENSE`                | 授權條款                                                                                                                           |
 | `README.md`              | 入口。裡面的數字由 `tools/doc-facts` 守著                                                                                          |
 | `SCOPE.md`               | **這份文件**。由 `tools/scope-check` 守著                                                                                          |
+| `SPEC-REPORT.md`         | 業務功能完成率，**由 `tools/spec-report` 產生**。⚠️ 不要手改 —— 跑 `--check` 會告訴你它過期了                                      |
 | `TESTING.md`             | **測試層級模型** —— 這個腳手架的正確性靠哪幾層守。由 `tools/scope-check` 守著它的存在                                              |
 | `eslint.config.js`       | Tier 2 安全閘門的進入點（D10）—— 刻意**不**經由 `vp` 執行                                                                          |
 | `package.json`           | 根 workspace ＋ `scripts.gate` 那條閘門鏈                                                                                          |

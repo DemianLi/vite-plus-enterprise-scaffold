@@ -1,0 +1,24 @@
+{
+  "name": "@org/spec-report",
+  "version": "0.0.0",
+  "private": true,
+  "description": "驗收規格的通過率——業務功能完成率（TESTING.md 層 3）",
+  "bin": {
+    "spec-report": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@amiceli/vitest-cucumber": "catalog:"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}
