@@ -113,7 +113,9 @@ export function workspacePackageCount(root: string): number {
  */
 export function uiComponentCount(root: string): number {
   const directory = "platform/ui/src/components";
-  const result = spawnSync("git", ["ls-files", "--", `${directory}/`], {
+  // ⚠️ `-z`：不加的話含非 ASCII 的路徑會被 git 加引號並八進位轉義，
+  //    數出來的 `.vue` 數會少掉那些檔案（C112）。NUL 分隔完全不轉義。
+  const result = spawnSync("git", ["ls-files", "-z", "--", `${directory}/`], {
     cwd: root,
     encoding: "utf8",
   });
@@ -127,7 +129,7 @@ export function uiComponentCount(root: string): number {
     );
   }
 
-  return result.stdout.split("\n").filter((line) => line.endsWith(".vue")).length;
+  return result.stdout.split("\0").filter((path) => path.endsWith(".vue")).length;
 }
 
 const USES = /^\s*-?\s*uses:\s*(\S+)/gm;

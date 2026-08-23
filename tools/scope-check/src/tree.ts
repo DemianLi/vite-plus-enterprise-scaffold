@@ -19,6 +19,21 @@ import { spawnSync } from "node:child_process";
  * 「**版控裡多了什麼東西**」。一個只放腳本、沒有 `package.json` 的新目錄
  * 悄悄進了 `tools/`，正是這道閘門該說話的情況，而那個判準看不見它。
  *
+ * ── 為什麼是 `-z`（C112）────────────────────────────────────────────
+ *
+ * ⚠️ **不加 `-z`，含非 ASCII 的路徑會被 git 加引號並做八進位轉義**：
+ *
+ *     "features/order/specs/\350\250\202\345\226\256.feature"
+ *
+ * 於是第一段變成 `"features/`（帶著那個引號），與表上的 `features/` 對不起來
+ * —— **這道閘門會對一個登記過的目錄報「樹上有、沒登記」**。
+ * `core.quotepath=false` 也能關掉轉義，但對含引號或換行的檔名仍不安全；
+ * `-z` 用 NUL 分隔、完全不轉義，是唯一不用猜的形式。
+ * `api-surface/src/tracked.ts` 早就這樣寫，這裡是補上同一個作法。
+ *
+ * ⚠️ 用 `-z` 之後**不要再 `.trim()`** —— NUL 已經是明確的分隔，
+ * 而 trim 會弄壞前後帶空白的檔名。
+ *
  * ── 為什麼是 `ls-files` 而不是 `ls-tree HEAD` ───────────────────────
  *
  * `ls-tree HEAD` 答的是「**上一個 commit** 裡有什麼」。用它的話，新增一支
@@ -39,7 +54,7 @@ import { spawnSync } from "node:child_process";
  * 而且沒有人會發現，因為它還是綠的。
  */
 export function trackedDirectories(root: string, parent: string): string[] {
-  const result = spawnSync("git", ["ls-files", "--", `${parent}/`], {
+  const result = spawnSync("git", ["ls-files", "-z", "--", `${parent}/`], {
     cwd: root,
     encoding: "utf8",
   });
@@ -56,8 +71,7 @@ export function trackedDirectories(root: string, parent: string): string[] {
   // `ls-files` 列的是檔案路徑，這裡要的是**第一層目錄**：
   // `tools/conformance/src/cli.ts` → `tools/conformance`。
   const directories = new Set<string>();
-  for (const line of result.stdout.split("\n")) {
-    const path = line.trim();
+  for (const path of result.stdout.split("\0")) {
     if (path.length === 0) continue;
     const segments = path.split("/");
     if (segments.length < 2) continue;
@@ -85,7 +99,7 @@ export function trackedDirectories(root: string, parent: string): string[] {
  * 一個叫 `docs` 的檔案跟一個叫 `docs` 的目錄在表上長得一模一樣。
  */
 export function trackedRootEntries(root: string): string[] {
-  const result = spawnSync("git", ["ls-files"], { cwd: root, encoding: "utf8" });
+  const result = spawnSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" });
 
   if (result.error !== undefined || result.status !== 0) {
     const reason = result.error?.message ?? result.stderr.trim();
@@ -97,8 +111,7 @@ export function trackedRootEntries(root: string): string[] {
   }
 
   const entries = new Set<string>();
-  for (const line of result.stdout.split("\n")) {
-    const path = line.trim();
+  for (const path of result.stdout.split("\0")) {
     if (path.length === 0) continue;
     const slash = path.indexOf("/");
     entries.add(slash === -1 ? path : `${path.slice(0, slash)}/`);
