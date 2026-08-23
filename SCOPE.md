@@ -147,7 +147,7 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 | `specs/`                 | **框架承諾**（`.feature`）。v1 對採用團隊的承諾，人逐字讀；由 `tools/promise-check` **真的執行**。⚠️ 與 `features/*/specs/` 不是同一批東西 |
 | `renovate.json`          | 升級提案機制（D16）—— 補「該升了」那一半，其餘閘門答的是「升完什麼壞了」                                                                   |
 | `tsconfig.json`          | 根 TypeScript 設定                                                                                                                         |
-| `vite.config.ts`         | Tier 1 品質快軌設定（D5／D10）＋ 本機模板註冊                                                                                              |
+| `vite.config.ts`         | Tier 1 品質快軌設定（D5／D10）＋ 本機模板註冊 ＋ 複雜度門檻（C119）                                                                        |
 
 ⚠️ **`tools/` 與 `platform/` 自己也列在這裡。** 它們是頂層目錄，所以要
 登記；而它們**底下**有什麼由上面那兩張表管。兩層各答各的問題。
