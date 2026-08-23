@@ -123,7 +123,7 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 | `.gitignore`             | 版控忽略清單                                                                                                         |
 | `.npmrc`                 | 供應鏈設定（D1／D6）：內部 registry、`ignore-scripts=true`                                                           |
 | `API.md`                 | `platform/*` 的形狀參考，**由 `tools/api-surface` 產生**，同一道閘門守著它與基準對得上。⚠️ 不要手改 —— 跑 `--update` |
-| `AGENTS.md`              | `vp` 產生的 agent 指示。⚠️ 標記之外的手寫內容在 **C93** 被撤回，加回去之前先讀那一則                                 |
+| `AGENTS.md`              | `vp` 產生的 agent 指示 ＋ 標記外的**下發給採用團隊的 agent 契約**（C109 §七 履行了 **C93** 要求的舉證）。⚠️ 再加內容之前先讀那兩則 |
 | `CHANGELOG.md`           | 版本沿革。SemVer 的承諾對象是 `platform/*` 的型別形狀                                                                |
 | `CODEOWNERS`             | 擁有權對照（D12）。一致性檢查驗每個 `features/*` 都有條目                                                            |
 | `DECISIONS.md`           | 有日期的決策日誌，**涵蓋範圍大於 v1**                                                                                |
