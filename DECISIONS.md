@@ -5215,6 +5215,69 @@ C72 是**範疇判準**；`main` 這邊 C71 起是另一串。
 寫下來是因為：**這個 repo 已經有一份把「量過的」與「推的」混在一起的紀錄了**，
 而那份紀錄花了一整輪體檢才把它們分開。
 
+### C113 — 排程掃描只跑預設分支，所以**交付線從來沒有被每日掃描過**（2026-08-23）
+
+`tier2-security.yml` 的檔頭把那條 cron 稱為「本 workflow 最重要的一行：沒有它，
+三個月沒人動的專案就三個月沒掃過」。**那句話對 `release/v1` 一直是成立的** ——
+只是沒有人發現。
+
+#### 一、實測：連續八天，一次都沒掃過交付線
+
+```
+$ gh run list --workflow tier2-security.yml --event schedule
+main | success | 2026-08-22
+main | success | 2026-08-21
+…（八天，全部是 main）
+```
+
+原因是 GitHub 的 scheduled workflow **只認預設分支上的 workflow 檔**，
+而預設分支是 `main`。`release/v1` 的 push 也不觸發任何 workflow
+（`tier1` 是 `pull_request` ＋ `push: [main]`，`tier2` 是 `pull_request` ＋
+`schedule` ＋ `workflow_dispatch`）。
+
+⚠️ **這一格特別貴，因為它守的東西會自己過期。** `eslint.config.js` 的檔頭
+論證過：「安全掃描的結果會隨時間失效，即使程式碼一字未改 —— 新公布的 CVE
+不會改變任何快取指紋。」那個論證的結論（不快取、每日排程）在 `main` 上成立，
+**在交付線上從來沒有生效過**。
+
+#### 二、修法：排程時用 matrix 帶分支清單
+
+```yaml
+ref: ${{ github.event_name == 'schedule' && fromJSON('["main","release/v1"]') || fromJSON('[""]') }}
+```
+
+排程跑兩條線；PR 與手動觸發跑當下這份程式碼（空字串 ＝ checkout 的預設行為）。
+⚠️ **PR 不能掃那兩條線** —— 那會讓 PR 的檢查與 PR 的內容無關。
+
+⚠️ `fail-fast: false`：一條線紅了不該取消另一條線的掃描，那會讓當天少掃一條。
+
+#### 三、⚠️ `name: gate` 是必要的，不是美觀
+
+matrix 會把 check 名稱變成 `gate (main)`／`gate (release/v1)`，而
+**required status check 認的是名字**。名字一變，那道保護就靜靜地失效 ——
+**沒有任何東西會紅**，這正是最壞的失效形式。所以 job 上固定 `name: gate`。
+
+⚠️ **這是對 GitHub 行為的假設，不是實測。** 依 C110 的教訓，這次先開 PR、
+**看 check 的實際名稱**，確認之後才設 required checks。
+
+#### 四、另外兩個洞，以及為什麼只補一個
+
+| # | 洞 | 處置 |
+| --- | --- | --- |
+| 一 | 交付線沒有每日安全掃描 | **本則修掉** |
+| 二 | 兩條分支都沒有 branch protection —— 紅燈 PR 合得進去 | 待設（要看完 §三 的驗證結果） |
+| 三 | `release/v1` 的 push 不跑 CI | **刻意不補** |
+
+⚠️ 第三個在補了第二個之後基本上就關上了：PR CI 綠 ＋ required checks 擋住紅燈
+合併，而 squash 合併的內容與已驗過的 PR head 相同。**多跑一次買到的是重複的
+資訊，代價是每次合併多等幾分鐘。**
+
+⚠️ 第二個洞已經發作過：`v1.6.0`（PR #119）合併時它的 Tier 1 是紅的，
+照樣合進去了，`v1.6.1` 才修掉（`release/v1` 的 C112 §六）。**沒有東西擋 ——
+唯一的保護是有沒有人記得看 `gh run list`。**
+
+---
+
 ## 實作順序
 
 依賴關係決定順序，不是重要性。
