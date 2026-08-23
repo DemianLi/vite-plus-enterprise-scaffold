@@ -482,6 +482,14 @@
         "kind": "value",
         "type": "\"待辦\""
       },
+      "USECASE_COVERAGE_GLOB": {
+        "kind": "value",
+        "type": "\"src/usecases/**\""
+      },
+      "USECASE_COVERAGE_MIN": {
+        "kind": "value",
+        "type": "100"
+      },
       "USECASE_FORBIDDEN_IMPORTS": {
         "kind": "value",
         "type": "readonly [\"vue\", \"pinia\", \"vue-router\", \"vue-i18n\", \"@tanstack/vue-query\"]"

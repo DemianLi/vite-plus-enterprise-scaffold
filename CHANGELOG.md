@@ -10,6 +10,90 @@
 
 ---
 
+## [1.10.0] — 2026-08-24
+
+**層 2 的覆蓋率下限落地了一半 —— 而落地的那一半量的不是「測試寫夠了沒」。**
+`TESTING.md` §六 的缺口表，「層 2 覆蓋率下限」那一格判過是**分裂**的（C117 §五）：
+第二類（`features/*`、`apps/*`）落這條線，第一類（`platform/*`、`tools/*`）
+送 `main`。這一版做第二類那半，第一類那半寫成裁決（切法 ＋ 數字 ＋ 理由），
+實作等 #86 解凍。經過見 `DECISIONS.md` 的 **C120**。
+
+門檻**只收在 `src/usecases/` 那一層**，四個維度都是 100。它問的問題是：
+規格打的是 usecase（C114），所以**一行沒有被走過的 usecase，就是一個沒有規格
+在驗的 usecase**。切片整體**不設數字** —— `src/views/**` 佔行分母的 40%，
+而 `.vue` 只算 `<script setup>`（template 一行都不進分母），一個套在整包上的
+數字會被那件事帶著走，不是被測試的多寡帶著走。
+
+### ⚠️ 升上來不會從綠變紅，但**新產的切片**多守一條線
+
+| 你的樹上如果…                       | 會發生什麼                                          |
+| ----------------------------------- | --------------------------------------------------- |
+| 既有的切片（沒有 `vite.config.ts`） | **什麼都不變**。這一版沒有動 `REQUIRED_FILES`       |
+| 之後用 `vp create slice` 產的切片   | `vp test` 會順便跑覆蓋率，usecase 那層不滿 100 就紅 |
+| 想把門檻也套到既有切片              | 把 `features/order/vite.config.ts` 抄過去即可       |
+
+**這一版算 minor 不是 patch**（判準見 `v1.3.0`：不是「改了什麼」，是**升上來
+會不會壞**）：它加了能力、沒有讓任何既有的東西變紅。
+
+⚠️ **代價是明知而選的**：先寫 usecase、後寫規格的那段時間它必定紅。照〈校準〉
+那三句話，那不是缺陷 —— **記一則裁決，收緊（或放寬）時拿它當論證。**
+
+### 新增
+
+- **切片自帶一支 `vite.config.ts`**，由 `slice-gen` 產出。裡面只有覆蓋率設定：
+  射程 `src/**`、門檻掛在 `src/usecases/**`（glob 與數字都從
+  `@org/slice-kit/contract` 取，不是字面值）、以及 **`enabled: true`**。
+- **`@org/slice-kit/contract` 多兩個 export**：`USECASE_COVERAGE_MIN`（100）與
+  `USECASE_COVERAGE_GLOB`。相容變更，`API.md` 已同步（158 個 export）。
+- **`tools/slice-gen/tests/coverage-gate.test.ts`** —— 兩半的反向測試：靜態那半
+  驗產生器真的產出那份設定、glob 不是空砲；執行那半把**產生器產出的原文**
+  丟進一個暫存專案真的跑一次，只走一支分支 → 紅，兩支都走 → 綠。
+- **`features/order`／`features/shipment` 各多一支 `vite.config.ts`**（同一份設定）。
+- **catalog 多一條 `@vitest/coverage-v8: 4.1.10`** —— ⚠️ 與 `vitest` 同一句話：
+  版本要逐位相同，用 `^` 範圍會裝出一份與 runner 版本不同的 provider，而症狀
+  不是報錯，是數字看起來像那麼一回事。
+
+### 修正
+
+- **`apps/console` 的覆蓋率射程在此之前是錯的，而錯的樣子是滿分。**
+  它有自己的 `vite.config.ts`，於是根層那份的 `test` 區塊**整塊不繼承**，
+  覆蓋率退回 v8 的預設射程（只有測試載入過的檔案進分母）—— 報表寫 **100%**，
+  一個 99% 的門檻照樣通過、exit 0。射程校正後是 13.20%。
+  ⚠️ **這一格刻意不設門檻**：它 75% 的分母來自兩支「被編譯過、沒被執行過」的
+  檔案，把線畫在量測產物上，一年後沒有人答得出「為什麼是這個數字」。
+- **切片的 `test` 從 `package.json` 的 scripts 搬進 `vite.config.ts` 的 `run.tasks`。**
+  ⚠️ **不搬的話那支 task 永遠不會 cache**：覆蓋率一開，v8 provider 每跑一次都
+  讀寫 `coverage/.tmp/`，而 `vp run` 的自動追蹤看到「讀了自己寫的檔案」就判定
+  不可快取 —— **而那會發生在每一個切片上**，任務快取是 Tier 1 的主要提速手段
+  （D10）。換 `reportsDirectory` 沒有用（package 底下的 `node_modules/`、根層的
+  `node_modules/.vite/` 都實測過），只有指到 repo 之外才會回來。
+  處置是 `input: [{ auto: true }, "!coverage/**"]` ＋ `output: ["coverage/**"]`。
+  ⚠️ 代價：切片目錄裡 `pnpm test` 不再有東西可跑，走 `vp run <pkg>#test`
+  或 `vp run -r test`（產生器印出的後續步驟本來就是前者）。
+
+- **`tools/slice-gen/src/files.ts` 的 per-file 放行 841 → 850。**
+  ⚠️ **C119 那條唯一的放行第一次開火了。** 處置留在樹上：那份 `vite.config.ts`
+  模板一個 `options` 的值都不用，所以被提到 `buildSliceFiles` 外面當 module 層
+  常數，函式只長 8 行而不是 47 行。**這條線每被推高一次就是一次要寫下來的帳。**
+
+### ⚠️ 兩個「不會報錯」的坑，記在這裡
+
+- **設定放根層對「有自己 `vite.config.ts` 的 package」直接失效**，而失效的樣子
+  是全綠。所以覆蓋率設定是**逐 package** 的，切片那一份由模板生成 ——
+  形狀與 C111（規格 runner 的相依必須列在切片自己的相依裡）同一條。
+- **覆蓋率門檻的 glob 命中零個檔案時靜默通過、exit 0**，與打錯字完全同形。
+  這棵樹上正是這個狀態（兩支示範切片沒有 usecase 層），所以那條線靠**產生器
+  輸出上的絆線**證明自己，不是靠 CI 的 exit 0。
+
+### ⚠️ 量切片的覆蓋率要走 `vp run <pkg>#test`，不是 `vp test --root <pkg>`
+
+兩者的 cwd 不同：`--root` 的 cwd 仍是 monorepo root，於是切片接線檔的
+`loadFeature` 找不到 `.feature`，產生器輸出的 20 條測試只跑得到 5 條 ——
+**usecase 那一層在那條路徑上讀出來是 0%**。`ready` 走的是前者，所以量測方法
+與門檻執行走同一條路。
+
+---
+
 ## [1.9.0] — 2026-08-23
 
 **層 1 的複雜度那一格補上了，而它落在 Tier 1，不是安全閘門那一軌。**

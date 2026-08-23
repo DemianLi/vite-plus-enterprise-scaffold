@@ -22,6 +22,8 @@
     "@org/theme-verify": "workspace:*",
     "@org/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",
