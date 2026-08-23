@@ -45,9 +45,9 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 ```
 
 ⚠️ **不要用 `ls`。** 切換分支不會刪掉被 ignore 的殘留目錄：`release/v1` 上
-`ls tools/` 會列出一堆早已不在版控裡的目錄（`gate-roster` 就是其一，
-`v1.0.3` 移除後它的 `node_modules` 還留在磁碟上）。用 `ls` 寫的檢查會把
-那些殘骸當成違規，而報告出來的東西一個字都不對。
+`ls tools/` 會列出一堆早已不在版控裡的目錄（移除之後 `node_modules`
+還留在磁碟上）。用 `ls` 寫的檢查會把那些殘骸當成違規，而報告出來的東西
+一個字都不對。
 
 ⚠️ **也不是 `git ls-tree HEAD`。** 那答的是「上一個 commit 裡有什麼」——
 新增一支工具、`git add` 了、跑 `vpr ready`，**是綠的**，要等 commit 完才紅。
@@ -85,18 +85,18 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 `platform/` 整層都是交付物本體，不是守門的工具，所以逐一寫受益者沒有意義 ——
 **團隊寫的每一行程式碼都在用它。** 准許存在的是這幾個：
 
-| 路徑                        | 是什麼                                                     |
-| --------------------------- | ---------------------------------------------------------- |
-| `platform/slice-kit`        | `defineFeature()` 切片契約，命名空間在執行期驗到底         |
-| `platform/http-client`      | 唯一合法的 HTTP 出口；**沒有、也不會有 token 存取介面**    |
-| `platform/config`           | 環境設定；`VITE_*` 白名單，像機密的變數讓建置失敗          |
-| `platform/security-headers` | CSP 以**資料**定義，由 BFF／dev 中介層／測試三方共用       |
-| `platform/bff-contract`     | 中間層必須做到什麼 ＋ 怎麼證明做到了                       |
-| `platform/bff-mock`         | 契約的參考實作；**不是認證伺服器**                         |
-| `platform/ui`               | 共用 UI 元件層。代幣兩層、具名槽、slot                     |
-| `platform/pii`              | 個資欄位的標註與遮罩基礎設施（**在 v1 是慣例，不是機制**） |
-| `platform/tsconfig`         | 共用 TypeScript 設定                                       |
-| `platform/eslint-config`    | Tier 2 安全閘門的 ESLint 設定（與 oxlint 零重疊）          |
+| 路徑                        | 是什麼                                                            |
+| --------------------------- | ----------------------------------------------------------------- |
+| `platform/slice-kit`        | `defineFeature()` 切片契約，命名空間在執行期驗到底                |
+| `platform/http-client`      | 唯一合法的 HTTP 出口；**沒有、也不會有 token 存取介面**           |
+| `platform/config`           | 環境設定；`VITE_*` 白名單，像機密的變數讓建置失敗                 |
+| `platform/security-headers` | CSP 以**資料**定義，由 BFF／dev 中介層／測試三方共用              |
+| `platform/bff-contract`     | 中間層必須做到什麼 ＋ 怎麼證明做到了                              |
+| `platform/bff-mock`         | 契約的參考實作；**不是認證伺服器**                                |
+| `platform/ui`               | 共用 UI 元件層。代幣兩層、具名槽、slot                            |
+| `platform/pii`              | 個資欄位的標註與遮罩函式（`maskName()` 等，含 `isMasked()` 判準） |
+| `platform/tsconfig`         | 共用 TypeScript 設定                                              |
+| `platform/eslint-config`    | Tier 2 安全閘門的 ESLint 設定（與 oxlint 零重疊）                 |
 
 ---
 
@@ -145,10 +145,10 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 
 ## 刻意在外的
 
-**`tools/gate-roster`** —— 守的是 CI 閘門清單的內部一致性（`package.json`、
-兩個 workflow、README 那張表）。它解決的問題是真的，但**漂移傷的是維護者，
-不是拉 v1 的團隊** —— 填不出上面那一欄。`v1.0.2` 曾短暫帶著它，`v1.0.3` 移除，
-它活在 `main`。這是這條判準第一次真的擋下東西，經過見 C72。
+**守 CI 閘門清單內部一致性的那道檢查**（比對 `package.json`、兩個 workflow、
+README 那張表）。它解決的問題是真的，但**漂移傷的是維護者，不是拉 v1 的
+團隊** —— 填不出上面那一欄。`v1.0.2` 曾短暫帶著它，`v1.0.3` 移除。
+**這是這條判準第一次真的擋下東西**，經過見 C72。
 
 其餘不在 v1 的**能力**（以及哪一種案子會需要），見
 HANDOFF〈v1.0.0 **不**涵蓋什麼〉—— 那是另一條軸，這裡不重抄。

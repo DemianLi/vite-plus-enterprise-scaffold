@@ -29,8 +29,8 @@ catalog:
 
   # --- 樣式與 UI（D15）---
   # reka-ui 是 headless 基元，Tailwind 負責樣式，元件原始碼在 platform/ui。
-  # ⚠️ @tailwindcss/vite 會改變建置產物 —— 它必須登記在 tools/exit-drill 的
-  # DRILL_PLUGINS，否則退出演練會產出一個沒有樣式的應用然後回報 pass（C36）。
+  # ⚠️ @tailwindcss/vite 會改變建置產物 —— 任何重新組出一份建置設定的流程
+  # 若漏掉它，會建置成功卻交出一個完全沒有樣式的應用（C36）。
   reka-ui: ^2.10.3
   tailwindcss: ^4.3.3
   "@tailwindcss/vite": ^4.3.3
@@ -50,9 +50,9 @@ catalog:
   # ⚠️ C47 才剛以「會把瀏覽器二進位拉進供應鏈盤點範圍」為由拒絕 Playwright，
   # 這兩個看起來像同一件事，但成本完全不同：**純 JS，沒有平台二進位、
   # 沒有 postinstall 下載**。它們進 SBOM 與 dependency-health 的範圍，
-  # 但永遠不會進 tools/supply-chain 的原生家族分類。理由見 C48。
+  # 但它們沒有平台二進位要分類。理由見 C48。
   #
-  # happy-dom 而不是 jsdom：兩者都**沒有實作 CSP**（所以 csp-verify 那一層
+  # happy-dom 而不是 jsdom：兩者都**沒有實作 CSP**（所以瀏覽器實測那一層
   # 換不掉），但 happy-dom 快得多，而這裡要的只是一個能算 textContent 的 DOM。
   "@vue/test-utils": ^2.4.11
   happy-dom: ^20.11.2

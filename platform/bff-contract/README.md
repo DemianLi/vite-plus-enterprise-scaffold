@@ -20,12 +20,9 @@ gateway。R6 因此一直卡在一個**組織問題**上：
 
 ## 跑法
 
-> ⚠️ **驗收器不在這一版。** 把下面這些條目跑成測試的 `tools/bff-check`
-> 留在 `main`（見根目錄的 [CHANGELOG](../../CHANGELOG.md)）。這一版交付的是
-> 契約本身與 `@org/bff-mock` 這個已通過它的參考實作。
->
-> 取回那支工具之後，跑法是對參考實作 `vpr bff-check`，對組織既有的 gateway
-> 則是 `BFF_ORIGIN=https://gateway.internal BFF_SESSION_COOKIE=SESSIONID vpr bff-check`。
+> ⚠️ **這一版沒有驗收器。** 交付的是契約本身與 `@org/bff-mock` 這個已通過它的
+> 參考實作 —— 把下面這些條目跑成一套測試，是要驗收真實 gateway 的案子自己要做的事。
+> 下面那組 env 就是為了讓那套測試指得過去。
 
 可覆寫的 env：`BFF_ORIGIN`、`BFF_SESSION_COOKIE`、`BFF_LOGIN_PATH`、`BFF_LOGOUT_PATH`、
 `BFF_SESSION_PATH`、`BFF_PROBE_PATH`、`BFF_ADMIN_PROBE_PATH`、`BFF_SESSION_VALUE`、
