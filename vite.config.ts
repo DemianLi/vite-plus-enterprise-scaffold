@@ -6,7 +6,7 @@ import vue from "@vitejs/plugin-vue";
  *
  * 本檔只放「對錯與風格」規則，以及**複雜度**（C119 —— 它問的是「程式碼有沒有
  * 纏成一團」，同樣不是安全）。安全規則一律不放這裡，走 eslint.config.js（Tier 2）。
- * 兩邊規則集刻意零重疊：oxlint 管對錯與風格，ESLint 只管安全與邊界。
+ * 兩邊規則集刻意零重疊：oxlint 管對錯、風格與複雜度，ESLint 只管安全與邊界。
  * 沒有交集就沒有內戰，也就不會有人學會忽略 lint。
  */
 export default defineConfig({
