@@ -15,7 +15,7 @@ grep -n "@org/" CODEOWNERS
 
 ⚠️ **在換掉之前，D12 的擁有權治理是一份文字檔，完全沒有生效。**
 
-`CODEOWNERS` 裡的 15 條條目全部是佔位符（`@org/team-fulfillment`、
+`CODEOWNERS` 裡的 16 條條目全部是佔位符（`@org/team-fulfillment`、
 `@org/platform-maintainers` 之類）。GitHub 對不存在的團隊**不會報錯** ——
 它只是不指派任何審查者。症狀是：`platform/` 的破壞性變更 PR 開下去，
 沒有人被通知，而分支保護那一格顯示「已滿足」。
@@ -147,9 +147,16 @@ BFF_ORIGIN=https://gateway.internal ./node_modules/.bin/vpr dev
 > 它引用的證據（`slice-gen` 與一致性檢查讀同一份契約）其實是需求一的。
 > 同一份證據掛在兩條承諾上，而空著的那一條沒有人發現。
 >
-> ⚠️ **這裡沒有任何機制在守這句話本身。** `tools/doc-facts` 守的是**數字**
-> （export 數、切片數、CODEOWNERS 條目數），不是主張。
-> 承諾與閘門對不對得上，只有人讀得出來 —— 這是這份文件最脆弱的一格。
+> ⚠️ **這句話本身現在守到了一條，還差四條**（`v1.8.0` 起）。
+> `specs/promise-1-architecture.feature` 用中文寫下承諾一具體指什麼，
+> 而 `tools/promise-check` 會照著那份規格**把一份切片副本真的弄壞、
+> 跑規格指名的那道閘門、比對結果** —— 承諾說謊、規格被改壞、
+> 或者承諾綁到一道根本沒接在 `vpr gate` 上的閘門，三種都會當場紅。
+>
+> ⚠️ **另外四條仍然只有人讀得出來。** `tools/doc-facts` 守的是**數字**
+> （export 數、切片數、CODEOWNERS 條目數），不是主張 —— 那道閘門不會
+> 因為某一條承諾空了而說話。哪四條、為什麼是這個順序，見 `DECISIONS.md`
+> 的 **C118**，這裡不重述。
 
 ### 一、分工開發不受影響的系統架構
 
@@ -163,6 +170,15 @@ BFF_ORIGIN=https://gateway.internal ./node_modules/.bin/vpr dev
 | `tools/vue-typecheck` | `.vue` 的型別（`vp check` 的 tsgolint 不看 SFC）                          |
 | `tools/slice-gen`     | 產生器與檢查器**讀同一份契約**，不會各說各話                              |
 | `tools/codemods`      | 破壞性變更的遷移腳本；`api-surface` 擋下的就是**沒附 codemod** 的那些     |
+| `tools/promise-check` | **這一條承諾本身** —— 照 `specs/` 的規格弄壞一份副本，跑閘門，比對結果    |
+
+> **這一條承諾的原文在 [`specs/promise-1-architecture.feature`](specs/promise-1-architecture.feature)。**
+> 那份規格是給人逐字讀的：打開它就知道「分工開發不受影響」在這個腳手架裡
+> 具體指哪幾件事，不必去讀任何一支閘門的原始碼。
+>
+> ⚠️ **上面那張表不是那份規格的摘要。** 表回答「誰在守」，規格回答
+> 「守住了什麼、破壞它會怎樣」，而**只有規格會被執行**。兩者說法分岔的時候，
+> 規格是對的那一份 —— 因為閘門讀的是它。
 
 ### 二、從設計模板到前端工程的開發方式
 

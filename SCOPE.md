@@ -71,6 +71,12 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 | `tools/doc-facts`     | `README`／`HANDOFF` 裡的數字 vs. repo 的事實來源 | 那兩份文件是交付物，他們照著做事                         |
 | `tools/scope-check`   | **這份文件**與版控內容一致                       | 它紅了，擋下的是「v1 悄悄多了一個他們沒預期的東西」      |
 | `tools/spec-report`   | 驗收規格的通過率 ＝ **業務功能完成率**           | 他們拿它對外報進度                                       |
+| `tools/promise-check` | `specs/` 寫的**框架承諾**，每一條都真的執行一次  | 那五條承諾就是他們拉這條線的理由                         |
+
+⚠️ **`promise-check` 與 `spec-report` 都讀 `.feature`，而路徑刻意不重疊**：
+前者讀根層 `specs/`（腳手架**對他們**的承諾），後者讀 `features/*/specs/`
+（**他們自己**的業務規格）。混在一起的話，框架承諾會被算進那份拿去對外
+報進度的完成率報表 —— 這條分界有測試守著，不靠人記得。
 
 ⚠️ **`doc-facts` 不對應五條承諾中的任何一條** —— 它守的是那五條**寫下來的樣子
 可不可信**。硬把它塞進某一條承諾表，會重演 C70 那個錯（同一份證據掛在兩條
@@ -111,36 +117,37 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 替 `LICENSE`、`.gitignore`、`pnpm-lock.yaml` 寫那一句是**儀式不是判斷**。
 它守的是**根層有哪些東西**，判準本身仍然在上面〈判準〉那一節。
 
-| 名字                     | 這是什麼                                                                                                                           |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `.claude/`               | dev server 的啟動設定（埠號 5173、`vp run console#dev`）。⚠️ **專案描述，不是 agent 行為設定** —— 那條分界見 C93 §三               |
-| `.github/`               | 兩支 CI workflow：Tier 1 品質快軌、Tier 2 安全                                                                                     |
-| `.semgrep/`              | 承諾五的自寫 SAST 汙點傳遞規則。在 v1 內，只是不在 `tools/`／`platform/` 底下                                                      |
-| `apps/`                  | 示範應用外殼。⚠️ **目錄准許存在，底下的內容不治理** —— 各案會整個換掉                                                              |
-| `features/`              | 示範切片。同上                                                                                                                     |
-| `platform/`              | 交付物本體。**底下有自己的清單**，見上面那一節                                                                                     |
-| `tools/`                 | 閘門。**底下有自己的清單**，見上面那一節                                                                                           |
-| `.git-blame-ignore-revs` | 大規模機械性格式化 commit 的清單，`git blame` 會跳過（D13）                                                                        |
-| `.gitignore`             | 版控忽略清單                                                                                                                       |
-| `.npmrc`                 | 供應鏈設定（D1／D6）：內部 registry、`ignore-scripts=true`                                                                         |
-| `API.md`                 | `platform/*` 的形狀參考，**由 `tools/api-surface` 產生**，同一道閘門守著它與基準對得上。⚠️ 不要手改 —— 跑 `--update`               |
-| `AGENTS.md`              | `vp` 產生的 agent 指示 ＋ 標記外的**下發給採用團隊的 agent 契約**（C109 §七 履行了 **C93** 要求的舉證）。⚠️ 再加內容之前先讀那兩則 |
-| `CHANGELOG.md`           | 版本沿革。SemVer 的承諾對象是 `platform/*` 的型別形狀                                                                              |
-| `CODEOWNERS`             | 擁有權對照（D12）。一致性檢查驗每個 `features/*` 都有條目                                                                          |
-| `DECISIONS.md`           | 有日期的決策日誌，**涵蓋範圍大於 v1**                                                                                              |
-| `HANDOFF.md`             | 交接文件 —— 拉 v1 去做案子的團隊讀的那一份                                                                                         |
-| `LICENSE`                | 授權條款                                                                                                                           |
-| `README.md`              | 入口。裡面的數字由 `tools/doc-facts` 守著                                                                                          |
-| `SCOPE.md`               | **這份文件**。由 `tools/scope-check` 守著                                                                                          |
-| `SPEC-REPORT.md`         | 業務功能完成率，**由 `tools/spec-report` 產生**。⚠️ 不要手改 —— 跑 `--check` 會告訴你它過期了                                      |
-| `TESTING.md`             | **測試層級模型** —— 這個腳手架的正確性靠哪幾層守。由 `tools/scope-check` 守著它的存在                                              |
-| `eslint.config.js`       | Tier 2 安全閘門的進入點（D10）—— 刻意**不**經由 `vp` 執行                                                                          |
-| `package.json`           | 根 workspace ＋ `scripts.gate` 那條閘門鏈                                                                                          |
-| `pnpm-lock.yaml`         | 鎖定檔。⚠️ 共用 lockfile，所以 catalog 是唯一能讓 CVE 全 repo 同步升級的機制（D6）                                                 |
-| `pnpm-workspace.yaml`    | workspace 成員 ＋ catalog（D6）                                                                                                    |
-| `renovate.json`          | 升級提案機制（D16）—— 補「該升了」那一半，其餘閘門答的是「升完什麼壞了」                                                           |
-| `tsconfig.json`          | 根 TypeScript 設定                                                                                                                 |
-| `vite.config.ts`         | Tier 1 品質快軌設定（D5／D10）＋ 本機模板註冊                                                                                      |
+| 名字                     | 這是什麼                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `.claude/`               | dev server 的啟動設定（埠號 5173、`vp run console#dev`）。⚠️ **專案描述，不是 agent 行為設定** —— 那條分界見 C93 §三                       |
+| `.github/`               | 兩支 CI workflow：Tier 1 品質快軌、Tier 2 安全                                                                                             |
+| `.semgrep/`              | 承諾五的自寫 SAST 汙點傳遞規則。在 v1 內，只是不在 `tools/`／`platform/` 底下                                                              |
+| `apps/`                  | 示範應用外殼。⚠️ **目錄准許存在，底下的內容不治理** —— 各案會整個換掉                                                                      |
+| `features/`              | 示範切片。同上                                                                                                                             |
+| `platform/`              | 交付物本體。**底下有自己的清單**，見上面那一節                                                                                             |
+| `tools/`                 | 閘門。**底下有自己的清單**，見上面那一節                                                                                                   |
+| `.git-blame-ignore-revs` | 大規模機械性格式化 commit 的清單，`git blame` 會跳過（D13）                                                                                |
+| `.gitignore`             | 版控忽略清單                                                                                                                               |
+| `.npmrc`                 | 供應鏈設定（D1／D6）：內部 registry、`ignore-scripts=true`                                                                                 |
+| `API.md`                 | `platform/*` 的形狀參考，**由 `tools/api-surface` 產生**，同一道閘門守著它與基準對得上。⚠️ 不要手改 —— 跑 `--update`                       |
+| `AGENTS.md`              | `vp` 產生的 agent 指示 ＋ 標記外的**下發給採用團隊的 agent 契約**（C109 §七 履行了 **C93** 要求的舉證）。⚠️ 再加內容之前先讀那兩則         |
+| `CHANGELOG.md`           | 版本沿革。SemVer 的承諾對象是 `platform/*` 的型別形狀                                                                                      |
+| `CODEOWNERS`             | 擁有權對照（D12）。一致性檢查驗每個 `features/*` 都有條目                                                                                  |
+| `DECISIONS.md`           | 有日期的決策日誌，**涵蓋範圍大於 v1**                                                                                                      |
+| `HANDOFF.md`             | 交接文件 —— 拉 v1 去做案子的團隊讀的那一份                                                                                                 |
+| `LICENSE`                | 授權條款                                                                                                                                   |
+| `README.md`              | 入口。裡面的數字由 `tools/doc-facts` 守著                                                                                                  |
+| `SCOPE.md`               | **這份文件**。由 `tools/scope-check` 守著                                                                                                  |
+| `SPEC-REPORT.md`         | 業務功能完成率，**由 `tools/spec-report` 產生**。⚠️ 不要手改 —— 跑 `--check` 會告訴你它過期了                                              |
+| `TESTING.md`             | **測試層級模型** —— 這個腳手架的正確性靠哪幾層守。由 `tools/scope-check` 守著它的存在                                                      |
+| `eslint.config.js`       | Tier 2 安全閘門的進入點（D10）—— 刻意**不**經由 `vp` 執行                                                                                  |
+| `package.json`           | 根 workspace ＋ `scripts.gate` 那條閘門鏈                                                                                                  |
+| `pnpm-lock.yaml`         | 鎖定檔。⚠️ 共用 lockfile，所以 catalog 是唯一能讓 CVE 全 repo 同步升級的機制（D6）                                                         |
+| `pnpm-workspace.yaml`    | workspace 成員 ＋ catalog（D6）                                                                                                            |
+| `specs/`                 | **框架承諾**（`.feature`）。v1 對採用團隊的承諾，人逐字讀；由 `tools/promise-check` **真的執行**。⚠️ 與 `features/*/specs/` 不是同一批東西 |
+| `renovate.json`          | 升級提案機制（D16）—— 補「該升了」那一半，其餘閘門答的是「升完什麼壞了」                                                                   |
+| `tsconfig.json`          | 根 TypeScript 設定                                                                                                                         |
+| `vite.config.ts`         | Tier 1 品質快軌設定（D5／D10）＋ 本機模板註冊                                                                                              |
 
 ⚠️ **`tools/` 與 `platform/` 自己也列在這裡。** 它們是頂層目錄，所以要
 登記；而它們**底下**有什麼由上面那兩張表管。兩層各答各的問題。
