@@ -454,6 +454,14 @@
         "kind": "value",
         "type": "readonly [\".ts\", \".tsx\", \".js\", \".mjs\", \".vue\"]"
       },
+      "SPECS_DIR": {
+        "kind": "value",
+        "type": "\"specs\""
+      },
+      "STEPS_GLOB": {
+        "kind": "value",
+        "type": "\"tests/specs/**/*.spec.ts\""
+      },
       "STORE_FILE": {
         "kind": "value",
         "type": "\"src/store.ts\""
@@ -469,6 +477,18 @@
       "TEST_GLOB": {
         "kind": "value",
         "type": "\"tests/**/*.test.ts\""
+      },
+      "TODO_TAG": {
+        "kind": "value",
+        "type": "\"待辦\""
+      },
+      "USECASE_FORBIDDEN_IMPORTS": {
+        "kind": "value",
+        "type": "readonly [\"vue\", \"pinia\", \"vue-router\", \"vue-i18n\", \"@tanstack/vue-query\"]"
+      },
+      "USECASES_DIR": {
+        "kind": "value",
+        "type": "\"src/usecases\""
       },
       "usesDesignSystem": {
         "kind": "function",

@@ -57,6 +57,14 @@ catalog:
   "@vue/test-utils": ^2.4.11
   happy-dom: ^20.11.2
 
+  # --- 驗收規格（TESTING.md 的層 3，第二類的完成率設施）---
+  # ⚠️ **不是第二套 runner** —— 它是 Vitest 上的一層 API，跑在既有的 Vitest 裡。
+  # 養第二套 runner 會再撞一次 C87 的跨套件排程相依。
+  #
+  # ⚠️ peer 是 `vitest ^4.0.4`，與上面釘死的 4.1.10 相容（實測，C110）。
+  # 升 vite-plus 而 vitest 跳出那個範圍時，這一行要一起看。
+  "@amiceli/vitest-cucumber": ^7.0.0
+
   # --- 產生器（tools/slice-gen）---
   bingo: ^0.9.3
   zod: ^3.25.76

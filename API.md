@@ -633,6 +633,18 @@ readonly ["reka-ui", "clsx", "tailwind-merge"]
 readonly [".ts", ".tsx", ".js", ".mjs", ".vue"]
 ```
 
+### `SPECS_DIR` — value
+
+```
+"specs"
+```
+
+### `STEPS_GLOB` — value
+
+```
+"tests/specs/**/*.spec.ts"
+```
+
 ### `STORE_FILE` — value
 
 ```
@@ -655,6 +667,24 @@ readonly ["api"]
 
 ```
 "tests/**/*.test.ts"
+```
+
+### `TODO_TAG` — value
+
+```
+"待辦"
+```
+
+### `USECASE_FORBIDDEN_IMPORTS` — value
+
+```
+readonly ["vue", "pinia", "vue-router", "vue-i18n", "@tanstack/vue-query"]
+```
+
+### `USECASES_DIR` — value
+
+```
+"src/usecases"
 ```
 
 ### `usesDesignSystem` — function

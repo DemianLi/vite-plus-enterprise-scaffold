@@ -18,6 +18,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@amiceli/vitest-cucumber": "catalog:",
     "@org/theme-verify": "workspace:*",
     "@org/tsconfig": "workspace:*",
     "@types/node": "catalog:",
