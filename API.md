@@ -675,6 +675,18 @@ readonly ["api"]
 "待辦"
 ```
 
+### `USECASE_COVERAGE_GLOB` — value
+
+```
+"src/usecases/**"
+```
+
+### `USECASE_COVERAGE_MIN` — value
+
+```
+100
+```
+
 ### `USECASE_FORBIDDEN_IMPORTS` — value
 
 ```

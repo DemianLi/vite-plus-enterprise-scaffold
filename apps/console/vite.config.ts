@@ -66,6 +66,30 @@ export default defineConfig(({ mode }) => {
       sourcemap: "hidden",
     },
 
+    test: {
+      coverage: {
+        // ── 覆蓋率的射程（C120）────────────────────────────────────
+        //
+        // ⚠️ 這一格**在此之前是錯的，而錯的樣子是滿分**。這支設定檔存在，
+        // 於是根層 `vite.config.ts` 的 `test` 區塊整塊不繼承，覆蓋率退回
+        // v8 的預設射程 —— 只有「測試載入過的檔案」進分母。實測結果是
+        // 報表寫 **100%**（`bff-routes.ts` 與 `src/features.ts` 兩支），
+        // 而 `main.ts`／`App.vue`／`DevSession.vue` 連出現都沒有。
+        // 校正射程之後是 **13.20%**（#130）。
+        //
+        // ⚠️ `bff-routes.ts` 必須逐支列出來 —— 它住在 package 根目錄不在
+        // `src/`，而它有專屬測試。#130 第一版的射程漏了它，`apps/console`
+        // 因此低報成 2.12%。**射程寫錯不會報錯。**
+        include: ["src/**", "bff-routes.ts"],
+
+        // ⚠️ **刻意不設門檻，而這是裁決不是遺漏**（C120 §四）。這支 app 的
+        // 分母有 75% 來自 `main.ts` 與 `DevSession.vue`，兩支都是被
+        // `dev-session-stripped.test.ts` **編譯**過、沒有被**執行**過 ——
+        // 把線畫在一個量測產物上，一年後沒有人答得出「為什麼是這個數字」。
+        // 切片那一半的門檻收在 `src/usecases/**`，而這支 app 沒有那一層。
+      },
+    },
+
     server: {
       proxy: {
         // ── D8：dev 必須鏡像 production 的來源配置 ────────────────

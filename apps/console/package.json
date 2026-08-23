@@ -29,6 +29,7 @@
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@vitejs/plugin-vue": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

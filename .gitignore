@@ -40,5 +40,12 @@ trivy.sarif
 # tools/vue-typecheck 反向測試的暫存副本（見 tests/fixtures/README.md）
 tools/vue-typecheck/tests/fixtures/.tmp-*
 
+# tools/slice-gen 覆蓋率門檻反向測試的暫存專案（見 tests/coverage-gate.test.ts）
+tools/slice-gen/tests/fixtures/.tmp-*
+
+# 覆蓋率報表的產物。切片的 vite.config.ts 預設開著 coverage（C120），
+# 所以每一次 `vp test` 都會產生一份。
+coverage/
+
 # 驗收規格報表的輸入（每次跑測試都會變，不進版控）
 .vitest-results.json

@@ -18,6 +18,10 @@ catalog:
   # 精確版本（=4.1.10），此處若用 ^ 範圍或不同版本，node_modules 會出現兩份 vitest，
   # 測試會以難以診斷的方式失敗（型別對不上、mock 失效）。升 vite-plus 時要同步改這行。
   vitest: 4.1.10
+  # 覆蓋率的 provider（C120）。⚠️ **同一句話**：它是 vitest 的內部套件，版本要
+  # 與上面那行逐位相同。用 ^ 範圍的話，node_modules 會出現一份與 runner 版本
+  # 不同的 provider，而症狀不是報錯，是覆蓋率數字看起來像那麼一回事。
+  "@vitest/coverage-v8": 4.1.10
 
   # --- 應用層選型（D13）---
   vue: ^3.5.41
