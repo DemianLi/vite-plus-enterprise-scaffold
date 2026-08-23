@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { checkScope } from "../src/check.ts";
 import { sectionFor } from "../src/parse.ts";
-import { trackedDirectories } from "../src/tree.ts";
+import { trackedDirectories, trackedRootEntries } from "../src/tree.ts";
 
 /**
  * 反向測試：每一種不一致都要真的變紅。
@@ -416,5 +416,39 @@ describe("錨點是具名的，兩個方向都不能安靜", () => {
   it("三節正確的標題都認得，不會誤報", () => {
     const root = repo({ tracked: ["tools/a"], untracked: [] });
     expect(rules(root, scopeDoc(["tools/a"], []))).toEqual([]);
+  });
+});
+
+describe("非 ASCII 的路徑（C112）", () => {
+  /**
+   * ⚠️ **這一組守的是 `-z`。** 拿掉它，`git ls-files` 會把含非 ASCII 的路徑
+   * 加引號並做八進位轉義：
+   *
+   *     "tools/spec-report/\350\250\202\345\226\256.feature"
+   *
+   * 第一段於是變成 `"tools`（帶著那個引號），而閘門會對一個**登記過的**目錄
+   * 報「樹上有、沒登記」—— 一個看不懂、而且沒有合法出口的紅燈。
+   *
+   * ⚠️ 這兩條在修掉之前是**真的會失敗**的（實測），不是預防性斷言。
+   */
+  it("含中文檔名的目錄，路徑不帶引號", () => {
+    const root = mkdtempSync(join(tmpdir(), "scope-check-utf8-"));
+    created.push(root);
+    execFileSync("git", ["init", "-q"], { cwd: root });
+    mkdirSync(join(root, "tools/spec-report"), { recursive: true });
+    writeFileSync(join(root, "tools/spec-report/訂單查詢.feature"), "");
+    execFileSync("git", ["add", "--", "tools/spec-report"], { cwd: root });
+
+    expect(trackedDirectories(root, "tools")).toEqual(["tools/spec-report"]);
+  });
+
+  it("根層的中文檔名也不帶引號", () => {
+    const root = mkdtempSync(join(tmpdir(), "scope-check-utf8-root-"));
+    created.push(root);
+    execFileSync("git", ["init", "-q"], { cwd: root });
+    writeFileSync(join(root, "測試說明.md"), "");
+    execFileSync("git", ["add", "--", "測試說明.md"], { cwd: root });
+
+    expect(trackedRootEntries(root)).toEqual(["測試說明.md"]);
   });
 });
