@@ -21,6 +21,18 @@ import { parseSpec } from "../src/spec.ts";
  * 那種東西會在沒有人注意的時候被改掉，所以這裡有一條斷言在守。
  */
 
+/**
+ * ⚠️ **這一支對真 repo 跑別的工具，所以排程相依查過了：不需要 `dependsOn`。**
+ *
+ * C87 記著 `@org/slice-gen#test` 會在**真的** `features/` 底下建一個 `zz-` 切片，
+ * 而那種切片自帶 `specs/<name>.feature`（C114）—— 看起來正好會讓下面那條
+ * `spec-report --check` 間歇變紅。**不會**：`tools/slice-gen/tests/e2e.test.ts`
+ * 整份沒有碰過 git，而 `spec-report` 與 `promise-check` 的事實來源都是
+ * `git ls-files`（C73／C98）。沒進 index 的東西，兩支都看不見。
+ *
+ * 這句話寫在這裡，是因為下一個人會重新問一次同一個問題。
+ */
+
 const HERE = resolve(fileURLToPath(import.meta.url), "..");
 const ROOT = resolve(HERE, "../../..");
 const CLI = join(ROOT, "tools/promise-check/src/cli.ts");
