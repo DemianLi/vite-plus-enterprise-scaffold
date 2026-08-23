@@ -20,7 +20,7 @@
 #    **不要把它更新成 20**：那會毀掉一次歷史實測，而 `doc-facts` 有一條斷言
 #    專門釘住它不得被守（理由：那是 GitHub 的判定，repo 裡推導不出來）。
 # 刻意不做成 CI 閘門 —— 那需要 GitHub API，會因為 token 權限與速率限制而變紅，
-# 而不是因為真的有問題（與 tools/ui-survey 不進 gate 是同一條理由）。
+# 而不是因為真的有問題（與其他需要外部 API 的檢查不進 gate 是同一條理由）。
 #
 # ⚠️ ── 但佔位符只是三層落差裡的中間那層（2026-08-16，C63）─────────────
 #
@@ -53,11 +53,10 @@
 /platform/                  @org/platform-maintainers
 /tools/                     @org/platform-maintainers
 
-# 這三處定義的是安全行為本身（CSP 政策、認證與 CSRF 契約），不是一般平台程式碼。
+# 這兩處定義的是安全行為本身（CSP 政策、認證與 CSRF 契約），不是一般平台程式碼。
 # 放寬它們不會讓任何測試變紅 —— 只會讓標準變低，所以由資安共同把關。
 /platform/security-headers/ @org/platform-maintainers @org/security
 /platform/bff-contract/     @org/platform-maintainers @org/security
-/tools/bff-check/           @org/platform-maintainers @org/security
 
 # ── platform/ui 由 /platform/ 通則涵蓋。這是決定，不是還沒決定 ────────
 #
@@ -88,25 +87,8 @@
 #    不是設計角色。#22 那四個行為面缺口現在沒有具名的人在看。
 #    要買回來的方式是組織裡真的有設計職能，不是在這裡加一列。
 
-# supply-chain 的家族分級表刻意寫在原始碼裡（而不是 JSON），為的就是這一列：
-# 一個新的原生工具鏈進到建置環境時，分類必須是一次**被資安看過**的變更。
-# 這裡也放著 inventory.json / provenance.json 兩份基線 —— 它們是拿給稽核看的東西。
-/tools/supply-chain/        @org/platform-maintainers @org/security
-
-# 同一個理由，但更直接：map.ts 決定的是**這個組織對外宣稱自己遵循了什麼**。
-# 把一條法規標成「已覆蓋」、或把一道閘門標成「已證明會紅」，是一次法遵聲明，
-# 不是一次程式碼變更。COMPLIANCE.md 是產生的，改它要從這裡改。
-/tools/compliance/          @org/platform-maintainers @org/security
-
-# evidence.json 是一份「有人開瀏覽器驗過 CSP」的證據，而它的有效期由
-# FINGERPRINT_PACKAGES 這一行決定 —— 從名單裡拿掉一個相依，等於讓一份
-# 舊證據無限期續命。那是一次安全決定，不是一次重構。
-/tools/csp-verify/          @org/platform-maintainers @org/security
-
-# 個資：EXEMPT 一條就讓一個檔案不再被掃，personalData 少一個欄位就讓那個欄位
-# 從此裸奔。兩者都是法遵決定，不是重構。platform/pii 的遮罩規則同理 ——
-# 「留幾個字」是拿去回答稽核的那個數字。
-/tools/pii-check/           @org/platform-maintainers @org/security
+# 個資：遮罩規則「留幾個字」是拿去回答稽核的那個數字，改它是一次法遵決定，
+# 不是一次重構。
 /platform/pii/              @org/platform-maintainers @org/security
 # facts.ts 決定「哪些數字有人在守」。從登記表拿掉一條，那個數字就從此
 # 可以自由漂移 —— 而它們是拿去跟採購與資安講的話。

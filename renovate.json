@@ -40,12 +40,12 @@
         "完全一致，否則 node_modules 會出現兩份 vitest，測試以難以診斷的方式失敗",
         "（型別對不上、mock 失效）。而 vite 是 npm alias 指向 @voidzero-dev/vite-plus-core。",
         "分成三個 PR 的話，每一個都是壞的，而且壞法各不相同。",
-        "needs-exit-drill 標籤是給人看的：這一組動到 D2 的退出保單，合併前要自己確認退得掉。"
+        "這一組動到 D2 的退出保單：合併前要自己確認驅動層仍然換得掉。"
       ],
       "groupName": "vite-plus 驅動層（D2）",
       "matchPackageNames": ["vite-plus", "vite", "vitest", "@voidzero-dev/vite-plus-core"],
       "matchDepNames": ["vite-plus", "vite", "vitest"],
-      "labels": ["dependencies", "driver-layer", "needs-exit-drill"],
+      "labels": ["dependencies", "driver-layer"],
       "minimumReleaseAge": "7 days"
     },
     {
@@ -63,7 +63,7 @@
       ],
       "groupName": "Tailwind（D15）",
       "matchPackageNames": ["tailwindcss", "@tailwindcss/vite"],
-      "labels": ["dependencies", "needs-exit-drill"]
+      "labels": ["dependencies", "styling-layer"]
     },
     {
       "description": [

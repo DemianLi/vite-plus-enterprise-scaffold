@@ -141,22 +141,6 @@ h(UiButton, { variant: "根本不是 variant" });
 ComponentCustomProps` 的交集，多餘屬性檢查被那個交集打掉。與模板側的
 `checkUnknownProps` 是同一件事的兩個位置，而兩邊都沒有守。
 
-### 那第二個 TypeScript 要不要進退出演練的帳目？不用，而且是有理由的
-
-> ⚠️ 退出演練（`tools/exit-drill`）**不在這一版**，留在 `main`。這一節保留的是
-> **判準**——它在你把那支工具取回來時才需要，答案不會因為工具暫時不在而改變。
-
-C64 的先例值得先講：`happy-dom` 沒登記，完整演練從 PR #15 起就是壞的，
-19 個 PR 沒有人知道 —— 那是「測試相依帳目」那一項存在的原因。
-
-`tools/exit-drill` 的帳目範圍是**從 `apps/console` 走得到的 manifest**
-（`reachableManifests()`），因為演練複製並跑測試的就是那一批。
-`@org/vue-typecheck` 沒有任何 package 依賴它（`vpr gate` 是按路徑呼叫的），
-所以它**不在可達集合裡**，`vue-tsc` 與那份 TS 5.x 也就不該進帳目。
-
-判準不是「它是不是 devDependency」，是**演練會不會跑到它**。
-哪天 `apps/console` 真的依賴了這支工具，帳目那道檢查會自己說話。
-
 ## 開發
 
 ```bash

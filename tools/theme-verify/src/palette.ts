@@ -354,7 +354,7 @@ function isComment(line: string): boolean {
  * 掃一份元件原始碼。
  *
  * 收的是**內容**而不是路徑：讀檔留在 cli.ts，這裡保持純函式，才有辦法
- * 用人造來源把每一種違規都測過一次（與 exit-drill 的兩張帳目同一個切法）。
+ * 用人造來源把每一種違規都測過一次。
  */
 export function findPaletteUsage(
   file: string,

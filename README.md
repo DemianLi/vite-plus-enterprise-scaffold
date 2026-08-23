@@ -261,7 +261,7 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 
 > ⚠️ **這張表是手抄的，沒有任何東西在斷言它與實際跑的閘門一致。**
 > 加一道閘門而忘了改這裡，不會有東西說話 —— 它已經發生過一次（Tier 2 那格
-> 曾經漏了兩道）。守它的機制在 `main`，不在 v1，理由見 HANDOFF〈已知的誠實缺口〉第五條。
+> 曾經漏了兩道）。理由與實務作法見 HANDOFF〈已知的誠實缺口〉第四條。
 
 > 指令刻意**不用** `pnpm run` / `npx`：本專案不保證環境有全域 pnpm，
 > 而 `npx` 會被 `devEngines` 擋下。`vpr` 是 vite-plus 的 script runner，
@@ -381,10 +381,9 @@ checker 抽出每個 `platform/*` 進入點的**型別形狀**，與已提交的
 限制（OIDC 那段無法自動化）見 [`platform/bff-contract`](platform/bff-contract)；
 參考實作是 [`platform/bff-mock`](platform/bff-mock)（`vpr bff` 啟動）。
 
-> ⚠️ **驗收器不在這一版。** 把契約跑成測試、可以指向組織既有 gateway 的
-> `tools/bff-check` 留在 `main`（見 [CHANGELOG](CHANGELOG.md)）。
-> 這一版交付的是**規格與參考實作**，不是自動驗收 —— 要驗收就得自己寫，
-> 或從 `main` 取那支工具。
+> ⚠️ **這一版沒有驗收器。** 交付的是**規格與參考實作**，不是自動驗收 ——
+> 把契約跑成一套可以指向組織既有 gateway 的測試，是要驗收真實 gateway 的
+> 案子自己要做的事。
 
 ---
 
@@ -392,7 +391,7 @@ checker 抽出每個 `platform/*` 進入點的**型別形狀**，與已提交的
 
 - `vite-plus` 是 **0.2.x（beta）**，約 1–2 週一版，且**無 SLA／支援承諾**（MIT）。
   授權疑慮已解除（Cloudflare 併購後 Vite+ 為 MIT），但供應商紀錄要寫 Cloudflare。
-  ⚠️ 證明「換得掉驅動層」的退出演練在 `main`，**不在 v1.0.0**。詳見 DECISIONS.md 的 R1。
+  ⚠️ 證明「換得掉驅動層」的退出演練**不在 v1.0.0**。詳見 DECISIONS.md 的 R1。
 - `typescript-eslint` 不支援 TypeScript 7，Tier 2 因此在 `@org/eslint-config`
   內自帶一份 TypeScript 6.0.3。上游支援後即可移除。
 - `vp run` **沒有** changed-since 過濾器。affected 偵測若要做，得自己算 git diff。
@@ -406,13 +405,9 @@ checker 抽出每個 `platform/*` 進入點的**型別形狀**，與已提交的
   Progress／Toast —— 它們是特定畫面需要時才加的，不是每個案子第一天都要有。
   ⚠️ 而 **Card／Empty／Item／Spinner 是「可進但不急」，不是被裁掉**（C81 §七）——
   把它們當成已經判出去的，下一個人就會拿錯那把尺。
-  ⚠️ 這個數字由 `tools/doc-facts` 從 `git ls-files` 數出來 —— 在 2026-08-19
-  之前它被抄在三個地方而沒有任何東西在守（同 C71 的形狀）。
+  ⚠️ 這個數字由 `tools/doc-facts` 從 `git ls-files` 數出來，三處引用對不上就紅。
 - ⚠️ **v1.0.0 沒有任何無障礙檢查。** 政府採購案的 AA 是立法院決議要求 ——
-  需要它的案子請用 `main` 分支。完整清單見 [HANDOFF.md](HANDOFF.md)。
-- ⚠️ **`platform/pii` 的遮罩能力在，強制它的東西不在。** `maskName()` 可以用，
-  但沒有任何檢查在確保「新增個資欄位時記得遮罩」—— 那道檢查在 `main`。
-  也就是說**遮罩在 v1 是慣例，不是機制**。
+  需要它的案子要自己補。完整清單見 [HANDOFF.md](HANDOFF.md)。
 - `tools/vue-typecheck` 用的是**第二個 TypeScript**（JS 版 5.x，因為 catalog
   主線的 TS 7 是原生 Go 版、沒有 `vue-tsc` 需要的 compiler API）。
   這道閘門紅而 `vp check` 綠時**多半是真陽性**，理由寫在它的紅燈訊息裡。
@@ -503,4 +498,4 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 > 底下 21 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
 
 上游相依的授權另計——`vite-plus` 為 MIT（Cloudflare 併購後），`lightningcss` 為 MPL-2.0，
-另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。⚠️ 完整盤點與 SCA 例外申請書在 `main`，**不在 v1.0.0**。
+另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。⚠️ 完整盤點與 SCA 例外申請書**不在 v1.0.0**。

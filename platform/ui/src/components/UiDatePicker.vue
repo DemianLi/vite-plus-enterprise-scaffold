@@ -45,10 +45,6 @@ import { NO_OVERRIDE, UI_THEME, type UiDatePickerSlot } from "../theme.ts";
  * ⚠️ 版本跟著 `reka-ui` 的範圍（`^3`）。釘死一個 exact 版本會在 reka-ui 升版時
  * 產生**第二份**副本 —— 那正是 D15 記過的 `lightningcss` 兩個版本的形狀。
  *
- * ⚠️ v1 這條線上**沒有** `tools/exit-drill` 與 `tools/supply-chain`
- *（它們在 `main`），所以這裡沒有清單要跟著更新。在 `main` 上加這一筆時
- * 要回頭看 D15 記的那四件事。
- *
  * ── ⚠️ `data-slot` 與 `aria-invalid` 掛在 field 上，**不是 Root 上** ──
  *
  * `DatePickerRoot` 是**非渲染的 provider**，掛在它身上的屬性會被安靜丟掉。

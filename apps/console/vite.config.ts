@@ -36,8 +36,7 @@ export default defineConfig(({ mode }) => {
       // 要先確認 D2 的退出演練不會產出一份沒有它的設定、建置成功、
       // 卻交出一個完全沒有樣式的應用。
       //
-      // **這一版沒有東西在守這件事** —— 把那份帳目自動化的 tools/exit-drill
-      // 留在 main（見 CHANGELOG）。在這個腳手架裡它是一條要靠人記得的規矩。
+      // **這一版沒有東西在守這件事** —— 它是一條要靠人記得的規矩。
       tailwindcss(),
 
       // D11 —— 在 dev 就套用安全標頭（report-only）。
