@@ -200,7 +200,7 @@ HANDOFF 那句「一支只 grep `@theme` 有沒有寫的測試，量的是『有
 設定在樹上：根層的 **`stryker.config.mjs`**。
 
 ```
-pnpm exec stryker run                          # 全樹一趟，4 分 0 秒
+pnpm exec stryker run                          # 全樹一趟，1 分 30 秒
 pnpm exec stryker run -m 'platform/pii/src/**' # 只看一個 package，秒的量級
 ```
 
@@ -210,8 +210,21 @@ pnpm exec stryker run -m 'platform/pii/src/**' # 只看一個 package，秒的�
 結構性量不到的 package、時間相依的 timeout 判定。**一道經常因為無關原因變紅的閘門，
 結局是被關掉，而被關掉的閘門連清單都產不出來。** 收緊的前置條件列在 #150。
 
-第一次的基準（10.0.0、`concurrency 4`，單趟全樹）：**78 支產品檔、6,125 個 mutant、
-0 errors，total 33.84%／covered 67.81%**。逐 package 的分佈在 #136。
+第一次的基準（10.0.0，單趟全樹）：**78 支產品檔、6,125 個 mutant、0 errors、
+1 分 30 秒**，total **32.02%**／covered **71.90%**，**692 個存活**。逐 package 的分佈在 #136。
+
+⚠️ **`ignoreStatic: true` 開著，而那是安全性的不是效能的。** 靜態 mutant（在模組載入時
+被執行到的）沒辦法歸屬到某一條測試，所以工具對每一顆都跑整套測試 —— 而整套裡有一支
+會 spawn 真正的產生器 CLI，它底下的 bingo 在某些情況下會 `git add -A` ＋ `git commit`。
+**實測：不開這一條跑一趟全樹，樹上多出一個 `feat: initialized repo ✨` 的 commit，
+內容是整棵被注入過的樹（200 個檔），落在當時所在的分支上，而沒有任何閘門會看到它。**
+開著它，那支測試在變異階段一次都不會跑（`(covered 0)`），順帶時間從 4 分 0 秒降到 1 分 30 秒。
+
+⚠️ **代價**：827 顆靜態 mutant（全部的 14%）因此**不被測試**。關掉這條時它們裡面有
+491 顆是真的被殺掉的 —— 那些訊號沒了。但同一批裡也有**假的存活**：`platform/pii` 的
+`granularity: "grapheme"` → `""` 會讓模組載入時丟 `RangeError`，手工套上去是「整支測試檔
+載不起來、零條測試跑」，而工具記成 **Survived**（17 條在別的檔案裡的測試通過、零條失敗）。
+**「讓模組載不起來」的變異會被記成存活** —— 這是讀那份清單時的第二條守則。
 
 ⚠️ **三支 package 不在射程裡，而「沒有數字」不等於「沒有問題」**：`tools/vue-typecheck`
 （Stryker 為了讓自己的 mutant 不製造型別錯誤而關掉型別檢查，正好關掉那支閘門存在的
@@ -231,7 +244,7 @@ pnpm exec stryker run -m 'platform/pii/src/**' # 只看一個 package，秒的�
 第一個等於新增一道閘門，而這一版明確不新增。
 
 **剩下的是把第一批（#145）那三處擴到其餘的產品碼** —— 而那是這個能力的**用途**，
-不是設定的交付：現在有 984 個存活的 mutant 躺在報表裡等人逐條讀。
+不是設定的交付：現在有 692 個存活的 mutant 躺在報表裡等人逐條讀。
 
 ⚠️ **可行性已經實測過（C108）**：`platform/slice-kit` 跑得起來，
 零錯誤零逾時，時間在秒的量級。兩個真阻斷（TypeScript 7 移除了 Stryker 依賴的

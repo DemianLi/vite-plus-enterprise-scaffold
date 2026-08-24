@@ -55,3 +55,4 @@ coverage/
 reports/
 .stryker-tmp/
 stryker.log
+stryker-setup-*.js
