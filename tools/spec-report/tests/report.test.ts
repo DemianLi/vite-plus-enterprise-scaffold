@@ -147,6 +147,22 @@ describe("CLI 輸出", () => {
     expect(out).toContain("完成率 3/4");
   });
 
+  /**
+   * 🔴 括號裡那個百分比**也要驗**，不是只驗 `3/4`。
+   *
+   * 上面那條 `toContain("完成率 3/4")` 停在分數形式，於是 `rate()` 裡的
+   * `* 100` 改成 `/ 100`（`75.0%` → `0.0%`）**不會有任何測試變紅** ——
+   * 而那是這份報表最外層、最多人只看那一眼的數字。
+   *
+   * ⚠️ #136 的突變測試掉出來的（#145 其二）。這是 C115 記的「三態不夠用」
+   * 之外、**同一支檔案的第二個洞**：三態那次缺的是一個狀態，這次缺的是
+   * 「有人在看那個數字算得對不對」。
+   */
+  it("🔴 完成率的百分比真的算出來 —— 只驗 3/4 的話 `* 100` 改成 `/ 100` 也是綠的", () => {
+    const out = renderCli(resolve(instances, ALL_GREEN), "SPEC-REPORT.md");
+    expect(out).toContain("完成率 3/4（75.0%）");
+  });
+
   it("未執行印得出「接線斷了」，那與「沒綠」是不同的病", () => {
     const out = renderCli(resolve(instances, { testResults: [] }), "SPEC-REPORT.md");
     expect(out).toContain("接線斷了");
