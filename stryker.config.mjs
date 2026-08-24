@@ -19,7 +19,7 @@ const require = createRequire(import.meta.url);
  *
  * ── 怎麼跑 ──────────────────────────────────────────────────────────
  *
- *   pnpm exec stryker run                          # 全樹一趟，約 4 分鐘
+ *   pnpm exec stryker run                          # 全樹一趟，約 1 分 30 秒
  *   pnpm exec stryker run -m 'platform/pii/src/**' # 只看一個 package，秒的量級
  *
  * ⚠️ **工作目錄必須是 repo 根**，而這不是效能選擇：runner 預設只跑「與被改動的
