@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -14,6 +15,7 @@ import {
 } from "../src/rules/design-system.ts";
 import { checkSliceLayering } from "../src/rules/layering.ts";
 import { checkOwnership } from "../src/rules/ownership.ts";
+import { checkFileMode, declaredBinTargets, judgeModes } from "../src/rules/file-mode.ts";
 import { checkPhantomDependencies } from "../src/rules/phantom-deps.ts";
 import { checkRelativeEscapes } from "../src/rules/relative-escape.ts";
 import { checkPackageName, checkSliceNaming } from "../src/rules/slice-shape.ts";
@@ -284,6 +286,112 @@ describe("要一棵目錄樹，但仍然不用起行程", () => {
  * 與 action 釘住那條規則同一個判準：**沒有強制機制的狀態不叫控制**（C52）。
  * 清單會漏掉新檔案，掃目錄不會。
  */
+describe("版控檔案模式：判定沒有 IO，兩個方向都要紅", () => {
+  const bin = (...paths: string[]): ReadonlySet<string> => new Set(paths);
+
+  it("bin 目標是 100644 → 紅", () => {
+    const findings = judgeModes(
+      [{ mode: "100644", path: "tools/demo/src/cli.ts" }],
+      bin("tools/demo/src/cli.ts"),
+    );
+    expect(findings.map((f: Finding) => f.rule)).toEqual(["檔案模式"]);
+  });
+
+  // ⚠️ 反方向不是對稱的裝飾：#140 那次是 `pnpm install` **加上**可執行位。
+  // 只判一個方向的話，模式在樹上散開的主要來源不會有人說話。
+  it("不是 bin 目標卻是 100755 → 也紅", () => {
+    const findings = judgeModes([{ mode: "100755", path: "tools/demo/src/helper.ts" }], bin());
+    expect(findings.map((f: Finding) => f.rule)).toEqual(["檔案模式"]);
+  });
+
+  it("兩邊都對的時候不說話", () => {
+    const findings = judgeModes(
+      [
+        { mode: "100755", path: "tools/demo/src/cli.ts" },
+        { mode: "100644", path: "tools/demo/src/helper.ts" },
+      ],
+      bin("tools/demo/src/cli.ts"),
+    );
+    expect(findings).toEqual([]);
+  });
+
+  // symlink 與 submodule 也會出現在 ls-files -s 裡，而對它們要求 100644 是錯的。
+  it("symlink 與 submodule 不判", () => {
+    const findings = judgeModes(
+      [
+        { mode: "120000", path: "link" },
+        { mode: "160000", path: "vendor/sub" },
+      ],
+      bin(),
+    );
+    expect(findings).toEqual([]);
+  });
+
+  it("bin 的字串形式與物件形式都認得（slice-gen 用的是字串）", () => {
+    const dir = tree({
+      "tools/a/package.json": JSON.stringify({ bin: "./bin/index.ts" }),
+      "tools/b/package.json": JSON.stringify({ bin: { b: "./src/cli.ts" } }),
+    });
+
+    const targets = declaredBinTargets(dir, [
+      { mode: "100644", path: "tools/a/package.json" },
+      { mode: "100644", path: "tools/b/package.json" },
+    ]);
+    expect([...targets].sort()).toEqual(["tools/a/bin/index.ts", "tools/b/src/cli.ts"]);
+  });
+});
+
+/**
+ * 反向測試 —— **在一個丟得掉的 fixture repo 上翻模式，不動這個 repo 的 index。**
+ *
+ * ⚠️ 對真的 index 跑 `git update-index --chmod` 是不行的：翻掉與還原之間
+ * 只要有一次崩潰或中斷，index 就留在髒的狀態，而下一次 `vpr gate` 會為了
+ * 一個完全無關的理由紅 —— 而那正是這道閘門要治的那種「零行 diff 的變更」。
+ *
+ * ⚠️ 用 `cwd:` 傳工作目錄，**不要 `process.chdir()`**：runner 把
+ * `pool: 'threads'` 寫死在原始碼裡，chdir 是整個 worker 共用的。
+ */
+describe("版控檔案模式：反向測試跑在 fixture repo 上", () => {
+  const git = (cwd: string, ...args: string[]): void => {
+    const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+    if (result.status !== 0) throw new Error(`git ${args.join(" ")} 失敗：${result.stderr}`);
+  };
+
+  const fixture = (): string => {
+    const dir = tree({
+      "tools/demo/package.json": JSON.stringify({ bin: { demo: "./src/cli.ts" } }),
+      "tools/demo/src/cli.ts": "#!/usr/bin/env node\\n",
+    });
+    git(dir, "init", "-q");
+    git(dir, "add", "-A");
+    return dir;
+  };
+
+  it("把 bin 目標的可執行位拿掉 → 紅", () => {
+    const dir = fixture();
+    git(dir, "update-index", "--chmod=-x", "tools/demo/src/cli.ts");
+    expect(checkFileMode(dir).findings.map((f: Finding) => f.where)).toEqual([
+      "tools/demo/src/cli.ts",
+    ]);
+  });
+
+  it("補回去 → 綠（否則上面那條可能是恆紅）", () => {
+    const dir = fixture();
+    git(dir, "update-index", "--chmod=+x", "tools/demo/src/cli.ts");
+    const { findings, examined } = checkFileMode(dir);
+    expect(findings).toEqual([]);
+    // ⚠️ 綠燈要附一個非零的對照，否則「零筆」與「一個檔都沒看到」長得一樣。
+    expect(examined).toBe(2);
+  });
+
+  // ⚠️ 「不是 git repo」必須是**丟錯**，不是回傳零筆。回傳零筆就是
+  // 「量不到的東西被記成沒有問題」—— 這棵樹為那個形狀付過兩次學費。
+  it("目錄不是 git repo 時丟錯，不回傳零筆", () => {
+    const dir = tree({ "a.txt": "" });
+    expect(() => checkFileMode(dir)).toThrow();
+  });
+});
+
 describe("規則模組不得有副作用", () => {
   const SRC = resolve(fileURLToPath(import.meta.url), "../../src");
 
