@@ -32,8 +32,6 @@ rules:
     pattern-sinks:
       - pattern: $EL.innerHTML = $X
       - pattern: $EL.outerHTML = $X
-      - pattern: location.href = $X
-      - pattern: window.location.href = $X
       - pattern: window.open($X, ...)
       - pattern: document.write($X)
 
