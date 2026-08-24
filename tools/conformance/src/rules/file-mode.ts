@@ -79,6 +79,18 @@ export function trackedFiles(root: string): readonly TrackedFile[] {
   const result = spawnSync("git", ["ls-files", "-s", "-z"], {
     cwd: root,
     encoding: "utf8",
+    // ⚠️ **這一行有兩顆存活的變異，而它們是等價的 —— 不要為此加一道
+    // `result.error` 的檢查（#157）。**
+    //
+    // 把 64MB 改成 64 bytes（試過 0.0625 也一樣），`spawnSync` 在這條線上的行為是
+    // **`status` 仍然是 0、`error` 被設成 ENOBUFS、而 stdout 一個字都沒有被截斷**
+    // （Node 25.9 實測：23866 bytes／284 列全在）。所以那兩顆變異在真的 repo 上
+    // 回傳的是完全相同的清單 —— 差分測試零分岔。
+    //
+    // 下面那道 `status !== 0` 確實看不到 ENOBUFS，而那是一個真的洞。但這棵樹的
+    // `ls-files` 輸出離 64MB 有**三個數量級**，造不出一條「修之前紅、修之後綠」的
+    // 測試 —— **沒有那條測試就不改產品碼**，否則加進去的是一段沒有人在守的程式碼，
+    // 而它會在下一次有人讀到這兩顆存活時被再發明一次。
     maxBuffer: 64 * 1024 * 1024,
   });
   if (result.status !== 0) {
