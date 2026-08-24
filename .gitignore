@@ -49,3 +49,10 @@ coverage/
 
 # 驗收規格報表的輸入（每次跑測試都會變，不進版控）
 .vitest-results.json
+
+# 突變測試的產物（`stryker.config.mjs`）。每跑一次就整份重寫，不進版控 ——
+# ⚠️ 增量檔尤其：它內嵌每支產品碼與每支測試檔的**完整原始碼**，加一個絕對路徑。
+reports/
+.stryker-tmp/
+stryker.log
+stryker-setup-*.js

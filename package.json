@@ -23,6 +23,8 @@
   },
   "devDependencies": {
     "@org/eslint-config": "workspace:*",
+    "@stryker-mutator/core": "catalog:",
+    "@stryker-mutator/vitest-runner": "catalog:",
     "@vitejs/plugin-vue": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
