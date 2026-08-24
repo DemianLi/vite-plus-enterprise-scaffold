@@ -94,6 +94,21 @@ describe("maskEmail", () => {
   it("🔴 本地部分不得漏出去", () => {
     expect(maskEmail("wang@example.com")).not.toContain("ang");
   });
+
+  /**
+   * 🔴 `@` 在第一個位置 —— `at <= 0` 那條分支存在的唯一理由。
+   *
+   * 把它寫成 `at < 0`，本地部分就是空字串、`value.slice(at)` 把整串原樣接回去，
+   * 結果是 **`@example.com` 一個字都沒遮**。而 `wang@example.com` 這種正常輸入
+   * 在兩種寫法下**完全等價** —— 所以只有站在邊界上的輸入才看得見這個差別。
+   *
+   * ⚠️ 這條是 #136 的突變測試掉出來的（#145 其一）。刪掉它，`<=` 退化成 `<`
+   * 不會有任何測試變紅。
+   */
+  it("🔴 `@` 在開頭時仍然要遮 —— 差一個等號就是原樣輸出", () => {
+    expect(maskEmail("@example.com")).toBe(`@${MASK_CHARACTER.repeat(11)}`);
+    expect(maskEmail("@example.com")).not.toContain("example");
+  });
 });
 
 describe("maskPhone", () => {
@@ -123,6 +138,21 @@ describe("maskNationalId", () => {
 
   it("🔴 中間六碼才是識別資訊，不得漏", () => {
     expect(maskNationalId("A123456780")).not.toContain("2345");
+  });
+
+  /**
+   * 🔴 長度剛好 4 —— 「留首碼與末三碼」在這個長度上等於「什麼都不留給遮」。
+   *
+   * `length <= 4` 寫成 `length < 4` 的話，長度 4 會走下面那條：
+   * 首碼 ＋ `MASK.repeat(0)` ＋ 末三碼 = **原值**。而 `A100000000` 這種正常長度
+   * 在兩種寫法下等價 —— 又是只有邊界看得見。
+   *
+   * ⚠️ #136 掉出來的（#145 其一）。與 maskEmail 那條是同一個病：
+   * 一個隱碼函式在某個長度上靜靜地什麼都不遮。
+   */
+  it("🔴 長度剛好 4 的整個遮掉 —— 差一個等號就是原樣輸出", () => {
+    expect(maskNationalId("A123")).toBe(MASK_CHARACTER.repeat(4));
+    expect(maskNationalId("A123")).not.toContain("123");
   });
 });
 

@@ -93,4 +93,36 @@ describe("apps/console 的 dev 資料端點", () => {
     });
     expect(reply).toMatchObject({ status: 403 });
   });
+
+  /**
+   * 🔴 把 403 說的「我要這個權限」與 `extraPermissions` 補的那一個綁起來。
+   *
+   * ── 上面那條「追加的權限碼都真的有切片在用」守不到什麼 ──────────────
+   *
+   * 它跑的是 `for (const permission of extraPermissions)`。
+   * **`extraPermissions` 變成 `[]` 的話，那個迴圈跑 0 次、測試通過** ——
+   * 它驗的是「宣告的都有人用」，不是「該宣告的都宣告了」，而後者才是
+   * 這個常數存在的理由（見 `bff-routes.ts`：少了它，取消那條路由永遠 403）。
+   *
+   * 所以這一條的來源不是寫死的字串，是**路由自己在 403 裡說的那個權限碼** ——
+   * 兩邊一起改，它仍然對得上；只改一邊，它就紅。順帶它也守住了 403 的
+   * `body`：`toMatchObject({ status: 403 })` 看不到 body 被清空。
+   *
+   * ⚠️ #136 的突變測試掉出來的（#145 其三）。
+   */
+  it("🔴 extraPermissions 補的就是 403 說它要的那一個", () => {
+    const cancel = routes.find((route) => route.path.endsWith("/cancel"));
+    const denied = cancel?.handle({
+      params: { id: "ORD-1001" },
+      query: new URLSearchParams(),
+      body: undefined,
+      permissions: [],
+    }) as { status: number; body: { error: string; required: string } };
+
+    expect(denied.status).toBe(403);
+    expect(denied.body.error).toBe("forbidden");
+    expect(typeof denied.body.required).toBe("string");
+    expect(denied.body.required).not.toBe("");
+    expect(extraPermissions).toContain(denied.body.required);
+  });
 });
