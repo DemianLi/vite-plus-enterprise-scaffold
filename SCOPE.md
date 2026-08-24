@@ -146,6 +146,7 @@ git ls-files -- tools/ platform/   # 這是 tools/scope-check 用的那一條
 | `pnpm-workspace.yaml`    | workspace 成員 ＋ catalog（D6）                                                                                                            |
 | `specs/`                 | **框架承諾**（`.feature`）。v1 對採用團隊的承諾，人逐字讀；由 `tools/promise-check` **真的執行**。⚠️ 與 `features/*/specs/` 不是同一批東西 |
 | `renovate.json`          | 升級提案機制（D16）—— 補「該升了」那一半，其餘閘門答的是「升完什麼壞了」                                                                   |
+| `stryker.config.mjs`     | 突變測試的設定（元層）。⚠️ **不擋任何東西** —— 它產出的是「哪些程式碼被改壞了而測試沒說話」的清單。拉 v1 的團隊補完 TDD 之後，這是唯一能回答「那些測試是不是空頭支票」的東西 |
 | `tsconfig.json`          | 根 TypeScript 設定                                                                                                                         |
 | `vite.config.ts`         | Tier 1 品質快軌設定（D5／D10）＋ 本機模板註冊 ＋ 複雜度門檻（C119）                                                                        |
 
