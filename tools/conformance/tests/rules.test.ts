@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -382,6 +390,28 @@ describe("版控檔案模式：反向測試跑在 fixture repo 上", () => {
     expect(findings).toEqual([]);
     // ⚠️ 綠燈要附一個非零的對照，否則「零筆」與「一個檔都沒看到」長得一樣。
     expect(examined).toBe(2);
+  });
+
+  /**
+   * ⚠️ **這條測試釘的是一個「守不到」，不是一個「守得到」。**
+   *
+   * 事實來源是 `git ls-files -s`，讀的是 **index**。**只翻工作區的模式，
+   * 這道閘門看不到** —— 而 C122 第一版把這件事寫反了（宣稱突變測試跑完
+   * 閘門會紅），那句話跟著 `v1.12.0` 發了出去，四個地方都寫了。
+   *
+   * 分不出這兩種情況的原因，就在這個檔案裡：上面三條全部用
+   * `git update-index --chmod`，那動的是 index。這條補上工作區那條路徑。
+   *
+   * 它綠是**對的**（純本機、還沒進版控的狀態不該讓閘門紅）——
+   * 而 C121 §六 的「跑完看一眼 `git diff --summary`」因此**沒有被取代**。
+   * 這條測試在的理由：哪天有人把事實來源改成檔案系統，這裡會紅，
+   * 而文件與程式碼的分岔會當場被看見，不是被相信。
+   */
+  it("★ 只翻工作區的模式 → 綠（這是限制，不是缺陷 —— C122 §七）", () => {
+    const dir = fixture();
+    git(dir, "update-index", "--chmod=+x", "tools/demo/src/cli.ts");
+    chmodSync(join(dir, "tools/demo/src/cli.ts"), 0o644);
+    expect(checkFileMode(dir).findings).toEqual([]);
   });
 
   // ⚠️ 「不是 git repo」必須是**丟錯**，不是回傳零筆。回傳零筆就是
