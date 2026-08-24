@@ -10,6 +10,51 @@
 
 ---
 
+## [1.10.2] — 2026-08-24
+
+**一道 Tier 2 安全閘門在此之前完全靠兩道文字防呆站著，而那是一個字串巧合。**
+`tier2-security.yml` 的「SAST 規則的反向測試」把 semgrep 的退出碼丟進 `| tee`，
+而 GitHub Actions 的預設 shell 是 `bash -e {0}` —— 有 `-e`，**沒有 `pipefail`**。
+管線取的是 `tee` 的退出碼，semgrep 自己的那個被丟掉了，`-e` 永遠不會為它開火。
+經過與兩次探針的證據見 #144。
+
+### ⚠️ 拉 v1 的團隊：你的樹上漏著同一個洞
+
+這一步從 `v1.0.0` 就是這個寫法。**升上來會補掉它，不會讓任何既有的東西變紅** ——
+`.semgrep/` 的規則與 fixture 一個字都沒改。
+
+### 修正
+
+- **`.github/workflows/tier2-security.yml` 加 `set -o pipefail`。**
+  ⚠️ **兩道文字防呆留著，而實測證明它們不是重複**：`pipefail` 守 semgrep
+  **回傳非 0** 卻被管線吃掉的那一類；兩道文字防呆守它**回傳 0** 的那一類
+  （找不到 fixture 時 semgrep 印一行字然後回傳 0）。缺一不可。
+
+### ⚠️ 兩次探針的對照 —— 這一版真正的產出
+
+同一個退化（拿掉 `tainted-route-input-to-dom-sink` 的兩個 `location.href` sink）、
+同一個釘死 sha256 的 semgrep、輸出逐字相同，唯一的變數是那一行：
+
+```
+沒有 pipefail：  No tests for fixes found.
+                 ✗ 輸出裡找不到通過的測試數 —— 這一步不知道自己驗了什麼
+                 ##[error]Process completed with exit code 1.
+
+有   pipefail：  No tests for fixes found.
+                 ##[error]Process completed with exit code 1.
+```
+
+紅的**位置**不同，而這互相印證兩件事：**semgrep 對「部分測試失敗」回傳非 0**
+（探針 ② 沒走到防呆就紅了，而 `-e` 只能為非 0 開火），**所以探針 ① 那次那個非 0
+真的被 `| tee` 吃掉了**。
+
+⚠️ 修法之前擋住那次退化的，是防呆 ② 的一個字串巧合 ——
+semgrep 印的是 `1 unit tests did not pass`，而 `[0-9]+/[0-9]+: .*tests passed`
+要的是字面「tests **passed**」。**它今天是對的，沒有任何東西保證明天還是對的**：
+升版是一個看起來無害的 sha256 改動，而訊息字串不在任何人的 review 視野裡。
+
+---
+
 ## [1.10.1] — 2026-08-24
 
 **`TESTING.md` §六 元層那一格的第一批 —— 而它是三支測試，不是一個工具。**
