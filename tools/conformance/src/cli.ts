@@ -10,6 +10,7 @@ import { formatReport } from "./report.ts";
 import { loadCodeowners } from "./scan.ts";
 import { checkActionPinning } from "./rules/action-pinning.ts";
 import { checkCspIncompatibleImports } from "./rules/csp.ts";
+import { checkFileMode } from "./rules/file-mode.ts";
 import { checkPhantomDependencies } from "./rules/phantom-deps.ts";
 import { checkSlice } from "./rules/slice.ts";
 
@@ -68,6 +69,15 @@ function parseRoot(argv: readonly string[]): string {
 const ROOT = parseRoot(process.argv.slice(2));
 const FEATURES_DIR = join(ROOT, "features");
 
+/**
+ * `--root` 有沒有被指定 —— 而這不等於「`ROOT` 是不是本 repo」。
+ *
+ * ⚠️ 不能用 `ROOT === <本 repo>` 來判：反向測試把副本放在暫存目錄，
+ * 而一個把 repo 自己的路徑傳進 `--root` 的呼叫是合法的。問的是
+ * **呼叫端有沒有說「去掃別的地方」**，那是一個關於參數的事實，不是關於路徑的。
+ */
+const SANDBOXED = process.argv.slice(2).includes("--root");
+
 // ── 執行 ──────────────────────────────────────────────────────────────
 if (!existsSync(FEATURES_DIR)) {
   console.error(`找不到 features/ 目錄（預期在 ${relative(process.cwd(), FEATURES_DIR)}）`);
@@ -95,6 +105,18 @@ for (const layer of ["features", "platform", "apps"]) {
 
 // CI 的 action 必須以 commit SHA 釘住。與切片無關，掃的是 .github/workflows。
 findings.push(...checkActionPinning(ROOT));
+
+// 版控裡的檔案模式。⚠️ **只在沒有 `--root` 的時候跑** —— 副本不是版控，
+// 這條規則問的問題在那裡沒有答案（不是「答案是綠的」）。理由的完整版在
+// `rules/file-mode.ts` 的檔頭。
+//
+// ⚠️ 這句話帶一個數字，而那個數字只有真的跑過才產得出來 —— 見那支檔尾。
+let fileModeNote = "  ⚠️ --root 之下**沒有**檢查檔案模式 —— 副本不是版控（見 rules/file-mode.ts）";
+if (!SANDBOXED) {
+  const { findings: modeFindings, examined } = checkFileMode(ROOT);
+  findings.push(...modeFindings);
+  fileModeNote = `  含版控檔案模式：${examined} 個版控檔案（bin 目標須 100755，其餘 100644）`;
+}
 
 // 幽靈依賴：**逐 package** 檢查，不是逐層 —— 因為比對的對象是
 // 「這個 package 自己的 package.json」，而每一層底下有很多個。
@@ -126,6 +148,9 @@ for (const layer of ["features", "platform", "apps"]) {
  */
 if (findings.length === 0) {
   console.log(`✓ 一致性檢查通過（${slices.length} 個切片）`);
+  // ⚠️ 少一條規則要說出來，不是安靜少跑。這棵樹已經為「量不到被記成沒問題」
+  // 付過學費（覆蓋率的預設射程、ESLint 裝在 repo 外面）。
+  console.log(fileModeNote);
 } else {
   process.stderr.write(formatReport(findings));
   process.exitCode = 1;
