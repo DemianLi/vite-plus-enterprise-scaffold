@@ -11,6 +11,7 @@ import {
   trackedSlices,
   type SliceInfo,
 } from "./breakage.ts";
+import { CLI_SUFFIX, probeRootSupport } from "./probe.ts";
 import { parseSpec, type PromiseScenario } from "./spec.ts";
 
 /**
@@ -37,10 +38,14 @@ import { parseSpec, type PromiseScenario } from "./spec.ts";
  *
  * 接不上的規格跑出來的紅燈，指的是接線而不是承諾。先把接線修好，
  * 再讓執行結果說話 —— 兩種紅燈混在同一份報告裡，人會修錯那一個。
+ *
+ * ── ⚠️ 第 3 條有一個它自己看不見的前提，見 `probe.ts` ────────────────
+ *
+ * 「真的跑」的前提是**閘門真的看了我給它的那份副本**。這條線上的閘門
+ * 一律靜默忽略不認得的旗標（C123 §一），而閘門在量真樹的樣子，是
+ * 每一條「必須綠」都成功變綠 —— 對照組守的是相反的方向，接不住它。
+ * 所以執行之前先探一次：`probeRootSupport`。
  */
-
-/** 閘門的 CLI 路徑慣例。這條線上每一支閘門都是這個形狀。 */
-const CLI_SUFFIX = "src/cli.ts";
 
 /** 閘門鏈住在根 `package.json` 的這個 script 裡（`vpr gate` 跑的就是它）。 */
 const GATE_SCRIPT = "gate";
@@ -263,6 +268,27 @@ export function checkPromises(root: string, specs: readonly string[]): CheckResu
       );
       return;
     }
+
+    // ⚠️ 執行之前先探一次：**被指名的閘門真的看得見那份副本嗎**。
+    // 這一趟放在最後（它要 spawn，比上面每一條都貴），但一定在執行之前 ——
+    // 一支在量真樹的閘門會讓每一條「必須綠」都成功變綠、每一條「必須紅」
+    // 都報〈承諾沒有牙齒〉，而那則訊息會把人指向閘門或規格，兩個都不對。
+    for (const gate of new Set(scenarios.map((scenario) => scenario.gate))) {
+      const probe = probeRootSupport(root, gate);
+      if (probe.readsRoot) continue;
+      record(
+        gate,
+        "閘門指不到副本",
+        probe.evidence,
+        "這道閘門忽略了 `--root`，所以接在它身上的每一條承諾**量的是真樹，不是那份被弄壞的副本**。" +
+          "⚠️ 這不會長成「沒有東西在跑」，會長成**全綠**，或是一則指向錯誤地方的〈承諾沒有牙齒〉。" +
+          "⚠️ 對照組接不住這個方向：那道保險守的是「沙盒建壞掉」（偽陽性），這裡是「閘門沒看沙盒」（偽陰性）。" +
+          "修法是讓那支閘門讀 `--root`，而第一步是讓它**對不認得的旗標失敗**（#167／C123 §一）。" +
+          "⚠️ 少數情形下這是誤判：閘門讀了 `--root`，而它對一個空目錄的輸出恰好與真樹逐字相同 —— " +
+          "那時候要改的是 `src/probe.ts`，不是閘門。",
+      );
+    }
+    if (problems > 0) return;
 
     for (const scenario of [...control, ...scenarios.filter((s) => s.expectRed)]) {
       const failed = execute(root, slices, scenario, record);
