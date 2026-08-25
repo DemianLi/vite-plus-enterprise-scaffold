@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -69,22 +69,49 @@ import { EXCLUDED_PROBE, EXCLUDED_PROBE_MARK } from "../tests/excluded-probe.ts"
  */
 
 /**
- * ⚠️ **這支不吃任何旗標 —— 而「不吃」必須是一句話，不是一片沉默**（C126）。
+ * ⚠️ **`--root` 指的是「被驗的對象在哪」，不是「這支工具跑在哪」**（C127 §一）。
  *
- * 空 spec 在 `parseFlags` 底下的意思是**拒絕所有旗標**，不是放行所有旗標。
- * 少了這三行，`node <這支> --anything` 會靜靜地跑一趟預設路徑然後回 0 ——
- * 而 CI 上留著一個被拿掉的旗標時，那一步會頂著它原本的名字回傳綠燈
- * （C52 付過這筆學費，完整量測在 C125 §一）。
+ * 這兩件事在 C127 之前混在同一個 `ROOT` 底下，而分不開的代價是量得到的：
+ * `fixtures/` 跟著副本走的話，副本不是 pnpm workspace、沒有 `node_modules`，
+ * 建置半 **25 毫秒就爆** `Can't resolve '@org/ui/styles.css'`（C123 §五）。
+ *
+ * 所以兩個基準點，各自釘死：
+ *
+ * | 基準點     | 是什麼                              | 隨 `--root` 走？ |
+ * | ---------- | ----------------------------------- | ---------------- |
+ * | `ROOT`     | 被驗的對象（元件、代幣、切片／應用）| ✅               |
+ * | `SELF`     | 這支工具自己的素材（`fixtures/`）   | ❌ 釘在磁碟上    |
+ *
+ * ⚠️ **不認得的旗標仍然一律失敗**（C126）：spec 裡只有 `--root` 這一個，
+ * `--roo` 打錯一個字母是紅的。空 spec 在 `parseFlags` 底下是「拒絕所有旗標」，
+ * 多一個 spec 也只是多放行那一個 —— 兩者都不是「放行所有」。
  */
-const FLAGS = parseFlags(process.argv.slice(2), {});
+const FLAGS = parseFlags(process.argv.slice(2), {
+  root: { kind: "value", noun: "目錄" },
+} as const);
+
 if (!FLAGS.ok) {
   console.error(FLAGS.message);
   process.exit(1);
 }
 
-const ROOT = resolvePath(fileURLToPath(import.meta.url), "../../../..");
+/**
+ * `--root` 有沒有被指定 —— ⚠️ **不等於「`ROOT` 是不是本 repo」**。
+ * 反向測試把副本放在暫存目錄，而一個把 repo 自己的路徑傳進 `--root` 的呼叫
+ * 是合法的。問的是**呼叫端有沒有說「去驗別的地方」**。
+ * （同一段話在 `tools/conformance/src/cli.ts` 的 `SANDBOXED` 旁邊。）
+ */
+const SANDBOXED = FLAGS.flags.root !== undefined;
+
+const ROOT =
+  FLAGS.flags.root === undefined
+    ? resolvePath(fileURLToPath(import.meta.url), "../../../..")
+    : resolvePath(FLAGS.flags.root);
+/** 這支工具自己所在的目錄。⚠️ 從**磁碟位置**算，與 `--root` 無關。 */
+const SELF = resolvePath(fileURLToPath(import.meta.url), "../..");
+
 const COMPONENTS = join(ROOT, "platform/ui/src/components");
-const FIXTURES = join(ROOT, "tools/theme-verify/fixtures");
+const FIXTURES = join(SELF, "fixtures");
 const THEME_CSS = join(ROOT, "platform/ui/src/styles/index.css");
 
 let failures = 0;
@@ -94,9 +121,17 @@ function fail(rule: string, detail: string, fix: string): void {
   console.error(`\n✗ ${rule}\n  ${detail}\n  → ${fix}`);
 }
 
-/** 讀一次，兩半都用。靜態檢查掃它們，建置比對拿它們的類別當濾網。 */
+/**
+ * 讀一次，兩半都用。靜態檢查掃它們，建置比對拿它們的類別當濾網。
+ *
+ * ⚠️ **目錄不存在時要回空的，不是 ENOENT。** `--root` 指得到一份沒有
+ * `platform/ui` 的副本，而 `runStatic` 底下那條〈元件目錄是空的〉紅燈
+ * 就是為這一格寫的（「這條檢查掃不到東西時會全綠 —— 那正是綠燈代表沒有人看」）。
+ * 讓 `readdirSync` 直接丟的話，那條精心寫過的紅燈**永遠到不了**，
+ * 人看到的是一段 stack trace。
+ */
 const componentSources = new Map<string, string>(
-  readdirSync(COMPONENTS)
+  (existsSync(COMPONENTS) ? readdirSync(COMPONENTS) : [])
     .filter((file) => file.endsWith(".vue"))
     .map((file) => [file, readFileSync(join(COMPONENTS, file), "utf8")]),
 );
@@ -139,7 +174,12 @@ function collectViews(dir: string, out: Map<string, string>): void {
 }
 
 const consumerSources = new Map<string, string>();
-for (const root of CONSUMER_ROOTS) collectViews(join(ROOT, root), consumerSources);
+for (const root of CONSUMER_ROOTS) {
+  // 同 componentSources 那一格的理由：不存在就跳過，讓〈切片與應用底下
+  // 找不到任何 .vue〉那條紅燈說話。
+  const dir = join(ROOT, root);
+  if (existsSync(dir)) collectViews(dir, consumerSources);
+}
 
 function describeUntranslated(violation: PaletteViolation): string {
   return (
@@ -207,6 +247,18 @@ function runStatic(): void {
    * 靜靜地開始誤報或漏報 —— 而 `--color-muted` → `--color-fg-muted` 這種
    * 改名真的發生過（見 index.css 那一格的註解）。
    */
+  // ⚠️ 檔案不存在與「@theme 是空的」要分得開：前者是副本少了一層
+  // （沙盒契約破了，見 promise-check 的 `makeSandbox`），後者是代幣被刪光。
+  // 兩件事的修法不一樣，共用一則訊息會讓人去修錯的那一個。
+  if (!existsSync(THEME_CSS)) {
+    fail(
+      "代幣檔不見了",
+      `找不到 ${relative(ROOT, THEME_CSS)}`,
+      "被驗的那棵樹底下沒有 platform/ui 的代幣宣告。" +
+        "指了 `--root` 的話，那份副本少了一層 —— 補齊它，不要放寬這條檢查",
+    );
+    return;
+  }
   const declared = declaredColorTokens(readFileSync(THEME_CSS, "utf8"));
   if (declared.size === 0) {
     fail(
@@ -557,11 +609,55 @@ async function runBuilds(): Promise<void> {
   }
 }
 
+/**
+ * ⚠️ **`--root` 之下建置半不跑 —— 而理由不是它會失敗，是它會成功**（C127 §三）。
+ *
+ * C123 §五 量到的是「25 毫秒就爆 `Can't resolve '@org/ui/styles.css'`」，
+ * 而那個爆炸的原因是**當時 `fixtures/` 也跟著副本走**。C127 §一 把素材釘回
+ * 這支工具自己身上之後重量一次，結果整個翻過來：
+ *
+ * ```
+ * 沙盒刻意刪掉 UiSwitch.vue、並把副本的 index.css 掏成一行註解
+ * → ✓ 靜態：26 個元件…            （讀了副本 ✅）
+ * → ✓ 引用：2 份產物共 200 格代幣宣告、0 處懸空引用
+ * ```
+ *
+ * **副本的設計系統是空的，而它報了 200 格。** 建置走 `@import "@org/ui/styles.css"`，
+ * 那個名字從 `fixtures/` 經 `node_modules` 解析到**真樹**的 `platform/ui`，
+ * 而那份 CSS 的 `@source` 是一條從**真樹根部**往下的 glob（見 `runReferences`
+ * 的檔頭）。副本從頭到尾沒有參與。
+ *
+ * ⚠️ **這比「會失敗」危險得多，而且 `promise-check` 的探針接不住它**：
+ * `probeRootSupport` 比的是兩趟輸出有沒有差別，而靜態半確實有差別 ——
+ * 於是這支會被判成「讀了 `--root`」，然後建置半頂著閘門的名字報真樹的數字。
+ * 那正是 C124 建來抓的那個形狀，只是低了一層。
+ *
+ * ⚠️ **所以這裡不是「跳過一段慢的檢查」，是一句範疇聲明**：配色可換性那條軸
+ * 在副本上**沒有辦法驗**（要驗就得讓副本 install 得起來，那是全樹副本的量級）。
+ * ⚠️ **不准有任何承諾把「那麼」綁在建置半的字串上而用 `--root` 跑** ——
+ * `check.ts` 比對的是 `output.includes(fragment)`，而這裡印出來的每一個字
+ * 都刻意與建置半的三行 ✓ 不同，就是為了讓那種接法接不上。
+ *
+ * ⚠️ 同一條路上的先例：`conformance` 在 `--root` 之下不檢查版控檔案模式，
+ * 而它也是**印一行說自己沒檢查**，不是安靜跳過。
+ */
+const SANDBOX_NOTE =
+  "  ⚠️ --root 之下**沒有**跑建置半 —— 建置解析的是真樹的 @org/ui（見這支檔尾）。\n" +
+  "  副本上驗得到的只有靜態那一條軸。";
+
 runStatic();
-await runBuilds();
+if (SANDBOXED) {
+  console.log(SANDBOX_NOTE);
+} else {
+  await runBuilds();
+}
 
 if (failures > 0) {
   console.error(`\n✗ 設計系統接縫：${failures} 項未通過`);
   process.exit(1);
 }
-console.log("✓ 設計系統接縫：配色與形狀兩條軸都實測可換（互動軸由 api-surface 守，見 C67）");
+console.log(
+  SANDBOXED
+    ? "✓ 設計系統接縫（只有靜態半）：被驗的那棵樹上 0 處原始顏色。⚠️ 配色可換性**沒有驗**"
+    : "✓ 設計系統接縫：配色與形狀兩條軸都實測可換（互動軸由 api-surface 守，見 C67）",
+);
