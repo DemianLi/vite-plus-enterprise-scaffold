@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { formatReport } from "@org/conformance/report";
+import { parseFlags } from "@org/gate-kit";
 
 import { checkPromises } from "./check.ts";
 
@@ -35,11 +36,14 @@ import { checkPromises } from "./check.ts";
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 
-function parseFlag(argv: readonly string[], name: string, fallback: string): string {
-  const index = argv.indexOf(name);
-  return index >= 0 ? (argv[index + 1] ?? fallback) : fallback;
-}
-
+/**
+ * ⚠️ **`--spec` 可以重複，而 `parseFlags` 只留最後一個。**
+ *
+ * 所以這一支對 `parseFlags` 的用法是刻意分開的兩件事：它負責
+ * **「不認得的旗標一律失敗」**（那是它存在的理由，C125），取值仍然走下面
+ * 這個函式。⚠️ 不要為了統一而把 `--spec` 改成只吃一個 —— 那是拿一道防線
+ * 去換一次能力縮減，而縮減掉的正是反向測試餵多份改壞規格的那條路。
+ */
 function parseRepeated(argv: readonly string[], name: string): string[] {
   const values: string[] = [];
   for (let i = argv.indexOf(name); i >= 0; i = argv.indexOf(name, i + 1)) {
@@ -68,7 +72,18 @@ function trackedSpecs(root: string): string[] {
 }
 
 const argv = process.argv.slice(2);
-const root = resolve(parseFlag(argv, "--root", ROOT));
+
+const flags = parseFlags(argv, {
+  root: { kind: "value", fallback: ROOT, noun: "目錄" },
+  spec: { kind: "value", noun: "規格檔路徑" },
+} as const);
+
+if (!flags.ok) {
+  process.stderr.write(`${flags.message}\n`);
+  process.exit(1);
+}
+
+const root = resolve(flags.flags.root);
 const explicit = parseRepeated(argv, "--spec");
 const specs = explicit.length > 0 ? explicit : trackedSpecs(root);
 

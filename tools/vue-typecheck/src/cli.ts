@@ -3,6 +3,8 @@ import { existsSync } from "node:fs";
 import { join, relative, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { parseFlags } from "@org/gate-kit";
+
 import { discoverPrograms, missingViews, type Program } from "./programs.ts";
 import { runVueTsc } from "./run.ts";
 
@@ -80,6 +82,20 @@ import { runVueTsc } from "./run.ts";
  */
 
 const HERE = resolvePath(fileURLToPath(import.meta.url), "..");
+/**
+ * ⚠️ **這支不吃任何旗標 —— 而「不吃」必須是一句話，不是一片沉默**（C126）。
+ *
+ * 空 spec 在 `parseFlags` 底下的意思是**拒絕所有旗標**，不是放行所有旗標。
+ * 少了這三行，`node <這支> --anything` 會靜靜地跑一趟預設路徑然後回 0 ——
+ * 而 CI 上留著一個被拿掉的旗標時，那一步會頂著它原本的名字回傳綠燈
+ * （C52 付過這筆學費，完整量測在 C125 §一）。
+ */
+const FLAGS = parseFlags(process.argv.slice(2), {});
+if (!FLAGS.ok) {
+  console.error(FLAGS.message);
+  process.exit(1);
+}
+
 const ROOT = resolvePath(HERE, "../../..");
 const BIN = join(HERE, "../node_modules/vue-tsc/bin/vue-tsc.js");
 

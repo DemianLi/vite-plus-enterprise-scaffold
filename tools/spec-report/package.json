@@ -12,7 +12,8 @@
     "check": "vp check"
   },
   "dependencies": {
-    "@amiceli/vitest-cucumber": "catalog:"
+    "@amiceli/vitest-cucumber": "catalog:",
+    "@org/gate-kit": "workspace:*"
   },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",

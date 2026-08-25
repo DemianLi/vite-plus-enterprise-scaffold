@@ -1,25 +1,20 @@
 {
-  "name": "@org/scope-check",
+  "name": "@org/gate-kit",
   "version": "0.0.0",
   "private": true,
-  "description": "SCOPE.md 列的東西與版控裡真正存在的東西是否一致",
-  "bin": {
-    "scope-check": "./src/cli.ts"
-  },
+  "description": "閘門底下那一層：旗標解析（⚠️ 這條線只帶 parseFlags —— C125 §五）",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "test": "vp test",
     "check": "vp check"
-  },
-  "dependencies": {
-    "@org/conformance": "workspace:*",
-    "@org/gate-kit": "workspace:*"
   },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   }
