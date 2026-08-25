@@ -4,6 +4,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { parseFlags } from "@org/gate-kit";
+
 import { collectInstances, type SpecFile } from "./collect.ts";
 import { resolve, type VitestResults } from "./match.ts";
 import { renderCli, renderReport, tally } from "./render.ts";
@@ -137,20 +139,38 @@ function readResults(
   return { results: { testResults: merged }, missing };
 }
 
-function readFlag(argv: readonly string[], name: string): string | undefined {
-  const index = argv.indexOf(name);
-  if (index < 0) return undefined;
-  return argv[index + 1];
-}
+/**
+ * ⚠️ **`--chec` 打錯一個字母，這支在此之前不會紅** —— 它會走「沒有 `--check`」
+ * 那條分支，把報表**覆寫成當下現況**然後回 0。那道閘門於是從「報表過期就紅」
+ * 變成「把報表改成永遠不過期」，而 `tier1-quality.yml` 裡那一行就是 `--check`。
+ * 完整量測在 C125 §一（連 `git status` 為什麼是乾淨的都在裡面）。
+ *
+ * ⚠️ **`--results` 可以重複，而 `parseFlags` 只留最後一個** —— 取值仍然由
+ * `readResults` 自己走 `argv`。`parseFlags` 在這裡的職責是**不認得的旗標
+ * 一律失敗**，不是取值。
+ */
+const FLAG_SPEC = {
+  check: { kind: "boolean" },
+  help: { kind: "boolean" },
+  report: { kind: "value", fallback: REPORT_DEFAULT, noun: "檔案路徑" },
+  results: { kind: "value", noun: "檔案路徑" },
+  root: { kind: "value", noun: "目錄" },
+} as const;
 
 export function main(argv: readonly string[]): number {
-  if (argv.includes("--help")) {
+  const flags = parseFlags(argv, FLAG_SPEC);
+  if (!flags.ok) {
+    process.stderr.write(`${flags.message}\n`);
+    return 1;
+  }
+
+  if (flags.flags.help) {
     process.stdout.write(`${USAGE}\n`);
     return 0;
   }
 
-  const root = readFlag(argv, "--root") ?? repoRoot();
-  const reportPath = readFlag(argv, "--report") ?? REPORT_DEFAULT;
+  const root = flags.flags.root ?? repoRoot();
+  const reportPath = flags.flags.report;
 
   const specs = findSpecs(root);
   const { results, missing } = readResults(root, specs, argv);
@@ -193,7 +213,7 @@ export function main(argv: readonly string[]): number {
 
   let staleReport = false;
 
-  if (argv.includes("--check")) {
+  if (flags.flags.check) {
     let current: string | null = null;
     try {
       current = readFileSync(absoluteReport, "utf8");

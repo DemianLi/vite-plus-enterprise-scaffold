@@ -3,6 +3,9 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "
 import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+
+import { parseFlags } from "@org/gate-kit";
+
 import { extractSurface, type EntryPoint } from "./shape.ts";
 import {
   compareSurface,
@@ -38,6 +41,28 @@ import { checkIndexAgreement, trackedPackageDirs } from "./tracked.ts";
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const PLATFORM_DIR = join(ROOT, "platform");
+
+/**
+ * ⚠️ **解析交給 `@org/gate-kit` 的 `parseFlags`（C125／C126）：不認得的旗標
+ * 一律失敗。** 被取代的版本是四段手寫的查找加一句「其餘無視」—— 於是
+ * `--updat` 打錯一個字母會走**比對**那條路而不是更新那條，回傳 exit 0，
+ * 而跑它的人以為基準更新過了。⚠️ 那還是這四個裡最溫和的一種：
+ * `--baselin`／`--platfor`／`--referenc` 打錯字會讓它**比對預設位置然後回綠**。
+ */
+const FLAGS = parseFlags(process.argv.slice(2), {
+  baseline: { kind: "value", noun: "檔案路徑" },
+  platform: { kind: "value", noun: "目錄路徑" },
+  reference: { kind: "value", noun: "檔案路徑" },
+  update: { kind: "boolean" },
+} as const);
+
+if (!FLAGS.ok) {
+  console.error(FLAGS.message);
+  process.exit(1);
+}
+
+/** 收窄之後的旗標。⚠️ 上面那句 `process.exit` 在型別上不收窄 `FLAGS`，所以取一次。 */
+const flags = FLAGS.ok ? FLAGS.flags : undefined;
 const CODEMODS_DIR = join(ROOT, "tools/codemods");
 /**
  * 基準檔格式版本。
@@ -76,19 +101,14 @@ const BASELINE_VERSION = 3;
  * ⚠️ 與 tools/conformance 的 `--root` 一樣刻意**不做環境變數版本** ——
  * env 會繼承到子行程，沒清乾淨會讓 CI 安靜地比對錯的基準然後回報通過。
  */
-function parseBaselinePath(argv: readonly string[]): string {
-  const at = argv.indexOf("--baseline");
-  if (at === -1) return join(ROOT, "tools/api-surface/surface.json");
-  const value = argv[at + 1];
-  if (value === undefined || value.startsWith("--")) {
-    console.error("--baseline 後面要接一個檔案路徑");
-    process.exit(1);
-  }
+function parseBaselinePath(): string {
+  const value = flags?.baseline;
+  if (value === undefined) return join(ROOT, "tools/api-surface/surface.json");
   return resolve(value);
 }
 
-const BASELINE_PATH = parseBaselinePath(process.argv.slice(2));
-const shouldUpdate = process.argv.includes("--update");
+const BASELINE_PATH = parseBaselinePath();
+const shouldUpdate = flags?.update === true;
 
 /**
  * `--platform <dir>` 讓反向測試能對一個 fixture 套件跑。
@@ -103,18 +123,13 @@ const shouldUpdate = process.argv.includes("--update");
  * 所以測試改成指向 `tools/api-surface/tests/fixtures/`：一個自帶 tsconfig
  * 的小套件，被改壞了也只影響它自己。
  */
-function parsePlatformDir(argv: readonly string[]): string {
-  const at = argv.indexOf("--platform");
-  if (at === -1) return PLATFORM_DIR;
-  const value = argv[at + 1];
-  if (value === undefined || value.startsWith("--")) {
-    console.error("--platform 後面要接一個目錄路徑");
-    process.exit(1);
-  }
+function parsePlatformDir(): string {
+  const value = flags?.platform;
+  if (value === undefined) return PLATFORM_DIR;
   return resolve(value);
 }
 
-const PLATFORM = parsePlatformDir(process.argv.slice(2));
+const PLATFORM = parsePlatformDir();
 
 /**
  * 產出的形狀參考。放根層是為了被找得到 —— 演練那個人光是找產生器就花了五到十分鐘。
@@ -124,9 +139,9 @@ const PLATFORM = parsePlatformDir(process.argv.slice(2));
  * 永遠不會被觸發，而唯一能驗它的辦法是去動真的 `API.md` —— 被中斷就留下殘骸。
  * （C98 §四之三 記過同一個形狀：絆線沒掛在接線上。）
  */
-function parseReferencePath(argv: readonly string[]): string | null {
-  const at = argv.indexOf("--reference");
-  if (at === -1) {
+function parseReferencePath(): string | null {
+  const value = flags?.reference;
+  if (value === undefined) {
     // ⚠️ **沒有 `--reference` 時，只有跑真正的 `platform/` 才碰根層那份。**
     //
     // 這一條是踩到才加的：`tests/negative.test.ts` 有一處 `--update` 是拿來
@@ -135,15 +150,10 @@ function parseReferencePath(argv: readonly string[]): string | null {
     // 叫測試補參數也能修，但那把陷阱留在原地等下一個人。
     return PLATFORM === PLATFORM_DIR ? join(ROOT, "API.md") : null;
   }
-  const value = argv[at + 1];
-  if (value === undefined || value.startsWith("--")) {
-    console.error("--reference 後面要接一個檔案路徑");
-    process.exit(1);
-  }
   return resolve(value);
 }
 
-const REFERENCE_PATH = parseReferencePath(process.argv.slice(2));
+const REFERENCE_PATH = parseReferencePath();
 
 /**
  * ⚠️ 回傳值多帶一個 `dirs` —— **它收下了哪幾個目錄**。

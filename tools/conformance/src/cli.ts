@@ -3,6 +3,7 @@ import { readdirSync, existsSync, statSync } from "node:fs";
 import { join, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { parseFlags } from "@org/gate-kit";
 import { slicePackageName } from "@org/slice-kit/contract";
 
 import type { Finding } from "./finding.ts";
@@ -53,20 +54,25 @@ import { checkSlice } from "./rules/slice.ts";
  * ⚠️ 刻意**不做**環境變數版本。env 會被繼承到子行程，
  * 一個沒清乾淨的 `CONFORMANCE_ROOT` 會讓 CI 安靜地掃錯目錄然後回報通過。
  * 明確的旗標做不到這件事。
+ *
+ * ⚠️ **解析交給 `@org/gate-kit` 的 `parseFlags`（C125／C126）。** 被取代的
+ * 版本是 `argv.indexOf("--root")` 加一句「其餘無視」—— 於是 `--roo` 打錯
+ * 一個字母仍然 `✓ 一致性檢查通過（2 個切片）` 而 exit 0（C123 §一 實測）。
+ * **不認得的旗標一律失敗**，理由寫在 `gate-kit/src/flags.ts` 的檔頭。
  */
-function parseRoot(argv: readonly string[]): string {
-  const at = argv.indexOf("--root");
-  if (at === -1) return resolve(fileURLToPath(import.meta.url), "../../../..");
+const FLAGS = parseFlags(process.argv.slice(2), {
+  root: { kind: "value", noun: "目錄" },
+} as const);
 
-  const value = argv[at + 1];
-  if (value === undefined || value.startsWith("--")) {
-    console.error("--root 後面要接一個目錄");
-    process.exit(1);
-  }
-  return resolve(value);
+if (!FLAGS.ok) {
+  console.error(FLAGS.message);
+  process.exit(1);
 }
 
-const ROOT = parseRoot(process.argv.slice(2));
+const ROOT =
+  FLAGS.flags.root === undefined
+    ? resolve(fileURLToPath(import.meta.url), "../../../..")
+    : resolve(FLAGS.flags.root);
 const FEATURES_DIR = join(ROOT, "features");
 
 /**
@@ -76,7 +82,7 @@ const FEATURES_DIR = join(ROOT, "features");
  * 而一個把 repo 自己的路徑傳進 `--root` 的呼叫是合法的。問的是
  * **呼叫端有沒有說「去掃別的地方」**，那是一個關於參數的事實，不是關於路徑的。
  */
-const SANDBOXED = process.argv.slice(2).includes("--root");
+const SANDBOXED = FLAGS.flags.root !== undefined;
 
 // ── 執行 ──────────────────────────────────────────────────────────────
 if (!existsSync(FEATURES_DIR)) {

@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "@amiceli/vitest-cucumber": "catalog:",
-    "@org/conformance": "workspace:*"
+    "@org/conformance": "workspace:*",
+    "@org/gate-kit": "workspace:*"
   },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
