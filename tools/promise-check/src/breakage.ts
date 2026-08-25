@@ -1,7 +1,15 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 /**
  * 規格裡那句「假設」→ 真的把樹弄壞的那段動作。**接線，不是規格。**
@@ -77,7 +85,69 @@ export function trackedSlices(root: string): SliceInfo[] {
 }
 
 /**
- * 建一份切片副本。
+ * 沙盒契約：切片以外，副本裡還有哪幾層。
+ *
+ * ⚠️ **這一份是契約，不是最佳化。** 少一層的症狀不是「那一層沒被檢查」，
+ * 是被指名的閘門在那一層上**噴 ENOENT 或安靜地掃到 0 個檔** —— 而 0 個檔
+ * 在每一條「必須紅」上都長成〈承諾沒有牙齒〉，在對照組上長成綠燈。
+ *
+ * 逐層的理由：
+ *
+ * | 層         | 誰在副本上讀它                                              |
+ * | ---------- | ----------------------------------------------------------- |
+ * | `platform` | `theme-verify` 的元件與代幣；`conformance` 的 CSP 與幽靈依賴 |
+ * | `apps`     | 同上（`theme-verify` 的消費端那一半也掃它）                  |
+ * | `.github`  | `conformance` 的 `checkActionPinning`                        |
+ *
+ * ⚠️ **`.github` 是 C127 §二 補的第三層，而它補的是一個沒有人看見的洞**：
+ * `checkActionPinning` **無條件執行**，而它開頭是 `if (!existsSync(dir)) return;`
+ * —— 副本裡沒有 `.github` 的時候它掃 0 個檔、什麼都不說、然後那道閘門全綠。
+ * 那正是這一則其他地方在擋的形狀，只是它藏在一個 early return 裡。
+ *
+ * ⚠️ **`tools/` 刻意不在裡面。** 閘門自己的素材（`theme-verify` 的
+ * `fixtures/`）不隨 `--root` 走 —— 那是 C127 §一 判的：`--root` 指的是
+ * **被驗的對象**，不是「這支工具跑在哪」。素材跟著副本走的話，副本裡沒有
+ * `node_modules`，而那條路徑上一次量到的是「25 毫秒就爆」。
+ *
+ * ⚠️ **一層在版控裡是空的，這裡刻意不報錯。** 複製走 `git ls-files`，
+ * 所以「複製到 0 個檔」的意思就是「這棵樹上本來就沒有那一層」—— 副本仍然
+ * 忠實地反映了真樹，而閘門在真樹上看到的也是同一個「沒有」。
+ * 對一個把 `apps/` 換掉的 fork 丟錯，是拿一則關於他們沒做錯的事的錯誤訊息
+ * 去換一個這裡本來就守不住的東西（C95／C97 記過這條）。
+ * **守這份契約的是 `tests/sandbox.test.ts`**：它逐層比對副本與真樹的檔數 ——
+ * 打錯一個層名（`platfrom`）在那裡是紅的。
+ */
+export const SANDBOX_LAYERS = ["platform", "apps", ".github"] as const;
+
+/**
+ * 把版控裡 `dir` 底下的檔案複製過去。
+ *
+ * ⚠️ **事實來源是 `git ls-files`，不是 `cpSync` 遞迴**（C73／C98 那條規矩，
+ * `trackedSlices` 已經照著做）。差別在切分支留下的殘骸：磁碟上多一個
+ * `platform/ui/src/components/Foo.vue`，`theme-verify` 在副本上就會數到
+ * 一個真樹沒有的元件 —— 而那個數字正是承諾要比對的東西。
+ * 順帶把 `node_modules`／`dist` 濾掉了：它們本來就不在版控裡。
+ */
+function copyTracked(root: string, dir: string, dest: string): void {
+  const result = spawnSync("git", ["ls-files", "-z", "--", dir], { cwd: root, encoding: "utf8" });
+  if (result.status !== 0) {
+    throw new Error(`[promise-check] git ls-files ${dir} 失敗：${result.stderr}`);
+  }
+
+  for (const path of result.stdout.split("\0")) {
+    if (path.length === 0) continue;
+    const from = join(root, path);
+    // 版控裡有、磁碟上沒有：切到一半的 rebase、或者有人手動刪了檔還沒 commit。
+    // 副本少一個檔，而 `tests/sandbox.test.ts` 的逐層檔數比對會說話。
+    if (!existsSync(from)) continue;
+    const to = join(dest, path);
+    mkdirSync(dirname(to), { recursive: true });
+    cpSync(from, to);
+  }
+}
+
+/**
+ * 建一份副本。
  *
  * ⚠️ **改副本，不改 repo** —— repo 的原始碼一個位元組都不會被動到。
  * 這一條是這道閘門敢在 `vpr gate` 裡跑的全部理由：它會在**別人的樹上**跑。
@@ -87,18 +157,17 @@ export function trackedSlices(root: string): SliceInfo[] {
  * 「跨切片依賴」那條**永遠測不出來** —— 而閘門會顯示綠燈。
  * （`tools/conformance/tests/negative.test.ts` 的第一版就是這樣，那次的
  * 註解裡寫著這個理由、然後照樣斷言它會紅。）
+ *
+ * ⚠️ **`SANDBOX_LAYERS` 是 C127 §二 補進來的，而它補的不是「更完整」。**
+ * 在此之前副本裡只有切片：`theme-verify` 指過去會在 `platform/ui/src/components`
+ * 上 ENOENT，`conformance` 的 CSP 那條、幽靈依賴那條與 action 釘版本那條
+ * 在副本上掃 0 個目錄 —— 三者都不是「那裡沒有違規」，是**沒有人看**。
  */
 export function makeSandbox(root: string, slices: readonly SliceInfo[]): Sandbox {
   const dir = mkdtempSync(join(tmpdir(), "promise-check-"));
 
-  for (const slice of slices) {
-    cpSync(join(root, "features", slice.dir), join(dir, "features", slice.dir), {
-      recursive: true,
-      // node_modules 是 symlink 農場，複製它既慢又沒有意義 ——
-      // conformance 讀的是 package.json 的宣告，不解析實際安裝結果。
-      filter: (src) => !src.includes("node_modules"),
-    });
-  }
+  for (const slice of slices) copyTracked(root, `features/${slice.dir}`, dir);
+  for (const layer of SANDBOX_LAYERS) copyTracked(root, layer, dir);
 
   writeFileSync(
     join(dir, "CODEOWNERS"),
