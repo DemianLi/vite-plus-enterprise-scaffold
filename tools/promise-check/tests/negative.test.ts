@@ -136,7 +136,7 @@ describe("承諾綁到一道沒有在跑的閘門 → 紅", () => {
    *
    * `tools/spec-report` 真的存在、也真的有 CLI —— 它只是**不在** `scripts.gate`
    * 那條鏈上（它接在 `vpr ready` 的最後一步）。承諾綁到一道不會被執行的閘門，
-   * 那條承諾在 CI 上是空的，而靜態比對「這支工具存在嗎」看不出差別。
+   * 那條承諾在 `vpr gate` 上是空的，而靜態比對「這支工具存在嗎」看不出差別。
    */
   it("指名一支存在、但沒有接在 scripts.gate 上的工具", () => {
     expect(rules(patched("當 跑 tools/conformance", "當 跑 tools/spec-report"))).toContain(

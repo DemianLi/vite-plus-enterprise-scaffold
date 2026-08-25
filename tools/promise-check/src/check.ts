@@ -188,7 +188,7 @@ function wire(root: string, specs: readonly string[], fail: Fail): PromiseScenar
         "閘門沒有接上",
         `${cli} 不在根 package.json 的 scripts.${GATE_SCRIPT} 裡`,
         "承諾說這件事由那道閘門擋下來，而它沒有被 `vpr gate` 執行 —— " +
-          "那條承諾在 CI 上是空的。把它接上，或改寫承諾。",
+          "那條承諾在 `vpr gate` 上是空的（⚠️ 不是「在 CI 上」—— C123 §五 b）。把它接上，或改寫承諾。",
       );
     }
   }
