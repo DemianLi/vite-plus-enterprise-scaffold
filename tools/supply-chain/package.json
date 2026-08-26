@@ -15,6 +15,9 @@
     "test": "vp test",
     "check": "vp check"
   },
+  "dependencies": {
+    "@org/gate-kit": "workspace:*"
+  },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
     "@types/node": "catalog:",

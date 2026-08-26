@@ -11,6 +11,7 @@ import { verifyMap } from "./verify.ts";
 import { RETENTION_EVIDENCE, renderEvidenceManifest, verifyEvidence } from "./evidence.ts";
 import { CRITERIA, preFilterRules, verifyCriteria } from "./a11y.ts";
 import { renderAccessibility } from "./a11y-render.ts";
+import { parseFlags } from "@org/gate-kit";
 
 /**
  * 法遵對照表：產生、並在每次 CI 驗它沒有說謊。
@@ -44,6 +45,26 @@ import { renderAccessibility } from "./a11y-render.ts";
  * 一份過不了 `vp check` 的基準線（`JSON.stringify` 展開陣列、oxfmt 收合）。
  * 所以這裡把 formatter 當權威：產完丟給它，比對的也是它的輸出。
  */
+
+/**
+ * ⚠️ **不認得的旗標一律紅**（C126／C133 §五）。這幾行不是驗證輸入，是**擋一種
+ * 綠燈**：被拿掉的旗標留在 CI 裡而被靜靜忽略時，那一步會頂著它原本的名字回綠
+ * —— C52 的 `--masking` 就是那樣活了下來（完整量測在 C125 §一）。
+ *
+ * ⚠️ **spec 漏掉一個真旗標，合併當天 CI 就紅** —— 「不認得就失敗」對還沒登記的
+ * 真旗標一視同仁。三個來源要一起掃：根 `package.json` 的 `scripts`、
+ * `.github/workflows/*.yml`（⚠️ **含排程那兩個**，它們不在 `gate`／`ready` 上，
+ * `gate-kit` 的名冊測試看不見它們）、以及這支工具自己的 `tests/`。
+ */
+const FLAGS = parseFlags(process.argv.slice(2), {
+  file: { kind: "value", noun: "路徑" },
+  evidence: { kind: "boolean" },
+  update: { kind: "boolean" },
+} as const);
+if (!FLAGS.ok) {
+  console.error(FLAGS.message);
+  process.exit(1);
+}
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const DEFAULT_BASELINE = join(ROOT, "tools/compliance/COMPLIANCE.md");

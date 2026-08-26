@@ -131,11 +131,30 @@ export function resolveUnion(
   if (seen.has(typeName)) throw new Error(`型別別名循環引用：${typeName}`);
 
   const clean = stripComments(themeSource);
-  const body = block(clean, `export type ${typeName} = `, ";");
+  /**
+   * ⚠️ 錨點是 `export type X =`（**不含後面那個空格**）。
+   *
+   * 第一版寫成 `… = `，於是格式化器把一個長 union 換行成
+   *
+   *     export type UiDatePickerSlot =
+   *       | "field"
+   *       | …
+   *
+   * 之後就整個找不到 —— 而 `block()` 是丟例外的，所以症狀是紅燈不是恆真
+   *（那一步當初就選對了）。但訊息會說「找不到區塊起點」，指向錨點而不是
+   * 真正的原因：**這支解析假設了 union 與 `=` 在同一行**。
+   *
+   * 那個假設不是規則，只是當時的元件剛好都夠短。`UiDatePicker` 有八格。
+   */
+  const body = block(clean, `export type ${typeName} =`, ";");
 
   const members: string[] = [];
+  // 換行式的 union 開頭會有一個空的前導 `|`，切出來是空字串 —— 跳過它。
+  // ⚠️ 不能用 filter(Boolean) 一了百了：那樣連「真的解析不出東西」也會
+  // 安靜地變成空集合，而空集合對空集合是相等的（見 block() 的說明）。
   for (const part of body.split("|")) {
     const trimmed = part.trim();
+    if (trimmed.length === 0) continue;
     const literal = /^"([^"]+)"$/.exec(trimmed);
     if (literal !== null) {
       members.push(literal[1] as string);
@@ -144,6 +163,18 @@ export function resolveUnion(
     // 不是字串字面值就當成別名往下走。認不出來的形狀（泛型、交集）
     // 會在遞迴時因為找不到 `export type X = ` 而丟，不會安靜地少算成員。
     members.push(...resolveUnion(clean, trimmed, new Set([...seen, typeName])));
+  }
+
+  /**
+   * ⚠️ 解析不出任何成員一律丟例外。
+   *
+   * 上面那個「跳過空字串」是為了換行式 union 的前導 `|`，但它同時打開了一個
+   * 洞：一個怎麼也解析不出東西的 union 會回傳空陣列，而呼叫端拿空集合去比
+   * 另一個空集合 —— **恆真**。這正是 `block()` 那段說明在防的事，
+   * 只是換了一個位置重新出現。
+   */
+  if (members.length === 0) {
+    throw new Error(`${typeName} 解析不出任何成員 —— 空集合對空集合會恆真`);
   }
   return members;
 }
@@ -175,6 +206,49 @@ export function defaultSlotKeys(componentSource: string): ReadonlySet<string> {
     }
   }
   return keys;
+}
+
+/**
+ * 同樣掃那幾張表，但拿的是**值**（class 字串），不是鍵。
+ *
+ * 存在的理由只有一個：有些條文問的是「這一格的 class 字串裡有沒有某個
+ * utility」，而 `defaultSlotKeys` 把值丟掉了。
+ *
+ * ⚠️ **這裡的 `stripComments` 是一致性，不是防線 —— 實測過。**
+ *
+ * 起初的理由寫的是「`UiSkeleton` 的檔頭含有 `motion-reduce:animate-none`
+ * 這個字串，不去註解會讓條文被自己的說明滿足」。**那是錯的**：拿掉
+ * `stripComments` 再把真的那條 class 從預設表刪掉，條文照樣紅。
+ *
+ * 真正把註解擋在外面的是另外兩層：外層只掃 `= { … }` **區塊內部**（檔頭在
+ * 邊界外），內層要求 `key: "value"` 的**形狀**（`//` 或 `*` 開頭的行匹配不
+ * 到）。留著 `stripComments` 是為了與 `defaultSlotKeys` 同形、成本為零，
+ * 不是因為少了它會漏。
+ *
+ * ⚠️ 而它擋不住的那個形狀要說清楚，否則下一個人會以為有保護：**多行註解
+ * 裡沒有 `*` 前綴的那幾行**（`isComment` 判 false）如果剛好長成
+ * `slot: "…"`，兩層都攔不到。真要守就得認得字串與註解的邊界，那是
+ * `styles.test.ts` 的去註解器在做的事，不是這裡這個正則。
+ *
+ * ⚠️ 而下面那條「後出現的為準」在這件事上是**半個防線**（實測，見
+ * `a11y.test.ts` 的已知破口那條）：註解掉的舊值排在真值**前面**時被真值蓋掉
+ * （安全），排在**後面**時反過來蓋掉真值（漏）。動這條合併規則之前要知道
+ * 它現在順手擋著一半。
+ *
+ * 一個元件有好幾張同型別的表時（`UiButton` 的 `VARIANTS`／`SIZES`），
+ * 同名鍵以**後出現的**為準 —— 這個函式的用途是逐條掃 utility，
+ * 不是還原解析順序，所以合併規則只要不丟資料就夠。
+ */
+export function defaultSlotValues(componentSource: string): ReadonlyMap<string, string> {
+  const clean = stripComments(componentSource);
+  const values = new Map<string, string>();
+  const tables = /const \w+: Readonly<Record<\w+, string>> = \{([^}]*)\}/g;
+  for (const table of clean.matchAll(tables)) {
+    for (const entry of (table[1] as string).matchAll(/^\s*(\w+):\s*"([^"]*)"/gm)) {
+      values.set(entry[1] as string, entry[2] as string);
+    }
+  }
+  return values;
 }
 
 /**

@@ -26,6 +26,7 @@ import {
   type ProvenanceFile,
   type ProvenanceRecord,
 } from "./provenance.ts";
+import { parseFlags } from "@org/gate-kit";
 
 /**
  * 供應鏈盤點 —— R2／R3／R4／R5／R8 的技術處置。
@@ -57,6 +58,32 @@ import {
  *   CI 專用：--split-lockfile <dir>（拆出掃描器讀得懂的 lockfile）、
  *            --verify-sbom <path>（驗掃描器真的看到了東西）
  */
+
+/**
+ * ⚠️ **不認得的旗標一律紅**（C126／C133 §五）。這幾行不是驗證輸入，是**擋一種
+ * 綠燈**：被拿掉的旗標留在 CI 裡而被靜靜忽略時，那一步會頂著它原本的名字回綠
+ * —— C52 的 `--masking` 就是那樣活了下來（完整量測在 C125 §一）。
+ *
+ * ⚠️ **spec 漏掉一個真旗標，合併當天 CI 就紅** —— 「不認得就失敗」對還沒登記的
+ * 真旗標一視同仁。三個來源要一起掃：根 `package.json` 的 `scripts`、
+ * `.github/workflows/*.yml`（⚠️ **含排程那兩個**，它們不在 `gate`／`ready` 上，
+ * `gate-kit` 的名冊測試看不見它們）、以及這支工具自己的 `tests/`。
+ */
+const FLAGS = parseFlags(process.argv.slice(2), {
+  update: { kind: "boolean" },
+  capture: { kind: "boolean" },
+  "capture-health": { kind: "boolean" },
+  "recapture-safe": { kind: "boolean" },
+  manifest: { kind: "boolean" },
+  dossier: { kind: "boolean" },
+  airgap: { kind: "boolean" },
+  "split-lockfile": { kind: "value", noun: "目錄" },
+  "verify-sbom": { kind: "value", noun: "檔案" },
+} as const);
+if (!FLAGS.ok) {
+  console.error(FLAGS.message);
+  process.exit(1);
+}
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const LOCKFILE = join(ROOT, "pnpm-lock.yaml");

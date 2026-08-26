@@ -233,15 +233,111 @@ describe("對照組：沒動過的東西是綠的", () => {
     expect(result.red, result.output).toBe(false);
   });
 
+  it("★ 真 repo 的綠燈要講出進入點驗過在版控裡（C98）", () => {
+    /**
+     * ⚠️ **綠燈訊息也是宣稱**（C96）。C98 之前，這個「10 個進入點」是**磁碟上**
+     * 的數字 —— 一個沒進版控的 `platform/foo/` 會被算進去，`--update` 會把它
+     * 寫進基準，然後 CI 的乾淨 clone 上它全部變成「移除」→ 破壞性變更 →
+     * 要求為一個從來不存在於版控的 API 寫 codemod，而那種紅燈沒有合法出口。
+     */
+    const result = run([]);
+    expect(result.output, "綠燈沒講事實來源").toContain("版控");
+    // ⚠️ 這一條才是掛在被守的東西上的：那句話只有在檢查**真的跑過**時才印得出來
+    //（`verifiedInIndex` 是它算出來的）。少了它，綠燈會退回「那道檢查沒有跑」。
+    //
+    // 第一版沒有這一條，於是「拿掉整段檢查」這個變異紅零條 —— 綠燈照樣宣稱
+    // 它驗過。那正是這個 PR 在修的病，我自己在修它的時候又犯一次。
+    expect(result.output, "檢查沒跑，而綠燈卻宣稱驗過").not.toContain("那道檢查沒有跑");
+  });
+
   it("fixture 原封不動 → 通過", () => {
     const dir = sandbox();
     cpSync(pristineFixture, dir, { recursive: true });
     const result = run(["--platform", dir, "--baseline", join(dir, "surface.json")]);
     expect(result.red, result.output).toBe(false);
   });
+
+  it("🔴 --platform 指到別處時，綠燈要講明那道檢查**沒有跑**", () => {
+    /**
+     * ⚠️ 這一條守的是一個**沉默的略過**。fixture 在 tmpdir 裡，不在任何 index，
+     * 所以「進入點在不在版控裡」那道檢查對它沒有意義、刻意不開 ——
+     * 但不講的話，這個綠燈看起來跟真 repo 的綠燈一模一樣。
+     *
+     * 這個 repo 剛為「看起來在守、其實沒有」付過兩次代價（C94、C97）。
+     */
+    const dir = sandbox();
+    cpSync(pristineFixture, dir, { recursive: true });
+    const result = run(["--platform", dir, "--baseline", join(dir, "surface.json")]);
+    expect(result.output, "沒說那道檢查沒跑").toContain("沒有跑");
+  });
 });
 
 // ── export 層級：名稱不見了 ───────────────────────────────────────────
+
+describe("形狀參考（C100）", () => {
+  /**
+   * `#95` 非阻斷級：**27 個元件零份使用說明**。修法是從 `surface.json` 產生，
+   * 不是手寫 —— 手抄 27 個元件的 prop 名字正是這個 repo 一再栽的病。
+   *
+   * ⚠️ 這一組守的是**接線**：`docs.test.ts` 驗渲染，這裡驗「CLI 真的比對了」。
+   * C98 §四之三 記過同一個形狀 —— 純函式測得好好的，而把呼叫它的那段刪掉
+   * 紅零條。
+   */
+  function withReference(mutate: (reference: string) => void) {
+    const dir = sandbox();
+    cpSync(pristineFixture, dir, { recursive: true });
+    const baseline = join(dir, "surface.json");
+    const reference = join(dir, "API.md");
+    const seed = run([
+      "--platform",
+      dir,
+      "--baseline",
+      baseline,
+      "--reference",
+      reference,
+      "--update",
+    ]);
+    expect(seed.red, seed.output).toBe(false);
+    mutate(reference);
+    return run(["--platform", dir, "--baseline", baseline, "--reference", reference]);
+  }
+
+  it("★ --update 之後立刻再跑 → 綠", () => {
+    const result = withReference(() => {});
+    expect(result.red, result.output).toBe(false);
+  });
+
+  it("🔴 手改參考 → 紅", () => {
+    const result = withReference((reference) => {
+      writeFileSync(reference, `${readFileSync(reference, "utf8")}\n手改的一行\n`);
+    });
+    expect(result.red, `參考被手改了還是綠的\n${result.output}`).toBe(true);
+    expect(result.output).toContain("--update");
+  });
+
+  it("🔴 參考不見了 → 紅，而且說得出它不存在", () => {
+    // 少了這一條，「檔案被刪掉」與「內容不對」會給出同一句話，
+    // 而前者的第一個念頭是「是不是我 clone 壞了」。
+    const result = withReference((reference) => rmSync(reference));
+    expect(result.red).toBe(true);
+    expect(result.output).toContain("它不存在");
+  });
+
+  it("🔴 --platform 指到別處又沒給 --reference → **不得**碰根層那份", () => {
+    /**
+     * ⚠️ 這一條是踩到才有的。第一版無條件寫 `ROOT/API.md`，而
+     * `beforeAll` 那次 seed fixture 的 `--update` 正是 `--platform <tmpdir>`
+     * —— **跑一次測試就把 repo 根層的參考換成 fixture 的內容**。
+     */
+    const before = readFileSync(join(ROOT, "API.md"), "utf8");
+    const dir = sandbox();
+    cpSync(pristineFixture, dir, { recursive: true });
+    const result = run(["--platform", dir, "--baseline", join(dir, "surface.json"), "--update"]);
+    expect(result.red, result.output).toBe(false);
+    expect(readFileSync(join(ROOT, "API.md"), "utf8"), "根層 API.md 被動到了").toBe(before);
+    expect(result.output, "沒說參考那一份沒有寫").toContain("形狀參考沒有寫");
+  });
+});
 
 describe("整個 export 不見了", () => {
   it("🔴 基準說有、現況沒有的 export → 紅", () => {
@@ -255,6 +351,28 @@ describe("整個 export 不見了", () => {
     expect(result.output).toContain("zzRemovedOnPurpose");
     // 訊息必須講出補救步驟，否則看到紅燈的人只會把 export 加回去。
     expect(result.output).toContain("codemod");
+  });
+
+  it("★ 訊息要對兩種讀者說「下游是誰」，而不去判斷你是哪一種（C98）", () => {
+    /**
+     * `#95` 第 1 項。這道閘門接在 `vpr ready` 上，而那是 HANDOFF 叫**拉 v1 去做
+     * 案子的團隊**第一個跑的東西 —— 給 `platform/ui` 的元件加一個選填 prop 就會撞到。
+     *
+     * 原本的理由只寫了上游那一種：「`platform/*` 會發成內部套件給各案升級，
+     * 所以『下游』也包含不在這個 repo 裡的人」。對一個 fork 了 v1 的團隊那是
+     * **假的** —— 他們就是「各案」，不是發布方。而這句話正是這道閘門嚴厲程度的
+     * 理由，讀錯了會以為它與自己無關。
+     *
+     * ⚠️ 跟 C95／C97 一樣**不去偵測「這棵樹是不是上游」** —— 那是 `#91` 在問的。
+     */
+    const path = baselineCopy((baseline) => {
+      const module = anyModule(baseline);
+      baseline.surface[module]!["zzTwoReaders"] = { kind: "value", type: "1" };
+    });
+    const result = run(["--baseline", path]);
+    expect(result.red).toBe(true);
+    expect(result.output, "沒對 fork 那一種讀者說話").toContain("fork");
+    expect(result.output, "沒講上游那一種讀者").toContain("內部套件");
   });
 
   it("一次移除多個 → 全部列出，不是只報第一個", () => {
@@ -976,6 +1094,109 @@ describe(".vue 元件的公開面", () => {
       source.replace("type Tone =", "// 這個元件刻意不用 defineExpose。\ntype Tone ="),
     );
     expect(result.red, `註解裡的字被當成程式碼了\n${result.output}`).toBe(false);
+  });
+
+  it("★ 只在**模板文字**裡提到 defineExpose → 不得紅", () => {
+    /**
+     * 上面那條的孿生兄弟，而且是 review 抓出來的：當時的修法是「掃原始碼前
+     * 先剝掉註解」，但模板裡的**文字節點**不是註解 —— 一句
+     * `<p>這個元件刻意不用 defineExpose…</p>` 照樣讓整支解析丟例外。
+     *
+     * 同一個坑補了一半。現在巨集只在 `<script setup>` 裡找（見 scriptSetup），
+     * 模板整塊留給 assertDeclared。
+     */
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("{{ label }}", "{{ label }}<span>不用 defineExpose 洩漏實例</span>"),
+    );
+    expect(result.red, `模板文字被當成程式碼了\n${result.output}`).toBe(false);
+  });
+
+  it("🔴 有 <script> 但不是 setup → 紅（Options API 讀不懂就是零公開面）", () => {
+    /**
+     * ⚠️ 這一格在「放行空形狀」與這條絆線之間曾經是開著的。實測：把元件換成
+     * `export default { props: { label: {…} } }`，基準記成 `members: []`，
+     * 接著**再加一個必填 prop，閘門輸出「無破壞性變更」exit 0** ——
+     * 那個元件的公開面從此完全不受守護，而基準檔看起來很正常。
+     *
+     * 舊的「空形狀等於沒有守」那個例外剛好蓋著這一格。拆掉它就要有人接手。
+     */
+    const result = runFixtureFile(FIXTURE_COMPONENT, () =>
+      [
+        '<script lang="ts">',
+        "export default { props: { label: { type: String, required: true } } };",
+        "</script>",
+        "",
+        "<template>",
+        '  <button type="button">{{ label }}</button>',
+        "</template>",
+        "",
+      ].join("\n"),
+    );
+    expect(result.red, `Options API 的元件被記成零公開面\n${result.output}`).toBe(true);
+    // ⚠️ 不能只斷言 "SampleWidget.vue"：這個檔案裡幾乎每條錯誤訊息都有它。
+    expect(result.output).toContain("沒有 <script setup>");
+  });
+
+  it("★ 完全沒有 <script> 的純版型元件 → 解析得出來，而且是零公開面", () => {
+    /**
+     * 上一條的反面，而且是這組裡最容易寫錯的一條：`Separator`／`Skeleton`
+     * 這種元件**根本沒有 `<script>`**，而它們正是「放行空形狀」要照顧的案例。
+     * 絆線收得太寬（例如寫成「沒有 `<script setup>` 就紅」）就把它們一起擋了。
+     *
+     * ⚠️ 這裡不能用 runFixtureFile：換掉整個元件會讓既有的五個成員消失，
+     * 於是紅燈來自「破壞性變更」而不是解析 —— 兩者都是紅，意思完全不同。
+     * 所以種一份新的基準來問。
+     */
+    const dir = sandbox();
+    cpSync(pristineFixture, dir, { recursive: true });
+    writeFileSync(join(dir, FIXTURE_COMPONENT), "<template>\n  <hr>\n</template>\n");
+
+    const baseline = join(dir, "layout-only.json");
+    const seeded = run(["--platform", dir, "--baseline", baseline, "--update"]);
+    expect(seeded.red, `純版型元件解析不了\n${seeded.output}`).toBe(false);
+    expect(widgetMembers(JSON.parse(readFileSync(baseline, "utf8")) as Baseline)).toEqual([]);
+  });
+
+  it("★ 型別參數裡的字串字面值含 `>` → 不得紅", () => {
+    /**
+     * `genericArgument` 做角括號配對，但一開始不跳過字串字面值 ——
+     * 於是 `defineProps<{ arrow: "a>b" }>()` 在字串裡的 `>` 收尾，
+     * 接著被判成「不是型別參數形式」。
+     *
+     * 那個宣告完全合法，而訊息叫人改成執行期形式 —— **正好是這支解析
+     * 禁止的方向**。誤報比漏報好，但把人推向錯誤的修法不是。
+     */
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace("  label: string;", '  arrow: "a>b";\n  label: string;'),
+    );
+    expect(result.red, `字串字面值裡的 > 被當成泛型收尾\n${result.output}`).toBe(true);
+    // 這個改動**應該**漂移（多一個必填 prop），但要是因為多了一格而紅，
+    // 不是因為解析不了。兩者的訊息完全不同。
+    expect(result.output).toContain("arrow");
+    expect(result.output).not.toContain("不是型別參數形式");
+  });
+
+  it("🔴 兩個不具名 defineModel → 紅（撞名會讓基準出現同名兩格）", () => {
+    /**
+     * `typeLiteralMacro` 對重複的巨集會紅，理由是「只讀第一個等於安靜忽略
+     * 其餘」。`defineModel` 不能照抄那條 —— **多個具名 model 是合法的**，
+     * 衝突的是名字。
+     *
+     * 少了這條的症狀不是紅燈：實測基準寫進
+     * `["[emit update:modelValue]: void", "[emit update:modelValue]: void",
+     * "modelValue?: number", "modelValue?: string"]`，同一個名字兩格，
+     * 而 compare.ts 的 `Map<string, Member[]>` 拿到一個兩元素的陣列。
+     */
+    const result = runFixtureFile(FIXTURE_COMPONENT, (source) =>
+      source.replace(
+        /defineProps<\{[\s\S]*?\}>\(\);/,
+        "const one = defineModel<string>();\nconst two = defineModel<number>();",
+      ),
+    );
+    expect(result.red, `兩個不具名的 defineModel 撞名沒被擋下\n${result.output}`).toBe(true);
+    // ⚠️ 拿掉這條絆線之後閘門仍然會紅（少了 label／tone 是破壞性變更）——
+    // 所以斷言只有這條路會印的字。
+    expect(result.output).toContain("兩個同名的 prop");
   });
 
   /**

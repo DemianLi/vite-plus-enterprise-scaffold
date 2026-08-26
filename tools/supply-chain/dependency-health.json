@@ -1,7 +1,39 @@
 {
-  "capturedAt": "2026-08-17",
+  "capturedAt": "2026-08-25",
   "registry": "https://registry.npmjs.org",
   "records": [
+    {
+      "name": "@amiceli/vitest-cucumber",
+      "latest": "7.0.0",
+      "license": "ISC",
+      "publishedAt": "2026-06-24",
+      "stableReleasesPerYear": 10,
+      "lastStableAt": "2026-06-24"
+    },
+    {
+      "name": "@internationalized/date",
+      "latest": "3.12.3",
+      "license": "Apache-2.0",
+      "publishedAt": "2026-07-31",
+      "stableReleasesPerYear": 7,
+      "lastStableAt": "2026-07-31"
+    },
+    {
+      "name": "@stryker-mutator/core",
+      "latest": "10.0.0",
+      "license": "Apache-2.0",
+      "publishedAt": "2026-08-14",
+      "stableReleasesPerYear": 10,
+      "lastStableAt": "2026-08-14"
+    },
+    {
+      "name": "@stryker-mutator/vitest-runner",
+      "latest": "10.0.0",
+      "license": "Apache-2.0",
+      "publishedAt": "2026-08-14",
+      "stableReleasesPerYear": 10,
+      "lastStableAt": "2026-08-14"
+    },
     {
       "name": "@tailwindcss/vite",
       "latest": "4.3.3",
@@ -12,19 +44,19 @@
     },
     {
       "name": "@tanstack/vue-query",
-      "latest": "5.101.4",
+      "latest": "5.102.4",
       "license": "MIT",
-      "publishedAt": "2026-07-21",
-      "stableReleasesPerYear": 71,
-      "lastStableAt": "2026-07-21"
+      "publishedAt": "2026-08-25",
+      "stableReleasesPerYear": 74,
+      "lastStableAt": "2026-08-25"
     },
     {
       "name": "@types/node",
-      "latest": "26.2.0",
+      "latest": "26.3.0",
       "license": "MIT",
-      "publishedAt": "2026-08-07",
+      "publishedAt": "2026-08-24",
       "stableReleasesPerYear": 166,
-      "lastStableAt": "2026-08-07"
+      "lastStableAt": "2026-08-24"
     },
     {
       "name": "@vitejs/plugin-vue",
@@ -33,6 +65,14 @@
       "publishedAt": "2026-07-14",
       "stableReleasesPerYear": 7,
       "lastStableAt": "2026-07-14"
+    },
+    {
+      "name": "@vitest/coverage-v8",
+      "latest": "4.1.11",
+      "license": "MIT",
+      "publishedAt": "2026-08-18",
+      "stableReleasesPerYear": 34,
+      "lastStableAt": "2026-08-18"
     },
     {
       "name": "@vue/test-utils",
@@ -60,11 +100,11 @@
     },
     {
       "name": "eslint",
-      "latest": "10.8.1",
+      "latest": "10.9.1",
       "license": "MIT",
-      "publishedAt": "2026-08-07",
-      "stableReleasesPerYear": 26,
-      "lastStableAt": "2026-08-07"
+      "publishedAt": "2026-08-24",
+      "stableReleasesPerYear": 27,
+      "lastStableAt": "2026-08-24"
     },
     {
       "name": "eslint-plugin-no-unsanitized",
@@ -100,11 +140,11 @@
     },
     {
       "name": "happy-dom",
-      "latest": "20.11.2",
+      "latest": "20.11.6",
       "license": "MIT",
-      "publishedAt": "2026-08-07",
-      "stableReleasesPerYear": 65,
-      "lastStableAt": "2026-08-07"
+      "publishedAt": "2026-08-19",
+      "stableReleasesPerYear": 69,
+      "lastStableAt": "2026-08-19"
     },
     {
       "name": "pinia",
@@ -116,11 +156,11 @@
     },
     {
       "name": "reka-ui",
-      "latest": "2.10.3",
+      "latest": "2.10.4",
       "license": "MIT",
-      "publishedAt": "2026-08-10",
-      "stableReleasesPerYear": 23,
-      "lastStableAt": "2026-08-10"
+      "publishedAt": "2026-08-25",
+      "stableReleasesPerYear": 24,
+      "lastStableAt": "2026-08-25"
     },
     {
       "name": "tailwind-merge",
@@ -148,42 +188,42 @@
     },
     {
       "name": "typescript-eslint",
-      "latest": "8.67.0",
+      "latest": "8.68.0",
       "license": "MIT",
-      "publishedAt": "2026-08-10",
-      "stableReleasesPerYear": 48,
-      "lastStableAt": "2026-08-10"
+      "publishedAt": "2026-08-24",
+      "stableReleasesPerYear": 47,
+      "lastStableAt": "2026-08-24"
     },
     {
       "name": "vite",
-      "latest": "8.2.1",
+      "latest": "8.2.2",
       "license": "MIT",
-      "publishedAt": "2026-08-06",
+      "publishedAt": "2026-08-20",
       "stableReleasesPerYear": 58,
-      "lastStableAt": "2026-08-06"
+      "lastStableAt": "2026-08-20"
     },
     {
       "name": "vite-plus",
-      "latest": "0.2.9",
+      "latest": "0.3.0",
       "license": "MIT",
-      "publishedAt": "2026-08-12",
-      "stableReleasesPerYear": 35,
-      "lastStableAt": "2026-08-12"
+      "publishedAt": "2026-08-24",
+      "stableReleasesPerYear": 36,
+      "lastStableAt": "2026-08-24"
     },
     {
       "name": "vitest",
-      "latest": "4.1.10",
+      "latest": "4.1.11",
       "license": "MIT",
-      "publishedAt": "2026-07-06",
-      "stableReleasesPerYear": 33,
-      "lastStableAt": "2026-07-06"
+      "publishedAt": "2026-08-18",
+      "stableReleasesPerYear": 34,
+      "lastStableAt": "2026-08-18"
     },
     {
       "name": "vue",
       "latest": "3.5.41",
       "license": "MIT",
       "publishedAt": "2026-08-05",
-      "stableReleasesPerYear": 23,
+      "stableReleasesPerYear": 21,
       "lastStableAt": "2026-08-05"
     },
     {
@@ -196,11 +236,11 @@
     },
     {
       "name": "vue-i18n",
-      "latest": "11.4.8",
+      "latest": "11.4.10",
       "license": "MIT",
-      "publishedAt": "2026-07-26",
-      "stableReleasesPerYear": 18,
-      "lastStableAt": "2026-07-26"
+      "publishedAt": "2026-08-25",
+      "stableReleasesPerYear": 20,
+      "lastStableAt": "2026-08-25"
     },
     {
       "name": "vue-router",
@@ -212,18 +252,18 @@
     },
     {
       "name": "vue-tsc",
-      "latest": "3.3.10",
+      "latest": "3.3.11",
       "license": "MIT",
-      "publishedAt": "2026-08-15",
+      "publishedAt": "2026-08-21",
       "stableReleasesPerYear": 36,
-      "lastStableAt": "2026-08-15"
+      "lastStableAt": "2026-08-21"
     },
     {
       "name": "zod",
       "latest": "4.4.3",
       "license": "MIT",
       "publishedAt": "2026-05-04",
-      "stableReleasesPerYear": 27,
+      "stableReleasesPerYear": 24,
       "lastStableAt": "2026-05-04"
     }
   ]

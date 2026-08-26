@@ -15,9 +15,14 @@ import {
   usesDesignSystem,
   DESIGN_SYSTEM_PACKAGE,
   SLICE_DESIGN_SYSTEM_IMPORTS,
+  SPECS_DIR,
+  USECASES_DIR,
+  USECASE_FORBIDDEN_IMPORTS,
+  STEPS_GLOB,
+  TODO_TAG,
 } from "@org/slice-kit/contract";
 
-import { findPaletteUsage } from "@org/theme-verify/palette";
+import { declaredColorTokens, findPaletteUsage } from "@org/theme-verify/palette";
 
 import { buildSliceFiles } from "../src/files.ts";
 import { flattenPaths, assertCoversContract } from "../src/contract-shape.ts";
@@ -44,14 +49,18 @@ function fileAt(path: string): string {
 }
 
 /** 設計系統 `@theme` 區塊裡宣告的代幣名。讀原始碼而不是抄一份清單（A1）。 */
-function declaredThemeTokens(): ReadonlySet<string> {
+function themeCss(): string {
   const path = resolve(
     fileURLToPath(import.meta.url),
     "../../../..",
     "platform/ui/src/styles/index.css",
   );
-  const block = /@theme\s*\{([\s\S]*)\}/.exec(readFileSync(path, "utf8"));
-  if (block === null) throw new Error(`${path} 裡找不到 @theme 區塊 —— 讀不到就不要給判決`);
+  return readFileSync(path, "utf8");
+}
+
+function declaredThemeTokens(): ReadonlySet<string> {
+  const block = /@theme\s*\{([\s\S]*)\}/.exec(themeCss());
+  if (block === null) throw new Error("index.css 裡找不到 @theme 區塊 —— 讀不到就不要給判決");
   return new Set(
     [...(block[1] as string).matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1] as string),
   );
@@ -355,7 +364,14 @@ describe("產出的切片符合 D15 設計系統規則", () => {
     const views = flattenPaths(files).filter((path) => path.endsWith(".vue"));
     expect(views.length).toBeGreaterThan(0);
 
-    const violations = views.flatMap((path) => findPaletteUsage(path, fileAt(path)));
+    // 第三類（未翻譯的 shadcn 代幣）需要「我們宣告過的名字」當減數。
+    // ⚠️ 這一份**也從 index.css 讀**，而且用的是 theme-verify 匯出的同一支
+    // 解析器 —— 自己再寫一份的話，就是「同一件事兩份手抄本」那個病，
+    // 而這條測試存在的全部理由正是不要各持一份。
+    const declared = declaredColorTokens(themeCss());
+    expect(declared.size).toBeGreaterThan(10);
+
+    const violations = views.flatMap((path) => findPaletteUsage(path, fileAt(path), declared));
     expect(violations.map((violation) => `${violation.file} ${violation.className}`)).toEqual([]);
   });
 
@@ -426,5 +442,161 @@ describe("產出的 store 示範了它自己註解裡宣稱的模式", () => {
   it("view 用 computed 從列表推導那筆物件，而不是從 store 讀", () => {
     const view = fileAt(`${VIEWS_DIR}/OrderHistoryList.vue`);
     expect(view).toMatch(/computed\(\(\) =>\s*items\.value\.find/);
+  });
+});
+
+/**
+ * ── 驗收規格的設施（C114）─────────────────────────────────────────────
+ *
+ * 這一組守的是 TESTING.md 第二類那句話：「專案成員只需要補 TDD，就能測出
+ * 業務功能完成率。」它交付的是設施與範本，規格的內容由專案組自己寫 ——
+ * 所以壞掉的方式不是「規格寫錯」，是**設施安靜地不生效**。
+ *
+ * ⚠️ 下面每一條都對應一個已經實際發生過的失敗（全部在 C114 實測到），
+ * 不是假想的防禦。
+ */
+describe("驗收規格的設施", () => {
+  const featurePath = `${SPECS_DIR}/${options.name}.feature`;
+  const stepsPath = `tests/specs/${options.name}.spec.ts`;
+  const usecasePath = `${USECASES_DIR}/query-${options.name}.ts`;
+
+  it("規格與 src/ 平行，不在 tests/ 底下 —— 它是需求不是測試", () => {
+    expect(paths).toContain(featurePath);
+    expect(paths.filter((path) => path.endsWith(".feature"))).toEqual([featurePath]);
+  });
+
+  /**
+   * ⚠️ **這一條守的是一個完全靜默的失敗。**
+   *
+   * vitest 的預設 include 只收 `*.test.*` 與 `*.spec.*`，而這條線的根層
+   * 沒有覆寫 `test.include`。接線檔取名 `.steps.ts`（草稿原本的寫法）時，
+   * 整份規格一條都不會被收集：runner 不跑、既有的 `tests/*.test.ts`
+   * 繼續全綠、完成率讀的是一個從來沒有被執行過的檔案。
+   *
+   * 實測方式是把兩支必紅的檔案（`probe.steps.ts` 與 `probe.spec.ts`）
+   * 同時丟進一個切片跑 —— 只有後者紅，前者連出現在輸出裡都沒有。
+   */
+  it("接線檔的位置與副檔名符合契約的 STEPS_GLOB", () => {
+    expect(paths).toContain(stepsPath);
+
+    const prefix = STEPS_GLOB.slice(0, STEPS_GLOB.indexOf("**"));
+    const suffix = STEPS_GLOB.slice(STEPS_GLOB.lastIndexOf("*") + 1);
+    expect(stepsPath.startsWith(prefix), `${stepsPath} 不在 ${prefix} 底下`).toBe(true);
+    expect(stepsPath.endsWith(suffix), `${stepsPath} 不以 ${suffix} 結尾`).toBe(true);
+  });
+
+  it("接線檔帶著那行必要設定 —— 少了它 parser 解析不出 Feature", () => {
+    const steps = fileAt(stepsPath);
+    expect(steps).toContain("setVitestCucumberConfiguration");
+    expect(steps).toContain('language: "zh-TW"');
+    expect(steps).toContain(`excludeTags: ["${TODO_TAG}"]`);
+  });
+
+  /**
+   * ⚠️ 上游把 `predefinedSteps` 與 `mappedExamples` 標成必填（而同一份型別裡的
+   * `getVitestCucumberConfiguration` 自己把它們 Omit 掉，可見本意是可選）。
+   * 少了這兩個欄位，**產出的切片第一次跑 `vp check` 就是 TS2739** ——
+   * 而「產生器的輸出過不了自己專案的 check」會很快讓人不信任這個工具。
+   */
+  it("帶上上游型別要求的兩個空欄位，產出才過得了 vp check", () => {
+    const steps = fileAt(stepsPath);
+    expect(steps).toContain("predefinedSteps: []");
+    expect(steps).toContain("mappedExamples: {}");
+  });
+
+  it("規格示範了三態的 @待辦 那一態", () => {
+    // ⚠️ 比對的是**標籤那一行的形狀**，不是那三個字有沒有出現 ——
+    // Gherkin 的標籤必須自成一行，而這份 .feature 的說明註解裡到處寫著
+    // 「@待辦」。第一版寫成 toContain 就是**零變異**：把標籤整行刪掉，
+    // 測試照樣全綠。同一個錯誤在隔壁那條 store 斷言的註解裡就寫著
+    // （「提到一個名字和使用它是兩回事」），而我還是犯了一次。
+    const taggedLines = fileAt(featurePath)
+      .split("\n")
+      .filter((line) => line.trim() === `@${TODO_TAG}`);
+    expect(taggedLines.length, "找不到自成一行的 @待辦 標籤").toBeGreaterThan(0);
+  });
+
+  it("usecase 層零框架相依 —— 純度是這一層唯一的價值", () => {
+    const usecase = fileAt(usecasePath);
+    for (const banned of USECASE_FORBIDDEN_IMPORTS) {
+      // 比對 import 敘述的字面形狀，不組動態 RegExp ——
+      // Tier 2 的 security/detect-non-literal-regexp 會擋，而它是對的。
+      expect(usecase, `usecase 不得 import ${banned}`).not.toContain(`from "${banned}"`);
+    }
+  });
+
+  /**
+   * ⚠️ **這一條是整組裡最重要的。**
+   *
+   * usecase 若不在畫面真的會走到的路徑上，規格驗的東西與畫面跑的東西就是
+   * 兩條路 —— 規格全綠而畫面壞掉，而且沒有任何閘門看得見。那正是本 repo
+   * 反覆記錄過的「寫了但永遠無效」，只是換到新的一層發作。
+   *
+   * 實測（C114）：把 usecase 裡的篩選拿掉 → 規格紅 5 條，而既有的
+   * `tests/<切片>.test.ts` 那 5 條照樣全綠。
+   */
+  it("composable 呼叫 usecase 而不是直接呼叫資料存取層", () => {
+    const composable = fileAt(`${COMPOSABLES_DIR}/useOrderHistoryList.ts`);
+    expect(composable).toContain(`from "../usecases/query-${options.name}.ts"`);
+    expect(composable).toMatch(/queryFn:\s*\(\)\s*=>\s*queryOrderHistory\(/);
+    expect(composable, "queryFn 不得繞過 usecase 直接取數").not.toMatch(
+      /queryFn:\s*\(\)\s*=>\s*fetchOrderHistoryList\(/,
+    );
+  });
+
+  it("規格的假 gateway 實作的是 usecase 真的在用的那個介面", () => {
+    const support = fileAt("tests/support/in-memory-gateway.ts");
+    expect(support).toContain('from "../../src/ports.ts"');
+    expect(support).toContain("OrderHistoryGateway");
+  });
+
+  it("runner 列在切片自己的 devDependencies —— 幽靈相依檢查掃不到 tests/", () => {
+    const devDeps = generatedPackageJson()["devDependencies"] as Record<string, string>;
+    expect(Object.keys(devDeps)).toContain("@amiceli/vitest-cucumber");
+  });
+});
+
+/**
+ * ── catalog 的名字有沒有人在守（C114）────────────────────────────────
+ *
+ * 既有的斷言只驗「版本協定合法」（`catalog:` 開頭就算過），**沒有人在驗那個
+ * 名字真的登記在 catalog 裡**。差別在失敗的時機：協定寫錯是產生器測試當場紅，
+ * 名字沒登記是**產出的切片在別人機器上 install 才炸**，而那時人已經不在
+ * 這個 repo 的上下文裡了。
+ *
+ * ⚠️ 這條不是為了新的 runner 才加的，它守的是模板宣告的**每一個** `catalog:`。
+ * 加 runner 時才發現這個洞一直開著。
+ */
+describe("模板宣告的 catalog: 相依都真的登記在 catalog 裡", () => {
+  const workspaceYaml = readFileSync(
+    resolve(fileURLToPath(import.meta.url), "../../../..", "pnpm-workspace.yaml"),
+    "utf8",
+  );
+
+  // 只認 catalog: 區塊底下那一層的鍵。刻意不解析 YAML —— 這裡要的是
+  // 「那個名字有沒有出現在該出現的地方」，而多一個 parser 就多一筆供應鏈範圍（D2）。
+  const catalogBlock = /^catalog:\s*$([\s\S]*?)^\S/m.exec(workspaceYaml);
+  const catalogNames = new Set(
+    [...(catalogBlock?.[1] ?? "").matchAll(/^ {2}"?([^"\s:#][^":]*)"?:\s/gm)].map((m) =>
+      (m[1] as string).trim(),
+    ),
+  );
+
+  it("catalog 區塊解析得出東西 —— 解不出來就不要給判決", () => {
+    expect(catalogNames.size).toBeGreaterThan(10);
+    expect(catalogNames).toContain("vue");
+  });
+
+  it("每個 catalog: 相依都找得到對應的 catalog 條目", () => {
+    const generated = generatedPackageJson();
+    const declared = {
+      ...(generated["dependencies"] as Record<string, string>),
+      ...(generated["devDependencies"] as Record<string, string>),
+    };
+
+    for (const [depName, version] of Object.entries(declared)) {
+      if (version !== "catalog:") continue;
+      expect(catalogNames, `${depName} 宣告成 catalog: 但 catalog 裡沒有它`).toContain(depName);
+    }
   });
 });

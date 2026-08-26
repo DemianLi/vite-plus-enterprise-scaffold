@@ -3,10 +3,16 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { parseFlags } from "@org/gate-kit";
 import { CONTRACT_ITEMS } from "@org/bff-contract";
 
-import { actionCounts, codeownersEntryCount, workspacePackageCount } from "./derive.ts";
-import { FACTS, checkFacts, handoffItemCount, type DocumentSource } from "./facts.ts";
+import {
+  actionCounts,
+  codeownersEntryCount,
+  uiComponentCount,
+  workspacePackageCount,
+} from "./derive.ts";
+import { FACTS, REMEDIATION, checkFacts, handoffItemCount, type DocumentSource } from "./facts.ts";
 
 /**
  * 文件裡的數字與 repo 內部事實來源是否一致。
@@ -22,6 +28,20 @@ import { FACTS, checkFacts, handoffItemCount, type DocumentSource } from "./fact
  * 東西沒有人再推導一次」，而 `GUARDED` 加了第三份檔案的那一刻，
  * 四個地方寫著「只守 README 與 HANDOFF」的句子同時變成假的。
  */
+
+/**
+ * ⚠️ **這支不吃任何旗標 —— 而「不吃」必須是一句話，不是一片沉默**（C126）。
+ *
+ * 空 spec 在 `parseFlags` 底下的意思是**拒絕所有旗標**，不是放行所有旗標。
+ * 少了這三行，`node <這支> --anything` 會靜靜地跑一趟預設路徑然後回 0 ——
+ * 而 CI 上留著一個被拿掉的旗標時，那一步會頂著它原本的名字回傳綠燈
+ * （C52 付過這筆學費，完整量測在 C125 §一）。
+ */
+const FLAGS = parseFlags(process.argv.slice(2), {});
+if (!FLAGS.ok) {
+  console.error(FLAGS.message);
+  process.exit(1);
+}
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 
@@ -65,6 +85,7 @@ function deriveTruth(handoff: string): Record<string, number> {
       0,
     ),
     "contract-items": CONTRACT_ITEMS.length,
+    "ui-components": uiComponentCount(ROOT),
     "workspace-packages": workspacePackageCount(ROOT),
     "action-refs": actions.refs,
     "distinct-actions": actions.distinct,
@@ -103,11 +124,7 @@ function main(): number {
 
   console.error(`✗ 文件數字與事實來源不符：${problems.length} 項\n`);
   for (const problem of problems) console.error(`  [${problem.kind}] ${problem.detail}`);
-  console.error(
-    "\n  這些數字是拿去跟採購與資安講的話。每次相依變動它們就會變，\n" +
-      "  而這個 repo 在「人抄下來的數字沒有人再推導一次」上一再栽跟頭。\n" +
-      "  請把上列位置改成推導出來的值；句子被改寫的話，同步更新 src/facts.ts 的樣式。",
-  );
+  console.error(REMEDIATION);
   return 1;
 }
 

@@ -45,8 +45,8 @@ const ENTRY = join(PACKAGE_ROOT, "src/styles/index.css");
  * 結果那行變成 `../../../..*.{vue,ts}` —— 路徑少了一層，而測試看到的
  * 「宣告」跟 Tailwind 看到的不是同一個東西。這種錯最難查：兩邊都沒報錯。
  *
- * 所以要先認得字串。與 tools/exit-drill 的 plugin 解析器同一個做法：
- * **要比對程式碼就得先分辨程式碼與字面值**，正則做不到這件事。
+ * 所以要先認得字串：**要比對程式碼就得先分辨程式碼與字面值**，
+ * 正則做不到這件事。
  */
 function stripCssComments(css: string): string {
   let out = "";
@@ -114,8 +114,37 @@ describe("樣式入口", () => {
   it("@source 一律加引號", () => {
     // Tailwind 4.3.3 對沒加引號的直接報錯（實測：`@source` paths must be quoted），
     // 但錯誤訊息不會告訴你是哪一行 —— 在這裡擋比在建置時擋便宜。
-    const withoutQuotes = [...entry().matchAll(/@source\s+([^"\s][^;]*);/g)];
+    //
+    // ⚠️ 這裡先把 `not ` 正規化掉，而不是在正則裡加一個可選群組。
+    // 試過 `/@source\s+(?:not\s+)?([^"\s][^;]*);/` —— **它照樣紅**，因為
+    // 可選群組匹配不下去時正則會**回溯**成不匹配，於是 `not` 本身變成了
+    // 「那個沒加引號的路徑」。看起來對、跑起來錯，只有實測分得出來。
+    //
+    // ⚠️ 放寬這種檢查的風險是換來一個洞，所以變異驗過：把某一行寫成
+    // `@source not ../../../../**/tests/**;`（真的沒引號），這條仍然紅。
+    const normalized = entry().replace(/@source\s+not\s+/g, "@source ");
+    const withoutQuotes = [...normalized.matchAll(/@source\s+([^"\s][^;]*);/g)];
     expect(withoutQuotes.map((m) => m[0])).toEqual([]);
+  });
+
+  it("測試檔要被排除在掃描之外", () => {
+    // ⚠️ Tailwind 的抽取器不解析語法 —— 它連**註解裡**長得像 utility 的字串
+    // 都會撈出來變成規則。實測（2026-08-19，apps/console）：少了這兩條排除，
+    // 交付的 CSS 多 0.84 kB，13 條選擇器全部來自測試檔。
+    //
+    // ⚠️ 這裡守的只有「宣告還在」。「排除真的生效」由 tools/theme-verify
+    // 的哨兵守（那一邊有真的建置）—— 邊界要自己說出來。
+    const excluded = [...entry().matchAll(/@source\s+not\s+"([^"]+)"/g)].map(
+      (match) => match[1] as string,
+    );
+    expect(excluded.some((glob) => glob.includes("tests/"))).toBe(true);
+    expect(excluded.some((glob) => glob.includes(".test.ts"))).toBe(true);
+    // 與上面那條同樣的理由：綁死目錄佈局的話，換個佈局就靜靜失效。
+    // ⚠️ 差別在後果 —— 上面那條失效會讓畫面壞掉，這兩條失效只是產物變胖。
+    expect(
+      excluded.every((glob) => glob.startsWith("..") && glob.includes("**")),
+      `@source not 有固定路徑（${excluded.join("、")}）`,
+    ).toBe(true);
   });
 });
 
@@ -176,6 +205,109 @@ describe("設計代幣", () => {
     // shadcn 模型的重點是「改一個元件時只要看一個檔案」。
     // 把樣式抽到共用入口會讓那個好處消失，然後我們只是自己做了一套 Bootstrap。
     expect(entry()).not.toContain("@apply");
+  });
+});
+
+/**
+ * 取出 `@layer base { … }` 的內容。
+ *
+ * 逐字數括號，而且**先認引號** —— 兩件事各有理由，而且是同一課的兩半：
+ *
+ * 一、巢狀的 `{}` 正則數不了。
+ * 二、引號裡的 `{` 不是括號。這份 CSS 自己就有
+ *     `@source "../../../../**\/*.{vue,ts}"` 這種字面值，而上面那支
+ *     `stripCssComments` 的檔頭已經為同一件事付過一次代價：
+ *     **要比對程式碼就得先分辨程式碼與字面值。**
+ *
+ * 今天 `@layer base` 裡沒有帶引號的字串，所以這一段現在不會被用到 ——
+ * 寫成這樣是因為它失效的方式跟那次一樣安靜：數錯了就取到半截區塊，
+ * 而下面三條斷言會對著半截區塊照常給答案。
+ */
+function layerBase(css: string): string | undefined {
+  const start = css.indexOf("@layer base");
+  if (start === -1) return undefined;
+  const open = css.indexOf("{", start);
+  if (open === -1) return undefined;
+
+  let depth = 0;
+  for (let index = open; index < css.length; index++) {
+    const char = css[index];
+
+    if (char === '"' || char === "'") {
+      index++;
+      while (index < css.length && css[index] !== char) index++;
+      continue;
+    }
+
+    if (char === "{") depth++;
+    else if (char === "}") {
+      depth--;
+      if (depth === 0) return css.slice(open + 1, index);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * 文件本體的底色與前景色（#95 的阻斷級第 3 項）。
+ *
+ * ── 少了它會發生什麼 ────────────────────────────────────────────────
+ *
+ * 在偏好深色的機器上整個應用是黑底黑字。實測 `apps/console`：
+ * `body` 的 `background-color` 是 `rgba(0, 0, 0, 0)`、`color` 是
+ * `rgb(0, 0, 0)`，而 `--color-surface`（`#fff`）與 `--color-fg` 兩個代幣
+ * **一直都在、而且是對的** —— 只是沒有任何一條規則把它們用在文件上。
+ *
+ * ⚠️ **這支測試量的是宣告，不是畫面。** 它答得出「入口有沒有把代幣塗上去」，
+ * 答不出「使用者看到的對比是多少」——後者是瀏覽器的事，這個 repo 量不到
+ *（同一條界線在 `tools/theme-verify` 的檔頭與 C89 各講過一次）。
+ * 建置後那些 `var()` 沒有懸空，由 theme-verify 的第二段守。
+ */
+describe("文件本體", () => {
+  it("★ body 同時被塗上底色與前景色", () => {
+    // 只塗一個就是黑底黑字的另一半：塗了底色沒塗字色，深色偏好下
+    // base reset 的黑字配白底還能看；反過來就看不見了。
+    const base = layerBase(entry());
+    expect(base, "入口沒有 @layer base 區塊").toBeDefined();
+    expect(base).toContain("body");
+    expect(base, "body 沒有底色 —— 深色偏好的機器上畫布是瀏覽器的").toContain("background-color:");
+    expect(base, "body 沒有前景色").toContain("color:");
+  });
+
+  it("★ 必須在 @layer base 裡，不能寫在 layer 外面", () => {
+    // Tailwind v4 走 cascade layers：寫在 layer 外面的規則贏過所有 layered
+    // utility，於是 `<body class="bg-…">` 從此無效，而且沒有東西會說話。
+    const css = entry();
+    const base = layerBase(css);
+    const outside = base === undefined ? css : css.replace(base, "");
+
+    expect(outside, "@layer base 之外還有一條 body 規則").not.toContain("body");
+  });
+
+  it("取值器認得引號裡的括號", () => {
+    // 這一條守的是上面 layerBase 的第二半：`content: "{"` 這種字面值
+    // 不可以被當成一層巢狀。少了它，那段註解只是一個沒人驗過的宣稱。
+    const fake = '@layer base {\n  body { content: "{"; color: red; }\n}\nbody { color: blue; }\n';
+
+    expect(layerBase(fake)).toContain("red");
+    expect(layerBase(fake), "數到 layer 外面去了").not.toContain("blue");
+  });
+
+  it("★ 用的是語意代幣，而且那些代幣真的宣告過", () => {
+    // 寫死 `#fff` 的話各案換不掉；指向一個不存在的代幣則會是
+    // 「宣告了但求值成空」—— 兩種都讓這一格看起來修好了。
+    const css = entry();
+    const base = layerBase(css) ?? "";
+    const used = [...base.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((match) => match[1] as string);
+
+    expect(used.length, "body 沒有引用任何代幣").toBeGreaterThan(0);
+
+    const declared = new Set(
+      [...css.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((match) => match[1] as string),
+    );
+    for (const token of used) {
+      expect(declared.has(token), `body 引用了沒有宣告的 ${token}`).toBe(true);
+    }
   });
 });
 

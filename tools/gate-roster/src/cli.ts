@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { checkRoster } from "./check.ts";
 import { GATES, UNGATED } from "./gates.ts";
+import { parseFlags } from "@org/gate-kit";
 
 /**
  * 閘門名冊的四個消費端是否一致。
@@ -14,6 +15,23 @@ import { GATES, UNGATED } from "./gates.ts";
  * 名冊本身在 `src/gates.ts`，那個檔的檔頭寫了它涵蓋什麼、刻意不涵蓋什麼。
  * 判定在 `src/check.ts`。這裡只做三件事：收集、印、決定回傳值。
  */
+
+/**
+ * ⚠️ **不認得的旗標一律紅**（C126／C133 §五）。這幾行不是驗證輸入，是**擋一種
+ * 綠燈**：被拿掉的旗標留在 CI 裡而被靜靜忽略時，那一步會頂著它原本的名字回綠
+ * —— C52 的 `--masking` 就是那樣活了下來（完整量測在 C125 §一）。
+ *
+ * ⚠️ **空 spec 的意思是「拒絕所有旗標」，不是「放行所有旗標」。**
+ * ⚠️ spec 漏掉一個真旗標，合併當天 CI 就紅** —— 「不認得就失敗」對還沒登記的
+ * 真旗標一視同仁。三個來源要一起掃：根 `package.json` 的 `scripts`、
+ * `.github/workflows/*.yml`（⚠️ **含排程那兩個**，它們不在 `gate`／`ready` 上，
+ * `gate-kit` 的名冊測試看不見它們）、以及這支工具自己的 `tests/`。
+ */
+const FLAGS = parseFlags(process.argv.slice(2), {} as const);
+if (!FLAGS.ok) {
+  console.error(FLAGS.message);
+  process.exit(1);
+}
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 

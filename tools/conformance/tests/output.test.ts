@@ -88,3 +88,34 @@ describe("大報告不得被截斷", () => {
     expect(output.endsWith("\n\n")).toBe(true);
   });
 });
+
+/**
+ * 檔案模式那條規則**接上了沒有**。
+ *
+ * ⚠️ 這條測試存在的理由很窄，而它補的是一個真的洞：那條規則
+ * **刻意不在 `--root` 底下跑**（副本不是版控，見 `rules/file-mode.ts` 的檔頭），
+ * 而 `--root` 正是這支工具唯一的端對端反向測試機制。也就是說
+ * `negative.test.ts` 的每一條都證明不了它有被接進 `cli.ts` ——
+ * 把那一行刪掉，判定的八條測試照樣全綠。
+ *
+ * 所以這裡驗的不是判定（那在 `rules.test.ts`），是**接線**：
+ * 不帶 `--root` 跑一次，輸出必須說它查過了。
+ */
+describe("檔案模式那條規則要真的被接進 cli.ts", () => {
+  it("不帶 --root 跑，輸出要說它查過版控模式", () => {
+    const result = spawnSync("node", [CLI], { cwd: ROOT, encoding: "utf8" });
+    const output = `${result.stdout}${result.stderr}`;
+    // ⚠️ 斷言的是那個**數字**，不是那句話 —— 一句寫死的話在呼叫被刪掉之後
+    // 照樣印得出來（第一版就是這樣寫的，而那條測試是恆真的）。
+    const examined = /含版控檔案模式：(\d+) 個版控檔案/.exec(output)?.[1];
+    expect(Number(examined)).toBeGreaterThan(100);
+  });
+
+  it("★ 帶 --root 跑，要明說它沒查（安靜跳過與查過是同一個畫面）", () => {
+    const dir = mkdtempSync(join(tmpdir(), "conformance-wiring-"));
+    sandbox = dir;
+    mkdirSync(join(dir, "features"), { recursive: true });
+    const result = spawnSync("node", [CLI, "--root", dir], { cwd: ROOT, encoding: "utf8" });
+    expect(`${result.stdout}${result.stderr}`).toContain("--root 之下**沒有**檢查檔案模式");
+  });
+});

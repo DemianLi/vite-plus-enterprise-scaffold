@@ -15,7 +15,8 @@
     "check": "vp check"
   },
   "dependencies": {
-    "@org/bff-contract": "workspace:*"
+    "@org/bff-contract": "workspace:*",
+    "@org/gate-kit": "workspace:*"
   },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",

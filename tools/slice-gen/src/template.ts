@@ -161,6 +161,31 @@ export default createTemplate({
 
         `安裝依賴並驗證：\n` +
           `    vp install && node tools/conformance/src/cli.ts && vp run @org/feature-${options.slice}#test`,
+
+        // ⚠️ 這一條**不是給人做的事，是叫人不要做一件事** —— 而它必須是最後一條。
+        //
+        // 這幾段 suggestion 印完之後，外層的 `vp create` 還會再印一行它自己的
+        // 通用結尾：`→ Next: cd features/<name> && vp run`。那是鷹架的樣板句，
+        // 它不知道這個 repo 的切片**不是獨立可跑的東西** —— 照著做會得到
+        // 一份全 repo 的 task 清單，不是任何跑起來的東西（採用演練實測，
+        // 而那個人為此多跑了一次指令才確定該信哪一段）。
+        //
+        // ⚠️ **那行印在我們控制範圍之外** —— `bingo`／`vp create` 鷹架印的，
+        // 整個 repo（含 `tools/slice-gen`）grep 不到那個字串，而這支產生器
+        // **自己一行輸出都沒有**（沒有任何 `console.*`）。suggestions 是我們
+        // 唯一講得到話的地方。
+        //
+        // ⚠️ **它不會緊鄰那一行。** 2026-08-22 用 README:127 教的指令實測，
+        // 中間隔著鷹架的十行進度輸出（`Monorepo integration...`、
+        // `Installing dependencies...`、`◇ Scaffolded`…）。所以這段話**必須把
+        // 那一行原樣寫出來**，讀的人才認得出在講哪一句 —— 靠位置是靠不住的。
+        //
+        // ⚠️ 那次實測順帶留下兩個非預期的改動（`pnpm-lock.yaml`、
+        // `tools/conformance/src/cli.ts` 的檔案模式）—— 所以**沒有**把它寫成
+        // 一條 e2e。經過與這個缺口見 C99。
+        `⚠️ 底下 \`vp create\` 還會印一行 \`→ Next: cd features/${options.slice} && vp run\` ——\n` +
+          `**那一行請忽略**。它是鷹架的通用結尾，而這個 repo 的切片不是獨立可跑的東西\n` +
+          `（照它做只會列出全 repo 的 task 清單）。照上面四步做就好。`,
       ],
     };
   },

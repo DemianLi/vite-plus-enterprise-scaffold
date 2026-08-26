@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
@@ -78,6 +79,57 @@ export function workspacePackages(root: string): string[] {
 /** workspace 樣式底下的 package 數。 */
 export function workspacePackageCount(root: string): number {
   return workspacePackages(root).length;
+}
+
+/**
+ * `platform/ui` 的元件數。
+ *
+ * ── 為什麼要有這一筆 ────────────────────────────────────────────────
+ *
+ * 「`platform/ui` 目前只有 N 個元件」這句話寫在三個地方（README 的
+ * 〈已知限制〉、HANDOFF 的〈已知的誠實缺口〉與承諾三），而在 2026-08-19 之前
+ * **沒有任何東西在守它**。那是 C71 記的同一個形狀：一份被抄在多處的數字，
+ * 沒有人在斷言它們一致。
+ *
+ * 而它是**團隊評估要不要拉 v1 時讀的那一格** —— 抄漏一次，看到的是一個
+ * 比實際少的數字，然後決定自己寫元件。
+ *
+ * ── 為什麼問 git 而不是 readdirSync ────────────────────────────────
+ *
+ * ⚠️ 第一版用 `readdirSync`，review 指出那正是 C73 逐字記下的坑：
+ * `readdirSync` 答的是「**磁碟上**有什麼」，而磁碟上有切分支留下的殘骸、
+ * 有還沒 commit 的試作。症狀是**開發機紅、CI 綠**，訊息卻長得像文件寫錯了。
+ *
+ * ⚠️ 也不用 `git ls-tree HEAD`：那只看得到上一個 commit。新增一個元件、
+ * `git add` 了、跑 `vpr ready` 會是綠的，要等 commit 完才紅 ——
+ * 而 `vpr ready` 存在的全部理由就是「推上去之前先知道」（C73 §同一條）。
+ *
+ * ⚠️ **不退回去掃磁碟。** 讀不到 git 就丟例外，理由同 `scope-check`：
+ * 有 fallback 的話，「今天走的是哪一條」就沒有人知道了。
+ *
+ * ⚠️ 數的是 `.vue` 檔，不是 `index.ts` 的 export 數 —— 兩者不相等
+ *（`index.ts` 還匯出 `cn`、`createUiTheme` 與一堆型別），而句子講的是元件。
+ * 「元件有沒有被匯出」是另一條規則，由 `platform/ui/tests` 的契約測試守。
+ */
+export function uiComponentCount(root: string): number {
+  const directory = "platform/ui/src/components";
+  // ⚠️ `-z`：不加的話含非 ASCII 的路徑會被 git 加引號並八進位轉義，
+  //    數出來的 `.vue` 數會少掉那些檔案（C112）。NUL 分隔完全不轉義。
+  const result = spawnSync("git", ["ls-files", "-z", "--", `${directory}/`], {
+    cwd: root,
+    encoding: "utf8",
+  });
+
+  if (result.error !== undefined || result.status !== 0) {
+    const reason = result.error?.message ?? result.stderr.trim();
+    throw new Error(
+      `讀不到版控內容（git ls-files -- ${directory}/）：${reason}\n` +
+        "      這一筆刻意不退回去掃磁碟 —— 磁碟上有切分支留下的殘骸，" +
+        "而那會讓這道閘門在開發機紅、在 CI 綠。",
+    );
+  }
+
+  return result.stdout.split("\0").filter((path) => path.endsWith(".vue")).length;
 }
 
 const USES = /^\s*-?\s*uses:\s*(\S+)/gm;

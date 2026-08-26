@@ -1,11 +1,29 @@
 <script setup lang="ts">
-import { inject } from "vue";
+import { defineAsyncComponent, inject } from "vue";
 import type { RegisteredFeatures } from "@org/slice-kit";
 
 const registered = inject<RegisteredFeatures>("features");
+
+/**
+ * 本機 session 的建立入口（#95 的阻斷級 ②c）。
+ *
+ * ⚠️ **這個三元式的形狀是刻意的，不是風格。** `import.meta.env.DEV` 在
+ * production 建置期被替換成字面的 `false`，於是整條 `import()` 連同
+ * `DevSession.vue` 一起被搖掉 —— 一個「看起來很完整」的登入相關畫面
+ * 不會躺在 production 的產物裡（那正是 `platform/bff-mock` 檔頭點名的
+ * 失敗模式）。
+ *
+ * 寫成 `v-if="isDev"` 加靜態 import 的話畫面行為一樣，但程式碼會照樣進 bundle。
+ * 有東西在守這件事：`tests/dev-session-stripped.test.ts` 會建置一次再去產物裡找。
+ */
+const DevSession = import.meta.env.DEV
+  ? defineAsyncComponent(() => import("./DevSession.vue"))
+  : undefined;
 </script>
 
 <template>
+  <component :is="DevSession" v-if="DevSession !== undefined" />
+
   <div class="shell">
     <!--
       略過導覽（WCAG 2.4.1 的常見做法）。平時是 sr-only，拿到焦點才現形。

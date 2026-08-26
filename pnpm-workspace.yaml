@@ -18,6 +18,10 @@ catalog:
   # 精確版本（=4.1.10），此處若用 ^ 範圍或不同版本，node_modules 會出現兩份 vitest，
   # 測試會以難以診斷的方式失敗（型別對不上、mock 失效）。升 vite-plus 時要同步改這行。
   vitest: 4.1.10
+  # 覆蓋率的 provider（C120）。⚠️ **同一句話**：它是 vitest 的內部套件，版本要
+  # 與上面那行逐位相同。用 ^ 範圍的話，node_modules 會出現一份與 runner 版本
+  # 不同的 provider，而症狀不是報錯，是覆蓋率數字看起來像那麼一回事。
+  "@vitest/coverage-v8": 4.1.10
 
   # --- 應用層選型（D13）---
   vue: ^3.5.41
@@ -38,6 +42,13 @@ catalog:
   # 少一個相依就是少一筆 SCA 範圍（與 D2 對 YAML parser 的同一條理由）。
   clsx: ^2.1.1
   tailwind-merge: ^3.4.1
+  # UiDatePicker 用。⚠️ **這不是一筆新的供應鏈範圍**：它從第一天就在樹裡
+  # （reka-ui 自己相依它），這裡做的只是把「本來就在用」寫成明的 ——
+  # platform/ui 要直接 import CalendarDate 才建得出 DateValue。
+  # ⚠️ 版本**逐字跟著 reka-ui 自己宣告的範圍**（^3.5.0），不是抄目前解到的
+  # 3.12.3。寫得比它窄的話，reka-ui 哪天需要一個更舊的 3.x 就會產生第二份 ——
+  # 那正是 D15 記過的 lightningcss 兩個版本、MPL-2.0 範圍翻倍的形狀。
+  "@internationalized/date": ^3.5.0
 
   # --- 元件測試（§11 II ⑨ 的執行期那一層）---
   # ⚠️ C47 才剛以「會把瀏覽器二進位拉進供應鏈盤點範圍」為由拒絕 Playwright，
@@ -49,6 +60,14 @@ catalog:
   # 換不掉），但 happy-dom 快得多，而這裡要的只是一個能算 textContent 的 DOM。
   "@vue/test-utils": ^2.4.11
   happy-dom: ^20.11.2
+
+  # --- 驗收規格（TESTING.md 的層 3，第二類的完成率設施）---
+  # ⚠️ **不是第二套 runner** —— 它是 Vitest 上的一層 API，跑在既有的 Vitest 裡。
+  # 養第二套 runner 會再撞一次 C87 的跨套件排程相依。
+  #
+  # ⚠️ peer 是 `vitest ^4.0.4`，與上面釘死的 4.1.10 相容（實測，C110）。
+  # 升 vite-plus 而 vitest 跳出那個範圍時，這一行要一起看。
+  "@amiceli/vitest-cucumber": ^7.0.0
 
   # --- 產生器（tools/slice-gen）---
   bingo: ^0.9.3
@@ -70,6 +89,14 @@ catalog:
   # --- `.vue` 的型別檢查（HANDOFF #26／C68）。僅 CI 與本機使用 ---
   # ⚠️ 它的 typescript 在下面的具名 catalog，不在這裡 —— 那不是筆誤。
   vue-tsc: ^3.3.10
+
+  # --- 突變測試（TESTING.md 的元層）。僅本機與手動使用，不擋任何東西 ---
+  # ⚠️ **兩支釘死在精確版本，不用 `^`。** 它的產出是一份「哪些程式碼被改壞了而
+  # 測試沒說話」的清單，而**變異運算子的集合是隨版本改的** —— minor 升上去，
+  # 清單會多出或少掉一批，而那與程式碼品質無關。#150 的基準是 10.0.0 量的。
+  # ⚠️ runner 的 peer 是 `vitest >=2.0.0`，涵蓋上面釘死的 4.1.10。
+  "@stryker-mutator/core": 10.0.0
+  "@stryker-mutator/vitest-runner": 10.0.0
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 具名 catalog：這個 repo 裡有**兩個 TypeScript**（C68）
@@ -99,6 +126,19 @@ catalogs:
 
 overrides:
   vite: "catalog:"
+
+  # ⚠️ **CVE-2026-8723**（qs 的 DoS，Trivy 判 HIGH，`exit-code: 1` 因此開火）。
+  # 傳遞路徑：`@stryker-mutator/core@10.0.0` → `typed-rest-client` → `qs@6.15.1`。
+  # 修法版本 6.15.2，這裡直接釘上去。
+  #
+  # ⚠️ **為什麼不是升 stryker**：C121 把那兩支**釘死在精確版本**，理由是
+  # 變異運算子的集合隨版本改 —— 升上去，#150 的基準清單就不再可比，
+  # 而那與這個 CVE 無關。override 只換掉那一個傳遞相依，基準不動。
+  #
+  # ⚠️ **這一筆是併線那天第一次量到的**（C133）：SCA 掃描是 `main` 的閘門，
+  # 而 stryker 是 `release/v1` 帶進來的 —— 兩邊從來沒有見過面。
+  # 拿掉 stryker 的那天，這一行也要一起拿掉（`pnpm why qs` 會告訴你還有沒有人用）。
+  qs: ">=6.15.2"
 
 peerDependencyRules:
   allowAny:

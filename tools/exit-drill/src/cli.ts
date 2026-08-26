@@ -27,6 +27,7 @@ import {
   stripAnsi,
   type DocumentSource,
 } from "./counts.ts";
+import { parseFlags } from "@org/gate-kit";
 
 /**
  * D2 退出演練：證明應用程式原始碼不綁死在 vite-plus 上（R1 / R9）。
@@ -63,11 +64,65 @@ import {
  * 會讓 npm 直接以 EBADDEVENGINES 中止（實測過，見 C8）。因此暫存目錄開在 os.tmpdir()。
  */
 
+/**
+ * ⚠️ **不認得的旗標一律紅**（C126／C133 §五）。這幾行不是驗證輸入，是**擋一種
+ * 綠燈**：被拿掉的旗標留在 CI 裡而被靜靜忽略時，那一步會頂著它原本的名字回綠
+ * —— C52 的 `--masking` 就是那樣活了下來（完整量測在 C125 §一）。
+ *
+ * ⚠️ **spec 漏掉一個真旗標，合併當天 CI 就紅** —— 「不認得就失敗」對還沒登記的
+ * 真旗標一視同仁。三個來源要一起掃：根 `package.json` 的 `scripts`、
+ * `.github/workflows/*.yml`（⚠️ **含排程那兩個**，它們不在 `gate`／`ready` 上，
+ * `gate-kit` 的名冊測試看不見它們）、以及這支工具自己的 `tests/`。
+ */
+const FLAGS = parseFlags(process.argv.slice(2), {
+  full: { kind: "boolean" },
+  "require-fresh": { kind: "boolean" },
+} as const);
+if (!FLAGS.ok) {
+  console.error(FLAGS.message);
+  process.exit(1);
+}
+
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const EVIDENCE_PATH = join(ROOT, "tools/exit-drill/evidence.json");
 
-/** 退出面：允許 import vite-plus 的檔案。改動這份清單就是在改變退出成本。 */
+/**
+ * 退出面：**演練會重建的那幾份設定**。改動這份清單就是在改變退出成本。
+ *
+ * ⚠️ 它同時是 `runFull()` 拿去做外掛帳目與重產設定的來源（見本檔下半），
+ * 所以這裡只放真的會被重建的設定檔 —— 靜態掃描另有一份放行判準，見下。
+ */
 const EXIT_SURFACE = ["vite.config.ts", "apps/console/vite.config.ts"];
+
+/**
+ * 靜態掃描時**額外**放行的檔案，逐條寫理由。
+ *
+ * ⚠️ 這份清單與 `EXIT_SURFACE` 分開，是因為它們回答的是不同的問題：
+ * 上面那份是「演練要重建哪幾份設定」，這一份是「哪些檔案 import 了 vite-plus
+ * 而**不算退出面擴大**」。混在一起的話，這裡加一筆就會讓演練去重建一支測試檔。
+ */
+const STATIC_ALLOWED: ReadonlyArray<readonly [string, string]> = [
+  [
+    "apps/console/tests/dev-session-stripped.test.ts",
+    "它**用建置器去問一個關於建置器的問題**（本機 session 入口有沒有被搖掉，#95 ②c），" +
+      "而搖樹是建置器的行為 —— 用另一支建置器量到的不保證是同一件事。" +
+      "退出 vite-plus 時這裡改的是 import 那一行，不是應用程式：退出成本沒有變。",
+  ],
+];
+
+/**
+ * 切片與應用自己的 `vite.config.ts`。
+ *
+ * ⚠️ **用形狀判，不是寫死路徑**：`tools/slice-gen` 產出的每一片都帶一支
+ * （覆蓋率門檻只能收在 package 自己的設定裡 —— C120），而「加第一片切片」
+ * 正是採用指南教的第一件事。寫死路徑的話，照著指南做的團隊第一天就會撞到
+ * 一道說他們「擴大了退出面」的紅燈，而他們什麼都沒做錯。
+ *
+ * 判準沒有放寬：規則本來就是「vite-plus 只出現在**設定檔**」。
+ */
+function isViteConfig(relative: string): boolean {
+  return relative.endsWith("/vite.config.ts") || relative === "vite.config.ts";
+}
 
 /** 演練證據的有效期。超過就不再是「已驗證」，只是「曾經驗證過」。 */
 const FRESHNESS_DAYS = 120;
@@ -120,7 +175,8 @@ function runStatic(): number {
   for (const dir of SCAN_DIRS) {
     for (const file of collectFiles(join(ROOT, dir))) {
       const relative = file.slice(ROOT.length + 1);
-      if (surface.has(relative)) continue;
+      if (surface.has(relative) || isViteConfig(relative)) continue;
+      if (STATIC_ALLOWED.some(([path]) => path === relative)) continue;
 
       const source = readFileSync(file, "utf8");
       // 只看 import 指定字串，避免命中說明文字裡提到 vite-plus 的地方。
@@ -143,7 +199,9 @@ function runStatic(): number {
     return 1;
   }
 
-  console.log(`✓ D2 退出面未擴大（${EXIT_SURFACE.length} 個設定檔，應用原始碼零依賴）`);
+  console.log(
+    `✓ D2 退出面未擴大（設定檔 ＋ ${STATIC_ALLOWED.length} 筆具名例外，應用原始碼零依賴）`,
+  );
 
   const configs: ConfigSource[] = EXIT_SURFACE.filter((relative) =>
     existsSync(join(ROOT, relative)),
@@ -584,6 +642,16 @@ function runFull(): number {
   for (const pkg of packages) {
     const target = join(workdir, "packages", pkg.name.replace("@org/", ""));
     cpSync(pkg.dir, target, { recursive: true, filter });
+
+    // ⚠️ 套件自己的 `vite.config.ts` 要拿掉，理由與上面那行對 `app/` 做的一樣：
+    //   ① 它 `import { defineConfig } from "vite-plus"` —— 而這場演練的前提
+    //      就是那個套件不存在，留著它 vitest 會炸在 ERR_MODULE_NOT_FOUND。
+    //   ② 演練自己產生設定（見下一步），複製過來的那份本來就不會被用到。
+    //
+    // ⚠️ **這一行是 C120 之後才需要的**：切片從那時起各帶一支設定檔（覆蓋率
+    // 門檻只收得進 package 自己的設定裡）。少了它，演練會在下一次排程壞掉，
+    // 而那是三個月後 —— 與 `dependencies.ts` 檔頭記的 PR #15 完全同一個形狀。
+    rmSync(join(target, "vite.config.ts"), { force: true });
 
     for (const [subpath, relative] of Object.entries(pkg.exports)) {
       // **不要過濾副檔名。** 第一版只 alias .ts/.js/.mjs，於是 @org/ui 的

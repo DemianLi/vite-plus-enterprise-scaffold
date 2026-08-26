@@ -27,9 +27,13 @@
 看起來像機密的環境變數讓建置直接失敗、文件裡抄來的數字對不上事實來源就擋下 PR。
 適用於**多團隊並行開發、需要通過資安與稽核的企業內部系統**。
 
-- 完整的決策理由與風險登記 → [DECISIONS.md](DECISIONS.md)
-- 上線前必讀 → [HANDOFF.md](HANDOFF.md)，那裡收的是程式碼做不到、
-  只有組織能決定的 26 件事（採購／資安／法務／平台／架構），每一項都附「拿什麼去談」
+- **開工前必讀** → [HANDOFF.md](HANDOFF.md)。⚠️ **它有兩半**：上半是〈採用指南〉
+  （第一步要做什麼、這條線承諾什麼、以及**它刻意不承諾什麼**），
+  下半是〈交接清單〉—— 程式碼做不到、只有組織能決定的 26 件事
+  （採購／資安／法務／平台／架構），每一項都附「拿什麼去談」
+- 完整的決策理由與風險登記 → [DECISIONS.md](DECISIONS.md)（涵蓋範圍大於任何單一版本）
+- 版本沿革 → [CHANGELOG.md](CHANGELOG.md)
+- 什麼准許出現在交付線的樹上（給維護者）→ [SCOPE.md](SCOPE.md)
 - UI 技術選型的三方比較 → [UI-SURVEY.md](UI-SURVEY.md)
 
 ---
@@ -58,6 +62,38 @@
 
 ---
 
+## ✨ 交付線承諾的五件事
+
+> ⚠️ **這五條是 `v1.x` 對採用團隊的承諾，而它們被 [`specs/`](specs) 底下的
+> 規格逐條執行**（`tools/promise-check` 照規格把一份切片副本弄壞、跑規格指名的
+> 那道閘門、比對訊息）。上面〈核心特性〉列的是**這棵樹有什麼**，
+> 這裡列的是**有東西在守著、而且守法寫得出來的那幾條**。兩者不是同一件事。
+
+1. **分工開發不受影響的系統架構** — 一片功能 ＝ 一個 package，依賴方向單向
+   （`apps → features → platform`），**切片之間一律禁止互相依賴**。
+   邊界由三層機制守著，不是靠 review。
+
+2. **設計模板到前端工程的開發方式** — 那條路徑上的每一段都有檢查：
+   槽必須被宣告、元件必須真的讀到它、各案必須覆寫得到。
+   `platform/ui` 的元件契約**掃目錄**驗每一個元件，不是綁在某個檔名上。
+
+3. **設計模板對應 vue component 的方式** — 元件的公開面分三格，
+   各對應設計稿上的一種東西：**值**→代幣、**形狀**→**具名槽**、**結構**→slot。
+   槽名取自 reka-ui 的基元（也就是 shadcn 的 part 名），設計師與前端共用同一套詞彙。
+
+4. **各案快速換配色與元件樣式** — 代幣分兩層（色票 → 語意），
+   `tools/theme-verify` **真的建置兩次**比對產物，證明覆寫會生效 ——
+   而不是只檢查「代幣有沒有寫在那裡」。
+
+5. **基礎資安在撰寫時就被發現** — 這是**前置過濾器**，不是交付的那份掃描報告
+   （源掃弱掃由專業公司做）。Tier 2 全量、不快取、不經驅動層。
+
+⚠️ **`platform/` 的 breaking change 必須附 codemod** — 這是上面五條共同的前提：
+`tools/api-surface` 比對每個進入點的型別形狀（連 interface 成員、class 建構子、
+`.vue` 的 props／slot／emit 都算），**移除、改名、或改變形狀就讓閘門失敗**。
+
+---
+
 ## 📦 安裝指南
 
 > ⚠️ **本節刻意不提供 `npm install` 與 `yarn add`。**
@@ -83,8 +119,13 @@ corepack enable && corepack prepare pnpm@11.21.0 --activate && pnpm install
 npx --yes --package vite-plus@0.2.9 vp -C ./<repo-dir> install
 ```
 
-> 內部 registry 環境下，這個 bootstrap 抓取是**第一個會斷的地方**（見 HANDOFF 的 R3／R5）：
+> 內部 registry 環境下，這個 bootstrap 抓取是**第一個會斷的地方**：
 > 需另外設定 `npm_config_registry` 與 `NODE_EXTRA_CA_CERTS`。
+> 更完整的一節在 HANDOFF 的〈平台／IT — 內部 registry 與封閉網路〉。
+>
+> ⚠️ 這裡原本用 `R3`／`R5` 這種編號指路，而那兩個編號**從來沒有在那份文件裡
+> 出現過**（逐個 commit 查過 50 個版本，C99）—— 它從寫下的那一刻就是死的。
+> 改用章節名，是因為章節名改了會被人看見，而一個死掉的編號不會。
 
 裝完之後 `node_modules/.bin` 就有 `vp`、`vpr`、`eslint`，**後續一律用它們**：
 
@@ -233,12 +274,17 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │   ├── compliance/           控制項與證據的對應表
 │   ├── pii-check/            個資外洩路徑檢查
 │   ├── doc-facts/            文件裡的數字 vs. repo 內部事實來源
+│   ├── scope-check/          SCOPE.md 列的東西 vs. 版控裡真正存在的目錄（刻意不進閘門，見 C133）
+│   ├── spec-report/          驗收規格的完成率報表
+│   ├── promise-check/        specs/ 的承諾：照規格弄壞一份副本，跑指名的閘門，比對結果
 │   └── ui-survey/            UI-SURVEY.md 的資料來源（決策期工具，刻意不進閘門，見 C45）
 │
+├── specs/                    **框架承諾**（.feature）。腳手架對採用團隊的承諾，人逐字讀
 ├── .semgrep/                 開發期源碼掃描的自寫規則（汙點傳遞）＋ 故意寫壞的 fixture
 ├── .github/workflows/        CI：tier1-quality / tier2-security / exit-drill / supply-chain-recapture
 ├── DECISIONS.md              決策日誌與風險登記（有日期，刻意不被 doc-facts 守）
-├── HANDOFF.md                只有組織能決定的事項，附「拿什麼去談」
+├── HANDOFF.md                採用指南 ＋ 只有組織能決定的事項，附「拿什麼去談」
+├── SCOPE.md                  什麼准許出現在交付線的樹上（給維護者）
 ├── UI-SURVEY.md              UI 技術選型的三方比較
 └── vite.config.ts            驅動層設定（退出面刻意收斂在兩個設定檔）
 ```
@@ -250,17 +296,21 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 
 ## 兩層檢查
 
-|                       | 內容                                                                                                                                                                                      | 指令                                       | 何時跑                    |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------- |
-| **Tier 1 — 品質**     | 閘門名冊一致 + oxlint + oxfmt + 型別檢查 + .vue 型別檢查 + 無障礙靜態檢查 + 設計系統接縫                                                                                                  | `vp check`、`vpr a11y`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
-| **Tier 2 — 安全閘門** | 一致性檢查 + platform API 表面檢查 + D2 退出面檢查 + 供應鏈盤點 + 法遵對照表 + 測試環境個資檢查 + 文件數字與事實來源一致 + BFF 契約驗收 + ESLint 安全規則 + SAST + 機密掃描 + SBOM 與 SCA | `vpr gate`                                 | 每次 PR **＋ 每日排程**   |
+|                       | 內容                                                                                                                                                                                                     | 指令                                       | 何時跑                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------- |
+| **Tier 1 — 品質**     | 閘門名冊一致 + oxlint + oxfmt + 型別檢查 + .vue 型別檢查 + 驗收規格完成率 + 無障礙靜態檢查 + 設計系統接縫                                                                                                | `vp check`、`vpr a11y`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
+| **Tier 2 — 安全閘門** | 一致性檢查 + platform API 表面檢查 + D2 退出面檢查 + 供應鏈盤點 + 法遵對照表 + 測試環境個資檢查 + 文件數字與事實來源一致 + 框架承諾檢查 + BFF 契約驗收 + ESLint 安全規則 + SAST + 機密掃描 + SBOM 與 SCA | `vpr gate`                                 | 每次 PR **＋ 每日排程**   |
 
 > **這張表的閘門部分是被守著的。** `tools/gate-roster` 會比對它與 `scripts.gate`、
 > 兩個 workflow —— 少寫一道會紅（多寫不會，因為 SAST／機密掃描／SBOM 不在名冊的
 > 涵蓋範圍內，見 `tools/gate-roster/src/gates.ts` 的檔頭）。
 >
 > ⚠️ 這一格在接上名冊之前**漏了九道**，而它正是讀者判斷「PR 會被什麼擋下來」
-> 的地方（C74）。
+> 的地方（C132）。
+>
+> ⚠️ **`SCOPE.md 與版控內容一致` 刻意不在這張表裡。** 那道閘門在名冊的
+> `UNGATED` 中 —— `SCOPE.md` 說的是「什麼准許出現在交付線的樹上」，而這棵樹
+> 是超集，跑它會滿江紅。邊界怎麼定是 #90／#93 的產出，經過見 C133。
 
 > 指令刻意**不用** `pnpm run` / `npx`：本專案不保證環境有全域 pnpm，
 > 而 `npx` 會被 `devEngines` 擋下。`vpr` 是 vite-plus 的 script runner，
@@ -276,11 +326,11 @@ Tier 2 刻意**全量、不快取、不經 `vp`**。原因是安全掃描的結�
 
 ### CI
 
-| Workflow                                                     | 內容                                                                                                 | 快取              | 觸發                     |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- | ----------------- | ------------------------ |
-| [`tier1-quality.yml`](.github/workflows/tier1-quality.yml)   | `vp check` / test / build / **無障礙靜態檢查** / **設計系統接縫**                                    | ✅ 任務快取       | PR、push to main         |
-| [`tier2-security.yml`](.github/workflows/tier2-security.yml) | 一致性檢查 / API 表面 / BFF 契約 / 退出面 / **供應鏈盤點** / ESLint 安全規則 / gitleaks / SBOM / SCA | ❌ **一格都沒有** | PR **＋ 每日 21:00 UTC** |
-| [`exit-drill.yml`](.github/workflows/exit-drill.yml)         | D2 退出演練（上游 Vite 實際重建一次）                                                                | ❌                | **每季** + 手動          |
+| Workflow                                                     | 內容                                                                                                                | 快取              | 觸發                     |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | ----------------- | ------------------------ |
+| [`tier1-quality.yml`](.github/workflows/tier1-quality.yml)   | `vp check` / test / build / **驗收規格完成率** / **無障礙靜態檢查** / **設計系統接縫**                              | ✅ 任務快取       | PR、push to main         |
+| [`tier2-security.yml`](.github/workflows/tier2-security.yml) | 一致性檢查 / API 表面 / BFF 契約 / 退出面 / **供應鏈盤點** / **框架承諾** / ESLint 安全規則 / gitleaks / SBOM / SCA | ❌ **一格都沒有** | PR **＋ 每日 21:00 UTC** |
+| [`exit-drill.yml`](.github/workflows/exit-drill.yml)         | D2 退出演練（上游 Vite 實際重建一次）                                                                               | ❌                | **每季** + 手動          |
 
 Tier 2 的三條規則——不快取、不做 affected 過濾、必須有時間觸發——是刻意的。
 改動前請先讀該檔開頭的理由；`CODEOWNERS` 也把它劃給資安共同把關。
@@ -394,7 +444,7 @@ D2 選了「可替換的驅動層」，而那張保單**是被實測過的**，�
 
 ## 供應鏈：拿去給資安與平台團隊的三份文件
 
-腳手架帶進來的東西比想像的多：**574 個套件，其中 144 個是平台限定的原生二進位，
+腳手架帶進來的東西比想像的多：**712 個套件，其中 144 個是平台限定的原生二進位，
 分屬 12 個家族**（不只 `vite-plus` —— TypeScript 7 自己就是原生執行檔，
 `lightningcss` 是 MPL-2.0）。
 
@@ -523,7 +573,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 > 的內部骨架，MIT 宣告目前只在 [LICENSE](LICENSE) 與根 `package.json` 的
 > `"license": "MIT"` 兩處，兩者必須一致。正式對外前請把 `@org` 換成
 > **法務認可的法人全名**——這是組織的決定，不是這份 README 能代為認定的。
-> 底下 29 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
+> 底下 32 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
 
 上游相依的授權另計——`vite-plus` 為 MIT（Cloudflare 併購後），`lightningcss` 為 MPL-2.0，
 另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。完整盤點見 `vpr sca-dossier`。

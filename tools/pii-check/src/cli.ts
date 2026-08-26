@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import { parseFlags, repoRoot, walk } from "@org/gate-kit";
 
@@ -24,7 +24,35 @@ import { scanRepo } from "./scan.ts";
  */
 
 /** 不進去的目錄。掃 node_modules 會把全世界的測試資料一起掃進來。 */
-const SKIP = ["node_modules", ".git", "dist", ".scan", "coverage", ".vite-plus"];
+const SKIP = [
+  "node_modules",
+  ".git",
+  "dist",
+  ".scan",
+  "coverage",
+  ".vite-plus",
+  // ⚠️ 突變測試的產物（C121／`stryker.config.mjs`）。增量檔內嵌**每一支產品碼
+  // 與測試碼的完整原始碼**，掃它等於把整棵樹再掃一次 —— 而且那份副本上的
+  // 命中，路徑指向一個不存在的檔案。兩個都不進版控。
+  "reports",
+  ".stryker-tmp",
+];
+
+/**
+ * 跳過的**檔名**（不分目錄）。
+ *
+ * ⚠️ `walk()` 的 `skip` 只比對目錄名，所以這一格必須在這裡自己濾。
+ *
+ * `.vitest-results.json` 是 `vp run -r test --reporter=json` 每個 package 各留
+ * 一份的產物（`tools/spec-report` 吃它），內容含**每一次執行的毫秒時間戳**，
+ * 而 13～16 位的時間戳有相當比例通過 Luhn 校驗 —— 於是這道閘門會報出
+ * 「信用卡號的形狀」，而那些數字是時鐘。
+ *
+ * ⚠️ **這一格是併線那天才長出來的**（C133 §九）：`pii-check` 在 `main`、
+ * json reporter 在 `release/v1`，兩邊從來沒有見過面。症狀是**跑過測試之後**
+ * 閘門才紅 —— 先跑閘門是綠的，所以它看起來像個幽靈。
+ */
+const SKIP_FILES = [".vitest-results.json"];
 
 /** 只看文字檔。二進位檔的位元組隨機通過 Luhn 的機率不低，而那是純誤報。 */
 const TEXT = [
@@ -50,7 +78,9 @@ const TEXT = [
 const SPEC = { root: { kind: "value", noun: "目錄", fallback: repoRoot() } } as const;
 
 function runScan(root: string): number {
-  const files = walk(root, { skip: SKIP, extensions: TEXT });
+  const files = walk(root, { skip: SKIP, extensions: TEXT }).filter(
+    (file) => !SKIP_FILES.includes(basename(file)),
+  );
   const report = scanRepo(files, (path) => readFileSync(join(root, path), "utf8"));
 
   if (report.problems.length === 0) {

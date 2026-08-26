@@ -72,6 +72,14 @@ export const DRILL_TEST_DEPENDENCIES: readonly string[] = [
  */
 export const DROPPED_TEST_DEPENDENCIES: readonly DroppedDependency[] = [
   {
+    name: "@vitest/coverage-v8",
+    reason:
+      "**演練不跑覆蓋率。** 開啟它的是各切片自己的 `vite.config.ts`（C120），" +
+      "而演練會把那幾份設定刪掉再產一份自己的 —— 理由不是「用不到」，是" +
+      "**那些設定 import 的是 vite-plus，而這場演練的前提就是它不存在**。" +
+      "覆蓋率門檻由 `vp run -r test` 守，那一條與「換成上游工具鏈跑不跑得動」無關。",
+  },
+  {
     name: "vite-plus",
     reason:
       "**整場演練要證明的就是不需要它。** 裝回去的話這四個步驟全部失去意義 —— " +

@@ -12,6 +12,7 @@
     "check": "vp check"
   },
   "dependencies": {
+    "@org/gate-kit": "workspace:*",
     "@org/supply-chain": "workspace:*"
   },
   "devDependencies": {

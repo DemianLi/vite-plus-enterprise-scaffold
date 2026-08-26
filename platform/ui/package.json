@@ -13,6 +13,7 @@
     "check": "vp check"
   },
   "dependencies": {
+    "@internationalized/date": "catalog:",
     "clsx": "catalog:",
     "reka-ui": "catalog:",
     "tailwind-merge": "catalog:",
@@ -21,6 +22,8 @@
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "@vue/test-utils": "catalog:",
+    "happy-dom": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

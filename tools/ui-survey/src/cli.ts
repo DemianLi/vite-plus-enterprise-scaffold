@@ -10,6 +10,7 @@ import { licenseNeedsReview } from "@org/supply-chain/health";
 
 import { CANDIDATES, SCA_BASELINE, SCA_SCENARIOS } from "./candidates.ts";
 import { assessCsp, VERDICT_LABEL, type CspProbe } from "./csp.ts";
+import { parseFlags } from "@org/gate-kit";
 
 /**
  * UI／樣式選型的市調工具（HANDOFF #14 → D15）。
@@ -32,6 +33,23 @@ import { assessCsp, VERDICT_LABEL, type CspProbe } from "./csp.ts";
  * ⚠️ **全部需要公網**，而且刻意**不進 gate**：這是決策期的工具，不是閘門。
  * 把它排進 CI 只會讓 CI 在 registry 抖動時變紅，而它守不住任何東西。
  */
+
+/**
+ * ⚠️ **不認得的旗標一律紅**（C126／C133 §五）。
+ *
+ * ⚠️ 這一支在名冊的 `UNGATED` 裡，所以 `gate-kit` 的絆線
+ * （`tests/adoption.test.ts`，名冊從 `scripts.gate` ＋ `scripts.ready` 推導）
+ * **看不見它** —— 這幾行沒有東西在守，拿掉不會有人說話。寫下來是因為
+ * 「這支不在絆線範圍內」與「這支不需要」是兩件事。
+ */
+const FLAGS = parseFlags(process.argv.slice(2), {
+  csp: { kind: "boolean" },
+  sca: { kind: "boolean" },
+} as const);
+if (!FLAGS.ok) {
+  console.error(FLAGS.message);
+  process.exit(1);
+}
 
 const NPM_REGISTRY = "https://registry.npmjs.org";
 

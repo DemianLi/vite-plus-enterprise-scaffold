@@ -12,7 +12,8 @@
     "check": "vp check"
   },
   "dependencies": {
-    "@org/doc-facts": "workspace:*"
+    "@org/doc-facts": "workspace:*",
+    "@org/gate-kit": "workspace:*"
   },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",

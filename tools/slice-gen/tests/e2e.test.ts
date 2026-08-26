@@ -113,6 +113,44 @@ describe("真正的 CLI 入口跑得起來", () => {
    * `--slice` 傳不進去的時候，`produce()` 的守衛會擋下並說「收到 boolean」。
    * 有人把 `.refine()` 加回 options 的話，這裡會紅。
    */
+  it("★ 「那一行請忽略」的警告要在其他步驟**之後**（C99）", () => {
+    /**
+     * 採用演練實測：這幾段 suggestion 印完之後，外層 `vp create` 還會再印一行
+     * `→ Next: cd features/<name> && vp run` —— 鷹架的通用結尾，而這個 repo 的
+     * 切片不是獨立可跑的東西（照它做只會列出全 repo 的 task 清單）。
+     * 兩段指示放在同一份輸出裡，當下分不出哪一段才算數。
+     *
+     * ⚠️ 那條警告**只有在最後一條時才有用** —— 它靠的是「緊接在它要否定的
+     * 那一行前面」。有人往 suggestions 後面再加一條，它就不再相鄰了，
+     * 而不會有任何東西說話。這條測試就是那個「說話的東西」。
+     */
+    const warn = generated.output.indexOf("那一行請忽略");
+    expect(warn, "找不到那條警告").toBeGreaterThan(-1);
+    for (const earlier of ["CODEOWNERS", "features.ts", "vp install"]) {
+      expect(
+        generated.output.indexOf(earlier),
+        `${earlier} 那一步跑到警告後面去了 —— 警告必須是最後一條`,
+      ).toBeLessThan(warn);
+    }
+  });
+
+  it("🔴 警告要把它在講的那一行**原樣寫出來**", () => {
+    /**
+     * ⚠️ 這條原本寫的是「警告要排在 `→ Next:` 之前」，而它**當場紅了** ——
+     * 因為這支 e2e 跑的是 `tools/slice-gen/bin/index.ts`，
+     * 而那一行是外層 `vp create` 印的。**兩條不同的入口。**
+     *
+     * ⚠️ 也就是說：**README:127 教採用者跑的那個指令，沒有任何測試在跑。**
+     * 這是 C99 記下的具名缺口 —— 手動實測過（會多印那一行），但沒寫成 e2e，
+     * 因為那次執行順帶改了 `pnpm-lock.yaml` 與一個檔案模式。
+     *
+     * 所以這裡改成守**警告自己站得住的那一半**：它必須把那句話原樣寫出來，
+     * 讀的人才認得出在講哪一行（實測中間隔著十行進度輸出，靠位置靠不住）。
+     */
+    expect(generated.output, "警告沒把那一行原樣寫出來").toContain("→ Next: cd features/");
+    expect(generated.output).toContain("vp run");
+  });
+
   it("命令列選項確實以字串傳進去（不是被當成裸旗標）", () => {
     expect(generated.output).not.toContain("不是字串");
     expect(existsSync(SLICE_DIR), `${SLICE_DIR} 不存在 —— 產生器沒有寫出任何東西`).toBe(true);

@@ -11,6 +11,9 @@
     "test": "vp test",
     "check": "vp check"
   },
+  "dependencies": {
+    "@org/gate-kit": "workspace:*"
+  },
   "devDependencies": {
     "@org/eslint-config": "workspace:*",
     "@org/tsconfig": "workspace:*",

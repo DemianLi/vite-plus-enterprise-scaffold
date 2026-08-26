@@ -257,6 +257,10 @@ const BLOCK_COMMENT = /\/\*[\s\S]*?\*\//g;
 const LINE_COMMENT = /(^|[^:])\/\/[^\n]*/g;
 const HTML_COMMENT = /<!--[\s\S]*?-->/g;
 const TEMPLATE_BLOCK = /<template[^>]*>([\s\S]*)<\/template>/;
+/** 每一塊 `<script …>`：第 1 組是屬性原文，第 2 組是內容。 */
+const SCRIPT_BLOCK = /<script([^>]*)>([\s\S]*?)<\/script>/g;
+/** `<script setup>` 的 `setup` 屬性（`setup`、`setup lang="ts"` 都算）。 */
+const SETUP_ATTRIBUTE = /(^|\s)setup(\s|=|$)/;
 const SLOT_TAG = /<slot\b([^>]*)>/g;
 // ⚠️ `+` 而不是 `*`：`emit("")` 用 `*` 會match成功，於是空字串被登記成一個
 // 事件名，然後要求 defineEmits 宣告一個叫 `""` 的事件。用 `+` 的話它落到
@@ -448,6 +452,24 @@ interface Generic {
  * 卻讀到 `>`，於是整條樣式不匹配 —— 而不匹配的結果不是紅燈，是**那個
  * model 安靜地不進 API 表面**。少算比報錯難發現得多，這是本檔頭的主題。
  */
+/**
+ * 從引號的位置找到它的收尾引號，回傳收尾引號的位置。
+ *
+ * 沒有收尾就回 `source.length - 1`（呼叫端的迴圈接著自然結束，
+ * 而形狀不完整的來源本來就會在後面被判成不合法）。
+ */
+function closingQuote(source: string, at: number): number {
+  const quote = source[at];
+  for (let scan = at + 1; scan < source.length; scan++) {
+    if (source[scan] === "\\") {
+      scan++;
+      continue;
+    }
+    if (source[scan] === quote) return scan;
+  }
+  return source.length - 1;
+}
+
 function genericArgument(source: string, from: number): Generic | undefined {
   let at = from;
   while (SPACE.test(source[at] ?? "")) at++;
@@ -457,6 +479,13 @@ function genericArgument(source: string, from: number): Generic | undefined {
   let depth = 1;
   for (at = start; at < source.length; at++) {
     const char = source[at];
+    // ⚠️ 字串字面值要整段跳過。少了這一段，`defineProps<{ arrow: "a>b" }>()`
+    // 會在字串裡的 `>` 收尾，接著被判成「不是型別參數形式」—— 一個完全合法的
+    // 宣告被擋下，而訊息叫人改成執行期形式，正好是這支解析禁止的方向。
+    if (char === '"' || char === "'" || char === "`") {
+      at = closingQuote(source, at);
+      continue;
+    }
     if (char === "<") {
       depth++;
       // `=>` 的 `>` 不是泛型的結尾（與 splitMembers 同一個判斷）。
@@ -529,6 +558,29 @@ const MODEL = "defineModel";
  */
 function modelDeclarations(file: string, source: string): readonly ModelDeclaration[] {
   const models: ModelDeclaration[] = [];
+  const seen = new Set<string>();
+
+  /**
+   * ⚠️ 同一個 prop 名不能出現兩次。這條與 `typeLiteralMacro` 對重複巨集的
+   * 判斷是**同一個理由**（Vue 本身也不允許），只是這裡不能靠「巨集只准出現
+   * 一次」—— 多個具名 model 是合法的，衝突的是名字。
+   *
+   * 少了這一段的症狀不是紅燈，是基準檔裡同一個名字兩格
+   *（實測兩個不具名的 `defineModel()` → `modelValue?: string` 與
+   * `modelValue?: number` 並存），而 `compare.ts` 的 `Map<string, Member[]>`
+   * 拿到一個兩元素的陣列，比對行為沒有定義過。
+   */
+  const push = (name: string, type: string): void => {
+    if (seen.has(name)) {
+      throw new Error(
+        `${basename(file)} 的 defineModel 產生了兩個同名的 prop \`${name}\`。\n` +
+          "  不具名的 defineModel() 一律叫 `modelValue`，所以兩個不具名就會撞名。\n" +
+          "  Vue 本身也不允許，而這裡不擋的話基準檔會出現同名兩格。",
+      );
+    }
+    seen.add(name);
+    models.push({ name, type });
+  };
 
   for (const at of macroPositions(source, MODEL)) {
     const generic = genericArgument(source, at + MODEL.length);
@@ -551,12 +603,12 @@ function modelDeclarations(file: string, source: string): readonly ModelDeclarat
     const args = source.slice(generic.end + (open[0] as string).length);
     const quoted = QUOTED_NAME.exec(args);
     if (quoted !== null) {
-      models.push({ name: quoted[2] as string, type: generic.text.trim() });
+      push(quoted[2] as string, generic.text.trim());
       continue;
     }
     // 第一個引數是選項物件、或根本沒有引數 → Vue 的預設 prop 名 `modelValue`。
     if (args.startsWith(")") || args.startsWith("{")) {
-      models.push({ name: "modelValue", type: generic.text.trim() });
+      push("modelValue", generic.text.trim());
       continue;
     }
     // 其餘（識別字、樣板字串、展開）讀不出名字。與 emit 的事件名同一條規則：
@@ -568,6 +620,58 @@ function modelDeclarations(file: string, source: string): readonly ModelDeclarat
   }
 
   return models;
+}
+
+/**
+ * `<script setup>` 的內容 —— 四個巨集只可能在這裡面。
+ *
+ * ── 為什麼不整份掃 ──────────────────────────────────────────────────
+ *
+ * 整份掃的話，**模板裡的一句文字就會被當成巨集**。實測：模板寫
+ * `<p>這個元件刻意不用 defineExpose 對外洩漏實例</p>`，整支解析當場丟例外。
+ * 那與下面記的「讀到自己的警語，然後對自己丟例外」是同一個坑 ——
+ * 當時的修法是剝掉註解，而那只補了註解那一格，模板文字還開著。
+ *
+ * ── 沒有 `<script setup>` 的兩種情形一定要分開 ──────────────────────
+ *
+ * **完全沒有 `<script>`：合法。** 純版型元件（`Separator`／`Skeleton`）
+ * 就長這樣，記成零公開面是對的 —— 那正是放行空形狀要照顧的案例。
+ *
+ * **有 `<script>` 但不是 setup：丟例外。** Options API 的
+ * `export default { props: {…} }` 這支解析一個字都讀不懂。而讀不懂的結果
+ * 不是紅燈，是記成 `members: []` —— 實測種好基準之後再加一個必填 prop，
+ * 閘門輸出「無破壞性變更」、exit 0。**那個元件的公開面從此不受守護，
+ * 而基準檔看起來很正常。** 放行空形狀之前這一格由「空形狀等於沒有守」
+ * 那個例外擋著，拆掉它就要有人接手。
+ */
+function scriptSetup(file: string, source: string): string {
+  let setup: string | undefined;
+  let plain = false;
+
+  for (const match of source.matchAll(SCRIPT_BLOCK)) {
+    if (SETUP_ATTRIBUTE.test(match[1] ?? "")) {
+      if (setup !== undefined) {
+        throw new Error(
+          `${basename(file)} 有兩個 <script setup>。\n` +
+            "  這支解析只讀得懂一個，而 Vue 本身也不允許。",
+        );
+      }
+      setup = match[2] ?? "";
+      continue;
+    }
+    plain = true;
+  }
+
+  if (setup !== undefined) return setup;
+  if (!plain) return "";
+
+  throw new Error(
+    `${basename(file)} 有 <script> 但沒有 <script setup>。\n` +
+      "  這支解析只讀 <script setup> 的四個巨集，讀不懂 Options API 的\n" +
+      "  `export default { props: {…} }` —— 而讀不懂的結果是記成零公開面，\n" +
+      "  於是那個元件之後長出來的每一個 prop 都不會漂移。\n" +
+      "  請改寫成 <script setup>，或先擴充 tools/api-surface/src/shape.ts。",
+  );
 }
 
 function parseComponent(file: string): ExportShape {
@@ -591,8 +695,11 @@ function parseComponent(file: string): ExportShape {
     .replace(LINE_COMMENT, "$1")
     .replace(HTML_COMMENT, "");
 
+  // 巨集只在 `<script setup>` 裡找，模板留給 assertDeclared（見 scriptSetup）。
+  const script = scriptSetup(file, source);
+
   for (const marker of SFC_UNSUPPORTED) {
-    if (macroPositions(source, marker).length === 0) continue;
+    if (macroPositions(script, marker).length === 0) continue;
     throw new Error(
       `${basename(file)} 使用了 ${marker}，而這裡不解析它。\n` +
         "  `<script setup>` 預設是封閉的，所以 expose 出去的東西只會來自這個巨集 —— " +
@@ -610,12 +717,12 @@ function parseComponent(file: string): ExportShape {
   //
   // 分成兩種情形之後，那條防線還在：**寫了但形式不對**仍然紅，
   // 而那條現在對四個巨集一視同仁（見 typeLiteralMacro 與 modelDeclarations）。
-  const propsBlock = typeLiteralMacro(file, source, "defineProps");
+  const propsBlock = typeLiteralMacro(file, script, "defineProps");
 
   // 同一個 <script setup> 裡宣告的區域型別別名要就地展開。
   // 它們對消費端不可見，改名不該讓形狀漂移。
   const aliases = new Map<string, string>();
-  for (const match of source.matchAll(LOCAL_TYPE)) {
+  for (const match of script.matchAll(LOCAL_TYPE)) {
     if (match[1] !== undefined && match[2] !== undefined) {
       aliases.set(match[1], match[2].trim().replace(TIGHTEN, " "));
     }
@@ -625,7 +732,7 @@ function parseComponent(file: string): ExportShape {
 
   const members = propsBlock === undefined ? [] : parseBlock(file, "props", propsBlock, expand);
 
-  const slotsBlock = typeLiteralMacro(file, source, "defineSlots");
+  const slotsBlock = typeLiteralMacro(file, script, "defineSlots");
   const declaredSlots = new Set<string>();
   if (slotsBlock !== undefined) {
     for (const member of parseBlock(file, "slots", slotsBlock, expand)) {
@@ -634,7 +741,7 @@ function parseComponent(file: string): ExportShape {
     }
   }
 
-  const emitsBlock = typeLiteralMacro(file, source, "defineEmits");
+  const emitsBlock = typeLiteralMacro(file, script, "defineEmits");
   const declaredEmits = new Set<string>();
   if (emitsBlock !== undefined) {
     for (const member of parseBlock(file, "emits", emitsBlock, expand)) {
@@ -644,7 +751,7 @@ function parseComponent(file: string): ExportShape {
   }
 
   // defineModel 同時產生一個 prop 與一個 update:<name> 事件，兩邊都是公開面。
-  for (const model of modelDeclarations(file, source)) {
+  for (const model of modelDeclarations(file, script)) {
     members.push(`${model.name}?: ${expand(model.type)}`);
     members.push(`[emit update:${model.name}]: void`);
     declaredEmits.add(`update:${model.name}`);

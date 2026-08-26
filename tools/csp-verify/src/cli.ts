@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { buildSecurityHeaders } from "@org/security-headers";
 
 import { buildProbeScript } from "./probe.ts";
+import { parseFlags } from "@org/gate-kit";
 
 /**
  * 用**正式的 CSP（enforce，非 report-only）**服務**正式的建置產物**。
@@ -49,6 +50,22 @@ import { buildProbeScript } from "./probe.ts";
  * 這支工具本身留著:它零摩擦（不在任何 workflow 裡），要驗 CSP 時隨時跑得起來。
  * 失去的是「有沒有人真的驗過」這個問題的機器答案。（見 DECISIONS 的 C52）
  */
+
+/**
+ * ⚠️ **不認得的旗標一律紅**（C126／C133 §五）。
+ *
+ * ⚠️ 這一支在名冊的 `UNGATED` 裡，所以 `gate-kit` 的絆線
+ * （`tests/adoption.test.ts`，名冊從 `scripts.gate` ＋ `scripts.ready` 推導）
+ * **看不見它** —— 這幾行沒有東西在守，拿掉不會有人說話。寫下來是因為
+ * 「這支不在絆線範圍內」與「這支不需要」是兩件事。
+ */
+const FLAGS = parseFlags(process.argv.slice(2), {
+  "print-probe": { kind: "boolean" },
+} as const);
+if (!FLAGS.ok) {
+  console.error(FLAGS.message);
+  process.exit(1);
+}
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const DIST = join(ROOT, "apps/console/dist");
