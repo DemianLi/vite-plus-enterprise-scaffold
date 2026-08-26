@@ -885,6 +885,9 @@ importers:
 
   tools/csp-verify:
     dependencies:
+      '@org/gate-kit':
+        specifier: workspace:*
+        version: link:../gate-kit
       '@org/security-headers':
         specifier: workspace:*
         version: link:../../platform/security-headers
@@ -1203,6 +1206,9 @@ importers:
 
   tools/ui-survey:
     dependencies:
+      '@org/gate-kit':
+        specifier: workspace:*
+        version: link:../gate-kit
       '@org/supply-chain':
         specifier: workspace:*
         version: link:../supply-chain

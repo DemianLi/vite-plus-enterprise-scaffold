@@ -53,24 +53,40 @@ parseFlags(argv, spec): { ok: true; flags } | { ok: false; message }
 
 `parseFlags` 的 spec **漏掉任何一個真旗標，合併當天 CI 就紅** —— 因為
 「不認得就失敗」對還沒登記的真旗標一視同仁。接下一支之前先把它的旗標找齊，
-三個來源都要掃：根 `package.json` 的 `scripts`、`.github/workflows/*.yml`、
-以及該工具自己的 `tests/`（反向測試常用只有它自己知道的旗標）。
+⚠️ **四個來源都要掃，不是三個**：
 
-目前在用的全集：
+1. 根 `package.json` 的 `scripts`（`gate`、`ready`、以及各別名）
+2. `.github/workflows/tier1-quality.yml`／`tier2-security.yml`
+3. ⚠️ **排程的那兩個 workflow**（`exit-drill.yml`、`supply-chain-recapture.yml`）——
+   `--require-fresh` 與 `--recapture-safe` **只出現在那裡**，而下面那條絆線
+   看不見它們（它只讀 `gate` ＋ `ready`）。漏掉的話是**下一次排程**才炸。
+4. 該工具自己的 `tests/`（反向測試常用只有它自己知道的旗標）
 
-| 工具           | 旗標                                                                                                         |
-| -------------- | ------------------------------------------------------------------------------------------------------------ |
-| `supply-chain` | `--capture-health` `--dossier` `--manifest` `--airgap` `--recapture-safe` `--split-lockfile` `--verify-sbom` |
-| `compliance`   | `--file` `--evidence` `--update`                                                                             |
-| `api-surface`  | `--baseline` `--update` `--platform`                                                                         |
-| `exit-drill`   | `--full` `--require-fresh`                                                                                   |
-| `conformance`  | `--root`                                                                                                     |
-| `csp-verify`   | `--print-probe`                                                                                              |
-| `pii-check`    | `--root` ✅ 已接                                                                                             |
-| `theme-verify` | （沒有）✅ 已接                                                                                              |
+## 現在的狀態：這棵樹上每一支自寫 CLI 都接上了
 
-⚠️ 這張表是**手抄的**，也就是會過期 —— 它是接下一支時的起點，不是事實來源。
-真正的來源是上面那三個地方。
+| 工具                                                                        | 旗標                                                                                                                                              |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supply-chain`                                                              | `--update` `--capture` `--capture-health` `--recapture-safe` `--manifest` `--dossier` `--airgap` `--split-lockfile <目錄>` `--verify-sbom <檔案>` |
+| `compliance`                                                                | `--file <路徑>` `--evidence` `--update`                                                                                                           |
+| `api-surface`                                                               | `--baseline` `--update` `--platform`                                                                                                              |
+| `exit-drill`                                                                | `--full` `--require-fresh`                                                                                                                        |
+| `conformance`                                                               | `--root`                                                                                                                                          |
+| `pii-check`                                                                 | `--root`                                                                                                                                          |
+| `theme-verify`                                                              | `--root`                                                                                                                                          |
+| `spec-report`                                                               | `--check`                                                                                                                                         |
+| `csp-verify`                                                                | `--print-probe`                                                                                                                                   |
+| `ui-survey`                                                                 | `--csp` `--sca`                                                                                                                                   |
+| `gate-roster`／`doc-facts`／`vue-typecheck`／`promise-check`／`scope-check` | （空 spec ＝ **拒絕所有旗標**）                                                                                                                   |
+
+⚠️ **這張表是手抄的，也就是會過期** —— 它是接下一支時的起點，不是事實來源。
+真正的來源是上面那四個地方。
+
+⚠️ **而「全部接上了」這件事只有一半有絆線在守。**
+`tests/adoption.test.ts` 的名冊是從 `scripts.gate` ＋ `scripts.ready` **推導**的
+（不是寫死清單），所以閘門鏈上那 12 支少一支就會紅。
+**`scope-check`／`csp-verify`／`ui-survey` 不在那條鏈上**（名冊的 `UNGATED`），
+它們的那幾行沒有東西在守 —— 拿掉不會有人說話。
+⚠️ 那不是「所以不重要」：它是這條絆線寫明的射程邊界。
 
 ## 開發
 

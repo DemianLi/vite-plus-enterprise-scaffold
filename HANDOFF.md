@@ -1677,7 +1677,7 @@ grep -n "uses:" .github/workflows/*.yml
 | **component 形狀** | `createUiTheme({ 元件名: { 槽名: class } })`＋ 圓角／外框代幣   | `theme-verify` ＋ **元件契約** |
 | **互動方式**       | `UiDialog` 的 `default`／`footer`／`close` slot（＋ emit 支援） | `api-surface`                  |
 
-⚠️ **「三條軸都接上了」這句話在 2026-08-17 當天只對一個元件成立（C70）。**
+⚠️ **「三條軸都接上了」這句話在 2026-08-17 當天只對一個元件成立（C128）。**
 形狀那條軸當時只做在 `UiButton` 上 —— `UiDialog` 的寬度與位置寫死在模板裡，
 任何案子都換不掉。而沒有東西說話的原因很具體：**當時的檢查
 `readFileSync("UiButton.vue")` 寫死一個檔名**，守的是一個檔案不是一條規則。
@@ -1752,7 +1752,7 @@ grep -n "uses:" .github/workflows/*.yml
 - `defineExpose` 仍然丟例外，而這次是**有理由的**：`<script setup>` 預設封閉，
   沒有那個巨集就洩不出任何實例成員 —— 它的絆線是真的
 - 基準檔升到第 3 版（`platform/` 沒改，是工具開始記新東西，見 C67）
-- **四個巨集都是「寫了卻讀不懂就紅」**（2026-08-17，見 C72）。只認
+- **四個巨集都是「寫了卻讀不懂就紅」**（2026-08-17，見 C130）。只認
   `defineProps<{…}>()`／`defineSlots<{…}>()`／`defineEmits<{…}>()`／
   `defineModel<T>(…)`；執行期形式與具名型別別名一律丟例外，因為它們的
   失敗輪廓是**少算**（那一整組公開面從記錄裡消失，而基準檔看起來很完整）
