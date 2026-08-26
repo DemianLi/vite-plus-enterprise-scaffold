@@ -40,7 +40,7 @@ permissions:
 jobs:
   gate:
     # ⚠️ **固定 `name`，因為下面有 matrix。** 不指定的話 check 會叫
-    # `gate (main)`／`gate (release/v1)`，而 required status check 認的是名字 ——
+    # `gate (main)`、`gate (…)`，而 required status check 認的是名字 ——
     # 名字一變，那道保護就靜靜地失效（沒有任何東西會紅）。
     name: gate
     runs-on: ubuntu-latest
@@ -54,15 +54,23 @@ jobs:
         #
         # ⚠️ **GitHub 的 scheduled workflow 只跑預設分支上的 workflow 檔**，
         # 而預設分支是 `main`。實測 `gh run list --event schedule`：連續八天
-        # 全部是 `main`，**`release/v1` 從來沒有被每日掃描過** ——
-        # 而那條線才是交付線。
+        # 全部是 `main`，**當時的交付線 `release/v1` 從來沒有被每日掃描過**。
         #
         # 檔頭第一條說「沒有它，三個月沒人動的專案就三個月沒掃過」；
-        # 那句話對 `release/v1` 一直是成立的，只是沒有人發現。
+        # 那句話對那條線一直是成立的，只是沒有人發現。
+        #
+        # ⚠️ **2026-08-26 起清單只剩 `main`**：`release/v1` 已併回並刪除（C133／#86）。
+        # 留著它的後果不是「多掃一條」，是**每天一個紅燈** —— checkout 一個不存在的
+        # ref 會失敗，而 `fail-fast: false` 保證另一條照跑、紅燈照留。
+        # 實測：08-23 起連續三天的排程都紅在 `gate (release/v1)` 那一格，
+        # 而 `gate (main)` 那格是綠的 —— ⚠️ **一個沒有人在看的每日紅燈，
+        # 就是下一次真的紅燈不會被注意到的原因。**
+        #
+        # 這份清單就是這個機制的全部 —— 開下一條長命分支時，要記得加回來。
         #
         # ⚠️ 空字串 = checkout 的預設行為（當前 ref）。PR 與手動觸發要掃的是
-        # **當下這份程式碼**，不是那兩條線 —— 所以清單只在排程時展開。
-        ref: ${{ github.event_name == 'schedule' && fromJSON('["main","release/v1"]') || fromJSON('[""]') }}
+        # **當下這份程式碼**，不是清單上那幾條 —— 所以清單只在排程時展開。
+        ref: ${{ github.event_name == 'schedule' && fromJSON('["main"]') || fromJSON('[""]') }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
