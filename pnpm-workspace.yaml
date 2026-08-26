@@ -127,6 +127,19 @@ catalogs:
 overrides:
   vite: "catalog:"
 
+  # ⚠️ **CVE-2026-8723**（qs 的 DoS，Trivy 判 HIGH，`exit-code: 1` 因此開火）。
+  # 傳遞路徑：`@stryker-mutator/core@10.0.0` → `typed-rest-client` → `qs@6.15.1`。
+  # 修法版本 6.15.2，這裡直接釘上去。
+  #
+  # ⚠️ **為什麼不是升 stryker**：C121 把那兩支**釘死在精確版本**，理由是
+  # 變異運算子的集合隨版本改 —— 升上去，#150 的基準清單就不再可比，
+  # 而那與這個 CVE 無關。override 只換掉那一個傳遞相依，基準不動。
+  #
+  # ⚠️ **這一筆是併線那天第一次量到的**（C133）：SCA 掃描是 `main` 的閘門，
+  # 而 stryker 是 `release/v1` 帶進來的 —— 兩邊從來沒有見過面。
+  # 拿掉 stryker 的那天，這一行也要一起拿掉（`pnpm why qs` 會告訴你還有沒有人用）。
+  qs: ">=6.15.2"
+
 peerDependencyRules:
   allowAny:
     - vite

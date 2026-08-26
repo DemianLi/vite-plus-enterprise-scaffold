@@ -12377,6 +12377,32 @@ C119 的四個數字（185／5／6／36，測試碼 455／3／4／11）是
 順帶把 `reports/`／`.stryker-tmp`（突變測試的產物，內嵌整棵樹的原始碼）
 加進跳過的目錄。
 
+## 九之二、⚠️ SCA 掃描第一次量到 `release/v1` 的相依 —— 而它紅了
+
+`main` 的 Tier 2 有一整條 SCA／SBOM 管線，`release/v1` 沒有；stryker（C121／#150）
+是 `release/v1` 帶進來的。兩邊第一次見面，Trivy 當場開火：
+
+```
+CVE-2026-8723  qs@6.15.1  DoS（Trivy 判 HIGH，而 GitHub Code Scanning 顯示 medium）
+路徑：@stryker-mutator/core@10.0.0 → typed-rest-client → qs
+修法版本：6.15.2
+```
+
+⚠️ **兩個嚴重度不一致，而開火的是 Trivy 那個**：workflow 的 `severity: HIGH,CRITICAL`
+＋ `exit-code: "1"` 用的是 Trivy 自己的判定，Code Scanning 上那個 `medium` 是
+GitHub 的映射。**看 Code Scanning 決定「要不要處理」會得到相反的答案。**
+
+處置：`pnpm-workspace.yaml` 的 `overrides` 釘 `qs: ">=6.15.2"`（解到 6.15.3）。
+⚠️ **不升 stryker** —— C121 把那兩支釘死在精確版本，理由是變異運算子的集合隨版本改，
+升上去 #150 的基準清單就不再可比，而那與這個 CVE 無關。override 只換掉一個傳遞相依。
+
+⚠️ 連帶：`inventory.json` 要 `--update`（同一個版本號拿到不同內容物 → 摘要變了）。
+那道閘門的訊息把這件事與「例行變動」分開講，而這次是**刻意**的那一種。
+
+⚠️ **這一格是「`pnpm ready` 綠證明不了 CI 綠」的第五次**（前四次都是格式檢查）。
+這次的原因不同而且更根本：**那條管線本機根本沒有** —— 它是 docker 映像 ＋ `uses:` 步驟，
+而 `gates.ts` 檔頭聲明過對那兩類什麼都不說。本機沒有任何東西跑得到它。
+
 ## 十、沒有做的
 
 - ⚠️ **完整的退出演練沒有實跑。** 它要連網、二十分鐘、每季一次。
