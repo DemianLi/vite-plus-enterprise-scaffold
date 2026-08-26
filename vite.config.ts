@@ -64,10 +64,25 @@ export default defineConfig({
       // 要嘛為了一個維度另養一軌。⚠️ 下面的 complexity 是**循環**複雜度，
       // 是替代不是填滿：`slice-gen/src/files.ts` 的 buildSliceFiles 841 行、
       // 認知複雜度 0（#129 §五）—— 四個維度不互為代理。
-      "max-lines-per-function": ["error", { max: 185 }],
+      // ⚠️ **這四個數字在 `release/v1` 併回來的那天重新校準過**（C133 §八）。
+      // 舊值（185／5／6／36）是 `release/v1` 那棵樹的觀測最大值，而那棵樹是
+      // 這棵的子集 —— 併線帶回七支工具之後，`supply-chain` 的 `captureOne`
+      // （循環複雜度 39）與 `exit-drill` 的 `runFull`（239 行）超出舊值。
+      //
+      // ⚠️ **這不是為了讓 CI 變綠而調鬆。** C119 定的方法就是「先設寬到不擋
+      // 任何既有程式碼，每擋下一件事就記一則 C 編號，收緊時附上那些 C 編號當
+      // 論證」—— 舊值從來不是「這棵樹的最大值」，它是**另一棵樹**的最大值。
+      // 照抄它等於在第一天就擋下七支從來沒有被這條規則量過的工具，而它們
+      // 一行都沒有改。C108 已經付過那筆學費（照抄外部建議值，CI 第一天紅，
+      // 而紅的原因不是程式碼變差）。
+      //
+      // ⚠️ 239 那個數字裡有這次併線加進 `runFull` 的一段註解（切片自帶的
+      // `vite.config.ts` 要在演練裡刪掉，否則下一次排程會壞）。行數含註解是
+      // oxlint 的預設，沒有 skipComments 選項 —— 這一格的代價寫在上面。
+      "max-lines-per-function": ["error", { max: 239 }],
       "max-depth": ["error", { max: 5 }],
       "max-params": ["error", { max: 6 }],
-      complexity: ["error", { max: 36 }],
+      complexity: ["error", { max: 39 }],
 
       // ⚠️ `<script setup>` 的 module 層在上面四條裡**一行都看不見**（只有
       // max-depth 例外，它不限函式）。platform/ui 的 24 個零函式 .vue、
@@ -93,10 +108,14 @@ export default defineConfig({
         // 而不是報錯 —— oxlint 對 glob 沒中一樣 exit 0。反向測試見 C119。
         files: ["**/tests/**", "**/*.test.*", "**/*.spec.*", "**/fixtures/**"],
         rules: {
+          // ⚠️ `complexity` 同樣在併線那天從 11 校準到 15（C133 §八）：
+          // `tools/bff-check/tests/negative.test.ts` 起一台 mock 伺服器，
+          // 而那個 handler 是這棵樹上最複雜的測試函式。它在 `release/v1`
+          // 上不存在，所以 11 那個數字從來沒有量過它。
           "max-lines-per-function": ["error", { max: 455 }],
           "max-depth": ["error", { max: 3 }],
           "max-params": ["error", { max: 4 }],
-          complexity: ["error", { max: 11 }],
+          complexity: ["error", { max: 15 }],
           "vue/max-props": ["error", { maxProps: 2 }],
         },
       },

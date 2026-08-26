@@ -77,7 +77,6 @@ describe("★ 子集的數字不得被誤判成總數", () => {
   });
 });
 
-
 describe("checkFacts：該紅的時候會紅", () => {
   it("🔴 數字對不上 → 紅", () => {
     const problems = checkFacts(docs("這裡共 3 個示範。"), { demo: 5 }, [FACT]);

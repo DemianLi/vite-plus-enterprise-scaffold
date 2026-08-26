@@ -12,13 +12,7 @@ import {
   uiComponentCount,
   workspacePackageCount,
 } from "./derive.ts";
-import {
-  FACTS,
-  REMEDIATION,
-  checkFacts,
-  handoffItemCount,
-  type DocumentSource,
-} from "./facts.ts";
+import { FACTS, REMEDIATION, checkFacts, handoffItemCount, type DocumentSource } from "./facts.ts";
 
 /**
  * 文件裡的數字與 repo 內部事實來源是否一致。

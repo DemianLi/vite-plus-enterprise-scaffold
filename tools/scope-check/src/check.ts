@@ -90,8 +90,7 @@ interface Layer {
 }
 
 const UPSTREAM_CRITERION =
-  "寫得出「受益者是拉 v1 的團隊」才可以進 `release/v1`，" +
-  "寫不出來就送 `main`（判準見 C72）。";
+  "寫得出「受益者是拉 v1 的團隊」才可以進 `release/v1`，" + "寫不出來就送 `main`（判準見 C72）。";
 
 const LAYERS: Record<string, Layer> = {
   tools: {
