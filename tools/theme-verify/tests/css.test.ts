@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { auditReferences, customProperties, resolve, ruleFor, rules } from "../src/css.ts";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import {
+  RUNTIME_PROVIDED,
+  auditReferences,
+  customProperties,
+  resolve,
+  ruleFor,
+  rules,
+} from "../src/css.ts";
 
 /**
  * CSS 讀取層的驗收。
@@ -104,6 +113,62 @@ describe("懸空引用", () => {
   it("★ 同一個名字被多處引用時要合併，選擇器不重複", () => {
     const audit = auditReferences(".a{color:var(--x)}.b{color:var(--x)}.a{border-color:var(--x)}");
     expect(audit.dangling).toEqual([{ name: "--x", selectors: [".a", ".b"] }]);
+  });
+
+  it("★ 第三方在執行期設的那幾個放行", () => {
+    // reka-ui 的 SelectContent 用 inline style 寫 --reka-select-trigger-width，
+    // 所以它永遠不在建置產物裡。見 css.ts 的 RUNTIME_PROVIDED。
+    expect(names(".x{min-width:var(--reka-select-trigger-width)}")).toEqual([]);
+  });
+
+  it("🔴 沒登記的第三方變數**仍然要紅** —— 這個出口是窄的", () => {
+    // 這一條才是上面那條的價值所在。放行清單如果會自己長大
+    //（例如「--reka-* 開頭一律放行」），那 reka-ui 那邊改名或我們打錯字
+    // 就再也不會紅了 —— 而那正是這道檢查存在的理由。
+    expect(names(".x{width:var(--reka-select-trigger-height)}")).toEqual([
+      "--reka-select-trigger-height",
+    ]);
+  });
+
+  it("🔴 登記表的每一筆都要寫得出「誰設的」—— 理由是必填的字串", () => {
+    /**
+     * ⚠️ 這條守的是 C41 那個形狀：一個布林開關（或一句 disable 註解）
+     * 下一個人只會照抄；一個**必填而且要講得出誰在什麼時候設的**字串，
+     * 寫不出來的人會發現自己其實是在 silence 一個真的缺陷。
+     *
+     * 所以理由不能是「第三方」「執行期」這種可以套在任何一筆上的話 ——
+     * 它要點名那個函式庫與那個時機。這裡用長度當下限，是因為
+     * 「內容對不對」只有人讀得出來，而長度至少擋得掉空字串與一個詞。
+     */
+    const entries = Object.entries(RUNTIME_PROVIDED);
+    expect(entries.length, "登記表空了就等於這個出口沒有人在看").toBeGreaterThan(0);
+    for (const [name, reason] of entries) {
+      expect(name.startsWith("--"), name).toBe(true);
+      expect(reason.length, `${name} 的理由太短，講不出誰在什麼時候設它`).toBeGreaterThan(40);
+    }
+  });
+
+  it("🔴 登記表裡不得有死掉的那一筆 —— 每個名字都要真的還在元件裡被引用", () => {
+    /**
+     * ⚠️ 上面兩條驗的是「出口窄不窄」，這條驗的是**出口會不會爛掉**。
+     *
+     * reka-ui 哪天把 `--reka-select-trigger-width` 改名、或我們不再用
+     * `position="popper"`，那一筆會永遠留在清單裡默默把出口撐大 ——
+     * 新名字仍然會紅（那一半是對的），但**沒有人會知道舊那筆已經是死的**。
+     *
+     * 那正是 C71 的形狀：一份清單被寫下來，而沒有東西在斷言它還成立。
+     * 這裡從元件原始碼反查 —— 沒有人在用的名字就是該刪掉的名字。
+     */
+    const dir = join(import.meta.dirname, "../../../platform/ui/src/components");
+    const sources = readdirSync(dir)
+      .filter((name) => name.endsWith(".vue"))
+      .map((name) => readFileSync(join(dir, name), "utf8"))
+      .join("\n");
+
+    expect(sources.length, "讀不到元件原始碼的話這條會恆真").toBeGreaterThan(1000);
+    for (const name of Object.keys(RUNTIME_PROVIDED)) {
+      expect(sources.includes(name), `${name} 已經沒有任何元件在用了，請從登記表刪掉`).toBe(true);
+    }
   });
 
   it("★ declared 要跟著回傳 —— 「零個懸空」與「一個字都沒讀到」長得一樣", () => {

@@ -11,33 +11,20 @@ import type { App, InjectionKey, Plugin } from "vue";
  *
  * ── 為什麼不照 shadcn 的做法 ────────────────────────────────────────
  *
- * 先把它的模型講準確，因為這一段被寫錯過兩次（見 DECISIONS C70 的更正）：
+ * ⚠️ **不是因為它要人改原始碼 —— 那個說法是錯的，這裡更正。** 現行
+ * shadcn-vue 的 cva 表裡沒有任何 utility，只有語意 class 名
+ * （`cn-button-variant-default`），真正的樣式住在 `style-*.css`。各案換樣式
+ * ＝ 換一份 preset CSS，**元件原始碼完全不動**。官方的客製順序是
+ * 「內建 variant → `class` → 改原始碼加 variant → wrapper」，改原始碼排第三。
  *
- *   1. `add` 把元件**原始碼複製進專案**（`--all` 一次全部），你擁有它們、
- *      可以隨意改。這是它的定義性特徵。
- *   2. 同時它有一層 preset CSS（`.cn-button-variant-default` 那些），
- *      所以「換整套外觀」**通常不需要動元件原始碼**。
- *
- * 兩件事都成立。而對一間同時跑 N 個案子的公司，關鍵是第三件：
- * **上游修了一個 bug 之後，怎麼傳到那 N 個案子？**
- *
- * 官方答案寫在它的 `SKILL.md`〈Updating Components〉：`add --dry-run` 看影響、
- * 逐檔 `--diff`、而**有本地改動的檔案要「讀本地檔、分析 diff、手動套用上游
- * 變更同時保留本地修改」**。那是逐檔、逐專案、需要人判斷的合併 ——
- * 20 個案子就是 20 次，而且沒有任何東西會說哪一個漏了。
- *
- * ⚠️ 這**不是缺點**。shadcn 是每個專案的**起點**，不是共用函式庫；
- * 它沒有收斂機制是因為它不需要有。**對單一專案，它的模型比這裡的好** ——
- * 元件多得多、維護得好得多、限制少得多。
- *
- * 這裡走另一條，只因為位置不同：`platform/ui` 是**一份**原始碼被 N 個案子
- * 消費，上游修 bug ＝ 一個 PR，所有案子一起拿到。代價是每個元件都要接線、
- * 而且要自己維護。**多案共用一條線時才划算 —— 那正好是接案公司的情況。**
- *
- * 至於樣式層為什麼不照抄它的 CSS preset 做法：**preset 沒有任何閘門在守。**
+ * 不照它的真正理由只有一句：**CSS preset 沒有任何閘門在守。**
  * `.cn-button-variant-defualt` 打錯一個字，產生一個永遠不匹配的 class，
- * 畫面安靜地少一塊樣式 —— 正是這個 repo 被騙過六次的形狀。
- * 具名槽打錯字是編譯失敗。兩邊的失敗輪廓相反，各自對自己的命題是對的。
+ * 畫面安靜地少一塊樣式 —— 那正是這個 repo 被騙過六次的形狀。
+ *
+ * 兩邊的失敗輪廓是相反的：CSS preset 打錯字**安靜失效**、但不用逐元件接線；
+ * 具名槽打錯字**編譯失敗**、但每個元件都要接線（而那條線由檢查器守著）。
+ * 它的架構對它的散佈模型是對的（下游是任意專案，沒有共用閘門），
+ * 我們的對「把架構決策寫成閘門」這個命題是對的。不是同一題的兩個答案。
  *
  * ── 為什麼是「元件 → 具名槽」而不是平鋪的 variants／sizes ────────────
  *
@@ -93,8 +80,152 @@ export type UiButtonSlot = UiVariant | UiSize;
 /** `UiDialog` 的可覆寫部位。名稱取自 reka-ui 的基元，見檔頭。 */
 export type UiDialogSlot = "overlay" | "content" | "title" | "description";
 
+/**
+ * `UiAlertDialog` 的可覆寫部位。前四格與 `UiDialogSlot` 同名同義。
+ *
+ * ⚠️ **刻意重複而不共用**（同 C78 §3 對 `UiTextarea` 的處置）：共用一個型別
+ * 別名的話，日後幫對話框加一格會逼確認框跟著長一格，而兩者的結構沒有理由
+ * 永遠一致。**代價寫在這裡**：覆寫了 `UiDialog.content`（例如手機版改成
+ * 底部滑出）的案子**不會**套到確認框，兩個框會長得不一樣 —— 要一致就兩格都寫。
+ *
+ * ⚠️ **多出來的 `actions` 是因為那裡沒有槽。** `UiDialog` 的按鈕列沒有這一格，
+ * 因為它有 `footer` 槽可以整組換掉；`UiAlertDialog` **刻意不給那個槽**
+ * （見元件檔頭：換掉就把焦點保護一起換掉了），所以那一列若再沒有具名槽，
+ * 各案連「改成左右分置」都做不到。**拿掉一個逃生口就要補另一個。**
+ */
+export type UiAlertDialogSlot = "overlay" | "content" | "title" | "description" | "actions";
+
 /** `UiInput` 的可覆寫部位。名稱取自上游的 `data-slot="input"`。 */
 export type UiInputSlot = "input";
+
+/**
+ * `UiSkeleton` 的可覆寫部位。只有一格 —— 這個元件就是一個方塊。
+ *
+ * ⚠️ 一格也要有：沒有這一格的話，各案想把骨架從灰色改成品牌淡色就得
+ * 改 `platform/`，而那正是具名槽存在的理由。
+ */
+export type UiSkeletonSlot = "skeleton";
+
+/**
+ * `UiBadge` 的可覆寫部位 —— `badge` 是版型，另外三個是 `tone` 的值。
+ *
+ * ⚠️ `badge` 那一格是 review 補的：第一版把圓角與內距寫死在模板的 `class`
+ * 上，於是各案換得掉顏色、**換不掉形狀**。
+ *
+ * ⚠️ 刻意**不叫** `UiVariant`：那是按鈕的軸（含 `ghost`），標籤沒有它。
+ * 共用的話，日後幫按鈕加一個 variant 會逼標籤跟著長一格。
+ */
+export type UiBadgeSlot = "badge" | "neutral" | "accent" | "danger";
+
+/** `UiCheckbox` 的可覆寫部位。名稱取自 reka-ui 的基元與 `Label`。 */
+export type UiCheckboxSlot = "root" | "indicator" | "label";
+
+/**
+ * `UiTabs` 的可覆寫部位。
+ *
+ * ⚠️ **不含 panel** —— 那是 `UiTabsPanel` 自己的一格。兩個檔案各有一格，
+ * 因為覆寫的語意是整條替換：合成一格的話，各案想只改 panel 的內距
+ * 就得把 trigger 那一整條也抄過來。
+ */
+export type UiTabsSlot = "list" | "trigger";
+
+/** `UiTabsPanel` 的可覆寫部位。見 `UiTabsSlot` 為什麼分開。 */
+export type UiTabsPanelSlot = "panel";
+
+/** `UiLabel` 的可覆寫部位。 */
+export type UiLabelSlot = "label";
+
+/**
+ * ⚠️ **沒有 `label` 那一格。** 標籤走 `UiLabel` 的槽 —— `UiField` 是第一個
+ * import 別的元件的元件，理由見它的檔頭。再開一格會讓同一個東西有兩個
+ * 覆寫入口，而設計師講「標籤要更小」時前端得猜是哪一個。
+ */
+export type UiFieldSlot = "field" | "description" | "error";
+
+/** `UiTextarea` 的可覆寫部位。⚠️ 與 `UiInputSlot` 刻意分開，見元件檔頭。 */
+export type UiTextareaSlot = "textarea";
+
+/** `UiSwitch` 的可覆寫部位。名稱取自 reka-ui 的基元。 */
+export type UiSwitchSlot = "root" | "thumb";
+
+/** `UiRadioGroup` 的可覆寫部位 —— 只有容器，每一項是 `UiRadioItem` 的事。 */
+export type UiRadioGroupSlot = "group";
+
+/** `UiRadioItem` 的可覆寫部位。 */
+export type UiRadioItemSlot = "item" | "indicator" | "label";
+
+/** `UiSelect` 的可覆寫部位。名稱取自 reka-ui 的基元。 */
+export type UiSelectSlot = "trigger" | "content" | "item" | "indicator" | "chevron";
+
+/**
+ * `UiDropdownMenu` 的可覆寫部位。
+ *
+ * ⚠️ **沒有 `label` 那一格，而那是刻意的。** 觸發器裡那個 `sr-only` 的
+ * `<span>` 是這個元件**唯一**的可及名稱來源 —— 選單自己的名字也是從它來的
+ * （`DropdownMenuContent` 的 `aria-labelledby` 指向觸發器）。開一格給它就等於
+ * 讓各案用一句 `{ UiDropdownMenu: { label: "" } }` 把按鈕與選單同時變成無名，
+ * **而畫面一個像素都不會變**。同 `UiAlertDialog` 不給 `footer` 槽的形狀：
+ * 覆寫是整條替換，所以能被覆寫的東西不能是保護。
+ *
+ * ⚠️ **「唯一」是量過的，不是推的**（C89）：使用端寫
+ * `<UiDropdownMenu aria-label="…">`，那個屬性會被**安靜吃掉** —— 元件的
+ * 根節點鏈是 `DropdownMenuRoot → MenuRoot → PopperRoot`，最後渲染的是
+ * `<slot/>`，而這裡的 slot 內容是「觸發器 ＋ portal」兩個節點的 fragment，
+ * fallthrough 落不到任何元素上，**連警告都沒有**。所以外面也塞不進第二個
+ * 名字來源。⚠️ 同一句話在 `UiSwitch` 上是**會動的**（單根元件），
+ * 這個不一致記在 `DECISIONS.md` C89。
+ *
+ * ⚠️ `danger` 這一格是**加在 `item` 之上**的，不是取代它（模板寫成
+ * `[parts.item, parts.danger]`）。所以覆寫 `danger` 只該寫顏色；把版型也寫進去
+ * 的話會和 `item` 疊出兩份。這與 `UiBadge` 把 tone 攤平成獨立槽是同一個做法，
+ * 差別只在那裡是互斥的、這裡是疊加的。
+ */
+export type UiDropdownMenuSlot = "trigger" | "icon" | "content" | "item" | "danger";
+
+/**
+ * `UiDatePicker` 的可覆寫部位。名稱取自 reka-ui 的基元。
+ *
+ * ⚠️ 八格是這個 repo 目前最多的 —— 日期選擇器本來就是一個小應用
+ *（輸入分段 ＋ 觸發器 ＋ 面板 ＋ 導航 ＋ 表頭 ＋ 日格）。合併成幾格會讓
+ * 各案想改一個星期標題就得把整片日曆的 class 抄過來（覆寫是整條替換）。
+ */
+export type UiDatePickerSlot =
+  | "field"
+  | "segment"
+  | "trigger"
+  | "content"
+  | "nav"
+  | "heading"
+  | "headCell"
+  | "day";
+
+/**
+ * `UiTable` 家族的可覆寫部位 —— **六個檔案各一個型別**。
+ *
+ * ⚠️ 不合成一個 `UiTableSlot` 的理由與 `UiTabs`／`UiTabsPanel` 相同：
+ * 覆寫的語意是整條替換，合成一格的話各案想只改儲存格內距，
+ * 就得把表頭與列的 class 一起抄過來。
+ */
+export type UiTableSlot = "scroller" | "table";
+/** `UiTableHead` 的可覆寫部位（`<thead>`）。 */
+export type UiTableHeadSlot = "head";
+/** `UiTableBody` 的可覆寫部位（`<tbody>`）。 */
+export type UiTableBodySlot = "body";
+/** `UiTableRow` 的可覆寫部位（`<tr>`）。 */
+export type UiTableRowSlot = "row";
+/** `UiTableHeadCell` 的可覆寫部位（`<th>`）。 */
+export type UiTableHeadCellSlot = "cell";
+/** `UiTableCell` 的可覆寫部位（`<td>`）。`numeric` 是疊加在 `cell` 上的那一格。 */
+export type UiTableCellSlot = "cell" | "numeric";
+
+/** `UiPagination` 的可覆寫部位。名稱取自 reka-ui 的基元。 */
+export type UiPaginationSlot = "list" | "item" | "nav" | "ellipsis";
+
+/** `UiSeparator` 的可覆寫部位。 */
+export type UiSeparatorSlot = "separator";
+
+/** `UiAlert` 的可覆寫部位 —— `alert` 是版型，另外三個是 `tone` 的值（同 `UiBadge`）。 */
+export type UiAlertSlot = "alert" | "info" | "success" | "danger";
 
 /**
  * 各案的覆寫表：**元件名 → 槽名 → 整條 class 字串**。
@@ -107,7 +238,31 @@ export type UiInputSlot = "input";
 export type UiThemeOverride = {
   readonly UiButton?: Readonly<Partial<Record<UiButtonSlot, string>>>;
   readonly UiDialog?: Readonly<Partial<Record<UiDialogSlot, string>>>;
+  readonly UiAlertDialog?: Readonly<Partial<Record<UiAlertDialogSlot, string>>>;
   readonly UiInput?: Readonly<Partial<Record<UiInputSlot, string>>>;
+  readonly UiSkeleton?: Readonly<Partial<Record<UiSkeletonSlot, string>>>;
+  readonly UiBadge?: Readonly<Partial<Record<UiBadgeSlot, string>>>;
+  readonly UiCheckbox?: Readonly<Partial<Record<UiCheckboxSlot, string>>>;
+  readonly UiTabs?: Readonly<Partial<Record<UiTabsSlot, string>>>;
+  readonly UiTabsPanel?: Readonly<Partial<Record<UiTabsPanelSlot, string>>>;
+  readonly UiLabel?: Readonly<Partial<Record<UiLabelSlot, string>>>;
+  readonly UiField?: Readonly<Partial<Record<UiFieldSlot, string>>>;
+  readonly UiTextarea?: Readonly<Partial<Record<UiTextareaSlot, string>>>;
+  readonly UiSwitch?: Readonly<Partial<Record<UiSwitchSlot, string>>>;
+  readonly UiRadioGroup?: Readonly<Partial<Record<UiRadioGroupSlot, string>>>;
+  readonly UiRadioItem?: Readonly<Partial<Record<UiRadioItemSlot, string>>>;
+  readonly UiSelect?: Readonly<Partial<Record<UiSelectSlot, string>>>;
+  readonly UiDropdownMenu?: Readonly<Partial<Record<UiDropdownMenuSlot, string>>>;
+  readonly UiDatePicker?: Readonly<Partial<Record<UiDatePickerSlot, string>>>;
+  readonly UiTable?: Readonly<Partial<Record<UiTableSlot, string>>>;
+  readonly UiTableHead?: Readonly<Partial<Record<UiTableHeadSlot, string>>>;
+  readonly UiTableBody?: Readonly<Partial<Record<UiTableBodySlot, string>>>;
+  readonly UiTableRow?: Readonly<Partial<Record<UiTableRowSlot, string>>>;
+  readonly UiTableHeadCell?: Readonly<Partial<Record<UiTableHeadCellSlot, string>>>;
+  readonly UiTableCell?: Readonly<Partial<Record<UiTableCellSlot, string>>>;
+  readonly UiPagination?: Readonly<Partial<Record<UiPaginationSlot, string>>>;
+  readonly UiSeparator?: Readonly<Partial<Record<UiSeparatorSlot, string>>>;
+  readonly UiAlert?: Readonly<Partial<Record<UiAlertSlot, string>>>;
 };
 
 /**

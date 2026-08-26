@@ -45,7 +45,7 @@
  *（少一道紅、多一道也紅）；對 docker 與 `uses:` 步驟，這道閘門**什麼都不說**。
  * 一道只守半個檔案的閘門，必須自己講明白守的是哪半個。
  *
- * ── main 上多出來的三種形狀（C74）────────────────────────────────────
+ * ── main 上多出來的三種形狀（C132）────────────────────────────────────
  *
  * 這份資料原本寫在 `release/v1`，那裡每一支 `tools/*` 都是一支 CLI、
  * 每一道閘門在 CI 剛好跑一次、而且每一道都在 `scripts.gate` 裡。
@@ -93,7 +93,11 @@ export interface Gate {
   /**
    * workflow 裡跑的那一行，沒寫的話同 `command`。
    *
-   * ⚠️ 只有 eslint 需要它，而那個差異是**刻意的**：CI 直接呼叫
+   * ⚠️ 兩種情況需要它。一種是 `spec-report`：CI 那一行帶 `--check`（判定模式），
+   * 而不帶旗標的別名是「重產報表」—— 同一支 CLI 的兩個模式，別名不能是判定模式，
+   * 否則 `vpr spec-report` 就再也產不出報表。
+   *
+   * 另一種是 eslint，而那個差異是**刻意的**：CI 直接呼叫
    * `./node_modules/.bin/eslint`，不經過 `vpr`。D2 保單要求安全閘門獨立於
    * 可替換的驅動層 —— vite-plus 是 0.2.x beta，哪天換掉它，這道閘門必須
    * 原封不動繼續運作。理由的完整版在 tier2-security.yml 的檔頭。
@@ -112,9 +116,18 @@ export interface Gate {
   /**
    * 這道閘門**刻意不在 `scripts.gate` 裡**，這裡寫為什麼。
    *
-   * 只有一種情況成立：本機已經有別的東西涵蓋它（`bff-check` 的測試由
-   * `vp run -r test` 跑到）。**別名仍然必須有** —— 少一個別名不會造成
-   * 假綠燈，但會讓文件裡那行指令不存在。
+   * **目前有兩種情況成立，而它們的理由不同：**
+   *
+   *   1. 本機已經有別的東西涵蓋它（`bff-check` 的測試由 `vp run -r test` 跑到）。
+   *   2. ⚠️ **它吃的是測試跑完留下的產物**（`spec-report` 讀 `.vitest-results.json`），
+   *      而 `vpr gate` 不跑測試 —— 放進 `scripts.gate` 的話它只會讀到上一次的檔案，
+   *      或者根本沒有檔案。它因此接在 `scripts.ready` 的最後一步。
+   *
+   * ⚠️ 這裡寫「兩種」不是在把清單封起來：第二種是 `release/v1` 併回來時
+   * 長出來的，而第一版的註解寫著「只有一種情況成立」。**加第三種就改這段話** ——
+   * 這個欄位的意思一直是「加了就得說得出口」，不是「加了就閉嘴」。
+   *
+   * **別名仍然必須有** —— 少一個別名不會造成假綠燈，但會讓文件裡那行指令不存在。
    */
   readonly notInGateScript?: string;
 }
@@ -258,6 +271,35 @@ export const GATES: readonly Gate[] = [
       "不該因為「這次改動與它無關」而被過濾掉。",
   },
   {
+    id: "promise-check",
+    label: "框架承諾檢查",
+    pkg: "promise-check",
+    command: "node tools/promise-check/src/cli.ts",
+    tiers: ["tier2"],
+    why:
+      "`specs/*.feature` 寫的承諾現在還是不是真的（C118／TESTING.md 層 3）。" +
+      "它照規格把一份切片副本弄壞、跑規格指名的那道閘門、比對訊息 —— " +
+      "承諾與閘門對不對得上，在此之前只有人讀得出來。" +
+      "⚠️ 排在其他閘門後面：它會 spawn 那幾道，那幾道自己先紅的話這裡只是回音。",
+  },
+  {
+    id: "spec-report",
+    label: "驗收規格完成率",
+    pkg: "spec-report",
+    command: "node tools/spec-report/src/cli.ts",
+    ciCommand: "node tools/spec-report/src/cli.ts --check",
+    tiers: ["tier1"],
+    why:
+      "驗收規格的通過率（C114／C115）。在 Tier 1 而不是 Tier 2：它量的是這棵樹" +
+      "自己的規格跑了幾條，不會隨時間失效。⚠️ 它與「測試」那一步不是重複的 —— " +
+      "測試看不見「規格一條都沒跑」（接線檔副檔名取錯時測試全綠，C114 §二）。",
+    notInGateScript:
+      "⚠️ **它讀的是測試跑完留下的 `.vitest-results.json`**，而 `vpr gate` 不跑測試。" +
+      "放進 scripts.gate 的話它讀到的是上一次的檔案，或者根本沒有檔案 —— " +
+      "兩種都不是「這次的完成率」。所以它接在 `scripts.ready` 的最後一步，" +
+      "而 CI 上它緊跟在「測試」與「建置」後面（那兩步的產物跨 workflow 拿不到）。",
+  },
+  {
     id: "bff-check",
     label: "BFF 契約驗收",
     pkg: "bff-check",
@@ -326,9 +368,21 @@ export const UNGATED: readonly Ungated[] = [
   {
     pkg: "gate-kit",
     why:
-      "**它是 library，不是閘門**（C73）—— 沒有 cli.ts，只導出 repoRoot／walk／parseFlags。" +
+      "**它是 library，不是閘門**（C131）—— 沒有 cli.ts，只導出 repoRoot／walk／parseFlags。" +
       "閘門底下那一層抽出來的東西，被 pii-check 等幾支消費。" +
       "它壞了會讓消費它的閘門紅，那就是它被驗到的方式。",
+  },
+  {
+    pkg: "scope-check",
+    why:
+      "**`main` 的範疇清單還沒定義，等 #90／#93**（#159 §四）。它比對的是 `SCOPE.md`" +
+      "（標題就寫著「什麼准許出現在 `release/v1` 的樹上」）與 `git ls-files`，" +
+      "而 `main` 是超集 —— 對這棵樹跑它會把多出來的每一樣東西報成違規。" +
+      "⚠️ **那個紅是「邊界還沒定義」的表現，不是工具壞了**，而一道因為清單還沒寫好" +
+      "而永遠紅的閘門，結局是被關掉（與 C121 不設突變門檻同一條論證）。" +
+      "工具與 `SCOPE.md` 都留著、一個字都不改：#90 已經把 `SCOPE.md` 歸為**正交**" +
+      "（機制不准碰），而刪掉之後 #93 那道閘門要從零長。" +
+      "⚠️ 「暫時」要說得出口，所以它在這裡而不是被悄悄刪掉。",
   },
   {
     pkg: "csp-verify",

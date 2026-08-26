@@ -63,7 +63,7 @@ function ciCommandOf(gate: Gate): string {
  * `scripts.gate` 應該長的樣子。順序就是名冊的順序。
  *
  * ⚠️ 帶 `notInGateScript` 的閘門不進來 —— 那個欄位是**一句必填的理由**，
- * 不是一個開關（C74）。
+ * 不是一個開關（C132）。
  */
 export function deriveGateScript(gates: readonly Gate[]): string {
   return gates
@@ -75,7 +75,7 @@ export function deriveGateScript(gates: readonly Gate[]): string {
 /**
  * 某一層應該跑哪幾行。回傳的是**指令字串**，不是閘門代號。
  *
- * ⚠️ 一道閘門在 workflow 裡可以跑不只一次（C74）：`--require-fresh`、
+ * ⚠️ 一道閘門在 workflow 裡可以跑不只一次（C132）：`--require-fresh`、
  * `--evidence`、`--verify-sbom`…… 每一次都要在 `variants` 裡登記過，
  * **連理由一起**。少了這一段，那些完全正確的行會被報成「多一道」，
  * 而一道對正確寫法亂叫的閘門，第一天就會被加例外（C41）。
@@ -112,7 +112,7 @@ const RUN_LINE = /^[ \t]*-?[ \t]*run:[ \t]*(.+?)[ \t]*$/gm;
  * 「該有的都在」，驗不了「不該有的不在」—— 於是一支沒登記的新工具被塞進
  * workflow 也不會被說話，而那正好是這整件事要防的其中一半。
  *
- * ⚠️ **vitest 那一支是 `main` 才需要的**（C74）：`tools/bff-check` 沒有
+ * ⚠️ **vitest 那一支是 `main` 才需要的**（C132）：`tools/bff-check` 沒有
  * `src/cli.ts`，它就是一包測試，CI 直接對它跑 vitest。少了這一段，
  * 那道**真的會擋下 PR** 的閘門在這裡完全隱形 —— 有人把它從 workflow 拿掉，
  * 名冊不會說話。樣式要跟著閘門的形狀走，不是反過來。

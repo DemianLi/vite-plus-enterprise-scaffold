@@ -1,17 +1,27 @@
 #!/usr/bin/env node
-import { readFileSync, readdirSync } from "node:fs";
-import { join, relative } from "node:path";
-
-import { parseFlags, repoRoot, walk } from "@org/gate-kit";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join, relative, resolve as resolvePath } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { build } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 
-import { findPaletteUsage, usedClassNames, type PaletteViolation } from "./palette.ts";
+import { parseFlags } from "@org/gate-kit";
+
+import {
+  declaredColorTokens,
+  findPaletteUsage,
+  translationFor,
+  usedClassNames,
+  type PaletteViolation,
+} from "./palette.ts";
 import { auditReferences, customProperties, resolve as resolveVar, ruleFor, rules } from "./css.ts";
 // fixture 的探針類別。**從 fixture 讀進來，不在這支程式裡寫死** —— 理由見下面
 // 那條斷言旁邊的說明（寫死的話這支工具自己會讓斷言恆真）。
 import { TS_ONLY_PROBE } from "../fixtures/probe.ts";
+// 反向探針：**應該掃不到**的類別。字面值住在被 @source not 排除的檔案裡，
+// 這支程式只拿變數 —— 寫在這裡的話它自己會進產物，斷言就永遠紅。
+import { EXCLUDED_PROBE, EXCLUDED_PROBE_MARK } from "../tests/excluded-probe.ts";
 
 /**
  * 設計系統接縫的驗收（HANDOFF #24 → C62 那句產品要求）。
@@ -58,9 +68,51 @@ import { TS_ONLY_PROBE } from "../fixtures/probe.ts";
  * 守的是**那條路徑會不會生效**，用的是 `fixtures/` 底下自己的一份。
  */
 
-const ROOT = repoRoot();
+/**
+ * ⚠️ **`--root` 指的是「被驗的對象在哪」，不是「這支工具跑在哪」**（C127 §一）。
+ *
+ * 這兩件事在 C127 之前混在同一個 `ROOT` 底下，而分不開的代價是量得到的：
+ * `fixtures/` 跟著副本走的話，副本不是 pnpm workspace、沒有 `node_modules`，
+ * 建置半 **25 毫秒就爆** `Can't resolve '@org/ui/styles.css'`（C123 §五）。
+ *
+ * 所以兩個基準點，各自釘死：
+ *
+ * | 基準點     | 是什麼                              | 隨 `--root` 走？ |
+ * | ---------- | ----------------------------------- | ---------------- |
+ * | `ROOT`     | 被驗的對象（元件、代幣、切片／應用）| ✅               |
+ * | `SELF`     | 這支工具自己的素材（`fixtures/`）   | ❌ 釘在磁碟上    |
+ *
+ * ⚠️ **不認得的旗標仍然一律失敗**（C126）：spec 裡只有 `--root` 這一個，
+ * `--roo` 打錯一個字母是紅的。空 spec 在 `parseFlags` 底下是「拒絕所有旗標」，
+ * 多一個 spec 也只是多放行那一個 —— 兩者都不是「放行所有」。
+ */
+const FLAGS = parseFlags(process.argv.slice(2), {
+  root: { kind: "value", noun: "目錄" },
+} as const);
+
+if (!FLAGS.ok) {
+  console.error(FLAGS.message);
+  process.exit(1);
+}
+
+/**
+ * `--root` 有沒有被指定 —— ⚠️ **不等於「`ROOT` 是不是本 repo」**。
+ * 反向測試把副本放在暫存目錄，而一個把 repo 自己的路徑傳進 `--root` 的呼叫
+ * 是合法的。問的是**呼叫端有沒有說「去驗別的地方」**。
+ * （同一段話在 `tools/conformance/src/cli.ts` 的 `SANDBOXED` 旁邊。）
+ */
+const SANDBOXED = FLAGS.flags.root !== undefined;
+
+const ROOT =
+  FLAGS.flags.root === undefined
+    ? resolvePath(fileURLToPath(import.meta.url), "../../../..")
+    : resolvePath(FLAGS.flags.root);
+/** 這支工具自己所在的目錄。⚠️ 從**磁碟位置**算，與 `--root` 無關。 */
+const SELF = resolvePath(fileURLToPath(import.meta.url), "../..");
+
 const COMPONENTS = join(ROOT, "platform/ui/src/components");
-const FIXTURES = join(ROOT, "tools/theme-verify/fixtures");
+const FIXTURES = join(SELF, "fixtures");
+const THEME_CSS = join(ROOT, "platform/ui/src/styles/index.css");
 
 let failures = 0;
 
@@ -69,9 +121,17 @@ function fail(rule: string, detail: string, fix: string): void {
   console.error(`\n✗ ${rule}\n  ${detail}\n  → ${fix}`);
 }
 
-/** 讀一次，兩半都用。靜態檢查掃它們，建置比對拿它們的類別當濾網。 */
+/**
+ * 讀一次，兩半都用。靜態檢查掃它們，建置比對拿它們的類別當濾網。
+ *
+ * ⚠️ **目錄不存在時要回空的，不是 ENOENT。** `--root` 指得到一份沒有
+ * `platform/ui` 的副本，而 `runStatic` 底下那條〈元件目錄是空的〉紅燈
+ * 就是為這一格寫的（「這條檢查掃不到東西時會全綠 —— 那正是綠燈代表沒有人看」）。
+ * 讓 `readdirSync` 直接丟的話，那條精心寫過的紅燈**永遠到不了**，
+ * 人看到的是一段 stack trace。
+ */
 const componentSources = new Map<string, string>(
-  readdirSync(COMPONENTS)
+  (existsSync(COMPONENTS) ? readdirSync(COMPONENTS) : [])
     .filter((file) => file.endsWith(".vue"))
     .map((file) => [file, readFileSync(join(COMPONENTS, file), "utf8")]),
 );
@@ -99,18 +159,62 @@ const componentClasses = new Set<string>(
  */
 const CONSUMER_ROOTS = ["features", "apps"] as const;
 
-const consumerSources = new Map<string, string>();
-for (const area of CONSUMER_ROOTS) {
-  // walk() 給的是相對於它起點的路徑，而這份 Map 的鍵一直是相對於 repo 根的
-  // ——「features/order/views/X.vue」。少了這個 join，錯誤訊息會指到不存在的路徑。
-  for (const found of walk(join(ROOT, area), {
-    skip: ["node_modules", "dist"],
-    skipDotDirs: true,
-    extensions: [".vue"],
-  })) {
-    const path = join(area, found);
-    consumerSources.set(path, readFileSync(join(ROOT, path), "utf8"));
+function collectViews(dir: string, out: Map<string, string>): void {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (entry.name === "node_modules" || entry.name === "dist" || entry.name.startsWith(".")) {
+        continue;
+      }
+      collectViews(join(dir, entry.name), out);
+    } else if (entry.name.endsWith(".vue")) {
+      const path = join(dir, entry.name);
+      out.set(relative(ROOT, path), readFileSync(path, "utf8"));
+    }
   }
+}
+
+const consumerSources = new Map<string, string>();
+for (const root of CONSUMER_ROOTS) {
+  // 同 componentSources 那一格的理由：不存在就跳過，讓〈切片與應用底下
+  // 找不到任何 .vue〉那條紅燈說話。
+  const dir = join(ROOT, root);
+  if (existsSync(dir)) collectViews(dir, consumerSources);
+}
+
+function describeUntranslated(violation: PaletteViolation): string {
+  return (
+    `${violation.file}:${violation.line} 用了 ${violation.className}` +
+    ` —— \`--${violation.upstream ?? ""}\` 是 shadcn 的代幣名，這個 repo 沒有宣告它`
+  );
+}
+
+/**
+ * ⚠️ **訊息一定要說得出替代品。** 少了它，最短的修法是把上游名字加進
+ * `@theme` —— 而那正好是錯的方向：多一層沒有人用的代幣，設計稿上那一格
+ * 仍然對不到名字（承諾三的整個重點是槽名不需要翻譯表）。
+ */
+function untranslatedFix(violation: PaletteViolation): string {
+  const name = violation.upstream ?? "";
+  const ours = translationFor(name);
+
+  if (ours !== null) {
+    const utility = violation.className.slice(violation.className.lastIndexOf(":") + 1);
+    const prefix = utility.startsWith("--") ? null : utility.slice(0, utility.indexOf("-"));
+    const suggestion = prefix === null ? ours : `\`${prefix}-${ours.slice("--color-".length)}\``;
+    return (
+      `這個 repo 的語意層叫 \`${ours}\` —— 改成 ${suggestion}。\n` +
+      `    ⚠️ 不要把 \`--${name}\` 加進 @theme：那會多一層沒有人用的代幣，` +
+      "而設計稿上那一格仍然對不到名字"
+    );
+  }
+
+  return (
+    `這個 repo **沒有** \`--${name}\` 的單一對應，所以沒有一行改法。\n` +
+    "    · `secondary` 在這裡是一組 class（見 UiButton 的 VARIANTS），不是一個顏色代幣\n" +
+    "    · `sidebar-*`／`chart-*` 這個 repo 沒有那個概念 —— 抄進來的元件如果需要它，\n" +
+    "      那是一個要先做的設計決定（哪些格子可換、叫什麼名字），不是一次改名\n" +
+    `    ⚠️ 同樣不要把 \`--${name}\` 加進 @theme 了事 —— 那會讓它看起來像有人決定過`
+  );
 }
 
 // ── 一、靜態：元件只准用語意代幣 ──────────────────────────────────────
@@ -136,12 +240,50 @@ function runStatic(): void {
     return;
   }
 
+  /**
+   * 第三類（未翻譯的 shadcn 代幣）要用的減數：我們 `@theme` 裡真的宣告過的名字。
+   *
+   * ⚠️ **從 CSS 讀，不寫死在偵測器裡。** 寫死的話，改一個代幣名就會讓那一類
+   * 靜靜地開始誤報或漏報 —— 而 `--color-muted` → `--color-fg-muted` 這種
+   * 改名真的發生過（見 index.css 那一格的註解）。
+   */
+  // ⚠️ 檔案不存在與「@theme 是空的」要分得開：前者是副本少了一層
+  // （沙盒契約破了，見 promise-check 的 `makeSandbox`），後者是代幣被刪光。
+  // 兩件事的修法不一樣，共用一則訊息會讓人去修錯的那一個。
+  if (!existsSync(THEME_CSS)) {
+    fail(
+      "代幣檔不見了",
+      `找不到 ${relative(ROOT, THEME_CSS)}`,
+      "被驗的那棵樹底下沒有 platform/ui 的代幣宣告。" +
+        "指了 `--root` 的話，那份副本少了一層 —— 補齊它，不要放寬這條檢查",
+    );
+    return;
+  }
+  const declared = declaredColorTokens(readFileSync(THEME_CSS, "utf8"));
+  if (declared.size === 0) {
+    fail(
+      "@theme 解析不出任何顏色代幣",
+      `${relative(ROOT, THEME_CSS)} 的 @theme 區塊沒有讀到 --color-*`,
+      "第三類的判準是「shadcn 的詞彙**減去**這一份」——" +
+        "減數是空的時候它會把所有同名代幣都報成違規，所以這裡先紅",
+    );
+    return;
+  }
+
   const violations: PaletteViolation[] = [];
-  for (const [file, source] of componentSources) violations.push(...findPaletteUsage(file, source));
-  for (const [file, source] of consumerSources) violations.push(...findPaletteUsage(file, source));
+  for (const [file, source] of componentSources) {
+    violations.push(...findPaletteUsage(file, source, declared));
+  }
+  for (const [file, source] of consumerSources) {
+    violations.push(...findPaletteUsage(file, source, declared));
+  }
 
   if (violations.length > 0) {
     for (const violation of violations) {
+      if (violation.kind === "untranslated") {
+        fail("未翻譯的 shadcn 代幣", describeUntranslated(violation), untranslatedFix(violation));
+        continue;
+      }
       const layer = violation.kind === "builtin" ? "Tailwind 內建色階" : "色票層";
       fail(
         "原始顏色",
@@ -436,6 +578,29 @@ async function runBuilds(): Promise<void> {
     );
   }
 
+  // ── 反過來：測試檔裡的類別**不准**進產物 ──
+  //
+  // 上面那條守「掃得到」，這條守「掃得剛好」。兩條都要，因為
+  // `@source` 的兩種壞法方向相反：漏掃讓畫面壞掉，多掃讓交付的 CSS
+  // 帶著測試殘留（實測 0.84 kB／13 條選擇器，全部來自測試檔的字面值與註解）。
+  //
+  // ⚠️ 退出演練抓不到多掃那一種：它比的是 CSS 位元組比值 ≥ 80%，
+  // 而多掃的方向是產物變大。所以這裡是唯一在守它的地方。
+  if (EXCLUDED_PROBE.length === 0 || EXCLUDED_PROBE_MARK.length === 0) {
+    fail(
+      "反向探針是空的",
+      "tests/excluded-probe.ts 沒有給出類別或比對字串",
+      "空字串會讓下面那條斷言恆真 —— 同 fixtures/probe.ts 的理由",
+    );
+  } else if (baseCss.includes(EXCLUDED_PROBE_MARK)) {
+    fail(
+      "測試檔裡的類別被編進產物了",
+      `${EXCLUDED_PROBE} 只寫在 tests/ 底下，卻在產物裡留下了 ${EXCLUDED_PROBE_MARK}`,
+      "platform/ui 的 @source 少了 `not` 那兩條排除。Tailwind 的抽取器不解析語法，" +
+        "連註解裡長得像 utility 的字串都會變成規則 —— 那些規則會進使用者下載的 CSS",
+    );
+  }
+
   if (failures === 0) {
     console.log(
       `✓ 建置：覆寫 ${roots.length} 格代幣、連動 ${followers.length} 格語意代幣、` +
@@ -445,22 +610,54 @@ async function runBuilds(): Promise<void> {
 }
 
 /**
- * 這支不吃任何旗標，而空 spec 的意思是「一個都不准」，不是「什麼都放行」。
+ * ⚠️ **`--root` 之下建置半不跑 —— 而理由不是它會失敗，是它會成功**（C127 §三）。
  *
- * 在此之前 `node tools/theme-verify/src/cli.ts --whatever` 會安靜地跑完並
- * 回傳 0 —— 一個打錯字的 CI 步驟會頂著閘門的名字發綠燈。
+ * C123 §五 量到的是「25 毫秒就爆 `Can't resolve '@org/ui/styles.css'`」，
+ * 而那個爆炸的原因是**當時 `fixtures/` 也跟著副本走**。C127 §一 把素材釘回
+ * 這支工具自己身上之後重量一次，結果整個翻過來：
+ *
+ * ```
+ * 沙盒刻意刪掉 UiSwitch.vue、並把副本的 index.css 掏成一行註解
+ * → ✓ 靜態：26 個元件…            （讀了副本 ✅）
+ * → ✓ 引用：2 份產物共 200 格代幣宣告、0 處懸空引用
+ * ```
+ *
+ * **副本的設計系統是空的，而它報了 200 格。** 建置走 `@import "@org/ui/styles.css"`，
+ * 那個名字從 `fixtures/` 經 `node_modules` 解析到**真樹**的 `platform/ui`，
+ * 而那份 CSS 的 `@source` 是一條從**真樹根部**往下的 glob（見 `runReferences`
+ * 的檔頭）。副本從頭到尾沒有參與。
+ *
+ * ⚠️ **這比「會失敗」危險得多，而且 `promise-check` 的探針接不住它**：
+ * `probeRootSupport` 比的是兩趟輸出有沒有差別，而靜態半確實有差別 ——
+ * 於是這支會被判成「讀了 `--root`」，然後建置半頂著閘門的名字報真樹的數字。
+ * 那正是 C124 建來抓的那個形狀，只是低了一層。
+ *
+ * ⚠️ **所以這裡不是「跳過一段慢的檢查」，是一句範疇聲明**：配色可換性那條軸
+ * 在副本上**沒有辦法驗**（要驗就得讓副本 install 得起來，那是全樹副本的量級）。
+ * ⚠️ **不准有任何承諾把「那麼」綁在建置半的字串上而用 `--root` 跑** ——
+ * `check.ts` 比對的是 `output.includes(fragment)`，而這裡印出來的每一個字
+ * 都刻意與建置半的三行 ✓ 不同，就是為了讓那種接法接不上。
+ *
+ * ⚠️ 同一條路上的先例：`conformance` 在 `--root` 之下不檢查版控檔案模式，
+ * 而它也是**印一行說自己沒檢查**，不是安靜跳過。
  */
-const parsed = parseFlags(process.argv.slice(2), {});
-if (!parsed.ok) {
-  console.error(parsed.message);
-  process.exit(1);
-}
+const SANDBOX_NOTE =
+  "  ⚠️ --root 之下**沒有**跑建置半 —— 建置解析的是真樹的 @org/ui（見這支檔尾）。\n" +
+  "  副本上驗得到的只有靜態那一條軸。";
 
 runStatic();
-await runBuilds();
+if (SANDBOXED) {
+  console.log(SANDBOX_NOTE);
+} else {
+  await runBuilds();
+}
 
 if (failures > 0) {
   console.error(`\n✗ 設計系統接縫：${failures} 項未通過`);
   process.exit(1);
 }
-console.log("✓ 設計系統接縫：配色與形狀兩條軸都實測可換（互動軸由 api-surface 守，見 C67）");
+console.log(
+  SANDBOXED
+    ? "✓ 設計系統接縫（只有靜態半）：被驗的那棵樹上 0 處原始顏色。⚠️ 配色可換性**沒有驗**"
+    : "✓ 設計系統接縫：配色與形狀兩條軸都實測可換（互動軸由 api-surface 守，見 C67）",
+);

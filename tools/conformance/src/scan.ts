@@ -14,9 +14,9 @@ import { SOURCE_EXTENSIONS } from "@org/slice-kit/contract";
  * 「起一個行程比對 stdout」，而那種測試答得出「現在是綠的」，
  * 答不出「這條規則在什麼情況下會判錯」。
  *
- * 這個坑這個 repo 已經寫下來兩次（`tools/doc-facts/src/derive.ts` 的檔頭、
- * 以及 `main` 上 `tools/exit-drill/src/plugins.ts` 的檔頭）。兩支各自繞過去了，
- * 而**最大的那一支沒有** —— 它守的是 v1 承諾裡最根本的那條（切片邊界）。
+ * 這個坑這個 repo 已經寫下來一次（`tools/doc-facts/src/derive.ts` 的檔頭），
+ * 那一支繞過去了，而**最大的那一支沒有** ——
+ * 它守的是 v1 承諾裡最根本的那條（切片邊界）。
  *
  * 規矩因此只有一條：`src/` 底下除了 `cli.ts` 以外，**任何檔案都不得讀
  * `process.argv`、不得呼叫 `process.exit`、不得有模組頂層的掃描**。

@@ -9,7 +9,6 @@
   "bin": "./bin/index.ts",
   "type": "module",
   "scripts": {
-    "test": "vp test",
     "check": "vp check",
     "dev": "node bin/index.ts"
   },
@@ -19,9 +18,12 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@amiceli/vitest-cucumber": "catalog:",
     "@org/theme-verify": "workspace:*",
     "@org/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",

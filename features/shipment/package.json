@@ -8,7 +8,6 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "vp test",
     "check": "vp check"
   },
   "dependencies": {
@@ -23,6 +22,8 @@
   },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",

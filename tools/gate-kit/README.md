@@ -2,7 +2,8 @@
 
 閘門底下那一層。**這支不是閘門** —— 它沒有 `cli.ts`、不回傳退出碼、不判定任何事。
 
-決策見 [`DECISIONS.md`](../../DECISIONS.md) 的 **C73**。
+決策見 [`DECISIONS.md`](../../DECISIONS.md) 的 **C131**（為什麼有這一層）、
+**C125**（進不進 `release/v1`）與 **C126**（在那條線上接滿八支）。
 
 ## 三個 export
 
@@ -12,14 +13,23 @@ walk(root, { skip, skipDotDirs?, extensions }): string[]   // 相對於 root，�
 parseFlags(argv, spec): { ok: true; flags } | { ok: false; message }
 ```
 
-## 為什麼有這支
+## 為什麼有這支 —— 兩次事故，兩種形狀
 
-`--roots` 打錯字的時候，`conformance` 會掃真的 repo 然後回傳 **exit 0**。
-11 支閘門裡只有 `pii-check` 擋得住不認得的旗標，而它那道防線是
+**① 認得的旗標打錯字。** `--roots` 打錯的時候，`conformance` 會掃真的 repo 然後
+回傳 **exit 0**。11 支閘門裡只有 `pii-check` 擋得住不認得的旗標，而它那道防線是
 **被一次真實事故逼出來的**（C52 拿掉 `--masking` 之後，CI 那個步驟被留下來，
 頂著「個資：畫面上必須隱碼」的名字回傳綠燈，而它守的東西早就不存在了）。
 
 教訓學到了，只套用在 11 支裡的 1 支 —— 因為沒有地方放。
+
+**② ⚠️ 而在 `release/v1` 上量到的第二種更糟：打錯字會讓閘門去做另一件事。**
+`--check` 打錯成 `--chec` 的時候，`tools/spec-report` **不會**紅 ——
+它會走「沒有 `--check`」那條分支，把 `SPEC-REPORT.md` **覆寫成當下現況**，
+然後回傳 exit 0。那道閘門於是從「報表過期就紅」變成「把報表改成永遠不過期」。
+
+`.github/workflows/tier1-quality.yml` 裡那一行就是 `--check`，而
+`SPEC-REPORT.md` 是拿去對外報進度的文件。**一個檢查不存在，比一個檢查失敗糟得多。**
+完整量測（含 `git status` 為什麼是乾淨的）在 C125 §一。
 
 ## 三件刻意沒做的事
 

@@ -39,6 +39,58 @@ vp create slice -- --directory=../features/shipment --slice=shipment --title=出
 產完之後照畫面上印出的三個步驟做：加 CODEOWNERS 條目、把切片加進
 `apps/<app>/package.json` 的 dependencies 與 `src/features.ts`、跑 `vp install` 驗證。
 
+## 產出的驗收規格設施（C114）
+
+除了切片的骨架，產生器還交付**第二類測試**的整條線 —— 那是
+[`TESTING.md`](../../TESTING.md) 層 3 的落點：
+
+| 產出                                 | 是什麼                                               |
+| ------------------------------------ | ---------------------------------------------------- |
+| `specs/<切片>.feature`               | **需求**，人寫的。與 `src/` 平行，不在 `tests/` 底下 |
+| `src/ports.ts`                       | 介面。usecase 只認得它，不認得 HTTP                  |
+| `src/usecases/query-<切片>.ts`       | **業務規則**，純 TS 零框架。規格打這一層             |
+| `tests/specs/<切片>.spec.ts`         | 接線，把規格的中文句子接到 usecase 上                |
+| `tests/support/in-memory-gateway.ts` | 規格用的假資料來源                                   |
+
+**產出的切片開箱即綠**：`vp run @org/feature-<切片>#test` 直接跑得出 20 條，
+其中 15 條來自規格。
+
+三件必須由模板生成、不能靠專案組記得寫的事：
+
+| 生成的東西                                  | 少了它會怎樣                                                            |
+| ------------------------------------------- | ----------------------------------------------------------------------- |
+| `setVitestCucumberConfiguration({...})`     | `.feature` 的 `# language:` 標頭**本身不生效**，parser 解析不出 Feature |
+| `excludeTags: ["待辦"]`                     | `@待辦` 的場景會被要求也要有接線，三態做不出來                          |
+| `predefinedSteps: []`／`mappedExamples: {}` | 上游型別把兩者標成必填，產出的切片第一次 `vp check` 就 TS2739           |
+
+⚠️ **接線檔的副檔名 `.spec.ts` 不是可以換的。** vitest 的預設 include 只收
+`*.test.*` 與 `*.spec.*`，而這條線的根層沒有覆寫 `test.include`。取名
+`.steps.ts` 會讓整份規格**一條都不被收集** —— runner 靜默不跑、既有測試繼續
+全綠、完成率讀的是一個從來沒有被執行過的檔案。`tests/contract-alignment.test.ts`
+有一條絆線掛在契約的 `STEPS_GLOB` 上。
+
+⚠️ **字串斷言擋不住上游變。** 其餘的斷言都在讀字串（檔案在不在、那一行設定
+有沒有生成），那擋得住模板被改壞，擋不住 runner 或 vitest 改了行為。
+`tests/spec-template.test.ts` 把模板產出的 `.feature` 原文餵進真的 parser
+（`loadFeatureFromText`），跑在 CI 每一次。⚠️ 它**不執行**場景 —— 驗的是
+「規格解析得出來、分母數得對」，執行那一半發生在產出的切片上。
+
+⚠️ **usecase 必須在畫面真的會走到的路徑上。** 模板產出的鏈是
+`views → composables → usecases → ports → api.ts`；composable 呼叫的是 usecase，
+規格打的也是 usecase。改成讓 composable 直接呼叫 `api.ts` 的話，規格驗的東西
+與畫面跑的東西就是兩條路 —— 那條也有絆線守著。
+
+## ⚠️ 產完 `vp install` 會看到兩行 WARN，那不是你裝壞了
+
+```
+[WARN] Failed to create bin at …/node_modules/.bin/vitest-cucumber.
+       ENOENT: … @amiceli/vitest-cucumber/dist/cli-generate.js
+```
+
+上游 `@amiceli/vitest-cucumber@7.0.0` 宣告了一個 bin 指向 `dist/cli-generate.js`，
+而發佈的套件裡沒有那個檔案。**不影響任何功能** —— 這條線用的是它的 API，
+不是它的 CLI。升級那個套件時可以順手看看修掉了沒（C115 §十二）。
+
 ## 為什麼產生器不自動改那三個檔案
 
 `CODEOWNERS` 決定權責歸屬、`features.ts` 決定系統由哪些切片組成、

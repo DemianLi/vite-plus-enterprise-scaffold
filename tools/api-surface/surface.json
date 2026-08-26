@@ -88,7 +88,33 @@
     "@org/bff-mock": {
       "BffMockOptions": {
         "kind": "type",
-        "members": ["allowInProduction?: boolean | undefined", "sessionCookie?: string | undefined"]
+        "members": [
+          "allowInProduction?: boolean | undefined",
+          "extraPermissions?: readonly string[] | undefined",
+          "routes?: readonly BffMockRoute[] | undefined",
+          "sessionCookie?: string | undefined"
+        ]
+      },
+      "BffMockReply": {
+        "kind": "type",
+        "members": ["body?: unknown", "status?: number | undefined"]
+      },
+      "BffMockRequest": {
+        "kind": "type",
+        "members": [
+          "body: unknown",
+          "params: Readonly<Record<string, string>>",
+          "permissions: readonly string[]",
+          "query: URLSearchParams"
+        ]
+      },
+      "BffMockRoute": {
+        "kind": "type",
+        "members": [
+          "handle: (request: BffMockRequest) => BffMockReply | Promise<BffMockReply>",
+          "method?: string | undefined",
+          "path: string"
+        ]
       },
       "createBffMock": {
         "kind": "function",
@@ -433,6 +459,14 @@
         "kind": "value",
         "type": "readonly [\".ts\", \".tsx\", \".js\", \".mjs\", \".vue\"]"
       },
+      "SPECS_DIR": {
+        "kind": "value",
+        "type": "\"specs\""
+      },
+      "STEPS_GLOB": {
+        "kind": "value",
+        "type": "\"tests/specs/**/*.spec.ts\""
+      },
       "STORE_FILE": {
         "kind": "value",
         "type": "\"src/store.ts\""
@@ -448,6 +482,26 @@
       "TEST_GLOB": {
         "kind": "value",
         "type": "\"tests/**/*.test.ts\""
+      },
+      "TODO_TAG": {
+        "kind": "value",
+        "type": "\"待辦\""
+      },
+      "USECASE_COVERAGE_GLOB": {
+        "kind": "value",
+        "type": "\"src/usecases/**\""
+      },
+      "USECASE_COVERAGE_MIN": {
+        "kind": "value",
+        "type": "100"
+      },
+      "USECASE_FORBIDDEN_IMPORTS": {
+        "kind": "value",
+        "type": "readonly [\"vue\", \"pinia\", \"vue-router\", \"vue-i18n\", \"@tanstack/vue-query\"]"
+      },
+      "USECASES_DIR": {
+        "kind": "value",
+        "type": "\"src/usecases\""
       },
       "usesDesignSystem": {
         "kind": "function",
@@ -475,6 +529,40 @@
         "kind": "function",
         "type": "(override: UiThemeOverride) => Plugin"
       },
+      "UiAlert": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]", "tone?: \"info\" | \"success\" | \"danger\""]
+      },
+      "UiAlertDialog": {
+        "kind": "component",
+        "members": [
+          "[emit confirm]: []",
+          "[emit update:open]: void",
+          "[slot default]: (): VNode[]",
+          "cancelLabel?: string",
+          "confirmLabel: string",
+          "confirmVariant?: \"primary\" | \"danger\"",
+          "description: string",
+          "open?: boolean",
+          "title: string"
+        ]
+      },
+      "UiAlertDialogSlot": {
+        "kind": "type",
+        "type": "\"actions\" | \"content\" | \"description\" | \"overlay\" | \"title\""
+      },
+      "UiAlertSlot": {
+        "kind": "type",
+        "type": "\"alert\" | \"danger\" | \"info\" | \"success\""
+      },
+      "UiBadge": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]", "tone?: \"neutral\" | \"accent\" | \"danger\""]
+      },
+      "UiBadgeSlot": {
+        "kind": "type",
+        "type": "\"accent\" | \"badge\" | \"danger\" | \"neutral\""
+      },
       "UiButton": {
         "kind": "component",
         "members": [
@@ -488,6 +576,32 @@
       "UiButtonSlot": {
         "kind": "type",
         "type": "\"danger\" | \"ghost\" | \"md\" | \"primary\" | \"secondary\" | \"sm\""
+      },
+      "UiCheckbox": {
+        "kind": "component",
+        "members": [
+          "[emit update:modelValue]: void",
+          "[slot default]: (): VNode[]",
+          "label?: string",
+          "modelValue?: boolean"
+        ]
+      },
+      "UiCheckboxSlot": {
+        "kind": "type",
+        "type": "\"indicator\" | \"label\" | \"root\""
+      },
+      "UiDatePicker": {
+        "kind": "component",
+        "members": [
+          "[emit update:modelValue]: void",
+          "invalid?: boolean",
+          "locale?: string",
+          "modelValue?: DateValue | undefined"
+        ]
+      },
+      "UiDatePickerSlot": {
+        "kind": "type",
+        "type": "\"content\" | \"day\" | \"field\" | \"headCell\" | \"heading\" | \"nav\" | \"segment\" | \"trigger\""
       },
       "UiDialog": {
         "kind": "component",
@@ -505,6 +619,34 @@
         "kind": "type",
         "type": "\"content\" | \"description\" | \"overlay\" | \"title\""
       },
+      "UiDropdownMenu": {
+        "kind": "component",
+        "members": [
+          "[emit select]: [value: string]",
+          "[emit update:open]: void",
+          "align?: \"start\" | \"end\"",
+          "items: readonly { value: string; label: string; disabled?: boolean; variant?: \"default\" | \"danger\"; }[]",
+          "label: string",
+          "open?: boolean"
+        ]
+      },
+      "UiDropdownMenuSlot": {
+        "kind": "type",
+        "type": "\"content\" | \"danger\" | \"icon\" | \"item\" | \"trigger\""
+      },
+      "UiField": {
+        "kind": "component",
+        "members": [
+          "[slot default]: (props: { control: Readonly<Record<string, string | true | undefined>> }): VNode[]",
+          "description?: string",
+          "error?: string",
+          "label: string"
+        ]
+      },
+      "UiFieldSlot": {
+        "kind": "type",
+        "type": "\"description\" | \"error\" | \"field\""
+      },
       "UiInput": {
         "kind": "component",
         "members": ["[emit update:modelValue]: void", "modelValue?: string | number"]
@@ -513,16 +655,195 @@
         "kind": "type",
         "type": "\"input\""
       },
+      "UiLabel": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]", "for: string"]
+      },
+      "UiLabelSlot": {
+        "kind": "type",
+        "type": "\"label\""
+      },
+      "UiPagination": {
+        "kind": "component",
+        "members": [
+          "[emit update:modelValue]: void",
+          "modelValue?: number",
+          "perPage: number",
+          "total: number"
+        ]
+      },
+      "UiPaginationSlot": {
+        "kind": "type",
+        "type": "\"ellipsis\" | \"item\" | \"list\" | \"nav\""
+      },
+      "UiRadioGroup": {
+        "kind": "component",
+        "members": [
+          "[emit update:modelValue]: void",
+          "[slot default]: (): VNode[]",
+          "modelValue?: string"
+        ]
+      },
+      "UiRadioGroupSlot": {
+        "kind": "type",
+        "type": "\"group\""
+      },
+      "UiRadioItem": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]", "label?: string", "value: string"]
+      },
+      "UiRadioItemSlot": {
+        "kind": "type",
+        "type": "\"indicator\" | \"item\" | \"label\""
+      },
+      "UiSelect": {
+        "kind": "component",
+        "members": [
+          "[emit update:modelValue]: void",
+          "items: readonly { value: string; label: string }[]",
+          "modelValue?: string",
+          "placeholder: string"
+        ]
+      },
+      "UiSelectSlot": {
+        "kind": "type",
+        "type": "\"chevron\" | \"content\" | \"indicator\" | \"item\" | \"trigger\""
+      },
+      "UiSeparator": {
+        "kind": "component",
+        "members": ["orientation?: \"horizontal\" | \"vertical\"", "semantic?: boolean"]
+      },
+      "UiSeparatorSlot": {
+        "kind": "type",
+        "type": "\"separator\""
+      },
       "UiSize": {
         "kind": "type",
         "type": "\"md\" | \"sm\""
       },
+      "UiSkeleton": {
+        "kind": "component",
+        "members": []
+      },
+      "UiSkeletonSlot": {
+        "kind": "type",
+        "type": "\"skeleton\""
+      },
+      "UiSwitch": {
+        "kind": "component",
+        "members": ["[emit update:modelValue]: void", "modelValue?: boolean"]
+      },
+      "UiSwitchSlot": {
+        "kind": "type",
+        "type": "\"root\" | \"thumb\""
+      },
+      "UiTable": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]"]
+      },
+      "UiTableBody": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]"]
+      },
+      "UiTableBodySlot": {
+        "kind": "type",
+        "type": "\"body\""
+      },
+      "UiTableCell": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]", "numeric?: boolean"]
+      },
+      "UiTableCellSlot": {
+        "kind": "type",
+        "type": "\"cell\" | \"numeric\""
+      },
+      "UiTableHead": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]"]
+      },
+      "UiTableHeadCell": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]", "scope?: \"col\" | \"row\""]
+      },
+      "UiTableHeadCellSlot": {
+        "kind": "type",
+        "type": "\"cell\""
+      },
+      "UiTableHeadSlot": {
+        "kind": "type",
+        "type": "\"head\""
+      },
+      "UiTableRow": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]"]
+      },
+      "UiTableRowSlot": {
+        "kind": "type",
+        "type": "\"row\""
+      },
+      "UiTableSlot": {
+        "kind": "type",
+        "type": "\"scroller\" | \"table\""
+      },
+      "UiTabs": {
+        "kind": "component",
+        "members": [
+          "[emit update:modelValue]: void",
+          "[slot default]: (): VNode[]",
+          "items: readonly { value: string; label: string }[]",
+          "modelValue?: string"
+        ]
+      },
+      "UiTabsPanel": {
+        "kind": "component",
+        "members": ["[slot default]: (): VNode[]", "value: string"]
+      },
+      "UiTabsPanelSlot": {
+        "kind": "type",
+        "type": "\"panel\""
+      },
+      "UiTabsSlot": {
+        "kind": "type",
+        "type": "\"list\" | \"trigger\""
+      },
+      "UiTextarea": {
+        "kind": "component",
+        "members": ["[emit update:modelValue]: void", "modelValue?: string"]
+      },
+      "UiTextareaSlot": {
+        "kind": "type",
+        "type": "\"textarea\""
+      },
       "UiThemeOverride": {
         "kind": "type",
         "members": [
+          "UiAlert?: Readonly<Partial<Record<UiAlertSlot, string>>> | undefined",
+          "UiAlertDialog?: Readonly<Partial<Record<UiAlertDialogSlot, string>>> | undefined",
+          "UiBadge?: Readonly<Partial<Record<UiBadgeSlot, string>>> | undefined",
           "UiButton?: Readonly<Partial<Record<UiButtonSlot, string>>> | undefined",
+          "UiCheckbox?: Readonly<Partial<Record<UiCheckboxSlot, string>>> | undefined",
+          "UiDatePicker?: Readonly<Partial<Record<UiDatePickerSlot, string>>> | undefined",
           "UiDialog?: Readonly<Partial<Record<UiDialogSlot, string>>> | undefined",
-          "UiInput?: Readonly<Partial<Record<\"input\", string>>> | undefined"
+          "UiDropdownMenu?: Readonly<Partial<Record<UiDropdownMenuSlot, string>>> | undefined",
+          "UiField?: Readonly<Partial<Record<UiFieldSlot, string>>> | undefined",
+          "UiInput?: Readonly<Partial<Record<\"input\", string>>> | undefined",
+          "UiLabel?: Readonly<Partial<Record<\"label\", string>>> | undefined",
+          "UiPagination?: Readonly<Partial<Record<UiPaginationSlot, string>>> | undefined",
+          "UiRadioGroup?: Readonly<Partial<Record<\"group\", string>>> | undefined",
+          "UiRadioItem?: Readonly<Partial<Record<UiRadioItemSlot, string>>> | undefined",
+          "UiSelect?: Readonly<Partial<Record<UiSelectSlot, string>>> | undefined",
+          "UiSeparator?: Readonly<Partial<Record<\"separator\", string>>> | undefined",
+          "UiSkeleton?: Readonly<Partial<Record<\"skeleton\", string>>> | undefined",
+          "UiSwitch?: Readonly<Partial<Record<UiSwitchSlot, string>>> | undefined",
+          "UiTable?: Readonly<Partial<Record<UiTableSlot, string>>> | undefined",
+          "UiTableBody?: Readonly<Partial<Record<\"body\", string>>> | undefined",
+          "UiTableCell?: Readonly<Partial<Record<UiTableCellSlot, string>>> | undefined",
+          "UiTableHead?: Readonly<Partial<Record<\"head\", string>>> | undefined",
+          "UiTableHeadCell?: Readonly<Partial<Record<\"cell\", string>>> | undefined",
+          "UiTableRow?: Readonly<Partial<Record<\"row\", string>>> | undefined",
+          "UiTabs?: Readonly<Partial<Record<UiTabsSlot, string>>> | undefined",
+          "UiTabsPanel?: Readonly<Partial<Record<\"panel\", string>>> | undefined",
+          "UiTextarea?: Readonly<Partial<Record<\"textarea\", string>>> | undefined"
         ]
       },
       "UiVariant": {
@@ -538,10 +859,15 @@
       "reason": "C5：平台契約套件原名 @org/feature-kit 與切片的 @org/feature-* 命名撞號，被自己的邊界規則誤判。此遷移發生在本基準建立之前，因此 removes 為空；保留登記是為了讓 codemod 檔案的存在受檢查保護，並作為 D12 流程的範例。"
     },
     {
+      "name": "drop-a11y-config-for-v1",
+      "removes": ["@org/eslint-config/a11y#default"],
+      "reason": "v1.0.0 的範圍縮減：無障礙整條移到 v2（論證在這個腳手架上游 main 分支的 DECISIONS.md C69；fork 了 v1 的團隊手上沒有那條線，這一則對你們就是「v1 不含無障礙靜態檢查」這句話本身）。這不是 API 演進而是產品線範圍的決定 —— 需要無障礙靜態檢查的案子要用 main 那條線，不是把它加回 v1。codemod 只移除 import 不補替代方案，因為沒有替代方案；讓升級的人當場看見少了一道閘門，比安靜地少掉危險得多。"
+    },
+    {
       "name": "flatten-ui-theme-to-components",
       "removes": [],
       "changes": ["@org/ui#UiThemeOverride"],
-      "reason": "各案覆寫元件樣式的介面從 { variants, sizes }（按鈕的概念長在全域 API 上）改成 { 元件名: { 槽名: class 字串 } }。舊形狀讓第二個元件 UiDialog 沒有地方可放它的接縫，於是它的寬度與位置寫死在模板裡、任何案子都換不掉 —— 而沒有任何閘門說話。C70。"
+      "reason": "各案覆寫元件樣式的介面從 { variants, sizes }（按鈕的概念長在全域 API 上）改成 { 元件名: { 槽名: class 字串 } }。舊形狀讓第二個元件 UiDialog 沒有地方可放它的接縫，於是它的寬度與位置寫死在模板裡、任何案子都換不掉 —— 而沒有任何閘門說話。在 v1.0.0 tag 之前改，代價是一個呼叫端；tag 之後改，代價是每一個 fork、永遠。"
     }
   ]
 }

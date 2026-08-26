@@ -106,6 +106,46 @@ export default [
       },
     },
     plugins: { "vuejs-accessibility": a11y },
-    rules: ALL_RULES,
+    rules: {
+      ...ALL_RULES,
+      /**
+       * ⚠️ **這一格是這份設定裡唯一動過預設選項的地方，理由在這裡。**
+       *
+       * `label-has-for` 的預設是 `{ every: ["nesting", "id"] }` ——
+       * **同時**要求 label 包住控制項**而且**帶 `for`。WCAG 兩種關聯方式
+       * 任一種就成立，所以那個預設比它宣稱在守的標準更嚴，而且它**否決掉
+       * 的正是 `for` 這一種**：一份用 `for` 把標籤接到控制項的設計系統，
+       * 在它眼裡每一個 `<label>` 都是壞的。
+       *
+       * ⚠️ **這不是為了讓閘門變綠而調鬆門檻。** 併線之前這一格是綠的，
+       * 因為當時樹上只有 3 個元件、一個 `<label>` 都沒有 —— 24 個元件併
+       * 進來的那一刻它才第一次真的被執行到（C133 §七）。
+       * 也就是說：**綠燈當時代表的是「沒有東西被檢查」，不是「檢查過了」**，
+       * 而那正是這份檔案的檔頭在警告的形狀。
+       *
+       * 改成 `some` 之後它仍然會紅：一個既沒有 `for`、也沒有包住控制項的
+       * `<label>` 是真的沒有關聯 —— 那才是這條規則要抓的東西。
+       */
+      "vuejs-accessibility/label-has-for": ["error", { required: { some: ["nesting", "id"] } }],
+    },
+  },
+  {
+    /**
+     * ⚠️ **`platform/ui` 的原生控制項基元：`form-control-has-label` 關掉。**
+     *
+     * 那條規則問的是「這個控制項自己身上有沒有 `id`」（它自己的註解說：
+     * 掃全檔找對應的 `for` 太慢）。而這一層的基元**刻意不宣告 `id`** ——
+     * 它由使用端經 `$attrs` 落下來，`UiField` 產一組 id 再一次綁上
+     * 標籤與控制項（C84）。規則看不見那件事，看得見的只有「這裡沒有 id」。
+     *
+     * ⚠️ **範圍刻意只有這個目錄**：切片與應用畫面裡的 `<input>`／`<textarea>`
+     * 仍然被這條規則守著，而那才是真的會漏掉標籤的地方。
+     *
+     * ⚠️ **同一組基元裡 `<input>` 沒有紅，而那是巧合不是差別**：規則對
+     * 沒有 `type` 的 `<input>` 直接提早 return。靠那個提早 return 當作
+     * 「我們的 input 沒問題」的證據是錯的 —— 兩者處境完全一樣。
+     */
+    files: ["platform/ui/src/components/**/*.vue"],
+    rules: { "vuejs-accessibility/form-control-has-label": "off" },
   },
 ];

@@ -24,6 +24,12 @@ import { NO_OVERRIDE, UI_THEME, type UiDialogSlot } from "../theme.ts";
  *
  * reka-ui 把這些做完了，而且**不帶任何樣式**，所以外觀仍然是我們的。
  *
+ * ── 遮罩：色相在代幣、不透明度留在元件 ────────────────────────────
+ *
+ * `overlay` 那一格寫的是 `bg-overlay/40`。⚠️ 不要為了那個 40 再開一個
+ * `--color-overlay-40` 代幣 —— 那會讓**每換一次濃淡就多一格**，而濃淡是
+ * 逐案調的東西。`styles/index.css` 對這一條有更完整的說明。
+ *
  * ── CSP：這個元件零執行期樣式注入 ──────────────────────────────────
  *
  * reka-ui 全套件唯一會 `document.createElement("style")` 的地方是
@@ -79,6 +85,18 @@ defineSlots<{
  * 因為當時的檢查是 `readFileSync("UiButton.vue")`，寫死一個檔名。
  * 現在改成掃目錄（`../tests/component-contract.test.ts`）。
  *
+ * ── ⚠️ 不要新增 `UiSheet`：它就是 `content` 槽（C81）────────────────
+ *
+ * shadcn 的 `Sheet`（從側邊滑出的對話框）**不是另一個元件**，是這一格的
+ * 覆寫：`fixed inset-y-0 right-0 h-full w-96` 取代下面那串
+ * `top-1/2 left-1/2 -translate-*`。焦點鎖定、Esc、外側點擊、`aria-modal`
+ * 全部原封不動 —— 上面那段「手機版底部滑出」講的就是這件事。
+ *
+ * 新增一個 `UiSheet` 的代價不是多一個檔案，是**兩份無障礙接線從此各自
+ * 漂移** —— 而其中一份壞掉的時候畫面完全正常。
+ *
+ * ⚠️ `Drawer` 不同：它靠拖曳手勢關閉，那個換不出來，要新的基元。
+ *
  * ── 四個槽名的來源 ──────────────────────────────────────────────────
  *
  * 不是我們取的：它們就是上面 import 的 reka-ui 基元名，也是 shadcn-vue 的
@@ -100,7 +118,13 @@ const DEFAULT_PARTS: Readonly<Record<UiDialogSlot, string>> = {
   description: "mt-1 text-sm text-fg-muted",
 };
 
-// 覆寫表是凍結的、而且不依賴 props，所以解析一次就好 —— 不需要 computed。
+// 覆寫表是凍結的、而且不依賴 props，所以**每個實例解析一次**就好 ——
+// 不需要 computed。
+//
+// ⚠️ 「一次」指的是**每個實例一次**，不是整個 module 一次：`<script setup>`
+// 的本體就是 `setup()`。上面 DEFAULT_PARTS 裡那個 cn() 也一樣。
+// 量過了，那樣是對的 —— 每個實例 0.26 – 0.29 µs，而實例掛載本身約 2.8 µs，
+// 提到真正的 module 層只會把未命中的成本搬到 import 時（C75、utils/cn.ts）。
 const theme = inject(UI_THEME, NO_OVERRIDE);
 const parts: Readonly<Record<UiDialogSlot, string>> = {
   overlay: theme.UiDialog?.overlay ?? DEFAULT_PARTS.overlay,
@@ -113,8 +137,6 @@ const parts: Readonly<Record<UiDialogSlot, string>> = {
 <template>
   <DialogRoot v-model:open="open">
     <DialogPortal>
-      <!-- 色相在代幣、不透明度留在元件。`--color-overlay-40` 那種代幣會讓
-           每換一次濃淡就多一格，見 styles/index.css 對這一條的說明。 -->
       <DialogOverlay :class="parts.overlay" />
       <DialogContent :class="parts.content">
         <DialogTitle :class="parts.title">{{ title }}</DialogTitle>

@@ -23,7 +23,16 @@ import { NO_OVERRIDE, UI_THEME, type UiInputSlot } from "../theme.ts";
  *   4. `dark:` 變體 → 拿掉。本 repo 還沒有深色模式，留著會是**寫了但無效**
  *      的 class —— 而那正是 theme-verify 在防的那種「看起來有做」。
  *
- * ── 代幣對照（漏翻的會被 tools/theme-verify 當場擋下）────────────────
+ * ── 代幣對照 ⚠️ **這張表是人工核對的，沒有閘門在守** ─────────────────
+ *
+ * 這裡原本寫著「漏翻的會被 tools/theme-verify 當場擋下」。**那句話是假的**，
+ * 實測過：把 `border-line` 改回上游的 `border-input`，theme-verify 仍然
+ * 全綠（「0 處原始顏色、0 處懸空引用」）。未翻譯的上游代幣既不是原始色、
+ * 也不是懸空引用 —— 它是一個「合法但不是我們的」名字，而 palette.ts 現有的
+ * 兩類違規都認不得它。那道檢查是 issue #57，還沒做。
+ *
+ * 所以抄下一個元件的人：**這張表要自己逐條核**，漏一條那一格顏色就永遠
+ * 換不掉，而且不會有任何紅燈。
  *
  *   border-input                → border-line
  *   focus-visible:border-ring   → focus-visible:border-focus
@@ -67,6 +76,9 @@ const DEFAULT_PARTS: Readonly<Record<UiInputSlot, string>> = {
   ),
 };
 
+// ⚠️ 上面 DEFAULT_PARTS 的 cn() 是**每個實例跑一次**（`<script setup>` 的
+// 本體就是 `setup()`），不是每個 module 一次，也不是每次 render。
+// 量過了，那樣是對的 —— 理由與數字在 utils/cn.ts 的檔頭與 C75。
 const theme = inject(UI_THEME, NO_OVERRIDE);
 const parts: Readonly<Record<UiInputSlot, string>> = {
   input: theme.UiInput?.input ?? DEFAULT_PARTS.input,

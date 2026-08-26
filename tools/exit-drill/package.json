@@ -17,5 +17,8 @@
     "typescript": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@org/gate-kit": "workspace:*"
   }
 }

@@ -1,0 +1,27 @@
+{
+  "name": "@org/promise-check",
+  "version": "0.0.0",
+  "private": true,
+  "description": "specs/ 裡寫的框架承諾，每一條都真的執行一次（TESTING.md 層 3 · 框架承諾）",
+  "bin": {
+    "promise-check": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@amiceli/vitest-cucumber": "catalog:",
+    "@org/conformance": "workspace:*",
+    "@org/gate-kit": "workspace:*"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

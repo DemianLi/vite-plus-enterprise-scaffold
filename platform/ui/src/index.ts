@@ -27,7 +27,31 @@
 
 export { default as UiButton } from "./components/UiButton.vue";
 export { default as UiDialog } from "./components/UiDialog.vue";
+export { default as UiAlertDialog } from "./components/UiAlertDialog.vue";
 export { default as UiInput } from "./components/UiInput.vue";
+export { default as UiBadge } from "./components/UiBadge.vue";
+export { default as UiCheckbox } from "./components/UiCheckbox.vue";
+export { default as UiSkeleton } from "./components/UiSkeleton.vue";
+export { default as UiTabs } from "./components/UiTabs.vue";
+export { default as UiTabsPanel } from "./components/UiTabsPanel.vue";
+export { default as UiDatePicker } from "./components/UiDatePicker.vue";
+export { default as UiAlert } from "./components/UiAlert.vue";
+export { default as UiPagination } from "./components/UiPagination.vue";
+export { default as UiSeparator } from "./components/UiSeparator.vue";
+export { default as UiTable } from "./components/UiTable.vue";
+export { default as UiTableBody } from "./components/UiTableBody.vue";
+export { default as UiTableCell } from "./components/UiTableCell.vue";
+export { default as UiTableHead } from "./components/UiTableHead.vue";
+export { default as UiTableHeadCell } from "./components/UiTableHeadCell.vue";
+export { default as UiTableRow } from "./components/UiTableRow.vue";
+export { default as UiLabel } from "./components/UiLabel.vue";
+export { default as UiField } from "./components/UiField.vue";
+export { default as UiRadioGroup } from "./components/UiRadioGroup.vue";
+export { default as UiRadioItem } from "./components/UiRadioItem.vue";
+export { default as UiSelect } from "./components/UiSelect.vue";
+export { default as UiDropdownMenu } from "./components/UiDropdownMenu.vue";
+export { default as UiSwitch } from "./components/UiSwitch.vue";
+export { default as UiTextarea } from "./components/UiTextarea.vue";
 export { cn } from "./utils/cn.ts";
 
 /**
@@ -40,10 +64,34 @@ export { cn } from "./utils/cn.ts";
  */
 export { createUiTheme } from "./theme.ts";
 export type {
+  UiAlertDialogSlot,
+  UiAlertSlot,
+  UiBadgeSlot,
   UiButtonSlot,
+  UiCheckboxSlot,
+  UiDatePickerSlot,
   UiDialogSlot,
+  UiDropdownMenuSlot,
   UiInputSlot,
+  UiLabelSlot,
+  UiFieldSlot,
+  UiPaginationSlot,
+  UiRadioGroupSlot,
+  UiRadioItemSlot,
+  UiSelectSlot,
+  UiSeparatorSlot,
   UiSize,
+  UiSkeletonSlot,
+  UiSwitchSlot,
+  UiTableBodySlot,
+  UiTableCellSlot,
+  UiTableHeadCellSlot,
+  UiTableHeadSlot,
+  UiTableRowSlot,
+  UiTableSlot,
+  UiTabsPanelSlot,
+  UiTabsSlot,
+  UiTextareaSlot,
   UiThemeOverride,
   UiVariant,
 } from "./theme.ts";

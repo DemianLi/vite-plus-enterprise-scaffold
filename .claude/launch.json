@@ -2,9 +2,20 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "console",
+      "runtimeExecutable": "./node_modules/.bin/vp",
+      "runtimeArgs": [
+        "run",
+        "console#dev"
+      ],
+      "port": 5173
+    },
+    {
       "name": "csp-verify",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["tools/csp-verify/src/cli.ts"],
+      "runtimeArgs": [
+        "tools/csp-verify/src/cli.ts"
+      ],
       "port": 4173
     }
   ]

@@ -3,6 +3,7 @@ import { readdirSync, existsSync, statSync } from "node:fs";
 import { join, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { parseFlags } from "@org/gate-kit";
 import { slicePackageName } from "@org/slice-kit/contract";
 
 import type { Finding } from "./finding.ts";
@@ -10,6 +11,7 @@ import { formatReport } from "./report.ts";
 import { loadCodeowners } from "./scan.ts";
 import { checkActionPinning } from "./rules/action-pinning.ts";
 import { checkCspIncompatibleImports } from "./rules/csp.ts";
+import { checkFileMode } from "./rules/file-mode.ts";
 import { checkPhantomDependencies } from "./rules/phantom-deps.ts";
 import { checkSlice } from "./rules/slice.ts";
 
@@ -52,21 +54,35 @@ import { checkSlice } from "./rules/slice.ts";
  * ⚠️ 刻意**不做**環境變數版本。env 會被繼承到子行程，
  * 一個沒清乾淨的 `CONFORMANCE_ROOT` 會讓 CI 安靜地掃錯目錄然後回報通過。
  * 明確的旗標做不到這件事。
+ *
+ * ⚠️ **解析交給 `@org/gate-kit` 的 `parseFlags`（C125／C126）。** 被取代的
+ * 版本是 `argv.indexOf("--root")` 加一句「其餘無視」—— 於是 `--roo` 打錯
+ * 一個字母仍然 `✓ 一致性檢查通過（2 個切片）` 而 exit 0（C123 §一 實測）。
+ * **不認得的旗標一律失敗**，理由寫在 `gate-kit/src/flags.ts` 的檔頭。
  */
-function parseRoot(argv: readonly string[]): string {
-  const at = argv.indexOf("--root");
-  if (at === -1) return resolve(fileURLToPath(import.meta.url), "../../../..");
+const FLAGS = parseFlags(process.argv.slice(2), {
+  root: { kind: "value", noun: "目錄" },
+} as const);
 
-  const value = argv[at + 1];
-  if (value === undefined || value.startsWith("--")) {
-    console.error("--root 後面要接一個目錄");
-    process.exit(1);
-  }
-  return resolve(value);
+if (!FLAGS.ok) {
+  console.error(FLAGS.message);
+  process.exit(1);
 }
 
-const ROOT = parseRoot(process.argv.slice(2));
+const ROOT =
+  FLAGS.flags.root === undefined
+    ? resolve(fileURLToPath(import.meta.url), "../../../..")
+    : resolve(FLAGS.flags.root);
 const FEATURES_DIR = join(ROOT, "features");
+
+/**
+ * `--root` 有沒有被指定 —— 而這不等於「`ROOT` 是不是本 repo」。
+ *
+ * ⚠️ 不能用 `ROOT === <本 repo>` 來判：反向測試把副本放在暫存目錄，
+ * 而一個把 repo 自己的路徑傳進 `--root` 的呼叫是合法的。問的是
+ * **呼叫端有沒有說「去掃別的地方」**，那是一個關於參數的事實，不是關於路徑的。
+ */
+const SANDBOXED = FLAGS.flags.root !== undefined;
 
 // ── 執行 ──────────────────────────────────────────────────────────────
 if (!existsSync(FEATURES_DIR)) {
@@ -95,6 +111,18 @@ for (const layer of ["features", "platform", "apps"]) {
 
 // CI 的 action 必須以 commit SHA 釘住。與切片無關，掃的是 .github/workflows。
 findings.push(...checkActionPinning(ROOT));
+
+// 版控裡的檔案模式。⚠️ **只在沒有 `--root` 的時候跑** —— 副本不是版控，
+// 這條規則問的問題在那裡沒有答案（不是「答案是綠的」）。理由的完整版在
+// `rules/file-mode.ts` 的檔頭。
+//
+// ⚠️ 這句話帶一個數字，而那個數字只有真的跑過才產得出來 —— 見那支檔尾。
+let fileModeNote = "  ⚠️ --root 之下**沒有**檢查檔案模式 —— 副本不是版控（見 rules/file-mode.ts）";
+if (!SANDBOXED) {
+  const { findings: modeFindings, examined } = checkFileMode(ROOT);
+  findings.push(...modeFindings);
+  fileModeNote = `  含版控檔案模式：${examined} 個版控檔案（bin 目標須 100755，其餘 100644）`;
+}
 
 // 幽靈依賴：**逐 package** 檢查，不是逐層 —— 因為比對的對象是
 // 「這個 package 自己的 package.json」，而每一層底下有很多個。
@@ -126,6 +154,9 @@ for (const layer of ["features", "platform", "apps"]) {
  */
 if (findings.length === 0) {
   console.log(`✓ 一致性檢查通過（${slices.length} 個切片）`);
+  // ⚠️ 少一條規則要說出來，不是安靜少跑。這棵樹已經為「量不到被記成沒問題」
+  // 付過學費（覆蓋率的預設射程、ESLint 裝在 repo 外面）。
+  console.log(fileModeNote);
 } else {
   process.stderr.write(formatReport(findings));
   process.exitCode = 1;

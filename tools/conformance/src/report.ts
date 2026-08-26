@@ -31,9 +31,17 @@ export function groupFindings(findings: readonly Finding[]): Map<string, Finding
  * ⚠️ 每一段的結尾換行是原本 `console.error` 自動補的那一個。
  * 這支工具的輸出被 CI 的紀錄與 `vpr gate` 直接照抄，
  * 所以格式差一個換行就是一次使用者看得到的改動。
+ *
+ * ── `title` 為什麼有預設值 ──────────────────────────────────────────
+ *
+ * `tools/scope-check`（C73）是第二個產出 `Finding[]` 的工具，而閘門訊息
+ * 長得一樣對讀的人有價值 —— 同一個 repo 的紅燈不該有兩種排版。
+ * 但這一行的字面內容是**這支工具的輸出**，`#53` 花了整輪去證明它一字未改，
+ * 所以參數帶預設值：conformance 的呼叫端一個字都不用動，
+ * 而「輸出沒變」這件事由既有的測試繼續盯著。
  */
-export function formatReport(findings: readonly Finding[]): string {
-  let out = `\n✗ 一致性檢查未通過：${findings.length} 項違規\n\n`;
+export function formatReport(findings: readonly Finding[], title = "一致性檢查"): string {
+  let out = `\n✗ ${title}未通過：${findings.length} 項違規\n\n`;
 
   for (const [where, items] of groupFindings(findings)) {
     out += `  ${where}\n`;

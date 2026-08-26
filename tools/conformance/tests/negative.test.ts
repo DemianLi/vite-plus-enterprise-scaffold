@@ -349,7 +349,8 @@ describe("幽靈依賴：import 了但 package.json 沒宣告", () => {
     const root = makeSandbox();
     writeFileSync(fileIn(root, "src/styles.css"), '@import "./other.css";\n');
 
-    expect(runConformance(root).red).toBe(false);
+    const result = runConformance(root);
+    expect(result.red, result.output).toBe(false);
   });
 
   it("★ 註解掉的 @import 不算", () => {
@@ -559,6 +560,7 @@ describe("repo 本身沒有被動到", () => {
     expect(realStore).not.toContain('import { http } from "@org/http-client";');
 
     // 而且真正的 repo 仍然是綠的。
-    expect(runConformance(ROOT).red).toBe(false);
+    const real = runConformance(ROOT);
+    expect(real.red, real.output).toBe(false);
   });
 });

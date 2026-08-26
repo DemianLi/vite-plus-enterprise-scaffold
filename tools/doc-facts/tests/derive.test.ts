@@ -57,7 +57,7 @@ describe("workspacePackageCount", () => {
     expect(workspacePackageCount(root)).toBe(3);
   });
 
-  it("沒有 package.json 的目錄不算 —— tools/sast 就是這種", () => {
+  it("沒有 package.json 的目錄不算 —— 刪掉一支工具卻留著空目錄就是這種", () => {
     const root = workspace(["features/order"]);
     mkdirSync(join(root, "platform/not-a-package"), { recursive: true });
     expect(workspacePackageCount(root)).toBe(1);

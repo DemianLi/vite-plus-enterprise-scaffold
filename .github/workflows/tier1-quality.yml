@@ -58,7 +58,7 @@ jobs:
           restore-keys: |
             vite-task-${{ runner.os }}-${{ runner.arch }}-
 
-      # ── 閘門名冊（C74，v1 上是 C71）──────────────────────────────────
+      # ── 閘門名冊（C132，併線前 `release/v1` 上是 C71）──────────────────────────────────
       #
       # 放第一個，因為它最便宜（只讀四個檔案），而「設定對不上」這件事
       # 你會希望在花三十秒跑型別檢查**之前**就知道。
@@ -70,7 +70,7 @@ jobs:
       # 接上它的當下，main 上抓到三件事：`doc-facts` 與 `pii-check` 在
       # Tier 2 跑而不在 `scripts.gate` 裡（本機 `vpr ready` 全綠、CI 紅，
       # 與 #51 修過的那個毛病一模一樣）、`vue-typecheck` 沒有單獨跑的別名、
-      # 以及 README 那張表的兩格加起來漏了九道。見 C74。
+      # 以及 README 那張表的兩格加起來漏了九道。見 C132。
       #
       # ⚠️ 在 Tier 1 而不是 Tier 2，理由與下面設計系統接縫那一步同一條：
       # Tier 2 的三條規則只為了「安全掃描的結果會隨時間失效」，
@@ -106,10 +106,21 @@ jobs:
         run: node tools/vue-typecheck/src/cli.ts
 
       - name: 測試
-        run: ./node_modules/.bin/vp run -r test
+        run: ./node_modules/.bin/vp run -r test -- --reporter=default --reporter=json --outputFile=.vitest-results.json
 
       - name: 建置
         run: ./node_modules/.bin/vp run -r build
+
+      # ── 驗收規格的完成率（TESTING.md 層 3 / C115）────────────────────
+      #
+      # ⚠️ **必須在 Tier 1、必須在測試之後** —— 它讀的是上一步留下的
+      # `.vitest-results.json`，而那些檔案跨 workflow 拿不到。
+      #
+      # ⚠️ 它與上一步**不是重複的閘門**：測試看不見「規格一條都沒跑」
+      # （接線檔的副檔名取錯時，測試本身是全綠的 —— C114 §二），
+      # 而那正是這一步唯一守得住的東西。
+      - name: 驗收規格完成率
+        run: node tools/spec-report/src/cli.ts --check
 
       # ── 設計系統接縫（HANDOFF 第 24 項 / C62）─────────────────────────
       #
@@ -128,7 +139,6 @@ jobs:
       # 差在哪寫在 platform/ui/README.md 那張表。
       - name: 設計系統接縫
         run: node tools/theme-verify/src/cli.ts
-
       # ── 無障礙靜態檢查（HANDOFF 第 22 項）─────────────────────────────
       #
       # 為什麼在 Tier 1 而不是 Tier 2：Tier 2 的三條規則（不快取、不過濾、
