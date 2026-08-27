@@ -33,7 +33,7 @@
   （採購／資安／法務／平台／架構），每一項都附「拿什麼去談」
 - 完整的決策理由與風險登記 → [DECISIONS.md](DECISIONS.md)（涵蓋範圍大於任何單一版本）
 - 版本沿革 → [CHANGELOG.md](CHANGELOG.md)
-- 什麼准許出現在交付線的樹上（給維護者）→ [SCOPE.md](SCOPE.md)
+- 這棵樹上有什麼、每一項有沒有人寫過一句它是什麼 → [SCOPE.md](SCOPE.md)
 - UI 技術選型的三方比較 → [UI-SURVEY.md](UI-SURVEY.md)
 
 ---
@@ -284,7 +284,7 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 ├── .github/workflows/        CI：tier1-quality / tier2-security / exit-drill / supply-chain-recapture
 ├── DECISIONS.md              決策日誌與風險登記（有日期，刻意不被 doc-facts 守）
 ├── HANDOFF.md                採用指南 ＋ 只有組織能決定的事項，附「拿什麼去談」
-├── SCOPE.md                  什麼准許出現在交付線的樹上（給維護者）
+├── SCOPE.md                  這棵樹上有什麼 —— 每一項都有人寫過一句它是什麼
 ├── UI-SURVEY.md              UI 技術選型的三方比較
 └── vite.config.ts            驅動層設定（退出面刻意收斂在兩個設定檔）
 ```
@@ -308,9 +308,10 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 > ⚠️ 這一格在接上名冊之前**漏了九道**，而它正是讀者判斷「PR 會被什麼擋下來」
 > 的地方（C132）。
 >
-> ⚠️ **`SCOPE.md 與版控內容一致` 刻意不在這張表裡。** 那道閘門在名冊的
-> `UNGATED` 中 —— `SCOPE.md` 說的是「什麼准許出現在交付線的樹上」，而這棵樹
-> 是超集，跑它會滿江紅。邊界怎麼定是 #90／#93 的產出，經過見 C133。
+> ⚠️ **`SCOPE.md 與版控內容一致` 暫時不在這張表裡。** 那道閘門在名冊的
+> `UNGATED` 中，而**它今天是綠的** —— 邊界已由 **C136** 定義（`tools/` 那一層
+> 交給 `gate-roster`，根層補齊）。⚠️ 它還在 `UNGATED` 只是因為上鏈那一支還沒
+> 走完，理由見 `gates.ts` 那一列與 C136 §九。
 
 > 指令刻意**不用** `pnpm run` / `npx`：本專案不保證環境有全域 pnpm，
 > 而 `npx` 會被 `devEngines` 擋下。`vpr` 是 vite-plus 的 script runner，
