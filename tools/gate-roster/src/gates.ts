@@ -294,6 +294,24 @@ export const GATES: readonly Gate[] = [
       "`tools/` 表底下，隨那張表撤除搬到這裡（C136 §四）。",
   },
   {
+    id: "scope-check",
+    label: "SCOPE.md 與版控內容一致",
+    pkg: "scope-check",
+    command: "node tools/scope-check/src/cli.ts",
+    tiers: ["tier1"],
+    why:
+      "`SCOPE.md` 登記的東西 vs. `git ls-files`，兩個方向都驗（C73／C94／C96）。" +
+      "⚠️ **在 Tier 1 而不是 Tier 2，理由與名冊那一步同一條**：Tier 2 的三條規則" +
+      "只為了「安全掃描的結果會隨時間失效」，而「清單與樹對不對得上」不會 —— " +
+      "它只在樹或 `SCOPE.md` 改動時才變。" +
+      "⚠️ **它守的射程是 `platform/` 與根層，不含 `tools/`**（C136 §四：那一層由" +
+      "本檔案的 `GATES ∪ UNGATED` 登記）。" +
+      "⚠️ **它不判「准不准」，只判「有沒有人寫過一句」** —— 綠燈不是許可（C93）。" +
+      "⚠️ 它從 C133 到 C136 待在 `UNGATED` 裡：`SCOPE.md` 曾是已刪分支" +
+      "`release/v1` 的快照，對這棵樹跑會滿江紅。**那個「暫時」由 #180 兌現**，" +
+      "邊界定義在 C136，這一列是它上鏈的地方。",
+  },
+  {
     id: "promise-check",
     label: "框架承諾檢查",
     pkg: "promise-check",
@@ -399,22 +417,6 @@ export const UNGATED: readonly Ungated[] = [
       "**它是 library，不是閘門**（C131）—— 沒有 cli.ts，只導出 repoRoot／walk／parseFlags。" +
       "閘門底下那一層抽出來的東西，被 pii-check 等幾支消費。" +
       "它壞了會讓消費它的閘門紅，那就是它被驗到的方式。",
-  },
-  {
-    pkg: "scope-check",
-    why:
-      "⚠️ **它今天是綠的，而它還在這裡是因為上鏈那一支還沒走完**（C136 §九）。" +
-      "邊界已經定義了：`tools/` 那一層交給 `gate-roster`（本檔案的 `GATES ∪ UNGATED`，" +
-      "`why` 必填、`check.ts` 的①在守），`SCOPE.md` 只剩 `platform/` 與根層兩張表，" +
-      "根層缺的兩列也補上了。" +
-      "⚠️ **中間狀態是刻意的**：「它綠了」要單獨被看見一次，再談「所以它可以上鏈」——" +
-      "合成一支的話，綠燈與上鏈同時發生，而沒有任何一刻可以檢查" +
-      "「它是因為問題解決了才綠，不是因為被調鬆了」（AGENTS.md 規則二）。" +
-      "⚠️ 這一列的下一次改動就是**刪掉它**，同時在 `GATES` 加一列（`tier1`，" +
-      "排在 `doc-facts` 之後）。" +
-      "⚠️ 這裡曾經寫「`main` 的範疇清單還沒定義，等 #90／#93」，而那兩張票**都不生產** " +
-      "那張清單（C135 §五：它們問的是「承載哪一條軸」，不是「准不准在樹上」)；" +
-      "改指 #180 之後由 C136 裁掉。**「暫時」到期了，而它到期的方式是被兌現。**",
   },
   {
     pkg: "csp-verify",
