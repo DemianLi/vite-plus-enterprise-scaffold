@@ -52,7 +52,10 @@ coverage/
 
 # 突變測試的產物（`stryker.config.mjs`）。每跑一次就整份重寫，不進版控 ——
 # ⚠️ 增量檔尤其：它內嵌每支產品碼與每支測試檔的**完整原始碼**，加一個絕對路徑。
-reports/
+# ⚠️ 忽略的是 `reports/` 的**內容**而不是目錄本身 —— 寫成 `reports/` 的話，
+#    底下任何東西都再也 re-include 不回來（git 不會重納被排除父目錄底下的檔案）。
+reports/*
+!reports/research/
 .stryker-tmp/
 stryker.log
 stryker-setup-*.js
