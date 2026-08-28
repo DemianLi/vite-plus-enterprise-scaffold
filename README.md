@@ -298,7 +298,7 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 
 |                       | 內容                                                                                                                                                                                                     | 指令                                       | 何時跑                    |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------- |
-| **Tier 1 — 品質**     | 閘門名冊一致 + oxlint + oxfmt + 型別檢查 + .vue 型別檢查 + 驗收規格完成率 + 無障礙靜態檢查 + 設計系統接縫                                                                                                | `vp check`、`vpr a11y`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
+| **Tier 1 — 品質**     | 閘門名冊一致 + SCOPE.md 與版控內容一致 + oxlint + oxfmt + 型別檢查 + .vue 型別檢查 + 驗收規格完成率 + 無障礙靜態檢查 + 設計系統接縫                                                                      | `vp check`、`vpr a11y`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
 | **Tier 2 — 安全閘門** | 一致性檢查 + platform API 表面檢查 + D2 退出面檢查 + 供應鏈盤點 + 法遵對照表 + 測試環境個資檢查 + 文件數字與事實來源一致 + 框架承諾檢查 + BFF 契約驗收 + ESLint 安全規則 + SAST + 機密掃描 + SBOM 與 SCA | `vpr gate`                                 | 每次 PR **＋ 每日排程**   |
 
 > **這張表的閘門部分是被守著的。** `tools/gate-roster` 會比對它與 `scripts.gate`、
@@ -308,10 +308,11 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 > ⚠️ 這一格在接上名冊之前**漏了九道**，而它正是讀者判斷「PR 會被什麼擋下來」
 > 的地方（C132）。
 >
-> ⚠️ **`SCOPE.md 與版控內容一致` 暫時不在這張表裡。** 那道閘門在名冊的
-> `UNGATED` 中，而**它今天是綠的** —— 邊界已由 **C136** 定義（`tools/` 那一層
-> 交給 `gate-roster`，根層補齊）。⚠️ 它還在 `UNGATED` 只是因為上鏈那一支還沒
-> 走完，理由見 `gates.ts` 那一列與 C136 §九。
+> ⚠️ **`SCOPE.md 與版控內容一致` 從 C133 到 C136 之間不在這張表裡** ——
+> `SCOPE.md` 當時是已刪分支 `release/v1` 的快照，對這棵樹跑會滿江紅，
+> 所以它待在名冊的 `UNGATED` 中。邊界由 **C136** 定義（`tools/` 那一層交給
+> `gate-roster`，根層補齊），它才回到 Tier 1。⚠️ **那個「暫時」說得出口，
+> 而且被兌現了** —— 經過見 C136 §九。
 
 > 指令刻意**不用** `pnpm run` / `npx`：本專案不保證環境有全域 pnpm，
 > 而 `npx` 會被 `devEngines` 擋下。`vpr` 是 vite-plus 的 script runner，
