@@ -59,26 +59,40 @@ function needle(parent: string): string {
   return parent === ROOT ? ROOT : `\`${parent}/\``;
 }
 
+export interface Row {
+  /** 第一格裡的路徑，原樣。 */
+  readonly path: string;
+  /** 整列切出來的格子，**含第一格**。 */
+  readonly cells: readonly string[];
+}
+
 export interface Section {
-  /** 這份清單管的是哪一層（`tools` 或 `platform`）。 */
+  /** 這份清單管的是哪一層（`platform` 或根層）。 */
   readonly parent: string;
-  /** 表格第一欄登記的路徑，原樣（含 `tools/` 前綴）。 */
+  /** 表格第一欄登記的路徑，原樣（含 `platform/` 前綴）。 */
   readonly listed: string[];
   /**
-   * 登記了、但第一格**之後**有格子是空的那些路徑。
+   * 每一列的格子原樣。
    *
-   * ── 為什麼這一欄要單獨存在 ──────────────────────────────────────────
+   * ── 為什麼是原樣的格子，不是一份「哪幾列沒填」的清單（C143）──────────
    *
-   * `SCOPE.md` 從 `v1.0.5` 起就寫著「這道閘門保證的是**沒有人可以跳過那一格**」，
-   * 而在 C94 之前**那句話是假的**：這裡只捕捉第一格，把某一列的後面幾欄清空，
-   * 解析照樣收下、閘門照樣綠。實測過（清空 `doc-facts` 那一列 → `listed` 還是 8 項）。
+   * C94 之前這裡只捕捉第一格：`SCOPE.md` 從 `v1.0.5` 起就寫著「這道閘門保證的是
+   * **沒有人可以跳過那一格**」，而實測（清空 `doc-facts` 那一列 → `listed` 還是
+   * 8 項）證明那句話是假的。C94 補了一份 `skipped`，判準是「第一格之後有空格子」。
+   *
+   * 那份清單**對每一層都一樣**，而根層從 C143 起不是了：它的第三格是「桶」，
+   * 有自己的值域（`check.ts` 的 `BUCKETS`），空與「不是那四個之一」要分給不同
+   * 的規則、給不同的 `fix`。判準留在這裡就得在解析層知道有幾層、哪一格特別，
+   * 而這個檔案上面那整段講的正是**解析要窄**。
+   *
+   * ⚠️ 所以這裡只切格子，**「哪幾格算該填的」整個交給 `check.ts`**。
    *
    * ⚠️ 分清楚兩件事：**「有沒有寫」機器讀得出來，「寫得對不對」讀不出來。**
    * 文件把兩件事包成一句「機器讀不出來」，於是可機械化的那一半也一起沒做。
-   * 這一欄只買到前者 —— 填 `x` 就過得了，而那仍然是進步：它讓「跳過」
+   * 買到的只有前者 —— 填 `x` 就過得了，而那仍然是進步：它讓「跳過」
    * 從**無聲**變成**要動手寫一個字**。
    */
-  readonly skipped: string[];
+  readonly rows: readonly Row[];
 }
 
 /**
@@ -95,21 +109,16 @@ export function sectionFor(source: string, parent: string): Section | undefined 
   if (start === -1) return undefined;
 
   const listed: string[] = [];
-  const skipped: string[] = [];
+  const rows: Row[] = [];
   for (const line of lines.slice(start + 1)) {
     if (HEADING.test(line)) break;
     const match = FIRST_CELL.exec(line);
     if (match?.[1] === undefined) continue;
     listed.push(match[1]);
     // 分隔列（`| --- | --- |`）進不來 —— 它沒有反引號，`FIRST_CELL` 就不匹配。
-    if (
-      cellsOf(line)
-        .slice(1)
-        .some((cell) => cell === "")
-    )
-      skipped.push(match[1]);
+    rows.push({ path: match[1], cells: cellsOf(line) });
   }
-  return { parent, listed, skipped };
+  return { parent, listed, rows };
 }
 
 /**

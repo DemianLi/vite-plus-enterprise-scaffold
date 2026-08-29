@@ -69,6 +69,21 @@ import { trackedDirectories, trackedRootEntries } from "./tree.ts";
  *
  * ⚠️ **交棒沒有拿掉 fork 團隊手上的東西**：他們加 `tools/their-thing` 仍然
  * 會被擋，只是擋他們的換成了 `gate-roster` 的「工具沒登記」。
+ *
+ * ── ④ 根層要指名桶，而機器只查值域（C143）──────────────────────────
+ *
+ *   ④ 根層某一列沒有指名 C135 §三 那四個桶之一 —— **登記了、也寫了一句，
+ *      但沒有說它承載哪一條軸**。
+ *
+ * C135 §四 把根層 32 列逐一歸了類，而那張表在**凍結卷**裡、帶著日期，
+ * 沒有機制在守（C135 §七 明知故犯）。**三天就過期了**：C143 §三 實測
+ * `1dc1227` 的 32 列到 `9659bb0` 變成 34 列，多出來的 `DECISIONS-2.md`
+ * 與 `reports/` 沒有人歸過類。分類要活著就得長在活的那張表上。
+ *
+ * ⚠️ **機器只查兩件事：填了沒有、是不是那四個之一。** 判「它承載哪一條軸」
+ * 是語意判斷，`#91` 自己寫過「一個分不出好壞的偵測器比沒有偵測器更糟 ——
+ * 它會給出綠燈，而綠燈會被當成保證」。一列填了「正交」而它其實是正典，
+ * **不會有任何東西變紅**（C143 §八）。
  */
 
 /**
@@ -79,6 +94,18 @@ import { trackedDirectories, trackedRootEntries } from "./tree.ts";
  * `apps/` 與 `features/` 是示範切片，文件自己說了不管。
  */
 export const GOVERNED = ["platform", ROOT] as const;
+
+/**
+ * 根層那一欄的值域 —— C135 §三 那四個桶，一字不改。
+ *
+ * ⚠️ **「無關」不要求寫理由，但一樣要求填桶名**（C143 §四）。C135 §三 免掉的是
+ * 前者（替 `LICENSE` 寫受益者是儀式不是判斷），而後者正是它成為一個
+ * **有名字的**逃生門、而不是一個沒人注意的逃生門的辦法。
+ *
+ * ⚠️ 值域寫死在這裡，是因為「可以填任何字」等於沒有值域 —— 那樣的一欄
+ * 只買到「有人動過手指」，買不到「它落在一份講得出來的分類裡」。
+ */
+export const BUCKETS = ["正典", "正交", "過渡豁免", "無關"] as const;
 
 /**
  * 兩張表在訊息裡的樣子 —— **兩張表的形狀不一樣，所以訊息不能共用**。
@@ -101,6 +128,16 @@ interface Layer {
   readonly heading: string;
   /** 第一格之後要填的是哪幾格。 */
   readonly columns: string;
+  /**
+   * 桶那一格是第幾格（0 起算），`undefined` = 這一層沒有桶欄（C143）。
+   *
+   * ⚠️ **這一格同時被排除在「登記了、但那一格是空的」之外**，而那不是放寬 ——
+   * 它從「非空」升級成「必須是 `BUCKETS` 之一」，比原本嚴。分開的理由是
+   * **變異驗證**（C143 §七 第 4 條）：兩條規則都管同一格的話，把桶那條拿掉、
+   * 空著的桶仍然會紅，於是「紅的是這條規則」就證明不了 —— 那正是 C94 記下的
+   * 「文件宣稱了一個保證，程式碼沒有交付它」，只是這次會發生在宣稱它的同一支 PR 裡。
+   */
+  readonly bucketColumn?: number;
   /**
    * 撞到的人該做什麼。
    *
@@ -133,13 +170,17 @@ const LAYERS: Record<string, Layer> = {
   [ROOT]: {
     table: "〈根層 —— 准許存在的〉那張表",
     heading: "## 根層 —— 准許存在的",
-    columns: "「這是什麼」那一格",
+    // ⚠️ C143 加了第三欄之後這句話跟著改 —— 訊息叫人填的那一格要跟表對得上，
+    // 不然它會叫人去填一格不存在的東西，而這正是這個檔案花兩節在講的病。
+    columns: "「這是什麼」與「桶」那兩格",
     // ⚠️ 根層刻意沒有受益者欄 —— 替 `LICENSE` 寫那一句是儀式不是判斷。
-    // 對 fork 的團隊來說這一節是**他們自己的樹**，一列一句話就是全部成本。
+    // 對 fork 的團隊來說這一節是**他們自己的樹**，一列一句話 ＋ 一個桶名就是全部成本。
     fix:
-      "這一節在你們的樹上就是**你們自己的清單** —— 加一列寫一句它是什麼就好。" +
+      "這一節在你們的樹上就是**你們自己的清單** —— 加一列，寫一句它是什麼，" +
+      `再指名它落在哪一個桶（${BUCKETS.join("／")}）。` +
       "這道閘門在根層買到的是「交付樹長出東西的時候有人看見」，" +
       "不是那句話寫成什麼樣。",
+    bucketColumn: 2,
   },
 };
 
@@ -214,17 +255,54 @@ export function checkScope(root: string, source?: string): Finding[] {
         );
       }
 
-      for (const path of section.skipped) {
+      for (const row of section.rows) {
+        // 第一格是路徑，桶那一格有自己的規則（值域，比「非空」嚴）——
+        // 兩條規則不重疊，理由見 `Layer.bucketColumn`。
+        const rest = row.cells.filter((_, index) => index !== 0 && index !== layer.bucketColumn);
+        if (!rest.some((cell) => cell === "")) continue;
         fail(
           "SCOPE.md",
           "登記了、但那一格是空的",
-          `${layer.table}的 \`${path}\` 有空欄`,
+          `${layer.table}的 \`${row.path}\` 有空欄`,
           `把${layer.columns}填起來。\n` +
             `        ${layer.fix}\n` +
             `        一列只有路徑、後面留白，等於**登記了但沒判斷過** —— ` +
             `而這道閘門對外宣稱的正是「沒有人可以跳過那一格」（見 SCOPE.md 那一節）。\n` +
             `        ⚠️ 它只驗得到有沒有寫，寫得對不對仍然只有人能判斷。`,
         );
+      }
+
+      const bucketColumn = layer.bucketColumn;
+      if (bucketColumn !== undefined) {
+        for (const row of section.rows) {
+          const bucket = row.cells[bucketColumn] ?? "";
+          if (bucket === "") {
+            fail(
+              "SCOPE.md",
+              "沒有指名桶",
+              `${layer.table}的 \`${row.path}\` 沒有指名它落在哪一個桶`,
+              `在那一列的第三格填一個桶：${BUCKETS.join("／")}（定義見 C135 §三）。\n` +
+                `        「這是什麼」答的是**它是什麼**，桶答的是**它承載哪一條軸** —— ` +
+                `兩件事，所以是兩格。\n` +
+                `        ⚠️ 「無關」不要求寫理由，但一樣要**填桶名** —— ` +
+                `那是它成為一個有名字的逃生門、而不是一個沒人注意的逃生門的辦法。\n` +
+                `        ⚠️ 這道閘門只查填了沒有、是不是那四個之一。` +
+                `**填得對不對只有人能判斷**，而它會綠。`,
+            );
+            continue;
+          }
+          if ((BUCKETS as readonly string[]).includes(bucket)) continue;
+          fail(
+            "SCOPE.md",
+            "桶名不在那四個裡",
+            `${layer.table}的 \`${row.path}\` 寫著「${bucket}」，那不是一個桶`,
+            `換成這四個之一：${BUCKETS.join("／")}（定義見 C135 §三）。\n` +
+              `        ⚠️ **要改的是那一列，不是 \`check.ts\` 的 \`BUCKETS\`** —— ` +
+              `值域是判準的一部分，往裡面加一個名字就是改閘門來換綠燈` +
+              `（AGENTS.md 規則二）。\n` +
+              `        真的需要第五個桶的話，那要一則裁決 —— **停下來告訴人。**`,
+          );
+        }
       }
 
       for (const path of listed) {
