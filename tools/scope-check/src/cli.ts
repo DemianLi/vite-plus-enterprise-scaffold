@@ -42,6 +42,10 @@ if (findings.length === 0) {
   console.log("  比對的是 git ls-files（版控追蹤中的），不是磁碟上的目錄 —— 理由見 src/tree.ts");
   console.log("  ⚠️ 守的是「有哪些東西」，不是每一個裡面寫什麼 —— apps/ 與 features/ 這兩個");
   console.log("     目錄本身登記在根層那一節，底下的內容是示範切片，SCOPE.md 自己說了不管。");
+  // ⚠️ 綠燈訊息一樣算數（同 check.ts 的 LAYER_LABEL）—— 這一欄最容易被讀成
+  // 「分類有人在守」，而機器只認得值域。
+  console.log("  ⚠️ 根層的「桶」那一欄只驗填了沒有、是不是那四個之一（C143）——");
+  console.log("     填得對不對它看不出來，那一格靠人讀 diff。");
 } else {
   // ⚠️ 不是 process.exit(1)：macOS 上管線的 stderr 是非同步的，
   // exit 會把還沒寫完的內容截掉（#53 實測 123 KB 的報告被砍在 65536 位元組）。

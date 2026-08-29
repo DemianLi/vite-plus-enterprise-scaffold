@@ -76,20 +76,27 @@ function scopeDoc(
   platform: readonly string[],
   rootEntries: readonly string[] = ["platform/"],
 ): string {
-  const table = (paths: readonly string[]): string =>
+  // ⚠️ **兩層的表不能共用一支造假器**（C143）。根層有第三欄「桶」而
+  // `platform/` 沒有 —— 共用會讓 `platform/` 憑空長出一欄，於是那一層的
+  // 測試驗的是一張樹上不存在的表。
+  const platformTable = (paths: readonly string[]): string =>
     ["| 路徑 | 是什麼 |", "| --- | --- |"]
       .concat(paths.map((path) => `| \`${path}\` | x |`))
+      .join("\n");
+  const rootTable = (paths: readonly string[]): string =>
+    ["| 名字 | 這是什麼 | 桶 |", "| --- | --- | --- |"]
+      .concat(paths.map((path) => `| \`${path}\` | x | 無關 |`))
       .join("\n");
   return [
     "# 這棵樹上有什麼",
     "",
     "## `platform/` —— 准許存在的",
     "",
-    table(platform),
+    platformTable(platform),
     "",
     "## 根層 —— 准許存在的",
     "",
-    table(rootEntries),
+    rootTable(rootEntries),
     "",
   ].join("\n");
 }
@@ -188,9 +195,12 @@ describe("清單怎麼被讀出來", () => {
       "",
       "## 根層 —— 准許存在的",
       "",
-      "| 名字 | 這是什麼 |",
-      "| --- | --- |",
-      "| `platform/` | x |",
+      "| 名字 | 這是什麼 | 桶 |",
+      "| --- | --- | --- |",
+      // ⚠️ 這一列是造假器自己塞的，**它必須是完全合格的一列** ——
+      // 少了桶那一格，這個 describe 底下每一條 `toEqual([...])` 都會多一條
+      // 「沒有指名桶」，而那條紅是造假器造的，不是被測的東西造的。
+      "| `platform/` | x | 無關 |",
     ].join("\n");
     const root = repo({ tracked: ["platform/a", "platform/leftover"], untracked: [] });
     expect(rules(root, source)).toEqual(["樹上有、沒登記"]);
@@ -250,9 +260,12 @@ describe("登記了、但那一格是空的", () => {
       "",
       "## 根層 —— 准許存在的",
       "",
-      "| 名字 | 這是什麼 |",
-      "| --- | --- |",
-      "| `platform/` | x |",
+      "| 名字 | 這是什麼 | 桶 |",
+      "| --- | --- | --- |",
+      // ⚠️ 這一列是造假器自己塞的，**它必須是完全合格的一列** ——
+      // 少了桶那一格，這個 describe 底下每一條 `toEqual([...])` 都會多一條
+      // 「沒有指名桶」，而那條紅是造假器造的，不是被測的東西造的。
+      "| `platform/` | x | 無關 |",
       ...rootRows,
       "",
     ].join("\n");
@@ -281,7 +294,7 @@ describe("登記了、但那一格是空的", () => {
     const root = repo({ tracked: ["platform/b"], untracked: [], rootFiles: ["MY-NOTES.md"] });
     const findings = checkScope(
       root,
-      docWithRows(["| `platform/b` | x |  |"], ["| `MY-NOTES.md` |  |"]),
+      docWithRows(["| `platform/b` | x |  |"], ["| `MY-NOTES.md` |  | 無關 |"]),
     );
     const fixFor = (path: string): string =>
       findings.find((finding) => finding.detail.includes(path))?.fix ?? "";
@@ -363,9 +376,12 @@ describe("紅燈訊息只有一種讀者了（#66 → C136 §五）", () => {
       "",
       "## 根層 —— 准許存在的",
       "",
-      "| 名字 | 這是什麼 |",
-      "| --- | --- |",
-      "| `platform/` | x |",
+      "| 名字 | 這是什麼 | 桶 |",
+      "| --- | --- | --- |",
+      // ⚠️ 這一列是造假器自己塞的，**它必須是完全合格的一列** ——
+      // 少了桶那一格，這個 describe 底下每一條 `toEqual([...])` 都會多一條
+      // 「沒有指名桶」，而那條紅是造假器造的，不是被測的東西造的。
+      "| `platform/` | x | 無關 |",
     ].join("\n");
     const hint = hintFor(root, source, "登記了、但那一格是空的");
     expect(hint).toContain("寫你們自己的理由");
@@ -488,5 +504,123 @@ describe("非 ASCII 的路徑（C112）", () => {
     execFileSync("git", ["add", "--", "測試說明.md"], { cwd: root });
 
     expect(trackedRootEntries(root)).toEqual(["測試說明.md"]);
+  });
+});
+
+describe("根層要指名桶（C143）", () => {
+  /**
+   * 根層那一節逐列指定，`platform/` 那一節寫成正確的最小樣子。
+   *
+   * ⚠️ **這裡不用 `scopeDoc()`** —— 那支每一列都幫你填好桶，而這個 describe
+   * 要驗的正是沒填、填錯的時候會怎樣。
+   */
+  function bucketDoc(rootRows: readonly string[]): string {
+    return [
+      "# 這棵樹上有什麼",
+      "",
+      "## `platform/` —— 准許存在的",
+      "",
+      "| 路徑 | 是什麼 |",
+      "| --- | --- |",
+      "| `platform/a` | x |",
+      "",
+      "## 根層 —— 准許存在的",
+      "",
+      "| 名字 | 這是什麼 | 桶 |",
+      "| --- | --- | --- |",
+      "| `platform/` | x | 正交 |",
+      ...rootRows,
+      "",
+    ].join("\n");
+  }
+
+  const withNotes = (): string =>
+    repo({ tracked: ["platform/a"], untracked: [], rootFiles: ["MY-NOTES.md"] });
+
+  /**
+   * ── 這四條就是 C143 §七 那四條變異列 ────────────────────────────────
+   *
+   * ⚠️ **第 4 條（「把這條規則拿掉，第 1 條要變綠」）不是另一條測試，
+   * 它是第 1 條用 `toEqual` 而不是 `toContain` 寫出來的那個形狀。**
+   * 精確相等同時斷言了兩件事：這一列會紅、而且**沒有別的東西在紅** ——
+   * 所以拿掉這條規則之後那個陣列就是空的。
+   *
+   * 用 `toContain` 寫的話這條變異紅零條：桶那一格空著，C94 的
+   * 「登記了、但那一格是空的」也會叫，於是紅的到底是誰就分不出來 ——
+   * 而那正是 `check.ts` 的 `Layer.bucketColumn` 把兩條規則分開的理由。
+   */
+  it("① 桶那一格留空會紅，而且只有這一條紅", () => {
+    expect(rules(withNotes(), bucketDoc(["| `MY-NOTES.md` | 專案筆記 |  |"]))).toEqual([
+      "沒有指名桶",
+    ]);
+  });
+
+  it("① 連那一格都沒有一樣紅 —— 「留空」有兩種寫法", () => {
+    // 少打一個 `|` 就變成這一種，而它比空格子更容易溜過去：這一列看起來
+    // 完全正常，只是短了一格。
+    expect(rules(withNotes(), bucketDoc(["| `MY-NOTES.md` | 專案筆記 |"]))).toEqual(["沒有指名桶"]);
+  });
+
+  it("② 桶名不在那四個裡會紅", () => {
+    expect(rules(withNotes(), bucketDoc(["| `MY-NOTES.md` | 專案筆記 | 雜項 |"]))).toEqual([
+      "桶名不在那四個裡",
+    ]);
+  });
+
+  it("③ 四個桶各一列、都填對就是綠的", () => {
+    const root = repo({
+      tracked: ["platform/a"],
+      untracked: [],
+      rootFiles: ["A.md", "B.md", "C.md", "D.md"],
+    });
+    expect(
+      checkScope(
+        root,
+        bucketDoc([
+          "| `A.md` | x | 正典 |",
+          "| `B.md` | x | 正交 |",
+          "| `C.md` | x | 過渡豁免 |",
+          "| `D.md` | x | 無關 |",
+        ]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("⚠️ 桶那一格不歸「登記了、但那一格是空的」管 —— 兩條規則不重疊", () => {
+    // 兩條都管同一格的話，第 4 條變異（拿掉桶那條 → 要變綠）就證明不了。
+    // ⚠️ 這不是放寬：那一格從「非空」升級成「必須是那四個之一」。
+    const findings = checkScope(withNotes(), bucketDoc(["| `MY-NOTES.md` | 專案筆記 |  |"]));
+    expect(findings.map((finding) => finding.rule)).not.toContain("登記了、但那一格是空的");
+  });
+
+  it("⚠️ 「這是什麼」留空仍然歸 C94 那條管", () => {
+    // 排除的只有桶那一格。少了這一條，「不重疊」會被實作成「根層整列不驗空格」，
+    // 而那才是真的放寬 —— C94 買到的東西會安靜地消失。
+    expect(rules(withNotes(), bucketDoc(["| `MY-NOTES.md` |  | 無關 |"]))).toEqual([
+      "登記了、但那一格是空的",
+    ]);
+  });
+
+  it("`platform/` 那一層不要求桶 —— 它的表只有兩欄", () => {
+    // 兩層共用一個判準的話，`platform/` 會被要求一欄它的表上沒有的東西，
+    // 而下一個人只會照著補 —— 那一節的散文就跟著變成假的（同 C136 §五）。
+    const root = repo({ tracked: ["platform/a"], untracked: [] });
+    expect(checkScope(root, bucketDoc([]))).toEqual([]);
+  });
+
+  it("填錯桶名的訊息叫人改那一列，不是叫人往 `BUCKETS` 加一個", () => {
+    // 一個可以被受檢者自己加值域的欄位，量到的只是它自己（AGENTS.md 規則二）。
+    const fix =
+      checkScope(withNotes(), bucketDoc(["| `MY-NOTES.md` | 專案筆記 | 雜項 |"]))[0]?.fix ?? "";
+    expect(fix).toContain("BUCKETS");
+    expect(fix).toContain("停下來告訴人");
+  });
+
+  it("⚠️ 填了一個桶不代表填對了 —— 這道閘門看不出來", () => {
+    // C143 §八：一列填了「正交」而它其實是正典，不會有任何東西變紅。
+    // 這一條把那個界線釘成可執行的，免得下一個人在它綠的時候不去讀那一格。
+    expect(
+      checkScope(withNotes(), bucketDoc(["| `MY-NOTES.md` | 決策日誌第三卷 | 無關 |"])),
+    ).toEqual([]);
   });
 });
