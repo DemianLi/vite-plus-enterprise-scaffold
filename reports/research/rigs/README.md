@@ -55,12 +55,12 @@ C122 的檔案模式閘門要求版控裡的 100755 必須有某個 `package.jso
 搬進版控之後四支都在 `main` 上跑過一趟，不是只在實驗室的 clone 裡。
 `leave-one-out.py` 的 32 支結果**逐檔與實驗室相同**；`mutation-loo.sh` 這一趟：
 
-| | 殺 | 存活 |
-| --- | --- | --- |
-| 基線（範圍 promise-check ＋ slice-gen） | 300 | 122 |
-| 拿掉 `promise-check/probe.test.ts` | **282** | **140** |
-| 拿掉 `slice-gen/boundary-alignment.test.ts` | 300 | 122 |
-| 拿掉 `slice-gen/spec-template.test.ts` | 300 | 122 |
+|                                             | 殺      | 存活    |
+| ------------------------------------------- | ------- | ------- |
+| 基線（範圍 promise-check ＋ slice-gen）     | 300     | 122     |
+| 拿掉 `promise-check/probe.test.ts`          | **282** | **140** |
+| 拿掉 `slice-gen/boundary-alignment.test.ts` | 300     | 122     |
+| 拿掉 `slice-gen/spec-template.test.ts`      | 300     | 122     |
 
 **兩個方向的對照組都命中**：`probe` 那 18 顆與實驗室逐顆對得上（已知非零），
 slice-gen 兩支動也不動（已知為零 —— 檔頭危害 2 預測的構造性零）。
@@ -74,12 +74,12 @@ slice-gen 兩支動也不動（已知為零 —— 檔頭危害 2 預測的構�
 ⚠️⚠️ **這一趟不是「充分性那一關跑過了」。** 五個 Δ0 候選裡這個範圍只答得到一個，
 而那一個是已知答案：
 
-| 候選 | 突變測試能不能答 |
-| --- | --- |
-| `promise-check/probe` | ✅ 唯一答得到的 —— 而它是已知的 18 顆 |
-| `slice-gen/boundary-alignment`、`spec-template` | ❌ 受測對象是模板與產出物，不在 `mutate` 射程 |
-| `doc-facts/cross-references` | ❌ `stryker.config.mjs` 列為「檔案內容型」：`import` 產品碼零次 |
-| `supply-chain/renovate` | ❌ 不在預設 SCOPE（`SCOPE=tools/supply-chain/src/**/*.ts` 可以問到） |
+| 候選                                            | 突變測試能不能答                                                     |
+| ----------------------------------------------- | -------------------------------------------------------------------- |
+| `promise-check/probe`                           | ✅ 唯一答得到的 —— 而它是已知的 18 顆                                |
+| `slice-gen/boundary-alignment`、`spec-template` | ❌ 受測對象是模板與產出物，不在 `mutate` 射程                        |
+| `doc-facts/cross-references`                    | ❌ `stryker.config.mjs` 列為「檔案內容型」：`import` 產品碼零次      |
+| `supply-chain/renovate`                         | ❌ 不在預設 SCOPE（`SCOPE=tools/supply-chain/src/**/*.ts` 可以問到） |
 
 **後三格不是範圍設定的問題，是突變測試整個照不到它們。**
 所以覆蓋率 Δ0 的那五支，充分性那一關對其中四支結構上答不出來 ——
