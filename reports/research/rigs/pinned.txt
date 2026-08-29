@@ -1,0 +1,31 @@
+# 不列入體積量測的測試檔 —— 因為它們的「分數」是構造上的零。
+#
+# 前 19 支：受測對象是 CLI，測試用 spawn 跑子行程。覆蓋率工具看不進子行程，
+# 所以這批的覆蓋率恆為 0% —— 刪掉它們，體積掉 5,864 行（目標的 1.7 倍）而
+# 沒有任何一個分數會動。不釘住的話，「縮減三成」的最短路徑就是把它們刪光。
+#
+# 第 20 支（bff-check/contract.test.ts）：受測對象在 platform/ 底下，
+# 跨 package 的 include 會讓全部 package 一起變 0%，量不到就不量。
+#
+# ⚠️ 釘住的意思是「不列入分母」，不是「這些測試沒價值」—— 恰好相反：
+#    它們是這棵樹上唯一在跑真正 CLI 的東西。見 ../test-volume-30pct-2026-08-29.md 的 §二。
+tools/api-surface/tests/negative.test.ts
+tools/api-surface/tests/tracked.test.ts
+tools/bff-check/tests/contract.test.ts
+tools/bff-check/tests/negative.test.ts
+tools/compliance/tests/evidence.test.ts
+tools/compliance/tests/negative.test.ts
+tools/conformance/tests/negative.test.ts
+tools/conformance/tests/output.test.ts
+tools/conformance/tests/rules.test.ts
+tools/doc-facts/tests/facts.test.ts
+tools/gate-kit/tests/adoption.test.ts
+tools/gate-kit/tests/flags.test.ts
+tools/pii-check/tests/roster.test.ts
+tools/promise-check/tests/cli.test.ts
+tools/promise-check/tests/sandbox.test.ts
+tools/scope-check/tests/scope.test.ts
+tools/slice-gen/tests/coverage-gate.test.ts
+tools/slice-gen/tests/e2e.test.ts
+tools/spec-report/tests/cli.test.ts
+tools/supply-chain/tests/sbom-negative.test.ts
