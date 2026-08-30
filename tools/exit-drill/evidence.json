@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-08-16",
+  "lastRun": "2026-08-30",
   "result": "pass",
   "replaced": {
     "vite-plus": "0.2.9"
@@ -11,8 +11,9 @@
     "vitest": "4.1.10"
   },
   "exitSurface": ["vite.config.ts", "apps/console/vite.config.ts"],
-  "durationSeconds": 22,
-  "tests": 155,
-  "testFiles": 13,
+  "durationSeconds": 8,
+  "tests": 543,
+  "testFiles": 18,
+  "expectedFailures": 5,
   "note": "以上游 Vite/Vitest 重建 apps/console 與全部 platform、features 的測試，設定檔由本演練重新產生，應用程式原始碼一字未改。"
 }
