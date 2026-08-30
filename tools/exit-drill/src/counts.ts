@@ -60,13 +60,35 @@ export function stripAnsi(text: string): string {
   return first + rest.map((part) => part.replace(SGR_PREFIX, "")).join("");
 }
 
+/** `N passed`。刻意單獨一支：見 `passedOn` 為什麼不把它併進行首的樣式裡。 */
+const PASSED = /(\d+) passed/;
+
+/**
+ * 撈出 `Tests` 或 `Test Files` 那一行的 **passed** 數字。
+ *
+ * ⚠️ **先挑行、再取數字，兩步**。有預期失敗時（C148）摘要長成
+ * `Tests  4 failed | 493 passed (497)`，而把 `(?:\d+ failed \| )?` 併進
+ * 行首那個樣式裡會被 `security/detect-unsafe-regex` 擋下來（實測過）——
+ * 那條規則守的正是這支函式吃的東西：**子行程的輸出**。
+ *
+ * 拆成兩步之後兩個樣式都沒有相鄰的量詞，而且撈到的必然是 passed 那個數字，
+ * 不會是 failed 那個。
+ */
+function passedOn(plain: string, label: "Tests" | "Test Files"): number | null {
+  const prefix = label === "Tests" ? /^\s*Tests\s/ : /^\s*Test Files\s/;
+  const line = plain.split("\n").find((candidate) => prefix.test(candidate));
+  if (line === undefined) return null;
+  const passed = PASSED.exec(line);
+  return passed === null ? null : Number(passed[1]);
+}
+
 /** vitest 摘要行的樣式。撈不到就回 null，讓上層當成失敗處理，不要寫下 0。 */
 export function parseTestCounts(output: string): { tests: number; testFiles: number } | null {
   const plain = stripAnsi(output);
-  const tests = /^\s*Tests\s+(\d+) passed/m.exec(plain);
-  const files = /^\s*Test Files\s+(\d+) passed/m.exec(plain);
-  if (tests === null || files === null) return null;
-  return { tests: Number(tests[1]), testFiles: Number(files[1]) };
+  const tests = passedOn(plain, "Tests");
+  const testFiles = passedOn(plain, "Test Files");
+  if (tests === null || testFiles === null) return null;
+  return { tests, testFiles };
 }
 
 /** 「N 個測試全過」／「N tests 全過」。中英兩種寫法在文件裡都真的出現。 */

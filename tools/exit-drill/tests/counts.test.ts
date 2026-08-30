@@ -43,8 +43,20 @@ describe("parseTestCounts", () => {
     expect(parseTestCounts(output)).toEqual({ tests: 98, testFiles: 8 });
   });
 
-  it("有失敗時不會誤把 failed 的數字當成 passed", () => {
+  it("有失敗時撈的是 passed 那個數字，不是 failed 那個", () => {
+    // ⚠️ **C148 之前這裡斷言的是 `toBeNull()`**，因為當時「有失敗」等於「這次演練
+    // 不算數」。C148 §五 之後不再等價：登記在預期失敗帳裡的那幾條如期失敗時，
+    // 演練是通過的，而摘要行長成 `N failed | M passed` —— 撈不到就會寫下
+    // `tests: 0`，然後靜態那一半才紅（`#206` 記過這一格）。
+    //
+    // 這條測試守的東西一個字都沒變：**撈到的必須是 passed 那個數字。**
     const output = " Test Files  1 failed | 7 passed (8)\n      Tests  3 failed | 95 passed (98)\n";
+    expect(parseTestCounts(output)).toEqual({ tests: 95, testFiles: 7 });
+  });
+
+  it("整批都失敗、連 passed 那一段都沒有時，仍然回 null", () => {
+    // 「全部失敗」與「撈不到」在證據上要是同一件事：都不可以寫下一個數字。
+    const output = " Test Files  8 failed (8)\n      Tests  98 failed (98)\n";
     expect(parseTestCounts(output)).toBeNull();
   });
 });
