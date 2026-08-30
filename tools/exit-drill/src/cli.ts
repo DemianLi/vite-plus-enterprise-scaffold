@@ -11,8 +11,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative as relativeTo, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { accountPlugins, DRILL_PLUGINS, DROPPED_PLUGINS, type ConfigSource } from "./plugins.ts";
 import {
@@ -29,6 +30,12 @@ import {
   type DocumentSource,
 } from "./counts.ts";
 import { collectFailures, reconcileFailures, type VitestJsonReport } from "./expected-failures.ts";
+import {
+  compareFingerprint,
+  fingerprintOf,
+  type FileDigest,
+  type Fingerprint,
+} from "./tree-fingerprint.ts";
 import { parseFlags } from "@org/gate-kit";
 
 /**
@@ -162,6 +169,14 @@ interface Evidence {
    * 合成一個數字的話，帳目膨脹起來不會有人看得出來。
    */
   readonly expectedFailures: number;
+  /**
+   * 演練涵蓋範圍的內容指紋，以及進到指紋裡的檔案數（C149）。
+   *
+   * ⚠️ 檔案數不是說明文字，是**對照組**：0 個檔案在兩邊會算出同一個空雜湊，
+   * 然後「相符」—— 見 tree-fingerprint.ts。
+   */
+  readonly treeHash?: string;
+  readonly treeFiles?: number;
   readonly note: string;
 }
 
@@ -297,6 +312,55 @@ function reachableManifests(): readonly ManifestDevDependencies[] {
   return manifests;
 }
 
+/**
+ * 演練會讀到的路徑：**被量的**（應用、可達套件、tsconfig）＋ **量法**
+ *（演練自己的原始碼、catalog 版本）。理由見 tree-fingerprint.ts 檔頭。
+ *
+ * 可達性由 `reachableWorkspacePackages` 推導，不是寫死的清單 ——
+ * 與演練自己選套件用的是同一支函式，兩邊不會分岔。
+ */
+function coveredPaths(): readonly string[] {
+  const all = listWorkspacePackages();
+  const reachable = new Set(reachableWorkspacePackages(all));
+  const dirs = all.filter((pkg) => reachable.has(pkg.name)).map((pkg) => relativeTo(ROOT, pkg.dir));
+
+  return [
+    ...new Set([
+      "apps/console",
+      "platform/tsconfig",
+      "tools/exit-drill/src",
+      "pnpm-workspace.yaml",
+      ...dirs,
+    ]),
+  ];
+}
+
+/**
+ * 算出今天的樹指紋。**清單走版控、內容走磁碟**（理由見 tree-fingerprint.ts）。
+ *
+ * ⚠️ 列舉失敗時回一個 0 個檔案的指紋，讓 `compareFingerprint` 判成 `empty`
+ * 並紅掉 —— 而不是在這裡回一個「相符」。
+ */
+function currentFingerprint(): Fingerprint {
+  const listed = spawnSync("git", ["ls-files", "-z", "--", ...coveredPaths()], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  if (listed.status !== 0) return fingerprintOf([]);
+
+  const digests: FileDigest[] = [];
+  for (const path of listed.stdout.split("\0")) {
+    if (path === "") continue;
+    const full = join(ROOT, path);
+    // 版控裡有、磁碟上沒有：不算進去。檔案數會因此下降，於是判成 drift ——
+    // 那正確：演練今天複製到的東西與證據那次不同。
+    if (!existsSync(full)) continue;
+    digests.push({ path, sha256: createHash("sha256").update(readFileSync(full)).digest("hex") });
+  }
+
+  return fingerprintOf(digests);
+}
+
 function checkFreshness(): number {
   if (!existsSync(EVIDENCE_PATH)) {
     console.warn("⚠ 尚未跑過完整退出演練（R9）。執行：node tools/exit-drill/src/cli.ts --full");
@@ -323,7 +387,29 @@ function checkFreshness(): number {
     return 0;
   }
 
-  console.log(`✓ 退出演練證據有效（${evidence.lastRun}，${ageDays} 天前）`);
+  // ⚠️ **這一行原本只問「幾天前」，而它是肯定句。** 併線讓樹變兩倍之後，
+  // 它連續 10 天印「✓ 證據有效」——「幾天前」答不出「同一棵樹嗎」（C148 §七）。
+  const verdict = compareFingerprint(evidence, currentFingerprint());
+
+  if (verdict.kind === "empty") {
+    console.error(`✗ ${verdict.message}`);
+    return 1;
+  }
+
+  if (verdict.kind === "match") {
+    console.log(`✓ 退出演練證據有效（${evidence.lastRun}，${ageDays} 天前）—— ${verdict.message}`);
+  } else {
+    // ⚠️ **drift 刻意不 fail，連 --require-fresh 都不 fail**（C149 §二）：
+    // 實測最近 60 支 main commit 有 25 支動到涵蓋路徑（42%），擋它等於把每季
+    // 一次的控制措施變成每次合併的阻斷器 —— 那種閘門會先被繞過、再被忽略。
+    // `unrecorded` 是舊格式的過渡狀態，那一個在排程上要紅，否則它會一直躺著。
+    const line = `退出演練證據 ${evidence.lastRun}（${ageDays} 天前）：${verdict.message}`;
+    if (verdict.kind === "unrecorded" && process.argv.includes("--require-fresh")) {
+      console.error(`✗ ${line}`);
+      return 1;
+    }
+    console.warn(`⚠ ${line}`);
+  }
 
   // 舊的 evidence.json 沒有 tests 欄位（C36 之前產生的）。那種情況跳過比較，
   // 而不是拿 undefined 去比出一堆假紅燈 —— 下一次 --full 會自動補上。
@@ -733,6 +819,8 @@ function writeDrillWorkspace(
 
 function runFull(): number {
   const started = Date.now();
+  // 先取指紋再動任何東西 —— 證據要說的是「這一棵樹被量過」（C149）。
+  const fingerprint = currentFingerprint();
   const workdir = mkdtempSync(join(tmpdir(), "exit-drill-"));
   console.log(`退出演練工作目錄：${workdir}\n`);
 
@@ -885,6 +973,10 @@ function runFull(): number {
     tests: counts?.tests ?? 0,
     testFiles: counts?.testFiles ?? 0,
     expectedFailures,
+    // ⚠️ 在**演練開始之前**算的（`fingerprint`），不是這一刻：這一刻工作目錄
+    // 已經被建置與測試動過，而指紋要描述的是「被量的那棵樹」。
+    treeHash: fingerprint.hash,
+    treeFiles: fingerprint.files,
     note:
       "以上游 Vite/Vitest 重建 apps/console 與全部 platform、features 的測試，" +
       "設定檔由本演練重新產生，應用程式原始碼一字未改。" +
