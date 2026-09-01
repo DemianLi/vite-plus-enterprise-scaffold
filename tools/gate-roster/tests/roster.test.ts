@@ -184,6 +184,45 @@ describe("工具沒登記", () => {
   });
 });
 
+describe("閘門沒寫理由（C155）", () => {
+  // ⚠️ 這一整個 describe 是**守這支工具自己**的夾具斷言 —— 依 C154 §三 第 3 條
+  // 它在 D16 迭代軸上**不計分**。規則本身的兩軸寫在 C155 §四。
+
+  const withWhy = (why: string): Roster => ({
+    gates: [{ ...(GATES[0] as Gate), why }],
+    ungated: UNGATED,
+  });
+
+  it("⚠️ 空的 why 會紅 —— 而 C154 §七 早就當它必填在用了", () => {
+    // 那一則拿「why 必填」去論證落點，而在這條規則之前空的 why 也是綠的。
+    const roster = withWhy("");
+    expect(kinds(write(healthy(roster)), roster)).toContain("閘門沒寫理由");
+  });
+
+  it("短到說不出一件事也會紅", () => {
+    const roster = withWhy("因為要");
+    expect(kinds(write(healthy(roster)), roster)).toContain("閘門沒寫理由");
+  });
+
+  it("⚠️ 紅的只有這一條 —— 這條斷言才是「拿掉規則就變綠」成立的地方", () => {
+    // C143 §七 第 4 條記過：兩條規則管同一格的話，拿掉一條仍然紅，
+    // 於是「紅的是這條規則」就證明不了。用 toEqual 而不是 toContain，
+    // 是為了讓那件事在這裡真的被驗到（C144 記的是它沒被驗到的那一次）。
+    const roster = withWhy("");
+    expect(kinds(write(healthy(roster)), roster)).toEqual(["閘門沒寫理由"]);
+  });
+
+  it("寫得出一句話就不叫 —— 門檻與三個手足一字不差", () => {
+    const roster = withWhy("這道閘門存在的理由寫得夠長，長到說得出一件事。");
+    expect(kinds(write(healthy(roster)), roster)).toEqual([]);
+  });
+
+  it("真的名冊 16 列全部通過 —— 這條規則今天不咬任何一列", () => {
+    // 記錄一個事實，不是要求它：今天不痛是刻意的，它在加第 17 列那天才擋人。
+    for (const gate of GATES) expect(gate.why.length, gate.id).toBeGreaterThan(20);
+  });
+});
+
 describe("四個消費端各自漂移", () => {
   it("scripts.gate 少一道會紅", () => {
     const root = broken((layout) => {
