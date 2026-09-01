@@ -6,7 +6,8 @@ import { workspacePackages } from "@org/doc-facts/derive";
 import { GATES, UNGATED, type Gate, type Tier, type Ungated } from "./gates.ts";
 
 /**
- * 名冊的四個消費端各自對不對得上。
+ * 名冊的四個消費端各自對不對得上，**外加名冊自己的一列必填**（②，C155）——
+ * 前者問「四份副本一致嗎」，後者問「這一列有沒有人判斷過」。
  *
  * ── 為什麼是「斷言一致」而不是「真的推導出去」 ──────────────────────
  *
@@ -207,7 +208,31 @@ export function checkRoster(root: string, roster: Roster = ROSTER): Problem[] {
     }
   }
 
-  // ── ② package.json 的 scripts.gate ──────────────────────────────
+  // ── ② 每一道閘門要寫得出為什麼它存在（C155）──────────────────────
+  //
+  // `Ungated.why`、`Variant.why`、`notInGateScript` 三個必填理由欄早就有這條
+  // 斷言，而 **`Gate.why` 沒有** —— 它只是型別上必填，寫 `""` 一路綠到底。
+  // 實測（C155 §三）：把它改短，`vpr gate` 與整套測試都是 0；同樣的變異套在
+  // 另外三個欄位上，測試立刻紅。**四個同語意的欄位，只有這一個是靜默的。**
+  //
+  // ⚠️ 這條規則在**這一層**而不在測試裡，理由是 `why` 對 fork v1 的團隊而言
+  // 就是「有人判斷過」那個判斷本身（見 gates.ts 檔頭）—— 他們加一支工具撞到的
+  // 應該是閘門，不是一支他們沒在讀的測試。
+  //
+  // ⚠️ 門檻與三個手足一字不差（`> 20`），而它**今天咬不到任何一列**（最短 25）。
+  // 那是刻意的：挑一個今天就會咬的數字來證明它有用，量到的只會是那個數字。
+  // 它在加第 17 列的那天才擋人，而那正是它該擋人的時候。
+  for (const gate of gates) {
+    if (gate.why.length > 20) continue;
+    problems.push({
+      kind: "閘門沒寫理由",
+      detail:
+        `GATES 的 \`${gate.id}\` 沒有寫 why，或者短到說不出一件事。\n` +
+        `      這一欄要答的是「為什麼有這道閘門、以及為什麼在那一層」。`,
+    });
+  }
+
+  // ── ③ package.json 的 scripts.gate ──────────────────────────────
   const rootPackage = JSON.parse(read("package.json")) as {
     scripts?: Record<string, string>;
   };
@@ -224,7 +249,7 @@ export function checkRoster(root: string, roster: Roster = ROSTER): Problem[] {
     });
   }
 
-  // ── ③ 每一道閘門要能單獨跑 ──────────────────────────────────────
+  // ── ④ 每一道閘門要能單獨跑 ──────────────────────────────────────
   //
   // README 教人跑 `vpr theme-verify` 這種單支指令。少一個別名不會造成假綠燈，
   // 但會讓文件裡那行指令直接不存在。成本是一行，所以守它。
@@ -240,7 +265,7 @@ export function checkRoster(root: string, roster: Roster = ROSTER): Problem[] {
     }
   }
 
-  // ── ④ 兩個 workflow ─────────────────────────────────────────────
+  // ── ⑤ 兩個 workflow ─────────────────────────────────────────────
   const workflows: ReadonlyArray<readonly [Tier, string]> = [
     ["tier1", ".github/workflows/tier1-quality.yml"],
     ["tier2", ".github/workflows/tier2-security.yml"],
@@ -262,7 +287,7 @@ export function checkRoster(root: string, roster: Roster = ROSTER): Problem[] {
     }
   }
 
-  // ── ⑤ README 那張〈兩層檢查〉的表 ───────────────────────────────
+  // ── ⑥ README 那張〈兩層檢查〉的表 ───────────────────────────────
   //
   // ⚠️ 這是**存在性**檢查，不是精確比對：那兩格還寫著 GATES 不涵蓋的東西
   //（SAST、機密掃描），所以「多出來的字」是合法的。少寫一道會紅，多寫不會。
