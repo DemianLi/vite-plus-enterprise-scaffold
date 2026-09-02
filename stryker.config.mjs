@@ -30,7 +30,9 @@ const require = createRequire(import.meta.url);
  * package 用的。**
  *
  * ⚠️ **跑完之後看一眼 `git diff --summary`。** `inPlace`（見下）還原時**不保留
- * 檔案模式** —— 九支命令列進入點的可執行位會掉，而**逐行 diff 是零**，
+ * 檔案模式** —— 命令列進入點的可執行位會掉，而**逐行 diff 是零**，
+ * ⚠️ 2026-09-02 實測是 **16 個**（原本這裡寫「九支」）—— 這裡刻意不再釘死支數，
+ * 它會隨 `tools/` 增減而變，而沒有東西在守這個數字。
  * 沒有任何閘門在看檔案模式。`git checkout -- tools/` 還原得掉。
  *
  * ── 怎麼讀那份清單 ──────────────────────────────────────────────────
@@ -44,8 +46,15 @@ const require = createRequire(import.meta.url);
  *
  * ⚠️⚠️ **上界的第二個來源：有一整批測試，這個工具一顆都算不進去。**
  *
- * 版控裡 49 支 `.test.ts`，報表的 `testFiles` 只看得見 35 支。**14 支完全不可見**，
- * 而它們不可見的原因有三個，不是一個：
+ * ⚠️ **這三個數字每次都要重量，不要照抄。** 2026-09-02 在 `55b7655` 上實測：
+ * 版控裡 **78** 支 `.test.ts`，報表的 `testFiles` 看得見 **60** 支，**18 支完全不可見**。
+ * （原本寫的是 49／35／14，那是 2026-08-29 的樹。）
+ *
+ * 而它們不可見的原因有三個，不是一個 —— ⚠️ **下面每一類的支數是 49 支那時候的，
+ * 沒有重新推導**。理由不是懶：判「檔案內容型」要看 `import` 的是不是**產品碼**，
+ * 而「路徑以 `.` 開頭」這個粗判準會把 `./contract.ts` 這種**測試自己的輔助檔**
+ * 算成產品碼（`platform/ui/tests/a11y.test.ts` 實際就是這樣，一判就翻）。
+ * **重推導要人做，不是換一個 regex。**
  *
  *   1. **子行程型（4 支）** —— `api-surface/negative`、`conformance/negative`、
  *      `conformance/output`、`spec-report/cli`。mutant 靠**行程內的全域**啟動，
@@ -59,10 +68,17 @@ const require = createRequire(import.meta.url);
  *      **所以它不是一個可以拿平均值折算掉的東西**：`scan.ts` 是 8/14，
  *      `csp.ts` 是 1/28。要知道某一支的真實存活數，只能把變異套上去跑一次。
  *   2. **在三個被排除的 package 裡（5 支）** —— 射程裡本來就沒有它們的產品碼。
- *   3. **檔案內容型（5 支）** —— `console/dev-session-stripped`、`console/proxy-target`、
+ *   3. **檔案內容型（5 支＋1）** —— `console/dev-session-stripped`、`console/proxy-target`、
  *      `ui/a11y`、`ui/styles`、`doc-facts/cross-references`。實查：這五支 `import`
  *      產品碼**零次**，它們把程式碼與文件當成資料讀，而這個工具改的是被 import
  *      執行的東西。
+ *      ⚠️ **2026-09-02 補一支：`doc-facts/decision-ids`（C141，`20a152a`）。**
+ *      同一個判準（`import` 產品碼零次），實測不在 `testFiles` 裡 ——
+ *      拿掉它與拿掉 `cross-references`，殺／存活／無覆蓋一格都不動，
+ *      **因為它們從頭到尾沒有被執行**。⚠️ 那種零跟「拿掉它什麼都沒變」長得一樣。
+ *      ⚠️ 它同時**也**走子行程（`git ls-files`），所以它落在①與③兩類裡 ——
+ *      「三個原因不能混成一個」說的是不能拿一個成因解釋全部，不是每支只有一個成因。
+ *      經過見 reports/research/test-redundancy-loo-2026-09-02.md 的 §六、§八。
  *
  * **這三個原因不能混成一個。** 混起來的下場是下一批用錯的理由重讀同一堆。
  *
