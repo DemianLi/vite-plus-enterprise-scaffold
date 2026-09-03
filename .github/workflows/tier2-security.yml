@@ -395,6 +395,12 @@ jobs:
         uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
         with:
           sarif_file: trivy.sarif
+          # ⚠️ 少了這一行，configuration 的身分就從 workflow ＋ job 名 ＋ matrix 的值
+          # 推導 —— 而 `gate` 的 matrix `ref`（C113）排程展開成 "main"、PR 是空字串，
+          # 於是 PR 那一趟跟 `main` 上的結果永遠對不上：Code Scanning 算不出「這支 PR
+          # 新引入了哪些 SCA 告警」，Trivy 那格 check 就永遠停在 neutral。
+          # ⚠️ 而一個永遠 neutral 的 check，跟一個從來沒跑過的 check 長得一樣（#240）。
+          category: trivy
 
       # ── 供應鏈：原生二進位例外的憑證（R2／R4）─────────────────────
       # 這裡原本有一步：`npm view vite-plus dist.attestations > provenance.json`。
