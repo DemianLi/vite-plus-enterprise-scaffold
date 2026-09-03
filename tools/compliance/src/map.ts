@@ -331,7 +331,7 @@ export const CONTROLS: readonly Control[] = [
     gates: ["trivy-sca", "trivy-sbom", "supply-chain", "dependency-health", "renovate", "sast"],
     coverage: "partial",
     owed: true,
-    note: "這一條有兩半：**檢測**由 Trivy 做（每日 21:00 UTC 排程 —— 沒有它，三個月沒人動的專案就三個月沒掃過），**因應**由 Renovate 提出（D13 的 critical 3 天／high 14 天 SLA 要有人真的去升，才是 SLA）。⚠️ 這一格原本寫著「自己寫的程式碼沒有 SAST」—— **2026-08-16 起不再成立**（見 `sast` 閘門）。但覆蓋仍是 partial 而不是 full，而且理由要說清楚：repo 裡的 semgrep 是**前置過濾器**，只有兩條規則、守的是汙點傳遞與執行期組程式碼；真正要交付的源碼掃描報告由第三方或機關指定的商用工具產出。**把這一格標成 full 就是重演 §11 II ⑦ 那次高估。**",
+    note: "這一條有兩半：**檢測**由 Trivy 做（每日 21:00 UTC 排程 —— 沒有它，三個月沒人動的專案就三個月沒掃過），**因應**由 Renovate 提出（D13 的修補 SLA 要有人真的去升，才是 SLA）。⚠️ **但 D13 那張表的『分級』從未被實作** —— Trivy 這一步與 Renovate 的 `vulnerabilityAlerts` 都不分嚴重度，閘門實際執行的是**全嚴重度零容忍**（見 C160）。交給稽核時要照後者說，不要照那張表的三段時限說。⚠️ 這一格原本寫著「自己寫的程式碼沒有 SAST」—— **2026-08-16 起不再成立**（見 `sast` 閘門）。但覆蓋仍是 partial 而不是 full，而且理由要說清楚：repo 裡的 semgrep 是**前置過濾器**，只有兩條規則、守的是汙點傳遞與執行期組程式碼；真正要交付的源碼掃描報告由第三方或機關指定的商用工具產出。**把這一格標成 full 就是重演 §11 II ⑦ 那次高估。**",
   },
   {
     article: "§11 II ④",

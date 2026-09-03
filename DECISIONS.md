@@ -325,6 +325,12 @@ SBOM 從根 `pnpm-lock.yaml` 一次產出全 repo 的（D3 是共用 lockfile，
 | UI kit     | `platform/ui` **包一層**第三方                | 切片禁止直接 import 第三方 UI lib。第三方元件是 CVE 與 CSP violation 大宗，包一層才能一次換掉                |
 | 修補 SLA   | critical 3 天／high 14 天／medium 下個 sprint | 對應 D10 每日排程掃描；沒有 SLA 的掃描等於沒有掃描                                                           |
 
+> ⚠️ **「修補 SLA」那一列的分級從未被實作，見 C160（2026-09-03，#244）。**
+> 全樹唯一一處分級宣告是 `tier2-security.yml` 的 `severity: HIGH,CRITICAL`，
+> 而它在 `format: sarif` 下不生效；Renovate 的 `vulnerabilityAlerts` 也不分級。
+> 閘門執行的是**全嚴重度零容忍**。這一列保留原文 —— 它是當時的決定 ——
+> **現行行為以 C160 為準**，而那一行宣告已在同一則裡刪除。
+
 **oxfmt 的已知代價**：被 `vp` 鎖死在 `=0.62.0`（比 vite-plus 本身更早期）。
 格式化工具是唯一換掉就會動到每個檔案的工具——退出 vp 時將產生一次性全 repo reformat，
 毀掉 `git blame` 追溯能力（該能力在稽核與事故調查有實質價值）。

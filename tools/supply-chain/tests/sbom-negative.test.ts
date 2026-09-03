@@ -180,8 +180,10 @@ describe("Tier 2 workflow 的設定沒有漂掉", () => {
   });
 
   it("SCA 掃描發現漏洞時會讓 job 失敗", () => {
+    // ⚠️ 這裡原本還釘著 `severity: HIGH,CRITICAL`。那一行從未生效（action 在
+    // `format: sarif` 下用全嚴重度重建報告，`exit-code` 對那一份算），所以它釘的
+    // 不是「會失敗」而是「會少失敗一些」—— 與這條測試的名字相反。已刪，見 C160。
     expect(workflow).toContain('exit-code: "1"');
-    expect(workflow).toContain("severity: HIGH,CRITICAL");
   });
 
   it("掃的是拆開後的目錄，不是原始 lockfile", () => {
