@@ -86,7 +86,15 @@ export default defineConfig({
       // ⚠️ 239 那個數字裡有這次併線加進 `runFull` 的一段註解（切片自帶的
       // `vite.config.ts` 要在演練裡刪掉，否則下一次排程會壞）。行數含註解是
       // oxlint 的預設，沒有 skipComments 選項 —— 這一格的代價寫在上面。
-      "max-lines-per-function": ["error", { max: 239 }],
+      //
+      // ⚠️⚠️ **239 → 199（#226）**：`runFull` 被別人為了別的目的重構短了，
+      // 而依上面 C147 §二，最大值下降時這個數字**必須跟著降、不需要論證**。
+      // 量法：十一個門檻各減一跑一次 `vp lint`（只有這一格一個違規都報不出來
+      // ⇒ 只有它過期），再把它壓到 120 讀出真實分佈 —— 199（`exit-drill` 的
+      // `runFull`）、185（`theme-verify`）、175（`bff-mock`）、161（`supply-chain`）。
+      // ⚠️ 它高了 40 行而安靜了 15 支 commit：**降的那一半仍然沒有機制在守**，
+      // 這次一樣是人回頭查才發現的。守它的檢查怎麼做，#226 還有三件沒裁。
+      "max-lines-per-function": ["error", { max: 199 }],
       "max-depth": ["error", { max: 5 }],
       "max-params": ["error", { max: 6 }],
       complexity: ["error", { max: 39 }],
