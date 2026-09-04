@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -35,9 +35,45 @@ import { parseSpec } from "../src/spec.ts";
  * 它**不走 `git ls-files`**，它跑 `vp lint` 掃磁碟，於是那個 `zz-` 切片它看得見。
  * 所以修的是排程，理由逐字寫在 `tools/threshold-check/vite.config.ts`。
  *
+ * ⚠️⚠️ **第三次，而破法又換了（C165）。** `spec-report --check` 從
+ * `features/invoice` 進版控起會讀 `features/*​/.vitest-results.json` ——
+ * 一個 **gitignore 掉的產物**。「事實來源都是 `git ls-files`」那個論證
+ * 對它完全不適用：它讀的根本不是版控。在此之前報表是空的、`--check` 恆綠，
+ * 所以誰先跑無所謂。
+ *
  * 這段話寫在這裡，是因為下一個人會重新問一次同一個問題 —— 而上一次問的人
  * 得到的答案在當天是對的。
  */
+
+/**
+ * 版控裡有規格、而磁碟上還沒有測試結果的切片。
+ *
+ * ⚠️ 這是下面那條測試的**前提**，不是它要驗的東西。少了它，症狀是
+ * 「`spec-report --check` 回 1」——訊息會說「還沒有測試結果」，讀起來像
+ * 開發者忘了跑測試，而真正該改的可能是排程。
+ *
+ * ⚠️⚠️ **結果檔只有帶 `--outputFile` 的那條完整指令會產生**，`dependsOn`
+ * 綁的是**跑序**不是產出：單獨 `vp run @org/promise-check#test` 永遠缺它，
+ * 而那不是缺陷。所以訊息要把兩個成因分開講。
+ *
+ * ⚠️ 它同時是**下一片帶規格的切片**的絆線：那一片的 `#test` 沒被加進
+ * `vite.config.ts` 的 `dependsOn` 時，這裡會指名說出是哪一片。
+ */
+function slicesMissingResults(): string[] {
+  const listed = spawnSync("git", ["ls-files", "-z", "--", "features/*/specs/*.feature"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  const slices = new Set(
+    listed.stdout
+      .split("\0")
+      .filter((path) => path.length > 0)
+      .map((path) => path.split("/")[1] as string),
+  );
+  return [...slices].filter(
+    (slice) => !existsSync(join(ROOT, "features", slice, ".vitest-results.json")),
+  );
+}
 
 const HERE = resolve(fileURLToPath(import.meta.url), "..");
 const ROOT = resolve(HERE, "../../..");
@@ -89,6 +125,16 @@ describe("與 tools/spec-report 的分界", () => {
   }
 
   it("業務功能完成率看不到框架承諾", () => {
+    expect(
+      slicesMissingResults(),
+      "這幾片切片還沒留下測試結果。兩個成因，修法不同（C87／C165）：\n" +
+        "  · 單獨跑這一支 → 結果檔只有帶 `--outputFile` 的那條完整指令會產生，" +
+        "改跑 `vp run -r test -- --reporter=default --reporter=json " +
+        "--outputFile=.vitest-results.json`\n" +
+        "  · 完整指令下仍然缺 → 那一片的 `@org/feature-<切片>#test` 沒進 " +
+        "tools/promise-check/vite.config.ts 的 dependsOn，跑序沒有被綁住",
+    ).toEqual([]);
+
     // 真的跑一次那支工具：它自己的 `--check` 就是分界破掉時會響的那條線。
     const { status, output } = run([SPEC_REPORT_CLI, "--check"]);
 
