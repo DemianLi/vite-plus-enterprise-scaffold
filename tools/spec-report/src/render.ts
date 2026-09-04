@@ -197,3 +197,42 @@ export function renderReport(resolved: readonly ResolvedInstance[]): string {
 
   return lines.join("\n");
 }
+
+/**
+ * 兩份報表的**內容**是不是同一份 —— 表格的 padding 不算差異。
+ *
+ * ⚠️ 這不是潔癖，是兩道閘門的互斥，而且**沒有它 `vpr ready` 兩個方向都紅**：
+ * `vp check`（oxfmt，第 1 步）會把這份產出物的表格補上對齊用的空白，而這支
+ * 工具產的是不帶 padding 的表格。逐位元組比的話 —— 排版過就說「報表過期」、
+ * 重新產生就說「沒排版」，繞不出去。
+ *
+ * ⚠️ **它一直都在，只是沒有東西可以 padding。** 報表在第一個帶規格的切片
+ * 進版控之前只有散文、一列表格都沒有，所以 oxfmt 與這支工具從來沒有碰過
+ * 同一行。經過見 DECISIONS-2.md 的 **C165**。
+ *
+ * 所以分工是：**內容歸這支工具，排版歸 oxfmt。**
+ *
+ * ⚠️ 只有 `|` 開頭的列會被正規化，而且只動空白與分隔列的 `-` 長度 ——
+ * 對齊用的 `:` 保留（`| :--- |` 與 `| --- |` 仍然算不同），因為那是語意。
+ * ⚠️ 圍籬（``` ）裡面一律逐字比：那裡的 `|` 不是表格。
+ */
+export function sameReport(a: string, b: string): boolean {
+  return normalizeTables(a) === normalizeTables(b);
+}
+
+function normalizeTables(text: string): string {
+  const out: string[] = [];
+  let fenced = false;
+  for (const line of text.split("\n")) {
+    if (line.startsWith("```")) fenced = !fenced;
+    out.push(!fenced && line.trimStart().startsWith("|") ? normalizeRow(line) : line);
+  }
+  return out.join("\n");
+}
+
+function normalizeRow(line: string): string {
+  const trimmed = line.trim();
+  const inner = trimmed.slice(1, trimmed.endsWith("|") ? -1 : undefined);
+  const cells = inner.split("|").map((cell) => cell.trim().replace(/^(:?)-+(:?)$/u, "$1-$2"));
+  return `| ${cells.join(" | ")} |`;
+}

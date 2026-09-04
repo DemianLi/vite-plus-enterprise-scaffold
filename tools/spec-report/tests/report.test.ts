@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import { collectInstances } from "../src/collect.ts";
 import { resolve, type VitestResults } from "../src/match.ts";
-import { renderCli, renderReport, tally } from "../src/render.ts";
+import { renderCli, renderReport, sameReport, tally } from "../src/render.ts";
 
 import { FEATURE, ALL_GREEN, results } from "./fixture.ts";
 
@@ -166,5 +166,62 @@ describe("CLI 輸出", () => {
   it("未執行印得出「接線斷了」，那與「沒綠」是不同的病", () => {
     const out = renderCli(resolve(instances, { testResults: [] }), "SPEC-REPORT.md");
     expect(out).toContain("接線斷了");
+  });
+});
+
+/**
+ * ── 內容歸這支工具，排版歸 oxfmt（C165）────────────────────────────
+ *
+ * ⚠️ 下面的 padding 樣本是**從真的 oxfmt 產出複製下來的**，不是照它的演算法
+ * 推的 —— CJK 佔兩格、emoji 佔幾格，猜錯的話這組測試會變成在驗我的想像。
+ *
+ * ⚠️ 每一條「該算相同」旁邊都放一條「該算不同」的對照。少了對照，
+ * `sameReport` 直接 `return true` 也是全綠的。
+ */
+describe("報表的 padding 不算差異，而內容的差異算", () => {
+  const 產生 = ["| 切片 | 完成 | 完成率 |", "| --- | --- | --- |", "| invoice | 4 | 80.0% |"].join(
+    "\n",
+  );
+  const 排版後 = [
+    "| 切片    | 完成 | 完成率 |",
+    "| ------- | ---- | ------ |",
+    "| invoice | 4    | 80.0%  |",
+  ].join("\n");
+
+  it("oxfmt 補過空白之後仍然算同一份", () => {
+    expect(sameReport(產生, 排版後)).toBe(true);
+  });
+
+  it("🔴 對照：只差一個數字就算不同 —— 這條紅了才代表上面那條有意義", () => {
+    expect(sameReport(產生, 排版後.replace("| 4    |", "| 5    |"))).toBe(false);
+  });
+
+  /**
+   * ⚠️ 對齊用的 `:` 是**語意**不是排版：`| :--- |` 說的是「這一欄靠左」。
+   * 把它一起吃掉的話，有人在報表裡加了對齊、這支工具照樣說「一致」，
+   * 而下一次產生就會把它洗掉。
+   */
+  it("對齊用的冒號不吃掉", () => {
+    expect(sameReport("| a |\n| --- |", "| a |\n| :--- |")).toBe(false);
+  });
+
+  /**
+   * ⚠️ 圍籬裡的 `|` 不是表格。報表開頭那段指令就住在圍籬裡，
+   * 而它是要人逐字複製去跑的 —— 那裡少一個空白就是真的不一樣。
+   */
+  it("圍籬裡逐字比，不當表格正規化", () => {
+    const a = "```bash\n|  a  |\n```";
+    const b = "```bash\n| a |\n```";
+    expect(sameReport(a, b)).toBe(false);
+  });
+
+  it("真的產出來的報表，補上 padding 之後對得起自己", () => {
+    const content = renderReport(resolve(instances, ALL_GREEN));
+    const padded = content
+      .split("\n")
+      .map((line) => (line.startsWith("|") ? line.replaceAll(" | ", "   |   ") : line))
+      .join("\n");
+    expect(sameReport(content, padded)).toBe(true);
+    expect(sameReport(content, padded.replace("75.0%", "76.0%"))).toBe(false);
   });
 });

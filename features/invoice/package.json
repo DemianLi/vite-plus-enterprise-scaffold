@@ -1,21 +1,17 @@
 {
-  "name": "@org/console",
+  "name": "@org/feature-invoice",
   "version": "0.0.0",
   "private": true,
-  "description": "管理主控台外殼：路由組裝、環境設定、composition root",
+  "description": "請款單",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
-    "dev": "vp dev",
-    "build": "vp build",
-    "preview": "vp preview",
-    "test": "vp test",
     "check": "vp check"
   },
   "dependencies": {
-    "@org/config": "workspace:*",
-    "@org/feature-invoice": "workspace:*",
-    "@org/feature-order": "workspace:*",
-    "@org/feature-shipment": "workspace:*",
+    "@org/http-client": "workspace:*",
     "@org/slice-kit": "workspace:*",
     "@org/ui": "workspace:*",
     "@tanstack/vue-query": "catalog:",
@@ -25,13 +21,10 @@
     "vue-router": "catalog:"
   },
   "devDependencies": {
-    "@org/security-headers": "workspace:*",
+    "@amiceli/vitest-cucumber": "catalog:",
     "@org/tsconfig": "workspace:*",
-    "@tailwindcss/vite": "catalog:",
-    "@types/node": "catalog:",
     "@vitejs/plugin-vue": "catalog:",
     "@vitest/coverage-v8": "catalog:",
-    "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",
