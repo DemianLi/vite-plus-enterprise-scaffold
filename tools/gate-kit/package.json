@@ -2,10 +2,11 @@
   "name": "@org/gate-kit",
   "version": "0.0.0",
   "private": true,
-  "description": "閘門底下那一層：旗標解析（⚠️ 這條線只帶 parseFlags —— C125 §五）",
+  "description": "閘門底下那一層：旗標解析、repo 根、目錄走訪；`./testing` 是只給測試 import 的沙盒與 CLI runner（C168）",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "test": "vp test",
