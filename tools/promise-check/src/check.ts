@@ -241,17 +241,27 @@ export function checkPromises(root: string, specs: readonly string[]): CheckResu
     const scenarios = wire(root, specs, record);
     if (problems > 0) return;
 
+    // ⚠️ **逐份規格問，不是整批問。** 第二份規格進來的那一刻，「整批至少有一條
+    // 對照組」就不再守得住第一份：刪掉 `promise-1` 的對照組，另一份的還在，
+    // 於是這裡全綠 —— 而那份規格的沙盒壞掉時，它每一條「必須紅」都會成功變紅。
+    // 這正是這道閘門在別處擋的形狀（`doc-facts` 的 `unguarded`、第四態 ❓）。
     const control = scenarios.filter((scenario) => !scenario.expectRed);
-    if (control.length === 0) {
+    const hasControl = new Set(control.map((scenario) => scenario.spec));
+    let uncontrolled = 0;
+
+    for (const spec of new Set(scenarios.map((scenario) => scenario.spec))) {
+      if (hasControl.has(spec)) continue;
+      uncontrolled += 1;
       record(
-        "specs/",
+        spec,
         "沒有對照組",
-        "一條「必須綠」的場景都沒有",
-        "至少要有一條「沒有人違規時不得紅」。⚠️ 少了它，沙盒建壞掉的時候" +
-          "每一條「必須紅」都會成功變紅，而這道閘門會顯示全綠。",
+        "這份規格裡一條「必須綠」的場景都沒有",
+        "每一份規格都要有一條「沒有人違規時不得紅」。⚠️ 少了它，沙盒建壞掉的時候" +
+          "這份規格每一條「必須紅」都會成功變紅，而這道閘門會顯示全綠。" +
+          "⚠️ **別份規格的對照組不算數** —— 它們用的是不同的閘門與不同的素材。",
       );
-      return;
     }
+    if (uncontrolled > 0) return;
 
     // ⚠️ 素材是樹上實際有的切片。fork 的樹上示範切片早就被換掉了，
     // 而那不是他們做錯了什麼 —— 所以這裡是一句說得出原因的紅燈，

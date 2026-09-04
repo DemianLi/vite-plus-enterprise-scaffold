@@ -37,6 +37,20 @@ import { parseDiagnostics, type ParsedDiagnostics } from "./diagnostics.ts";
  * ⚠️ **不連 `.git`。** 連過去的話，任何在農場裡動到 git 的東西都會打到真的
  * 版控目錄上。代價是 oxlint 的忽略規則要能在沒有 `.git` 的情況下照常運作 ——
  * 而那件事同樣由 `compareFileSets` 在守，不是靠相信。
+ *
+ * ── ⚠️ 兩個 root，而它們刻意不是同一個 ──────────────────────────────
+ *
+ * `toolRoot` 是這支工具跑在哪（`vp` 的位置、被 lint 的那棵樹）；
+ * `targetRoot` 是**被驗的那份 `vite.config.ts` 住在哪**。C127 §一 判過這條線：
+ * `--root` 指的是**被驗的對象**，不是「這支工具跑在哪」—— 而這裡被驗的對象
+ * 就是那幾格門檻的數字，樹是量它們用的素材。
+ *
+ * 所以基準那一趟也走農場：農場裡放**目標的設定原封不動**，量出它宣告了
+ * 哪幾格、各是多少；探針那一趟放同一份設定壓到地板的版本。
+ *
+ * ⚠️ **`realFiles` 仍然量真樹（`toolRoot`），不是農場。** 換成「兩個農場互比」
+ * 的話，`compareFileSets` 那條夾具問的就從「符號連結農場有沒有重現這棵樹」
+ * 變成「兩個農場同不同意」—— 恆真，而且它是這一招唯一的地基。
  */
 
 const SKIP = new Set([".git", "vite.config.ts"]);
@@ -125,25 +139,51 @@ function tearDown(farm: string): void {
   }
 }
 
-export function probe(root: string): ProbeOutcome {
-  const source = readFileSync(join(root, "vite.config.ts"), "utf8");
-  const floored = floorSource(source);
-
-  const realSlots = collectSlots(printConfig(root, root));
-  const realFiles = fileList(root, root);
-
+/**
+ * 開一座農場：`toolRoot` 的每一項連過去，`vite.config.ts` 換成 `config`。
+ *
+ * ⚠️ 一定要 `finally` 收掉 —— 中途丟錯時留下的是一個裝滿符號連結的暫存目錄，
+ * 而那些連結指著真樹。
+ */
+function withFarm<T>(toolRoot: string, config: string, body: (farm: string) => T): T {
   const farm = mkdtempSync(join(tmpdir(), "threshold-check-"));
   try {
-    for (const entry of readdirSync(root)) {
+    for (const entry of readdirSync(toolRoot)) {
       if (SKIP.has(entry)) continue;
-      symlinkSync(join(root, entry), join(farm, entry));
+      symlinkSync(join(toolRoot, entry), join(farm, entry));
     }
-    writeFileSync(join(farm, "vite.config.ts"), floored.text);
+    writeFileSync(join(farm, "vite.config.ts"), config);
+    return body(farm);
+  } finally {
+    tearDown(farm);
+  }
+}
 
-    const probeSlots = collectSlots(printConfig(root, farm));
-    const probeFiles = fileList(root, farm);
+/**
+ * @param toolRoot 這支工具跑在哪：`vp` 的位置，以及被 lint 的那棵樹。
+ * @param targetRoot 被驗的那份 `vite.config.ts` 住在哪。⚠️ 預設就是 `toolRoot`，
+ *   而 `vpr gate` 上跑的永遠是那條路徑 —— 兩者不同的只有承諾檢查那條。
+ */
+export function probe(toolRoot: string, targetRoot: string = toolRoot): ProbeOutcome {
+  const configPath = join(targetRoot, "vite.config.ts");
+  // ⚠️ 說得出是哪個目錄。少了這一句，`--root` 指錯地方的症狀是一個 ENOENT，
+  // 而那長得像「這支工具壞了」，不像「你給的那棵樹裡沒有設定檔」。
+  if (!existsSync(configPath)) throw new ProbeError(`${targetRoot} 底下沒有 vite.config.ts`);
 
-    const raw = runLint(root, farm, ["-f", "json"]).stdout;
+  const source = readFileSync(configPath, "utf8");
+  const floored = floorSource(source);
+
+  // 基準：目標的設定原封不動。⚠️ 走農場而不是直接量 `targetRoot`，因為
+  // 那個目錄可能只有一份設定檔（承諾檢查的沙盒就是），`vp lint` 在那裡
+  // 掃不到任何東西 —— 而掃不到與「這棵樹很乾淨」長得一樣。
+  const realSlots = withFarm(toolRoot, source, (farm) => collectSlots(printConfig(toolRoot, farm)));
+  const realFiles = fileList(toolRoot, toolRoot);
+
+  return withFarm(toolRoot, floored.text, (farm) => {
+    const probeSlots = collectSlots(printConfig(toolRoot, farm));
+    const probeFiles = fileList(toolRoot, farm);
+
+    const raw = runLint(toolRoot, farm, ["-f", "json"]).stdout;
     let payload: unknown;
     try {
       payload = JSON.parse(raw) as unknown;
@@ -159,7 +199,5 @@ export function probe(root: string): ProbeOutcome {
       probeFiles,
       rewritten: floored.count,
     };
-  } finally {
-    tearDown(farm);
-  }
+  });
 }

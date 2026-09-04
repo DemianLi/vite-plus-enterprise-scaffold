@@ -6,6 +6,11 @@
 在這支工具之前，**那張表與實際跑的閘門對不對得上，只有人讀得出來** ——
 那份文件自己招認過這件事。
 
+⚠️ **`specs/` 底下不是每一份都是那五條之一。** 檔名走 `promise-N-` 的才是；
+`gate-thresholds.feature`（C163）守的是量那些能力的尺會不會過期，
+與 `tools/doc-facts` 同一類。這支工具對兩者一視同仁 —— 它問的是
+「寫下來的還成不成立」，不是「這條算不算 v1 承諾」。
+
 ## 用法
 
 ```bash
@@ -18,7 +23,8 @@ node tools/promise-check/src/cli.ts
 
 讀 `specs/*.feature`，對每一個場景：
 
-1. 把版控裡的兩片切片、`platform`、`apps`、`.github` **複製**到暫存目錄
+1. 把版控裡的兩片切片、`platform`、`apps`、`.github` 與根層的 `vite.config.ts`
+   **複製**到暫存目錄
 2. 照「假設」那一句把副本弄壞
 3. 跑「當」那一句指名的閘門
 4. 比對「那麼」說的結果與訊息片段
@@ -31,12 +37,13 @@ node tools/promise-check/src/cli.ts
 是被指名的閘門在那裡**噴 ENOENT 或安靜地掃到 0 個檔**，而 0 個檔在每一條
 「必須紅」上長成〈承諾沒有牙齒〉、在對照組上長成綠燈。
 
-| 層         | 誰在副本上讀它                                                   |
-| ---------- | ---------------------------------------------------------------- |
-| `features` | `conformance` 的切片契約（只放固定的兩片，理由見 `breakage.ts`） |
-| `platform` | `theme-verify` 的元件與代幣；`conformance` 的 CSP 與幽靈依賴     |
-| `apps`     | 同上                                                             |
-| `.github`  | `conformance` 的 `checkActionPinning`                            |
+| 層               | 誰在副本上讀它                                                   |
+| ---------------- | ---------------------------------------------------------------- |
+| `features`       | `conformance` 的切片契約（只放固定的兩片，理由見 `breakage.ts`） |
+| `platform`       | `theme-verify` 的元件與代幣；`conformance` 的 CSP 與幽靈依賴     |
+| `apps`           | 同上                                                             |
+| `.github`        | `conformance` 的 `checkActionPinning`                            |
+| `vite.config.ts` | `threshold-check` 被驗的對象 —— 那幾格門檻的數字（C163）         |
 
 ⚠️ **`tools/` 刻意不在裡面** —— 閘門自己的素材（`theme-verify` 的 `fixtures/`）
 不隨 `--root` 走。⚠️ **複製走 `git ls-files`**，所以切分支留下的殘骸不會被
@@ -70,8 +77,9 @@ node tools/promise-check/src/cli.ts
 ⚠️ **有兩種形狀，而兩種的處置一樣。** 舊的那種是**靜默忽略**不認得的旗標
 （C123 §一 量到的病，C126 之後八支 CLI 都不再這樣）；今天的那種是閘門接了
 `parseFlags` 但**沒有宣告 `--root`**，於是它**拒絕**了那個旗標 —— 兩趟都失敗、
-訊息相同，探針判定一樣是「看不見」。八支裡今天有兩支讀 `--root`
-（`conformance`、`theme-verify`），其餘六支是後面這一種。
+訊息相同，探針判定一樣是「看不見」。⚠️ **哪一支是哪一種，不在這裡維護一份清單** ——
+`probeRootSupport` 每次跑都會當場說，而寫在散文裡的那種數字沒有任何東西在守。
+今天讀 `--root` 的是 `conformance`、`theme-verify`（C127）與 `threshold-check`（C163）。
 ⚠️ 對照組接不住這個方向 —— 那道保險守的是「沙盒建壞掉」（每一條該紅的都紅），
 這裡是「閘門沒看沙盒」（每一條該綠的都綠）。
 

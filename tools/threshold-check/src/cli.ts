@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { resolve } from "node:path";
+
 import { formatReport } from "@org/conformance/report";
 import { parseFlags, repoRoot } from "@org/gate-kit";
 
@@ -10,7 +12,8 @@ import { probe, ProbeError } from "./probe.ts";
  * 複雜度門檻有沒有比實測最大值高。
  *
  * 用法：
- *   node tools/threshold-check/src/cli.ts    有一格對不上時回傳非零
+ *   node tools/threshold-check/src/cli.ts             有一格對不上時回傳非零
+ *   node tools/threshold-check/src/cli.ts --root <p>  換一份被驗的 vite.config.ts
  *
  * 判定寫在 `src/check.ts` 的檔頭，量法寫在 `src/probe.ts` 的檔頭。
  *
@@ -18,16 +21,22 @@ import { probe, ProbeError } from "./probe.ts";
  * 規矩與 `tools/conformance` 同一條（#53）。
  */
 /**
- * ⚠️ **這支不吃任何旗標 —— 而「不吃」必須是一句話，不是一片沉默**（C126）。
- * 空 spec 在 `parseFlags` 底下的意思是拒絕所有旗標，不是放行所有旗標。
+ * ⚠️ **不認得的旗標一律失敗，而「不吃」必須是一句話，不是一片沉默**（C126）。
+ *
+ * ⚠️ `--root` 是 C163 補的，而它**只換被驗的那份設定**：`vp` 的位置、被 lint
+ * 的那棵樹、下面那個錨點，三者一律留在 `repoRoot()`。理由是 C127 §一 ——
+ * `--root` 指的是被驗的對象，不是「這支工具跑在哪」。
  */
-const FLAGS = parseFlags(process.argv.slice(2), {});
+const FLAGS = parseFlags(process.argv.slice(2), {
+  root: { kind: "value", noun: "目錄" },
+} as const);
 if (!FLAGS.ok) {
   console.error(FLAGS.message);
   process.exit(1);
 }
 
 const ROOT = repoRoot();
+const TARGET = FLAGS.flags.root === undefined ? ROOT : resolve(FLAGS.flags.root);
 
 /**
  * 一個**一定會被 lint 到**的檔案。用來證明檔案清單真的是檔案清單。
@@ -37,9 +46,9 @@ const ROOT = repoRoot();
 const ANCHOR = "tools/gate-roster/src/cli.ts";
 
 /**
- * 量測台自己的四條夾具。
+ * 量測台自己的六條夾具。
  *
- * ⚠️ 依 C154 §三 第 3 條，這四條**不計 D16 迭代軸的分** —— 它們守的是這支
+ * ⚠️ 依 C154 §三 第 3 條，這六條**不計 D16 迭代軸的分** —— 它們守的是這支
  * 工具有沒有量對，不是別人的程式碼有沒有壞。寫在這裡是因為少了它們，
  * 一趟壞掉的量測會回綠：這支工具的所有紅燈都是「零違規」形狀的，
  * 而「什麼都沒量到」也是零違規。
@@ -91,7 +100,7 @@ function fixtures(outcome: ReturnType<typeof probe>): string | undefined {
 }
 
 try {
-  const outcome = probe(ROOT);
+  const outcome = probe(ROOT, TARGET);
 
   const broken = fixtures(outcome);
   if (broken !== undefined) {
