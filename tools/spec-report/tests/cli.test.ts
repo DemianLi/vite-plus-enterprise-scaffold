@@ -24,25 +24,43 @@ describe("說明文字裡的指令要是真的跑得動的", () => {
   });
 });
 
-describe("真的 repo（目前沒有任何切片有規格）", () => {
-  const resultsPath = join(tmpdir(), `spec-report-empty-${process.pid}.json`);
-  const reportPath = join(tmpdir(), `spec-report-empty-${process.pid}.md`);
-
-  beforeAll(() => {
-    writeFileSync(resultsPath, JSON.stringify({ testResults: [] }));
-  });
+describe("真的 repo —— 事實來源那條路徑走得通", () => {
+  const reportPath = join(tmpdir(), `spec-report-real-${process.pid}.md`);
   afterAll(() => {
-    rmSync(resultsPath, { force: true });
     rmSync(reportPath, { force: true });
   });
 
   /**
-   * ⚠️ 空不是錯誤 —— 既有兩個切片刻意沒有規格（C114 §六）。
-   * 而這一條同時在驗**事實來源那條路徑走得通**：`git ls-files` 在真的 repo 上
-   * 跑得起來、glob 對得上、不炸。
+   * ⚠️ **這一組原本斷言「真的 repo 上一個切片規格都沒有」，而那個前提在
+   * `features/invoice` 進版控的那一刻死掉了**（C165）。它一直是對的，只是
+   * 它對的理由是「這棵樹剛好還沒有人用過這條線」—— 不是這支工具的性質。
+   *
+   * 留下來的是它真正在守的東西：`git ls-files` 在真的 repo 上跑得起來、
+   * glob（`features/*&#47;specs/*.feature`）對得上、路徑的中文不炸（C112）。
+   *
+   * ⚠️ 刻意**不驗退出碼**：那要看 `.vitest-results.json` 在不在，而那是排程
+   * 的事（C87），不是這條路徑的事。驗它會讓這一條在乾淨 clone 上偽紅。
    */
+  it("git ls-files 在真的 repo 上找得到版控中的規格", () => {
+    const { out } = run(["--report", reportPath, "--root", REPO]);
+    expect(out, "版控裡的切片規格要被找到").toContain("invoice");
+  });
+});
+
+describe("空的樹 —— 空不是錯誤", () => {
+  let root: string;
+
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), "spec-report-empty-"));
+    spawnSync("git", ["init", "-q"], { cwd: root });
+  });
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  /** ⚠️ 空不是錯誤 —— 既有兩個切片刻意沒有規格（C114 §六）。 */
   it("空樹 exit=0，而且說得出為什麼是空的", () => {
-    const { status, out } = run(["--report", reportPath, "--root", REPO]);
+    const { status, out } = run(["--root", root]);
     expect(status).toBe(0);
     expect(out).toContain("版控中的");
   });
@@ -54,9 +72,22 @@ describe("真的 repo（目前沒有任何切片有規格）", () => {
    * 否則第一次用的人只會覺得工具壞了。
    */
   it("空的訊息要自己說出「還沒 git add」這個出口", () => {
-    const { out } = run(["--report", reportPath, "--root", REPO]);
+    const { out } = run(["--root", root]);
     expect(out).toContain("git add");
     expect(out).toContain("git ls-files");
+  });
+
+  /**
+   * 🔴 對照：磁碟上有規格、但沒 `git add`，仍然要判空。
+   * 少了這一條，事實來源被改成 `readdirSync` 上面兩條照樣綠。
+   */
+  it("🔴 檔案在磁碟上但沒進 index → 仍然是空的", () => {
+    mkdirSync(join(root, "features/ghost/specs"), { recursive: true });
+    writeFileSync(join(root, "features/ghost/specs/ghost.feature"), FEATURE);
+    const { status, out } = run(["--root", root]);
+    expect(status).toBe(0);
+    expect(out).toContain("版控中的");
+    rmSync(join(root, "features/ghost"), { recursive: true, force: true });
   });
 });
 
@@ -185,5 +216,83 @@ describe("有規格的樹", () => {
     expect(out).toContain("未執行 3");
     expect(out).toContain("--outputFile=.vitest-results.json");
     writeFileSync(resultsPath, JSON.stringify(ALL_GREEN));
+  });
+});
+
+/**
+ * ── 兩道閘門的互斥（C165）──────────────────────────────────────────
+ *
+ * `vpr ready` 第 1 步是 `vp check`（oxfmt），第 5 步是這支工具的 `--check`。
+ * 報表進版控、而 oxfmt 會把它的表格補上對齊空白 —— 逐位元組比的話兩個方向
+ * 都紅：排版過就說「報表過期」，重新產生就說「沒排版」。
+ *
+ * ⚠️ **這個缺陷從 C115 就在了，只是一直沒發作** —— 報表在第一個帶規格的
+ * 切片進版控之前一列表格都沒有，兩支工具從來沒碰過同一行。
+ *
+ * ⚠️ 這裡的 padding 是**手工補的**，不 spawn `vp fmt`：閘門與它的測試不依賴
+ * 驅動層（D2）。逐格寬度對不對由 `report.test.ts` 那組樣本負責，這裡驗的是
+ * **兩半都要在** —— 比對放寬了、但寫檔還是無條件覆寫的話，下一步照樣紅。
+ */
+describe("報表的排版歸 oxfmt，內容歸這支工具", () => {
+  let root: string;
+
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), "spec-report-fmt-"));
+    mkdirSync(join(root, "features/order/specs"), { recursive: true });
+    writeFileSync(join(root, "features/order/specs/order.feature"), FEATURE);
+    spawnSync("git", ["init", "-q"], { cwd: root });
+    spawnSync("git", ["add", "-A"], { cwd: root });
+    writeFileSync(join(root, "features/order/.vitest-results.json"), JSON.stringify(ALL_GREEN));
+  });
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  /** 把產出的表格列補上空白，模擬 oxfmt 排版過的樣子。 */
+  function pad(text: string): string {
+    return text
+      .split("\n")
+      .map((line) => (line.startsWith("|") ? line.replaceAll(" | ", "   |   ") : line))
+      .join("\n");
+  }
+
+  const report = (): string => join(root, "SPEC-REPORT.md");
+
+  it("排版過的報表，--check 仍然綠", () => {
+    run(["--root", root]);
+    writeFileSync(report(), pad(readFileSync(report(), "utf8")));
+    const { status, out } = run(["--root", root, "--check"]);
+    expect(status, out).toBe(0);
+    expect(out).toContain("與現況一致");
+  });
+
+  it("而再產生一次不會把排版洗掉 —— 內容沒變就不重寫", () => {
+    run(["--root", root]);
+    const padded = pad(readFileSync(report(), "utf8"));
+    writeFileSync(report(), padded);
+    run(["--root", root]);
+    expect(readFileSync(report(), "utf8"), "重寫了 padding 就會在下一步 vp check 紅").toBe(padded);
+  });
+
+  /**
+   * 🔴 對照，而且是**內容真的變了**那一種：上面兩條放寬的是空白，
+   * 放寬過頭的話這一條會綠。它必須逐條盯著兩個出口 ——
+   * `--check` 要紅，而且不帶 `--check` 那一趟要真的把檔案改回來。
+   */
+  it("🔴 對照：內容真的過期時，--check 紅、而且重新產生會覆寫", () => {
+    // ⚠️ 前一條測試把檔案留成排版過的，而這支工具「內容沒變就不重寫」——
+    // 直接 run 拿到的會是**那一份**，不是產生器的輸出。先刪掉再產生。
+    rmSync(report(), { force: true });
+    run(["--root", root]);
+    const fresh = readFileSync(report(), "utf8");
+    const stale = pad(fresh).replace("75.0%", "25.0%");
+    expect(stale, "樣本沒改到東西的話這一條驗不到任何事").not.toBe(pad(fresh));
+
+    writeFileSync(report(), stale);
+    const { status } = run(["--root", root, "--check"]);
+    expect(status, "內容過期了卻說一致").toBe(1);
+
+    run(["--root", root]);
+    expect(readFileSync(report(), "utf8")).toBe(fresh);
   });
 });

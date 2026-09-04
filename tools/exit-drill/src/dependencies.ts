@@ -62,6 +62,12 @@ export const DRILL_TEST_DEPENDENCIES: readonly string[] = [
   "happy-dom",
   // 同一批測試用它掛載元件。純 JS，與工具鏈無關。
   "@vue/test-utils",
+  // `features/invoice/tests/specs/invoice.spec.ts` 的 `describeFeature`——
+  // 業務功能完成率那條線的接線檔（C114／C115）。純 JS，peer 只有 vitest，
+  // 而 vitest 由 UPSTREAM 提供，所以它不是「被替換掉的工具鏈本身」。
+  // ⚠️ 少了它，演練跑的是一份**看起來全綠、而規格一條都沒執行**的樹 ——
+  // 那正是 C114 §二 記的靜默失效，症狀與成功一模一樣。
+  "@amiceli/vitest-cucumber",
 ];
 
 /**

@@ -8,7 +8,7 @@ import { parseFlags } from "@org/gate-kit";
 
 import { collectInstances, type SpecFile } from "./collect.ts";
 import { resolve, type VitestResults } from "./match.ts";
-import { renderCli, renderReport, tally } from "./render.ts";
+import { renderCli, renderReport, sameReport, tally } from "./render.ts";
 
 /**
  * 業務功能完成率 —— **驗收規格的通過率**（TESTING.md 層 3、C114）。
@@ -223,7 +223,7 @@ export function main(argv: readonly string[]): number {
       );
       staleReport = true;
     }
-    if (current !== null && current !== content) {
+    if (current !== null && !sameReport(current, content)) {
       // ⚠️ 訊息要說得出**兩種**成因，因為修法不同：報表真的忘了更新，
       // 或是某個場景換了狀態（上面已經印出來了）。只講前者，讀的人會以為
       // 重新產生一次就沒事了。
@@ -236,7 +236,18 @@ export function main(argv: readonly string[]): number {
     }
     if (!staleReport) process.stdout.write(`\n✓ ${reportPath} 與現況一致\n`);
   } else {
-    writeFileSync(absoluteReport, content);
+    // ⚠️ **內容沒變就不重寫。** 重寫會把 oxfmt 補過的 padding 洗掉，於是
+    // `vpr ready` 的第 1 步（`vp check`）當場紅 —— 而重新排版又會讓第 5 步
+    // 說報表過期。這裡與上面的 `sameReport` 是同一件事的兩半，缺一邊就繞不出去。
+    let existing: string | null = null;
+    try {
+      existing = readFileSync(absoluteReport, "utf8");
+    } catch {
+      existing = null;
+    }
+    if (existing === null || !sameReport(existing, content)) {
+      writeFileSync(absoluteReport, content);
+    }
   }
 
   // ⚠️ 待辦**不擋** —— 那是三態的定義：有定義、還沒做，是警告不是失敗。
