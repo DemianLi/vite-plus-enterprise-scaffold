@@ -1,11 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, readdirSync, rmSync, unlinkSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, readdirSync, rmSync, unlinkSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { SANDBOX_LAYERS, makeSandbox, trackedSlices } from "../src/breakage.ts";
+import { SANDBOX_FILES, SANDBOX_LAYERS, makeSandbox, trackedSlices } from "../src/breakage.ts";
 
 /**
  * 沙盒契約：**副本裡真的有被驗的那幾層，而閘門真的看得見它們**（C127 §二）。
@@ -82,6 +82,25 @@ describe("沙盒契約", () => {
 
     expect(tracked, `版控裡沒有 ${layer}/ —— 層名打錯了？`).toBeGreaterThan(0);
     expect(fileCount(join(dir, layer))).toBe(tracked);
+  });
+
+  /**
+   * 根層檔案與「層」分開驗，不是為了整齊：對一個檔案遞迴數檔案會 ENOTDIR。
+   * 這一條要求**逐位元組相同** —— 副本裡放一份空的或半截的 `vite.config.ts`，
+   * `tools/threshold-check` 在上面量到的東西就不是這棵樹的。
+   *
+   * ⚠️ **這裡沒有「敲掉那一步」的差分，而那不是漏掉的。** 上面 `platform`／
+   * `apps` 需要差分，是因為補進它們的那一刻沒有任何場景用得到它們。
+   * `vite.config.ts` 不同：`specs/gate-thresholds.feature` 的兩個場景**就是**
+   * 那個差分（抬高門檻必須紅、原封不動必須綠），而它們每次 `vpr gate` 都跑。
+   * 在這裡再抄一份，等於同一件事量兩次而且各多花三秒。
+   */
+  it.each(SANDBOX_FILES)("★ 契約裡的 %s 在副本上與真樹逐位元組相同", (file) => {
+    const dir = sandbox();
+    const copied = join(dir, file);
+
+    expect(existsSync(copied), `副本裡沒有 ${file} —— 沙盒契約破了`).toBe(true);
+    expect(readFileSync(copied)).toEqual(readFileSync(join(ROOT, file)));
   });
 
   /**

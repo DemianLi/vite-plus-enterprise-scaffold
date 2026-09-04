@@ -402,19 +402,33 @@ jobs:
       - name: 五層答不出 · SBOM 完整性檢查
         run: node tools/supply-chain/src/cli.ts --verify-sbom sbom.cdx.json
 
-      # ── 相依性漏洞（D13 修補 SLA：critical 3 天／high 14 天）────────
+      # ── 相依性漏洞（D13 修補 SLA；實際射程見 C160）─────────────────
+      #
+      # ⚠️ 這道閘門是**全嚴重度零容忍**：任何一條有修補版本的漏洞，不分
+      # critical／high／medium／low／unknown，都讓整個 job 紅。D13 那張表寫的是
+      # 分級（critical 3 天／high 14 天／medium 下個 sprint），而**樹上沒有任何
+      # 東西實作那個分級** —— 這一步沒有，Renovate 的 `vulnerabilityAlerts`
+      # 也沒有（#244／C160）。
       - name: 五層答不出 · SCA 漏洞掃描
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:
           # 同上：少了這行，這道閘門掃 0 個套件、永遠回綠燈，
-          # 而 D13 的「critical 3 天／high 14 天」SLA 就是靠它把關的。
+          # 而 D13 的修補 SLA 就是靠它把關的。
           TRIVY_INCLUDE_DEV_DEPS: "true"
         with:
           scan-type: fs
           scan-ref: .scan
           format: sarif
           output: trivy.sarif
-          severity: HIGH,CRITICAL
+          # ⚠️ **這裡刻意沒有 `severity:`。** 原本寫著 `HIGH,CRITICAL`，而它一次
+          # 都沒有生效過：`format: sarif` 且沒給 `limit-severities-for-sarif` 時，
+          # action 印一行「Building SARIF report with all severities」並用全嚴重度
+          # 重建報告 —— `exit-code` 是對那一份算的。#243 擋下 `main` 的正是兩條
+          # MEDIUM，而同一份樹用 `--severity HIGH,CRITICAL` 掃出 0 條。
+          # ⚠️⚠️ 它是**休眠**，不是死透：`TRIVY_SEVERITY` 照樣被設進去，只是被
+          # sarif 那條路徑蓋掉。把上面 `format:` 換成 `table`，那一行就會醒過來、
+          # 把閘門悄悄縮到只剩 high／critical。刪掉它才拆得掉這個陷阱。
+          # 要分級就要一則裁決（#244／C160），不是補一個 `with:` 鍵。
           exit-code: "1"
           ignore-unfixed: true
 
@@ -430,6 +444,12 @@ jobs:
         uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
         with:
           sarif_file: trivy.sarif
+          # ⚠️ 少了這一行，configuration 的身分就從 workflow ＋ job 名 ＋ matrix 的值
+          # 推導 —— 而 `gate` 的 matrix `ref`（C113）排程展開成 "main"、PR 是空字串，
+          # 於是 PR 那一趟跟 `main` 上的結果永遠對不上：Code Scanning 算不出「這支 PR
+          # 新引入了哪些 SCA 告警」，Trivy 那格 check 就永遠停在 neutral。
+          # ⚠️ 而一個永遠 neutral 的 check，跟一個從來沒跑過的 check 長得一樣（#240）。
+          category: trivy
 
       # ── 供應鏈：原生二進位例外的憑證（R2／R4）─────────────────────
       # 這裡原本有一步：`npm view vite-plus dist.attestations > provenance.json`。

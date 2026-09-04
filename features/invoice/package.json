@@ -1,0 +1,33 @@
+{
+  "name": "@org/feature-invoice",
+  "version": "0.0.0",
+  "private": true,
+  "description": "請款單",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@org/http-client": "workspace:*",
+    "@org/slice-kit": "workspace:*",
+    "@org/ui": "workspace:*",
+    "@tanstack/vue-query": "catalog:",
+    "pinia": "catalog:",
+    "vue": "catalog:",
+    "vue-i18n": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@amiceli/vitest-cucumber": "catalog:",
+    "@org/tsconfig": "workspace:*",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

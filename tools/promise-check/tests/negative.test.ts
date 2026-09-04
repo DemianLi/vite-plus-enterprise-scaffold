@@ -33,6 +33,33 @@ import { checkPromises } from "../src/check.ts";
 const HERE = resolve(fileURLToPath(import.meta.url), "..");
 const ROOT = resolve(HERE, "../../..");
 const REAL_SPEC = "specs/promise-1-architecture.feature";
+/**
+ * 另一份**沒有被改壞**的規格，每一次呼叫都要一起餵進去。
+ *
+ * ⚠️ 不是陪襯：`BREAKAGES` 是一張全樹共用的表，而孤兒檢查問的是「這張表裡
+ * 有沒有哪一條沒有人用」。只餵一份規格的話，另一份的破壞手法會**全部變成
+ * 孤兒**，`checkPromises` 在接線那一關就回頭 —— 下面每一條「該紅在執行結果上」
+ * 的斷言都會拿到兩則〈孤兒接線〉，而那與它們要守的東西無關。
+ *
+ * ⚠️ 代價是這支測試檔會真的跑 `tools/threshold-check`（每趟約三秒）。
+ * 拿一份假的去頂替省不掉：假的規格得指名某一道真的閘門，而它一旦跑起來，
+ * 省下的就又回來了。
+ *
+ * ⚠️⚠️ **這一份必須是綠的。** 它紅的那天，下面每一條的紅燈都會指向錯的地方 ——
+ * 那些斷言問的是「promise-1 被改壞了會不會被抓到」，而報告上會多出一批
+ * 與它們無關的 finding。先跑 `node tools/promise-check/src/cli.ts` 看是哪一份紅。
+ */
+const OTHER_SPEC = "specs/gate-thresholds.feature";
+
+/**
+ * 會真的跑到閘門的那幾條要放寬逾時。
+ *
+ * ⚠️ **這不是「調鬆門檻換綠燈」**：這裡量的是「改壞規格會不會被抓到」，
+ * 不是「它跑多快」。`tools/threshold-check` 每趟約三秒，而 vitest 的預設是五秒 ——
+ * 不放寬的話，紅燈說的會是逾時，而那則訊息指向錯的地方。
+ * 真要守速度，那是另一條斷言，而且得先有一個被裁過的預算。
+ */
+const EXECUTES = 60_000;
 
 let sandbox: string | undefined;
 
@@ -57,7 +84,7 @@ function patched(from: string, to: string): string[] {
   sandbox = mkdtempSync(join(tmpdir(), "promise-negative-"));
   const path = join(sandbox, "patched.feature");
   writeFileSync(path, source.replace(from, to));
-  return [path];
+  return [path, OTHER_SPEC];
 }
 
 function rules(specs: readonly string[]): string[] {
@@ -71,21 +98,29 @@ describe("★ 真規格本身是綠的", () => {
    * ⚠️ 這一條必須先過，否則下面每一條都沒有意義 —— 只要接線壞了，
    * 所有「該紅」的測試都會「成功變紅」，而原因是環境壞了。
    */
-  it("版控裡那份規格，每一條承諾都成立", () => {
-    const { findings, runs } = checkPromises(ROOT, [REAL_SPEC]);
+  it(
+    "版控裡那份規格，每一條承諾都成立",
+    () => {
+      const { findings, runs } = checkPromises(ROOT, [REAL_SPEC, OTHER_SPEC]);
 
-    expect(findings, JSON.stringify(findings, null, 2)).toEqual([]);
-    // 每一條承諾都**真的執行過**，不是解析過就算數。
-    expect(runs.length).toBeGreaterThanOrEqual(4);
-  });
+      expect(findings, JSON.stringify(findings, null, 2)).toEqual([]);
+      // 每一條承諾都**真的執行過**，不是解析過就算數。
+      expect(runs.length).toBeGreaterThanOrEqual(4);
+    },
+    EXECUTES,
+  );
 });
 
 describe("承諾說謊 → 紅", () => {
-  it("把「必須紅」改成「必須綠」→ 執行結果對不上", () => {
-    expect(rules(patched(CROSS_SLICE_THEN, '那麼 它必須綠，訊息裡要出現 "跨切片"'))).toContain(
-      "承諾誤擋",
-    );
-  });
+  it(
+    "把「必須紅」改成「必須綠」→ 執行結果對不上",
+    () => {
+      expect(rules(patched(CROSS_SLICE_THEN, '那麼 它必須綠，訊息裡要出現 "跨切片"'))).toContain(
+        "承諾誤擋",
+      );
+    },
+    EXECUTES,
+  );
 
   it("把對照組的「必須綠」改成「必須紅」→ 沒有對照組", () => {
     // ⚠️ 這一條與上一條方向相反：對照組被改掉之後，**沙盒壞了也不會有人發現**。
@@ -118,7 +153,7 @@ describe("規格沒被讀到 → 紅（這一組才是重點）", () => {
   });
 
   it("規格檔改名或被刪 → 規格不見了", () => {
-    expect(rules(["specs/不存在的規格.feature"])).toContain("規格不見了");
+    expect(rules(["specs/不存在的規格.feature", OTHER_SPEC])).toContain("規格不見了");
   });
 
   it("一份規格都沒有 → 沒有規格（不是「沒事可做」）", () => {
@@ -171,19 +206,27 @@ describe("承諾綁到一道看不見副本的閘門 → 紅", () => {
    * 東西。那天是好消息，換一支還沒宣告、而且**在閘門鏈上**的閘門就好 ——
    * 但要記得換。
    */
-  it("指名一支存在、在 gate 上、卻看不見副本的閘門", () => {
-    expect(rules(patched("當 跑 tools/conformance", "當 跑 tools/doc-facts"))).toContain(
-      "閘門指不到副本",
-    );
-  });
+  it(
+    "指名一支存在、在 gate 上、卻看不見副本的閘門",
+    () => {
+      expect(rules(patched("當 跑 tools/conformance", "當 跑 tools/doc-facts"))).toContain(
+        "閘門指不到副本",
+      );
+    },
+    EXECUTES,
+  );
 });
 
 describe("紅在別的地方 → 也要紅", () => {
-  it("訊息片段對不上時不算通過", () => {
-    // 閘門確實會紅（跨切片依賴），但紅的內容不是規格要求的那一段。
-    // 少了這個比對，任何一種違規都能讓任何一條承諾變綠。
-    expect(
-      rules(patched(CROSS_SLICE_THEN, '那麼 它必須紅，訊息裡要出現 "不會出現的字"')),
-    ).toContain("紅在別的地方");
-  });
+  it(
+    "訊息片段對不上時不算通過",
+    () => {
+      // 閘門確實會紅（跨切片依賴），但紅的內容不是規格要求的那一段。
+      // 少了這個比對，任何一種違規都能讓任何一條承諾變綠。
+      expect(
+        rules(patched(CROSS_SLICE_THEN, '那麼 它必須紅，訊息裡要出現 "不會出現的字"')),
+      ).toContain("紅在別的地方");
+    },
+    EXECUTES,
+  );
 });

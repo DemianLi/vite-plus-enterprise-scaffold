@@ -1,5 +1,6 @@
 import type { Feature } from "@org/slice-kit";
 
+import invoice from "@org/feature-invoice";
 import order from "@org/feature-order";
 import shipment from "@org/feature-shipment";
 
@@ -16,4 +17,4 @@ import shipment from "@org/feature-shipment";
  * 刻意**不**用 import.meta.glob 自動掃描 —— 動態 glob 會讓 Sonar/Checkmarx
  * 在切片進入點斷掉資料流分析，而那正是 D1 最嚴組合下最不能出現的事。
  */
-export const features: readonly Feature[] = [order, shipment];
+export const features: readonly Feature[] = [invoice, order, shipment];

@@ -1,0 +1,25 @@
+{
+  "name": "@org/threshold-check",
+  "version": "0.0.0",
+  "private": true,
+  "description": "複雜度門檻有沒有比實測最大值高（C147 §二 的「降」那一半）",
+  "bin": {
+    "threshold-check": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@org/conformance": "workspace:*",
+    "@org/gate-kit": "workspace:*"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

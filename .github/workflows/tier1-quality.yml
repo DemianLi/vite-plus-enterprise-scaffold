@@ -138,6 +138,23 @@ jobs:
       - name: 層 1 約束 · 格式、lint、型別（oxfmt + oxlint + tsgolint）
         run: ./node_modules/.bin/vp check
 
+      # ── 門檻有沒有比實測最大值高（C147 §二／#226）─────────────────────
+      #
+      # 上一步問「有沒有東西超過門檻」，這一步問**反過來的那一半**：
+      # 門檻有沒有高過樹上實際存在的最壞情況。C119 定的校準法是單向棘輪 ——
+      # 觀測最大值上升時門檻被往上校準（有論證），而下降時**在這一步存在之前
+      # 沒有任何東西會提醒你**。實際的帳：`max-lines-per-function` 高了 40 行、
+      # 安靜了 15 支 commit，而 `vp lint`、`vpr gate`、`pnpm ready` 三個都是
+      # 綠的（#226）。⚠️ 「抬」那一半仍然靠人（要一則 C 編號），這一步不碰它。
+      #
+      # ⚠️ 它**必須排在上一步之後**：兩步問的是同一組數字的兩個方向，
+      # 上一步紅的時候這一步報的是回音（訊息會叫你去看 `vp check`，不是動門檻）。
+      #
+      # ⚠️ 這一步會跑四趟 `vp lint`（約三秒），而它**沒有碰 `vite.config.ts`** ——
+      # 量測在一個符號連結農場裡進行，理由見 tools/threshold-check/src/probe.ts 的檔頭。
+      - name: 複雜度門檻沒有過期
+        run: node tools/threshold-check/src/cli.ts
+
       # ── 上一步看不到的那一半（HANDOFF #26 / C68）──────────────────────
       #
       # `vp check` 的型別段是 tsgolint，**它不看 `.vue`**。實測：同一行

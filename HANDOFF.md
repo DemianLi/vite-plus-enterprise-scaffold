@@ -17,7 +17,7 @@ grep -n "@org/" CODEOWNERS
 
 ⚠️ **在換掉之前，D12 的擁有權治理是一份文字檔，完全沒有生效。**
 
-`CODEOWNERS` 裡的 21 條條目全部是佔位符（`@org/team-fulfillment`、
+`CODEOWNERS` 裡的 22 條條目全部是佔位符（`@org/team-fulfillment`、
 `@org/platform-maintainers` 之類）。GitHub 對不存在的團隊**不會報錯** ——
 它只是不指派任何審查者。症狀是：`platform/` 的破壞性變更 PR 開下去，
 沒有人被通知，而分支保護那一格顯示「已滿足」。
@@ -955,7 +955,7 @@ element-plus 只要 +21 套件、0 原生二進位、0 授權旗標，CSP 也已
 
 ## 15. repo 管理者 — 把 `@org/*` 換成真的團隊（採用的第一步）
 
-**`CODEOWNERS` 裡的 21 條條目全部是佔位符。在替換之前，這份檔案一條都沒有生效。**
+**`CODEOWNERS` 裡的 22 條條目全部是佔位符。在替換之前，這份檔案一條都沒有生效。**
 
 GitHub 對每一條都會判 `Unknown owner`：PR 不會自動指派審查者，
 保護分支的「需要 owner 核准」也沒有東西可要求。**D12 的擁有權治理目前

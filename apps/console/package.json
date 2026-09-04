@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@org/config": "workspace:*",
+    "@org/feature-invoice": "workspace:*",
     "@org/feature-order": "workspace:*",
     "@org/feature-shipment": "workspace:*",
     "@org/slice-kit": "workspace:*",
