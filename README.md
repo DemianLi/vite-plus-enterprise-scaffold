@@ -298,7 +298,7 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 
 |                       | 內容                                                                                                                                                                                                     | 指令                                       | 何時跑                    |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------- |
-| **Tier 1 — 品質**     | 閘門名冊一致 + SCOPE.md 與版控內容一致 + oxlint + oxfmt + 型別檢查 + .vue 型別檢查 + 驗收規格完成率 + 無障礙靜態檢查 + 設計系統接縫                                                                      | `vp check`、`vpr a11y`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
+| **Tier 1 — 品質**     | 閘門名冊一致 + SCOPE.md 與版控內容一致 + oxlint + oxfmt + 型別檢查 + .vue 型別檢查 + 驗收規格完成率 + 無障礙靜態檢查 + 設計系統接縫 + 複雜度門檻沒有過期                                                 | `vp check`、`vpr a11y`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
 | **Tier 2 — 安全閘門** | 一致性檢查 + platform API 表面檢查 + D2 退出面檢查 + 供應鏈盤點 + 法遵對照表 + 測試環境個資檢查 + 文件數字與事實來源一致 + 框架承諾檢查 + BFF 契約驗收 + ESLint 安全規則 + SAST + 機密掃描 + SBOM 與 SCA | `vpr gate`                                 | 每次 PR **＋ 每日排程**   |
 
 > **這張表的閘門部分是被守著的。** `tools/gate-roster` 會比對它與 `scripts.gate`、
@@ -575,7 +575,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 > 的內部骨架，MIT 宣告目前只在 [LICENSE](LICENSE) 與根 `package.json` 的
 > `"license": "MIT"` 兩處，兩者必須一致。正式對外前請把 `@org` 換成
 > **法務認可的法人全名**——這是組織的決定，不是這份 README 能代為認定的。
-> 底下 32 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
+> 底下 33 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
 
 上游相依的授權另計——`vite-plus` 為 MIT（Cloudflare 併購後），`lightningcss` 為 MPL-2.0，
 另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。完整盤點見 `vpr sca-dossier`。
