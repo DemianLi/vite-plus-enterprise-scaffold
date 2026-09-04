@@ -8,13 +8,21 @@ import UiSelect from "../src/components/UiSelect.vue";
 /**
  * `UiField` 的接線驗收。
  *
- * ── 為什麼這一支是 SSR 而不是讀原始碼 ────────────────────────────────
+ * ── 為什麼這一支是 SSR，不是讀原始碼、也不是 mount ───────────────────
  *
- * 本 package 其他測試都是**讀原始碼文字**（見 `component-contract.test.ts`
- * 與 `a11y.test.ts` 的檔頭）—— 因為沒有 `jsdom`／`@vue/test-utils`，而為了
- * 一支測試往 `release/v1` 的交付線加依賴不划算。
+ * ⚠️ 「不 mount」原本的理由是「沒有 `@vue/test-utils`」，而 **C86（#80）
+ * 之後那句話是假的** —— 相依在 `package.json` 裡，同 package 有兩支在 mount。
  *
- * ⚠️ 但這個元件的**全部價值都在執行期算出來的那個 `control` 物件上**：
+ * 今天的理由是**這一支不需要 DOM**：它問的全部是「輸出的 HTML 上，屬性值
+ * 與 id 對不對得起來」，`renderToString` 的字串就答得完。
+ *
+ * ⚠️ 界線在哪裡有現成的例子 —— `alert-dialog.test.ts` 檔頭記著同一招在那裡
+ * **一個字都驗不到**（reka-ui 的內容包在 `Teleport` 裡，SSR 產出是
+ * `<!--v-if-->`），所以那一支才 mount。**判準是「SSR 夠不夠」，不是「有沒有
+ * 相依」。**
+ *
+ * ⚠️ 不讀原始碼，則是因為這個元件的**全部價值都在執行期算出來的那個
+ * `control` 物件上**：
  * `aria-describedby` 要不要接、接幾個、順序、以及「沒有時必須是 undefined
  * 不是空字串」。讀原始碼對這些完全無感 —— 那條 `computed` 可以整個寫錯而
  * 每一個字串斷言照樣綠。

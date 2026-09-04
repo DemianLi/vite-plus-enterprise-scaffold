@@ -16,10 +16,19 @@ import { defaultSlotValues, stripComments } from "./contract.ts";
  *
  * ── 為什麼沒有一條是 mount 出來的 ────────────────────────────────────
  *
- * 本 package 沒有 `jsdom`／`happy-dom`／`@vue/test-utils`，整組測試都是
- * **讀原始碼文字**（見 `component-contract.test.ts` 檔頭）。要 mount 就得往
- * `release/v1` 的交付線 package 加測試依賴 —— 而這個 PR 的題目是修兩個缺陷，
- * 不是換一套測試策略。
+ * ⚠️ 這一段原本的理由是「本 package 沒有 `happy-dom`／`@vue/test-utils`」。
+ * **C86（#80）之後那句話就是假的** —— 兩個相依都在 `package.json` 裡，同
+ * package 的 `alert-dialog.test.ts` 與 `dropdown-menu.test.ts` 都 mount。
+ *
+ * 今天的理由是**形狀**：這一支掃目錄（`readdirSync(COMPONENTS_DIR)`，27 個
+ * 元件），一組條文套在每一個上面。mount 做不到這件事 —— 每個元件要各自的
+ * 必填 props（`UiField` 的 `label`），還有各自的父層上下文：`UiTableCell`、
+ * `UiTabsPanel`、`UiRadioItem` 都 `inject`，⚠️ 而 `UiRadioItem` 自己的檔頭
+ * 記著「放在外面不會報錯，只會點了沒反應」——**掛得起來但驗到的是錯的東西**。
+ *
+ * 改成 mount 就是把掃目錄換回一份寫死的清單，而那正是
+ * `component-contract.test.ts` 檔頭記的、上一版被換掉的原因：**它守的不是
+ * 一條規則，是一個檔案。**
  *
  * 代價要說清楚：**這裡證明的是「屬性寫在模板裡」，不是「瀏覽器算出來的
  * 無障礙樹長那樣」。** 前者擋得住「有人把它刪掉」，擋不住「Vue 改變
