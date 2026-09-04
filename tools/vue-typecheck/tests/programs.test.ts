@@ -1,9 +1,6 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { describe, expect, it } from "vitest";
+
+import { repoRoot, sandbox } from "@org/gate-kit/testing";
 
 import { allViews, discoverPrograms, isFixture } from "../src/programs.ts";
 
@@ -12,7 +9,7 @@ import { allViews, discoverPrograms, isFixture } from "../src/programs.ts";
  * 「新增一個切片會不會自動被檢查到」，而假目錄回答不了那個問題。
  */
 
-const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
+const ROOT = repoRoot();
 
 describe("排除規則", () => {
   it("★ 排除的是 tests/fixtures/，而且它真的排掉了東西", () => {
@@ -41,16 +38,14 @@ describe("排除規則", () => {
    * 加例外，不會被修（C41／C61）。
    */
   it("★ 點開頭的目錄整個不走 —— 過濾救不了正在被刪掉的目錄", () => {
-    const root = mkdtempSync(join(tmpdir(), "vue-typecheck-walk-"));
-    try {
-      mkdirSync(join(root, "apps/.tmp-x"), { recursive: true });
-      writeFileSync(join(root, "apps/.tmp-x/Hidden.vue"), "<template><i /></template>");
-      mkdirSync(join(root, "apps/real"), { recursive: true });
-      writeFileSync(join(root, "apps/real/Seen.vue"), "<template><i /></template>");
-      expect(allViews(root)).toEqual(["apps/real/Seen.vue"]);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+    const { root } = sandbox({
+      prefix: "vue-typecheck-walk-",
+      files: {
+        "apps/.tmp-x/Hidden.vue": "<template><i /></template>",
+        "apps/real/Seen.vue": "<template><i /></template>",
+      },
+    });
+    expect(allViews(root)).toEqual(["apps/real/Seen.vue"]);
   });
 });
 

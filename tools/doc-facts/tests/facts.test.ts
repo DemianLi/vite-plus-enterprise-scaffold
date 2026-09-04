@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+
+import { repoRoot, runCli } from "@org/gate-kit/testing";
 
 import { FACTS, REMEDIATION, checkFacts, handoffItemCount, type Fact } from "../src/facts.ts";
 
@@ -18,8 +18,8 @@ import { FACTS, REMEDIATION, checkFacts, handoffItemCount, type Fact } from "../
  * 標 ★ 的驗的是**不該紅的時候不會紅**。
  */
 
-const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
-const CLI = join(ROOT, "tools/doc-facts/src/cli.ts");
+const ROOT = repoRoot();
+const CLI = "tools/doc-facts/src/cli.ts";
 
 const FACT: Fact = {
   id: "demo",
@@ -374,14 +374,13 @@ describe("紅燈尾巴：它也會被拉 v1 的團隊讀到（C97）", () => {
 
 describe("CLI 端對端", () => {
   it("這個 repo 現在是綠的", () => {
-    const result = spawnSync("node", [CLI], { cwd: ROOT, encoding: "utf8" });
-    expect(result.status, `${result.stdout ?? ""}${result.stderr ?? ""}`).toBe(0);
+    const result = runCli(CLI);
+    expect(result.status, result.output).toBe(0);
   });
 
   it("★ 通過訊息要講出它刻意不守 DECISIONS.md", () => {
     // 少了這句，綠燈會被讀成「全 repo 的數字都對」。
-    const result = spawnSync("node", [CLI], { cwd: ROOT, encoding: "utf8" });
-    expect(result.stdout).toContain("決策日誌");
+    expect(runCli(CLI).stdout).toContain("決策日誌");
   });
 
   it("🔴 DECISIONS.md 裡的舊數字**不得**被守 —— 它陳述的是歷史", () => {
@@ -390,8 +389,7 @@ describe("CLI 端對端", () => {
     const decisions = readFileSync(join(ROOT, "DECISIONS.md"), "utf8");
     expect(decisions, "DECISIONS.md 不再有歷史數字 —— 這條測試失去意義").toContain("467 個套件");
 
-    const result = spawnSync("node", [CLI], { cwd: ROOT, encoding: "utf8" });
-    expect(result.status, "守到 DECISIONS.md 了").toBe(0);
+    expect(runCli(CLI).status, "守到 DECISIONS.md 了").toBe(0);
   });
 });
 

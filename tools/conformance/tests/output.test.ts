@@ -1,9 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+
+import { runCli, sandbox } from "@org/gate-kit/testing";
 
 /**
  * 報告要**整份**印得出來。
@@ -37,36 +36,26 @@ import { fileURLToPath } from "node:url";
  * 最大的一份 7 KB，那正是它們一字不差、卻沒抓到這個缺陷的原因。
  */
 
-const HERE = resolve(fileURLToPath(import.meta.url), "..");
-const ROOT = resolve(HERE, "../../..");
-const CLI = join(ROOT, "tools/conformance/src/cli.ts");
+const CLI = "tools/conformance/src/cli.ts";
 
 /** 讓報告確定超過 64 KB 的違規數。每一條約 200 位元組。 */
 const VIOLATIONS = 600;
 
-let sandbox: string | undefined;
-
-afterEach(() => {
-  if (sandbox !== undefined) rmSync(sandbox, { recursive: true, force: true });
-  sandbox = undefined;
-});
-
 describe("大報告不得被截斷", () => {
   it(`${VIOLATIONS} 條違規全部印得出來，最後一條是完整的`, () => {
-    const dir = mkdtempSync(join(tmpdir(), "conformance-output-"));
-    sandbox = dir;
-    mkdirSync(join(dir, "features"), { recursive: true });
-    mkdirSync(join(dir, ".github/workflows"), { recursive: true });
-
     // action 釘住那條規則是最好用的量產違規來源：一行 YAML 一條違規，
     // 而且不需要在磁碟上擺出一個能通過其他所有規則的切片。
     let workflow = "jobs:\n  a:\n    steps:\n";
     for (let i = 0; i < VIOLATIONS; i++) workflow += `      - uses: org/action-${i}@v1\n`;
-    writeFileSync(join(dir, ".github/workflows/ci.yml"), workflow);
+    const box = sandbox({
+      prefix: "conformance-output-",
+      files: { ".github/workflows/ci.yml": workflow },
+    });
+    mkdirSync(join(box.root, "features"), { recursive: true });
 
-    // encoding 一給就是 pipe —— 而 pipe 正是會出事的那一種 stdio。
-    const result = spawnSync("node", [CLI, "--root", dir], { cwd: ROOT, encoding: "utf8" });
-    const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+    // runCli 給了 encoding，所以 stdio 是 pipe —— 而 pipe 正是會出事的那一種 stdio。
+    const result = runCli(CLI, ["--root", box.root]);
+    const output = result.output;
 
     expect(result.status).toBe(1);
 
@@ -103,8 +92,7 @@ describe("大報告不得被截斷", () => {
  */
 describe("檔案模式那條規則要真的被接進 cli.ts", () => {
   it("不帶 --root 跑，輸出要說它查過版控模式", () => {
-    const result = spawnSync("node", [CLI], { cwd: ROOT, encoding: "utf8" });
-    const output = `${result.stdout}${result.stderr}`;
+    const output = runCli(CLI).output;
     // ⚠️ 斷言的是那個**數字**，不是那句話 —— 一句寫死的話在呼叫被刪掉之後
     // 照樣印得出來（第一版就是這樣寫的，而那條測試是恆真的）。
     const examined = /含版控檔案模式：(\d+) 個版控檔案/.exec(output)?.[1];
@@ -112,10 +100,8 @@ describe("檔案模式那條規則要真的被接進 cli.ts", () => {
   });
 
   it("★ 帶 --root 跑，要明說它沒查（安靜跳過與查過是同一個畫面）", () => {
-    const dir = mkdtempSync(join(tmpdir(), "conformance-wiring-"));
-    sandbox = dir;
+    const dir = sandbox({ prefix: "conformance-wiring-" }).root;
     mkdirSync(join(dir, "features"), { recursive: true });
-    const result = spawnSync("node", [CLI, "--root", dir], { cwd: ROOT, encoding: "utf8" });
-    expect(`${result.stdout}${result.stderr}`).toContain("--root 之下**沒有**檢查檔案模式");
+    expect(runCli(CLI, ["--root", dir]).output).toContain("--root 之下**沒有**檢查檔案模式");
   });
 });

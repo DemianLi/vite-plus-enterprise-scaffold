@@ -171,47 +171,37 @@ describe("產出的 package.json 符合一致性檢查", () => {
 });
 
 describe("產出的程式碼落在正確的命名空間", () => {
-  function read(path: string): string {
-    const parts = path.split("/");
-    let node: unknown = files;
-    for (const part of parts) {
-      node = (node as Record<string, unknown>)[part];
-    }
-    if (typeof node !== "string") throw new Error(`${path} 不是檔案`);
-    return node;
-  }
-
   it("路由 name 與 path 帶切片前綴", () => {
-    const routes = read("src/routes.ts");
+    const routes = fileAt("src/routes.ts");
     expect(routes).toContain('name: "order-history/list"');
     expect(routes).toContain('path: "/order-history"');
   });
 
   it("權限碼帶切片前綴", () => {
-    expect(read("src/index.ts")).toContain('"order-history:read"');
+    expect(fileAt("src/index.ts")).toContain('"order-history:read"');
   });
 
   it("Pinia store id 帶切片命名空間", () => {
-    expect(read("src/store.ts")).toContain('defineStore("order-history/filter"');
+    expect(fileAt("src/store.ts")).toContain('defineStore("order-history/filter"');
   });
 
   it("query key 第一段是切片名", () => {
-    expect(read("src/api.ts")).toContain('all: ["order-history"]');
+    expect(fileAt("src/api.ts")).toContain('all: ["order-history"]');
   });
 
   it("kebab-case 正確轉成 PascalCase 與 camelCase 識別字", () => {
-    expect(read("src/api.ts")).toContain("OrderHistoryListResponse");
-    expect(read("src/api.ts")).toContain("orderHistoryKeys");
+    expect(fileAt("src/api.ts")).toContain("OrderHistoryListResponse");
+    expect(fileAt("src/api.ts")).toContain("orderHistoryKeys");
   });
 
   it("含連字號的切片名在 i18n 物件中以引號包裹（否則是語法錯誤）", () => {
-    expect(read("src/index.ts")).toContain('"order-history": {');
+    expect(fileAt("src/index.ts")).toContain('"order-history": {');
   });
 
   it("產出的畫面不使用 v-html 指令（Tier 2 會擋，但產生器不該先犯）", () => {
     // 比對「指令用法」而非字串出現：產出的檔案刻意在註解裡提到 vue/no-v-html
     // 來說明為什麼錯誤訊息要用文字插值，單純 toContain("v-html") 會誤判。
-    expect(read("src/views/OrderHistoryList.vue")).not.toMatch(/\sv-html\s*=/);
+    expect(fileAt("src/views/OrderHistoryList.vue")).not.toMatch(/\sv-html\s*=/);
   });
 });
 

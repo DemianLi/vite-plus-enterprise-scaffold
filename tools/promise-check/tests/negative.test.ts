@@ -1,8 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { repoRoot, sandbox } from "@org/gate-kit/testing";
 
 import { checkPromises } from "../src/check.ts";
 
@@ -30,8 +30,7 @@ import { checkPromises } from "../src/check.ts";
  * `tools/conformance/tests/negative.test.ts`（改副本，不改 repo）同一條。
  */
 
-const HERE = resolve(fileURLToPath(import.meta.url), "..");
-const ROOT = resolve(HERE, "../../..");
+const ROOT = repoRoot();
 const REAL_SPEC = "specs/promise-1-architecture.feature";
 /**
  * 另一份**沒有被改壞**的規格，每一次呼叫都要一起餵進去。
@@ -61,13 +60,6 @@ const OTHER_SPEC = "specs/gate-thresholds.feature";
  */
 const EXECUTES = 60_000;
 
-let sandbox: string | undefined;
-
-afterEach(() => {
-  if (sandbox !== undefined) rmSync(sandbox, { recursive: true, force: true });
-  sandbox = undefined;
-});
-
 /**
  * 把真規格改一處，寫到暫存目錄。
  *
@@ -81,10 +73,11 @@ function patched(from: string, to: string): string[] {
       `[negative] 規格裡找不到要改的片段：${from}\n  規格改寫了，跟著更新這裡的錨點。`,
     );
   }
-  sandbox = mkdtempSync(join(tmpdir(), "promise-negative-"));
-  const path = join(sandbox, "patched.feature");
-  writeFileSync(path, source.replace(from, to));
-  return [path, OTHER_SPEC];
+  const box = sandbox({
+    prefix: "promise-negative-",
+    files: { "patched.feature": source.replace(from, to) },
+  });
+  return [join(box.root, "patched.feature"), OTHER_SPEC];
 }
 
 function rules(specs: readonly string[]): string[] {

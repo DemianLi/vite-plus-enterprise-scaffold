@@ -54,14 +54,15 @@ export interface SandboxOptions {
   readonly lifetime?: "each" | "all";
 }
 
+/** 三個函式都不碰 `this`，所以 `const { root, git } = sandbox(...)` 是安全的。 */
 export interface Sandbox {
   readonly root: string;
   /** 讀沙盒裡的檔（相對沙盒根，UTF-8）。 */
-  read(path: string): string;
+  readonly read: (path: string) => string;
   /** 寫或覆寫沙盒裡的檔，中間目錄自動建。反向測試竄改 fixture 用。 */
-  write(path: string, content: string): void;
+  readonly write: (path: string, content: string) => void;
   /** 在沙盒根跑 `git`，回 stdout；非零退出丟例外。 */
-  git(args: readonly string[]): string;
+  readonly git: (args: readonly string[]) => string;
 }
 
 export interface CliResult {

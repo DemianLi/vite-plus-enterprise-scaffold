@@ -217,6 +217,10 @@ export default {
     // mutant 不製造型別錯誤，預設往原始碼插 `// @ts-nocheck` ——
     // **型別檢查被關掉，正好關掉這支閘門存在的理由**，於是它在 dry run 就紅。
     // 反方向（`disableTypeChecks: false`）試過：跑超過十分鐘沒跑完。
+    // ⚠️ 2026-09-05 實測（C168 §八）：**這個排除今天已經不夠** —— `disableTypeChecks`
+    // 預設 `true` 是全部檔案，`tests/fixtures/app/src/*.vue` 一樣被插 `@ts-nocheck`，
+    // 乾跑照樣紅在它的六條 🔴 上；同一趟還會紅在 `promise-check`（真樹裡被插樁的檔
+    // 複雜度過門檻）。兩件都沒在這裡修；跑之前先讀那一節。
     "!tools/vue-typecheck/src/**/*.ts",
 
     // 這兩支在射程裡，會把 `apps/console/tests/proxy-target.test.ts` 拉進

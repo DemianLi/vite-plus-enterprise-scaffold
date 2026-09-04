@@ -1,10 +1,9 @@
-import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+
+import { repoRoot, sandbox } from "@org/gate-kit/testing";
 
 import { checkScope } from "../src/check.ts";
 import { sectionFor } from "../src/parse.ts";
@@ -21,15 +20,6 @@ import { trackedDirectories, trackedRootEntries } from "../src/tree.ts";
  * ⚠️ 一律指到臨時目錄，不碰真的 repo。
  */
 
-const created: string[] = [];
-
-afterEach(() => {
-  while (created.length > 0) {
-    const dir = created.pop();
-    if (dir !== undefined) rmSync(dir, { recursive: true, force: true });
-  }
-});
-
 interface Layout {
   /** 會被 `git add` 的目錄（每個放一個檔案）。 */
   tracked: string[];
@@ -40,22 +30,20 @@ interface Layout {
 }
 
 function repo(layout: Layout): string {
-  const root = mkdtempSync(join(tmpdir(), "scope-check-"));
-  created.push(root);
-  execFileSync("git", ["init", "-q"], { cwd: root });
+  const box = sandbox({ prefix: "scope-check-" });
+  box.git(["init", "-q"]);
 
   for (const path of [...layout.tracked, ...layout.untracked]) {
-    mkdirSync(join(root, path), { recursive: true });
-    writeFileSync(join(root, path, "package.json"), "{}");
+    box.write(join(path, "package.json"), "{}");
   }
   for (const name of layout.rootFiles ?? []) {
-    writeFileSync(join(root, name), "");
+    box.write(name, "");
   }
   const toAdd = [...layout.tracked, ...(layout.rootFiles ?? [])];
   if (toAdd.length > 0) {
-    execFileSync("git", ["add", "--", ...toAdd], { cwd: root });
+    box.git(["add", "--", ...toAdd]);
   }
-  return root;
+  return box.root;
 }
 
 /**
@@ -127,8 +115,7 @@ describe("寫對的時候不該亂叫", () => {
      * ⚠️ 這條斷言比「只有一個方向」強得多，而那是刻意的：它同時守住兩個方向，
      * 包括當初抓到 `tools/sast` 的那個（登記了版控裡沒有的東西）。
      */
-    const root = resolve(fileURLToPath(import.meta.url), "../../../..");
-    expect(checkScope(root)).toEqual([]);
+    expect(checkScope(repoRoot())).toEqual([]);
   });
 
   it("未追蹤的殘留目錄不算數", () => {
@@ -236,8 +223,7 @@ describe("版控是唯一的事實來源", () => {
   it("沒有 git 就直接失敗，不退回去掃磁碟", () => {
     // 一道「找不到 git 就換個比較寬鬆的判準」的閘門，會在最需要它的環境裡
     // 安靜地換成另一件事 —— 而且沒有人會發現，因為它還是綠的。
-    const notARepo = mkdtempSync(join(tmpdir(), "scope-check-bare-"));
-    created.push(notARepo);
+    const notARepo = sandbox({ prefix: "scope-check-bare-" }).root;
     mkdirSync(join(notARepo, "tools/a"), { recursive: true });
     expect(() => trackedDirectories(notARepo, "tools")).toThrow(/讀不到版控內容/);
   });
@@ -486,24 +472,21 @@ describe("非 ASCII 的路徑（C112）", () => {
    * ⚠️ 這兩條在修掉之前是**真的會失敗**的（實測），不是預防性斷言。
    */
   it("含中文檔名的目錄，路徑不帶引號", () => {
-    const root = mkdtempSync(join(tmpdir(), "scope-check-utf8-"));
-    created.push(root);
-    execFileSync("git", ["init", "-q"], { cwd: root });
-    mkdirSync(join(root, "tools/spec-report"), { recursive: true });
-    writeFileSync(join(root, "tools/spec-report/訂單查詢.feature"), "");
-    execFileSync("git", ["add", "--", "tools/spec-report"], { cwd: root });
+    const box = sandbox({ prefix: "scope-check-utf8-" });
+    box.git(["init", "-q"]);
+    box.write("tools/spec-report/訂單查詢.feature", "");
+    box.git(["add", "--", "tools/spec-report"]);
 
-    expect(trackedDirectories(root, "tools")).toEqual(["tools/spec-report"]);
+    expect(trackedDirectories(box.root, "tools")).toEqual(["tools/spec-report"]);
   });
 
   it("根層的中文檔名也不帶引號", () => {
-    const root = mkdtempSync(join(tmpdir(), "scope-check-utf8-root-"));
-    created.push(root);
-    execFileSync("git", ["init", "-q"], { cwd: root });
-    writeFileSync(join(root, "測試說明.md"), "");
-    execFileSync("git", ["add", "--", "測試說明.md"], { cwd: root });
+    const box = sandbox({ prefix: "scope-check-utf8-root-" });
+    box.git(["init", "-q"]);
+    box.write("測試說明.md", "");
+    box.git(["add", "--", "測試說明.md"]);
 
-    expect(trackedRootEntries(root)).toEqual(["測試說明.md"]);
+    expect(trackedRootEntries(box.root)).toEqual(["測試說明.md"]);
   });
 });
 

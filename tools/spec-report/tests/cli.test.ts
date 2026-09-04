@@ -1,18 +1,17 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { describe, it, expect, beforeAll } from "vitest";
+import { mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { repoRoot, runCli, sandbox } from "@org/gate-kit/testing";
 
 import { FEATURE, ALL_GREEN } from "./fixture.ts";
 
-const CLI = resolve(fileURLToPath(import.meta.url), "../../src/cli.ts");
-const REPO = resolve(fileURLToPath(import.meta.url), "../../../..");
+const CLI = "tools/spec-report/src/cli.ts";
+const REPO = repoRoot();
 
 function run(args: readonly string[]): { status: number; out: string } {
-  const result = spawnSync("node", [CLI, ...args], { encoding: "utf8" });
-  return { status: result.status ?? -1, out: `${result.stdout}${result.stderr}` };
+  const result = runCli(CLI, args);
+  return { status: result.status ?? -1, out: result.output };
 }
 
 describe("說明文字裡的指令要是真的跑得動的", () => {
@@ -25,9 +24,9 @@ describe("說明文字裡的指令要是真的跑得動的", () => {
 });
 
 describe("真的 repo —— 事實來源那條路徑走得通", () => {
-  const reportPath = join(tmpdir(), `spec-report-real-${process.pid}.md`);
-  afterAll(() => {
-    rmSync(reportPath, { force: true });
+  let reportPath: string;
+  beforeAll(() => {
+    reportPath = join(sandbox({ prefix: "spec-report-real-", lifetime: "all" }).root, "report.md");
   });
 
   /**
@@ -51,11 +50,7 @@ describe("空的樹 —— 空不是錯誤", () => {
   let root: string;
 
   beforeAll(() => {
-    root = mkdtempSync(join(tmpdir(), "spec-report-empty-"));
-    spawnSync("git", ["init", "-q"], { cwd: root });
-  });
-  afterAll(() => {
-    rmSync(root, { recursive: true, force: true });
+    root = sandbox({ prefix: "spec-report-empty-", git: true, lifetime: "all" }).root;
   });
 
   /** ⚠️ 空不是錯誤 —— 既有兩個切片刻意沒有規格（C114 §六）。 */
@@ -96,19 +91,18 @@ describe("有規格的樹", () => {
   let resultsPath: string;
 
   beforeAll(() => {
-    root = mkdtempSync(join(tmpdir(), "spec-report-"));
-    mkdirSync(join(root, "features/order/specs"), { recursive: true });
-    writeFileSync(join(root, "features/order/specs/order.feature"), FEATURE);
     // 事實來源是 git ls-files，所以 fixture 必須真的進 index —— 不 commit 也行。
-    spawnSync("git", ["init", "-q"], { cwd: root });
-    spawnSync("git", ["add", "-A"], { cwd: root });
+    const box = sandbox({
+      prefix: "spec-report-",
+      files: { "features/order/specs/order.feature": FEATURE },
+      git: true,
+      lifetime: "all",
+    });
+    root = box.root;
 
     // 結果檔住在切片自己的目錄 —— 相對路徑的 --outputFile 就會落在那裡。
     resultsPath = join(root, "features/order/.vitest-results.json");
     writeFileSync(resultsPath, JSON.stringify(ALL_GREEN));
-  });
-  afterAll(() => {
-    rmSync(root, { recursive: true, force: true });
   });
 
   it("產生報表，完成率算得出來，待辦不擋", () => {
@@ -237,15 +231,13 @@ describe("報表的排版歸 oxfmt，內容歸這支工具", () => {
   let root: string;
 
   beforeAll(() => {
-    root = mkdtempSync(join(tmpdir(), "spec-report-fmt-"));
-    mkdirSync(join(root, "features/order/specs"), { recursive: true });
-    writeFileSync(join(root, "features/order/specs/order.feature"), FEATURE);
-    spawnSync("git", ["init", "-q"], { cwd: root });
-    spawnSync("git", ["add", "-A"], { cwd: root });
+    root = sandbox({
+      prefix: "spec-report-fmt-",
+      files: { "features/order/specs/order.feature": FEATURE },
+      git: true,
+      lifetime: "all",
+    }).root;
     writeFileSync(join(root, "features/order/.vitest-results.json"), JSON.stringify(ALL_GREEN));
-  });
-  afterAll(() => {
-    rmSync(root, { recursive: true, force: true });
   });
 
   /** 把產出的表格列補上空白，模擬 oxfmt 排版過的樣子。 */

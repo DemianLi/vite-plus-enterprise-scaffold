@@ -1,9 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { repoRoot, runCli, sandbox } from "@org/gate-kit/testing";
 
 /**
  * 一致性檢查的**反向測試**：逐一破壞一個切片，確認該紅的時候會紅、
@@ -36,17 +35,8 @@ import { fileURLToPath } from "node:url";
  * 那個 `--root` 參數就是為了這件事加的（見 `src/cli.ts` 的註解）。
  */
 
-const HERE = resolve(fileURLToPath(import.meta.url), "..");
-const PACKAGE_DIR = resolve(HERE, "..");
-const ROOT = resolve(PACKAGE_DIR, "../..");
-const CLI = join(ROOT, "tools/conformance/src/cli.ts");
-
-let sandbox: string | undefined;
-
-afterEach(() => {
-  if (sandbox !== undefined) rmSync(sandbox, { recursive: true, force: true });
-  sandbox = undefined;
-});
+const ROOT = repoRoot();
+const CLI = "tools/conformance/src/cli.ts";
 
 /**
  * 建一個最小 repo：**兩個**切片。
@@ -62,23 +52,14 @@ afterEach(() => {
  * 那會讓「有沒有紅」變得毫無資訊量。
  */
 function makeSandbox(): string {
-  const dir = mkdtempSync(join(tmpdir(), "conformance-negative-"));
-
-  for (const slice of ["order", "shipment"]) {
-    cpSync(join(ROOT, "features", slice), join(dir, "features", slice), {
-      recursive: true,
-      // node_modules 是 symlink 農場，複製它既慢又沒有意義 ——
-      // conformance 讀的是 package.json 的宣告，不解析實際安裝結果。
-      filter: (src) => !src.includes("node_modules"),
-    });
-  }
-
-  writeFileSync(
-    join(dir, "CODEOWNERS"),
-    "/features/order/ @org/team-fulfillment\n/features/shipment/ @org/team-logistics\n",
-  );
-  sandbox = dir;
-  return dir;
+  return sandbox({
+    prefix: "conformance-negative-",
+    copy: ["features/order", "features/shipment"],
+    files: {
+      CODEOWNERS:
+        "/features/order/ @org/team-fulfillment\n/features/shipment/ @org/team-logistics\n",
+    },
+  }).root;
 }
 
 interface Result {
@@ -87,11 +68,8 @@ interface Result {
 }
 
 function runConformance(root: string): Result {
-  const result = spawnSync("node", [CLI, "--root", root], { cwd: ROOT, encoding: "utf8" });
-  return {
-    red: result.status !== 0,
-    output: `${result.stdout ?? ""}${result.stderr ?? ""}`,
-  };
+  const result = runCli(CLI, ["--root", root]);
+  return { red: result.status !== 0, output: result.output };
 }
 
 function fileIn(root: string, relativePath: string): string {

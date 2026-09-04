@@ -1,9 +1,8 @@
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { repoRoot } from "@org/gate-kit";
+import { runCli, sandbox } from "@org/gate-kit/testing";
 import { describe, expect, it } from "vitest";
 
 import { judge, measure } from "../src/check.ts";
@@ -308,26 +307,14 @@ describe("--root 換的是被驗的那份設定", () => {
     const raised = source.replace(/("max-depth":\s*\[\s*"error",\s*\{\s*max:\s*)\d+/u, "$1500");
     expect(raised, "設定的寫法變了 —— 這裡什麼都沒改壞，而它會「通過」").not.toBe(source);
 
-    const dir = mkdtempSync(join(tmpdir(), "threshold-root-"));
-    try {
-      writeFileSync(join(dir, "vite.config.ts"), raised);
-      const result = spawnSync(
-        "node",
-        [join(root, "tools/threshold-check/src/cli.ts"), "--root", dir],
-        {
-          cwd: root,
-          encoding: "utf8",
-        },
-      );
-      const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+    const dir = sandbox({ prefix: "threshold-root-", files: { "vite.config.ts": raised } }).root;
+    const result = runCli("tools/threshold-check/src/cli.ts", ["--root", dir]);
+    const output = result.output;
 
-      expect(result.status, output).not.toBe(0);
-      expect(output).toContain("門檻過期");
-      expect(output, "紅燈裡的數字是真樹的，不是那一份的 —— --root 只被拿去看目錄在不在").toContain(
-        "設在 500",
-      );
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    expect(result.status, output).not.toBe(0);
+    expect(output).toContain("門檻過期");
+    expect(output, "紅燈裡的數字是真樹的，不是那一份的 —— --root 只被拿去看目錄在不在").toContain(
+      "設在 500",
+    );
   }, 60_000);
 });

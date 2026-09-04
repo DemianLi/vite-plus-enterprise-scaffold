@@ -1,17 +1,9 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { chmodSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+
+import { repoRoot, sandbox } from "@org/gate-kit/testing";
 
 import type { Finding } from "../src/finding.ts";
 import { checkActionPinning } from "../src/rules/action-pinning.ts";
@@ -51,23 +43,9 @@ import { checkPackageName, checkSliceNaming } from "../src/rules/slice-shape.ts"
  * 而那種測試最後會被改成 `toContain("違規")`，然後什麼都不驗。
  */
 
-let sandbox: string | undefined;
-
-afterEach(() => {
-  if (sandbox !== undefined) rmSync(sandbox, { recursive: true, force: true });
-  sandbox = undefined;
-});
-
 /** 在暫存目錄裡擺出一棵樹。回傳根目錄。 */
 function tree(files: Readonly<Record<string, string>>): string {
-  const dir = mkdtempSync(join(tmpdir(), "conformance-rules-"));
-  for (const [relativePath, contents] of Object.entries(files)) {
-    const path = join(dir, relativePath);
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, contents);
-  }
-  sandbox = dir;
-  return dir;
+  return sandbox({ prefix: "conformance-rules-", files }).root;
 }
 
 function rules(findings: readonly Finding[]): string[] {
@@ -468,32 +446,27 @@ describe("版控檔案模式：判定沒有 IO，兩個方向都要紅", () => {
  * `pool: 'threads'` 寫死在原始碼裡，chdir 是整個 worker 共用的。
  */
 describe("版控檔案模式：反向測試跑在 fixture repo 上", () => {
-  const git = (cwd: string, ...args: string[]): void => {
-    const result = spawnSync("git", args, { cwd, encoding: "utf8" });
-    if (result.status !== 0) throw new Error(`git ${args.join(" ")} 失敗：${result.stderr}`);
-  };
-
-  const fixture = (): string => {
-    const dir = tree({
-      "tools/demo/package.json": JSON.stringify({ bin: { demo: "./src/cli.ts" } }),
-      "tools/demo/src/cli.ts": "#!/usr/bin/env node\\n",
+  const fixture = () =>
+    sandbox({
+      prefix: "conformance-rules-",
+      files: {
+        "tools/demo/package.json": JSON.stringify({ bin: { demo: "./src/cli.ts" } }),
+        "tools/demo/src/cli.ts": "#!/usr/bin/env node\\n",
+      },
+      git: true,
     });
-    git(dir, "init", "-q");
-    git(dir, "add", "-A");
-    return dir;
-  };
 
   it("把 bin 目標的可執行位拿掉 → 紅", () => {
-    const dir = fixture();
-    git(dir, "update-index", "--chmod=-x", "tools/demo/src/cli.ts");
+    const { root: dir, git } = fixture();
+    git(["update-index", "--chmod=-x", "tools/demo/src/cli.ts"]);
     expect(checkFileMode(dir).findings.map((f: Finding) => f.where)).toEqual([
       "tools/demo/src/cli.ts",
     ]);
   });
 
   it("補回去 → 綠（否則上面那條可能是恆紅）", () => {
-    const dir = fixture();
-    git(dir, "update-index", "--chmod=+x", "tools/demo/src/cli.ts");
+    const { root: dir, git } = fixture();
+    git(["update-index", "--chmod=+x", "tools/demo/src/cli.ts"]);
     const { findings, examined } = checkFileMode(dir);
     expect(findings).toEqual([]);
     // ⚠️ 綠燈要附一個非零的對照，否則「零筆」與「一個檔都沒看到」長得一樣。
@@ -516,8 +489,8 @@ describe("版控檔案模式：反向測試跑在 fixture repo 上", () => {
    * 而文件與程式碼的分岔會當場被看見，不是被相信。
    */
   it("★ 只翻工作區的模式 → 綠（這是限制，不是缺陷 —— C122 §七）", () => {
-    const dir = fixture();
-    git(dir, "update-index", "--chmod=+x", "tools/demo/src/cli.ts");
+    const { root: dir, git } = fixture();
+    git(["update-index", "--chmod=+x", "tools/demo/src/cli.ts"]);
     chmodSync(join(dir, "tools/demo/src/cli.ts"), 0o644);
     expect(checkFileMode(dir).findings).toEqual([]);
   });
@@ -556,7 +529,7 @@ describe("版控檔案模式：反向測試跑在 fixture repo 上", () => {
 });
 
 describe("規則模組不得有副作用", () => {
-  const SRC = resolve(fileURLToPath(import.meta.url), "../../src");
+  const SRC = join(repoRoot(), "tools/conformance/src");
 
   function sources(dir: string, found: string[] = []): string[] {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {

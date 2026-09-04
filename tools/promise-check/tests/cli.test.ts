@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+
+import { repoRoot, runCli } from "@org/gate-kit/testing";
 
 import { parseSpec } from "../src/spec.ts";
 
@@ -75,16 +76,10 @@ function slicesMissingResults(): string[] {
   );
 }
 
-const HERE = resolve(fileURLToPath(import.meta.url), "..");
-const ROOT = resolve(HERE, "../../..");
-const CLI = join(ROOT, "tools/promise-check/src/cli.ts");
-const SPEC_REPORT_CLI = join(ROOT, "tools/spec-report/src/cli.ts");
+const ROOT = repoRoot();
+const CLI = "tools/promise-check/src/cli.ts";
+const SPEC_REPORT_CLI = "tools/spec-report/src/cli.ts";
 const REAL_SPEC = "specs/promise-1-architecture.feature";
-
-function run(args: readonly string[]): { status: number | null; output: string } {
-  const result = spawnSync("node", [...args], { cwd: ROOT, encoding: "utf8" });
-  return { status: result.status, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
-}
 
 describe("CLI", () => {
   /**
@@ -95,7 +90,7 @@ describe("CLI", () => {
    * 而且它得先有一個被裁過的預算（C147 §二 那種）。
    */
   it("版控裡的承諾全部成立時回傳 0，並說出執行過幾條", () => {
-    const { status, output } = run([CLI]);
+    const { status, output } = runCli(CLI);
 
     expect(status, output).toBe(0);
     // ⚠️ 印的是**執行過**的場景數，不是規格裡寫了幾條 —— 兩者不同的那一天，
@@ -104,7 +99,7 @@ describe("CLI", () => {
   }, 60_000);
 
   it("找不到規格時回傳非零（結束碼是唯一會被 CI 讀到的東西）", () => {
-    const { status, output } = run([CLI, "--spec", "specs/不存在的規格.feature"]);
+    const { status, output } = runCli(CLI, ["--spec", "specs/不存在的規格.feature"]);
 
     expect(status, output).not.toBe(0);
     expect(output).toContain("規格不見了");
@@ -136,7 +131,7 @@ describe("與 tools/spec-report 的分界", () => {
     ).toEqual([]);
 
     // 真的跑一次那支工具：它自己的 `--check` 就是分界破掉時會響的那條線。
-    const { status, output } = run([SPEC_REPORT_CLI, "--check"]);
+    const { status, output } = runCli(SPEC_REPORT_CLI, ["--check"]);
 
     expect(status, output).toBe(0);
     expect(output, "框架承諾被算進了業務功能完成率").not.toContain(promiseFeatureName());

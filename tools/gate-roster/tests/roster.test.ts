@@ -1,9 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+
+import { repoRoot, sandbox } from "@org/gate-kit/testing";
 
 import {
   ROSTER,
@@ -31,15 +31,6 @@ import { GATES, UNGATED, type Gate, type Tier } from "../src/gates.ts";
  * `TRANSIENT_PREFIX` 的註解：那裡記著一個「測試動到 repo，害另一支測試
  * 隨機變紅」的實測競態。
  */
-
-const created: string[] = [];
-
-afterEach(() => {
-  while (created.length > 0) {
-    const dir = created.pop();
-    if (dir !== undefined) rmSync(dir, { recursive: true, force: true });
-  }
-});
 
 interface Layout {
   /** `tools/` 底下、有 `package.json` 的目錄。 */
@@ -91,8 +82,7 @@ function workflow(commands: readonly string[], extraMultilineStep: boolean): str
 }
 
 function write(layout: Layout): string {
-  const root = mkdtempSync(join(tmpdir(), "gate-roster-"));
-  created.push(root);
+  const root = sandbox({ prefix: "gate-roster-" }).root;
 
   writeFileSync(join(root, "pnpm-workspace.yaml"), "packages:\n  - tools/*\n");
   writeFileSync(join(root, "package.json"), JSON.stringify({ scripts: layout.scripts }, null, 2));
@@ -145,7 +135,7 @@ describe("寫對的時候不該亂叫", () => {
   it("真的 repo 現在是一致的", () => {
     // 這一條與 CLI 重疊，而重疊是刻意的：CLI 只在 `vpr gate` 跑，
     // 這一條在 `vp run -r test` 跑。兩邊都要能看見同一件事變紅。
-    expect(checkRoster(resolve(fileURLToPath(import.meta.url), "../../../.."))).toEqual([]);
+    expect(checkRoster(repoRoot())).toEqual([]);
   });
 
   it("沒有 package.json 的幽靈目錄不算工具", () => {
