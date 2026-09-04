@@ -92,15 +92,50 @@ jobs:
 
       # ⚠️ 這裡沒有 cache restore，而且是刻意的。見檔頭第 1 條。
 
+      # ── 測試邊界地圖 ────────────────────────────────────────────────
+      # 放在最前面：半張表跟一張短表長得一模一樣，所以它必須在任何一步
+      # 失敗之前就已經印出來。
+      #
+      # ⚠️ **這裡刻意不重抄閘門清單。** 那份清單的唯一來源是
+      #    tools/gate-roster/src/gates.ts —— 抄第二份正是那支工具存在的理由
+      #    （它自己的檔頭記著這一類已經發作過兩次）。
+      - name: 測試邊界地圖（Tier 2）
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'MAPEOF'
+          ## 測試邊界地圖 —— Tier 2（安全閘門）
+
+          ⚠️⚠️ **`TESTING.md` §五 明文記著：「Tier 2 安全整條 —— 五層的尺說
+          『安全不在五層的題目裡』」。** 所以本 workflow 絕大多數步驟**沒有層**，
+          那不是漏標，是那把尺量不到。要判它們，用的是**兩類**的框架。
+
+          | 層 | Tier 2 有沒有東西在守 |
+          | --- | --- |
+          | 層 1 約束 | ❌ 不在本 workflow（在 Tier 1） |
+          | 層 2 單元 | ✅ 一步：BFF 契約驗收 |
+          | 層 3 驗收 | ⚠️ 框架承諾檢查 —— **五條承諾守到一條**（TESTING.md §二） |
+          | 層 4 QA ／ 層 5 手動 | ❌ **無（刻意）** —— 人做的事，下發不了 |
+          | 元層 突變 | ❌ **不在 CI（刻意）** —— `thresholds.break` 是 `null` |
+          | **五層答不出** | **其餘每一步**，步驟名前綴標了 |
+
+          **用兩類讀那些「五層答不出」的**：它們絕大多數是**第二類** ——
+          專案組寫業務時的前置過濾（TESTING.md §五 那張表）。
+
+          ⚠️ **這條 workflow 綠燈不代表六層都守住了。** 它代表的是：
+          有東西在守的那兩層守住了，加上一整批五層量不到的機制通過了。
+
+          ⚠️ 名冊之外還有兩支：**`semgrep` 與 `gitleaks` 不在 `gate-roster` 裡**，
+          所以那道閘門對這兩步什麼都沒說（理由見 `tools/gate-roster/src/gates.ts`）。
+          MAPEOF
+
       # ── 切片契約與邊界（D4 第 1、3 層 / D9）──────────────────────────
-      - name: 一致性檢查
+      - name: 五層答不出 · 一致性檢查
         run: node tools/conformance/src/cli.ts
 
       # ── platform 破壞性變更（D12）────────────────────────────────
       # 在單一 monorepo 裡，platform/ 就是腳手架本身：改它等於同時改動所有切片、
       # 所有團隊。因此 breaking change 必須附 codemod，由提出者在同一 PR 跑完全 repo。
       # 這一步讓那條規則有牙齒 —— 否則它只是一句寫在文件裡的話。
-      - name: platform API 表面檢查
+      - name: 五層答不出 · platform API 表面檢查
         run: node tools/api-surface/src/cli.ts
 
       # ── D8 中間層契約（R6）────────────────────────────────────────
@@ -110,7 +145,7 @@ jobs:
       #
       # 放在 Tier 2 而非只在 Tier 1：這是認證與 CSRF 的行為契約，
       # 不該因為「這次改動與它無關」而被 affected 過濾跳過。
-      - name: BFF 契約驗收
+      - name: 層 2 單元 · BFF 契約驗收
         run: ./node_modules/.bin/vitest run --root tools/bff-check
 
       # ── D2 退出保單（R1／R9）──────────────────────────────────────
@@ -118,11 +153,11 @@ jobs:
       # --require-fresh：完整演練的證據超過 120 天就 fail。
       # 這個旗標只在時間觸發的 workflow 裡加 —— 在 PR 上因為「日曆翻頁了」
       # 而擋人，那種閘門會先被繞過、再被忽略。
-      - name: D2 退出面檢查（PR：只驗退出面，不管證據新鮮度）
+      - name: 五層答不出 · D2 退出面檢查（PR：只驗退出面，不管證據新鮮度）
         if: github.event_name == 'pull_request'
         run: node tools/exit-drill/src/cli.ts
 
-      - name: D2 退出面檢查（排程：連證據新鮮度一起驗）
+      - name: 五層答不出 · D2 退出面檢查（排程：連證據新鮮度一起驗）
         if: github.event_name != 'pull_request'
         run: node tools/exit-drill/src/cli.ts --require-fresh
 
@@ -134,7 +169,7 @@ jobs:
       # 這一步擋下來的典型情況：升 vite-plus 時多冒出一個原生工具鏈家族。
       # 沒有它，那個家族會在沒有人分類、沒有申請例外的情況下進到建置環境，
       # 然後在資安覆核時才被發現 —— 而那時它已經是既成事實。
-      - name: 供應鏈盤點與來源綁定
+      - name: 五層答不出 · 供應鏈盤點與來源綁定
         run: node tools/supply-chain/src/cli.ts
 
       # ── 法遵對照表（D16）──────────────────────────────────────────
@@ -144,7 +179,7 @@ jobs:
       #
       # 放在 Tier 2 而不是 Tier 1：它產出的是拿去回答稽核的東西，
       # 不該因為「這次改動與它無關」而被 affected 過濾跳過。
-      - name: 法遵對照表
+      - name: 五層答不出 · 法遵對照表
         run: node tools/compliance/src/cli.ts
 
       # ── §16 證據清單 ──────────────────────────────────────────────
@@ -154,7 +189,7 @@ jobs:
       # 這一步驗的是清單沒有腐爛：宣告的檔案都在，且每一份都有閘門在維護。
       # 加新工具時最容易漏的就是「把它的證據檔列進來」——
       # 漏掉的那份不會進保存排程，五年後要調閱才發現不在。
-      - name: §16 證據清單
+      - name: 五層答不出 · §16 證據清單
         run: node tools/compliance/src/cli.ts --evidence
 
       # ── 個資的兩條現行義務（§11 II ⑥／⑨）──────────────────────────
@@ -173,7 +208,7 @@ jobs:
       #
       #   修法是兩邊都補：這裡刪掉步驟，CLI 那邊改成**不認得的旗標就紅**。
       #   只刪步驟的話，下一個被拿掉的旗標會用一模一樣的方式溜過去。
-      - name: 個資：測試環境不得用真個資
+      - name: 五層答不出 · 個資：測試環境不得用真個資
         run: node tools/pii-check/src/cli.ts
 
       # ── 文件數字（A1）─────────────────────────────────────────────
@@ -189,7 +224,7 @@ jobs:
       #   （閘門自己會把清單印出來）。DECISIONS.md 刻意不守 —— 它是決策日誌，
       #   「C24 當時是 467 個套件」陳述的是歷史，守它等於要求回頭改寫歷史，
       #   而一份被持續改寫的決策日誌就不再是決策日誌了。
-      - name: 文件數字與事實來源一致
+      - name: 五層答不出 · 文件數字與事實來源一致
         run: node tools/doc-facts/src/cli.ts
 
       # ── SCOPE.md vs. 版控裡真正存在的目錄（C73）────────────────────
@@ -216,13 +251,13 @@ jobs:
       #
       # ⚠️ 它會 spawn 別的閘門，所以擺在那些閘門後面：那幾道自己先紅的話，
       # 這裡的紅燈只是回音。
-      - name: 框架承諾檢查
+      - name: 層 3 驗收 · 框架承諾檢查（⚠️ 五條承諾守到一條）
         run: node tools/promise-check/src/cli.ts
 
       # ── 安全 lint（D5）─────────────────────────────────────────────
       # 只裝安全規則，與 oxlint 零重疊。存在的首要理由是 oxlint 沒有
       # vue/no-v-html —— Vue 專案最主要的 XSS 入口。
-      - name: ESLint 安全規則
+      - name: 五層答不出 · ESLint 安全規則
         run: ./node_modules/.bin/eslint . --max-warnings=0
 
       # ── SAST（源碼檢測）────────────────────────────────────────────
@@ -254,7 +289,7 @@ jobs:
       #
       # 先驗規則會不會命中，再拿規則去掃 repo。順序是刻意的：
       # 一組壞掉的規則掃出零個發現，看起來與「沒有問題」一模一樣。
-      - name: "SAST 規則的反向測試"
+      - name: "五層答不出 · SAST 規則的反向測試"
         run: |
           # ⚠️ **這一行不能拿掉。** GitHub Actions 的預設 shell 是 `bash -e {0}`
           #   （log 裡逐字印著）—— 有 `-e`，**沒有 `pipefail`**。少了它，下面那個
@@ -290,7 +325,7 @@ jobs:
             exit 1
           fi
 
-      - name: SAST 掃描
+      - name: 五層答不出 · SAST 掃描
         # ⚠️ 一定要排除 .semgrep/ —— rules.ts 是**故意寫壞的** fixture，
         #   不排除的話這一步永遠紅，而紅的原因是我們自己種的。
         run: |
@@ -307,7 +342,7 @@ jobs:
           category: semgrep
 
       # ── 機密掃描 ──────────────────────────────────────────────────
-      - name: Secret 掃描
+      - name: 五層答不出 · Secret 掃描
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -364,7 +399,7 @@ jobs:
       # 兩個獨立來源數同一份檔案，差太多就是有一邊瞎了。
       # 少了這道檢查，「掃描器看不到任何套件」會以綠燈的形式通過，
       # 而稽核收到的是一份看起來很正常的空 SBOM。
-      - name: SBOM 完整性檢查
+      - name: 五層答不出 · SBOM 完整性檢查
         run: node tools/supply-chain/src/cli.ts --verify-sbom sbom.cdx.json
 
       # ── 相依性漏洞（D13 修補 SLA；實際射程見 C160）─────────────────
@@ -374,7 +409,7 @@ jobs:
       # 分級（critical 3 天／high 14 天／medium 下個 sprint），而**樹上沒有任何
       # 東西實作那個分級** —— 這一步沒有，Renovate 的 `vulnerabilityAlerts`
       # 也沒有（#244／C160）。
-      - name: SCA 漏洞掃描
+      - name: 五層答不出 · SCA 漏洞掃描
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:
           # 同上：少了這行，這道閘門掃 0 個套件、永遠回綠燈，

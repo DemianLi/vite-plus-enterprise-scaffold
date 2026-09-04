@@ -32,6 +32,40 @@ jobs:
           # vite-plus 要求 ^20.19.0 || ^22.18.0 || >=24.11.0
           node-version: "24"
 
+      # ── 測試邊界地圖 ────────────────────────────────────────────────
+      # 放在最前面，理由是**它必須在任何一步失敗之前就已經印出來** ——
+      # 半張表跟一張短表長得一模一樣。
+      #
+      # ⚠️ 這張表是**地圖不是結果**：哪一步過了看下面的步驟清單，
+      #    步驟名的前綴標著它屬於哪一層。
+      # ⚠️ 判準的來源是 TESTING.md 的〈二、五層 × 兩類〉與〈五、五層量不到的
+      #    機制〉。**這裡刻意不重抄閘門清單** —— 那份清單的唯一來源是
+      #    tools/gate-roster/src/gates.ts，抄第二份正是那支工具存在的理由。
+      - name: 測試邊界地圖（Tier 1）
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'MAPEOF'
+          ## 測試邊界地圖 —— Tier 1（品質快軌）
+
+          判準來源：`TESTING.md` §二〈五層 × 兩類〉、§五〈五層量不到的機制〉。
+          **這是地圖不是結果** —— 每一步過了沒有，看下面的步驟清單。
+
+          | 層 | 這一層問什麼 | Tier 1 有沒有東西在守 |
+          | --- | --- | --- |
+          | 層 1 約束 | 程式碼有沒有纏成一團 | ✅ 三步：格式／lint／型別、`.vue` 型別、無障礙靜態 |
+          | 層 2 單元 | 實作細節對不對 | ✅ 一步：全 workspace 測試 |
+          | 層 3 驗收 | **什麼叫做對** | ✅ 一步：驗收規格完成率。⚠️ 分母自 `#188` 起非零（1 片切片），⚠️⚠️ 而那份規格今天仍是 `vp create slice` 的**範本** —— 報表上的百分比是範本的示範場景，不是業務完成率 |
+          | 層 4 QA | 怎麼驗它真的能用 | ❌ **無（刻意）** —— 人做的事，下發不了 |
+          | 層 5 手動 | 規格本身有沒有寫錯 | ❌ **無（刻意）** —— 人做的事，下發不了 |
+          | 元層 突變 | 那些沒人審的測試是不是空頭支票 | ❌ **不在 CI（刻意）** —— `thresholds.break` 是 `null`，產出是清單不是分數 |
+          | **五層答不出** | —— | 步驟名前綴標了。TESTING.md §五：借來的座標整個只描述第一類 |
+
+          ⚠️ **三列是空的，而三列都是刻意的。** 綠燈的意思是「有東西在守的那幾層守住了」，
+          不是「六層都守住了」。
+
+          ⚠️ 層 3 那一列尤其要小心：**「範本場景全過」與「業務規則全過」在報表上長得一模一樣** ——
+          `#188` 之前是「0 份規格」與「全部通過」同形，分母非零之後換了一種同形，沒有消失。
+          MAPEOF
+
       # ── Bootstrap ────────────────────────────────────────────────────
       # 全新 checkout 沒有 node_modules，因此也沒有 vp。
       # 必須從**專案目錄之外**執行 npx，再用 -C 指回專案 ——
@@ -80,7 +114,7 @@ jobs:
       # semgrep／gitleaks／Trivy 那些 docker 與 `uses:` 步驟。理由寫在
       # `tools/gate-roster/src/gates.ts` 的檔頭 —— 一道只守半個檔案的閘門，
       # 必須自己講明白守的是哪半個。
-      - name: 閘門名冊一致
+      - name: 五層答不出 · 閘門名冊一致
         run: node tools/gate-roster/src/cli.ts
 
       # ── 清單與樹對不對得上（C73／C136）───────────────────────────────
@@ -98,11 +132,11 @@ jobs:
       # ⚠️ 這一步從 C133 到 C136 之間**不存在**：`SCOPE.md` 曾是已刪分支
       # `release/v1` 的快照，對這棵樹跑會滿江紅，所以它待在名冊的 UNGATED 裡。
       # 那個「暫時」由 #180 兌現，邊界定義在 C136。
-      - name: SCOPE.md 與版控內容一致
+      - name: 五層答不出 · SCOPE.md 與版控內容一致
         run: node tools/scope-check/src/cli.ts
 
       # ── 檢查 ─────────────────────────────────────────────────────────
-      - name: 格式、lint、型別（oxfmt + oxlint + tsgolint）
+      - name: 層 1 約束 · 格式、lint、型別（oxfmt + oxlint + tsgolint）
         run: ./node_modules/.bin/vp check
 
       # ── 門檻有沒有比實測最大值高（C147 §二／#226）─────────────────────
@@ -119,7 +153,7 @@ jobs:
       #
       # ⚠️ 這一步會跑四趟 `vp lint`（約三秒），而它**沒有碰 `vite.config.ts`** ——
       # 量測在一個符號連結農場裡進行，理由見 tools/threshold-check/src/probe.ts 的檔頭。
-      - name: 複雜度門檻沒有過期
+      - name: 五層答不出 · 複雜度門檻沒有過期
         run: node tools/threshold-check/src/cli.ts
 
       # ── 上一步看不到的那一半（HANDOFF #26 / C68）──────────────────────
@@ -137,10 +171,10 @@ jobs:
       # `declare module "*.vue"` 的萬用宣告（任何 prop 都合法），這一步解析真的
       # SFC。所以**這一步紅、上一步綠，多半是真陽性**，不是兩支工具在吵架。
       # 見 DECISIONS 的 C68〈九〉。
-      - name: .vue 型別檢查
+      - name: 層 1 約束 · .vue 型別檢查
         run: node tools/vue-typecheck/src/cli.ts
 
-      - name: 測試
+      - name: 層 2 單元 · 測試
         run: ./node_modules/.bin/vp run -r test -- --reporter=default --reporter=json --outputFile=.vitest-results.json
 
       - name: 建置
@@ -154,7 +188,7 @@ jobs:
       # ⚠️ 它與上一步**不是重複的閘門**：測試看不見「規格一條都沒跑」
       # （接線檔的副檔名取錯時，測試本身是全綠的 —— C114 §二），
       # 而那正是這一步唯一守得住的東西。
-      - name: 驗收規格完成率
+      - name: 層 3 驗收 · 驗收規格完成率
         run: node tools/spec-report/src/cli.ts --check
 
       # ── 設計系統接縫（HANDOFF 第 24 項 / C62）─────────────────────────
@@ -172,7 +206,7 @@ jobs:
       # 代幣換不了它。守它的是上面的 api-surface（slot／emit 必須宣告，C67）
       # 與 `.vue` 型別檢查（slot payload 的型別，C68）。三列的強度不一樣，
       # 差在哪寫在 platform/ui/README.md 那張表。
-      - name: 設計系統接縫
+      - name: 五層答不出 · 設計系統接縫
         run: node tools/theme-verify/src/cli.ts
       # ── 無障礙靜態檢查（HANDOFF 第 22 項）─────────────────────────────
       #
@@ -191,7 +225,7 @@ jobs:
       # 「掃到零個」與「什麼都沒掃到」在這裡長得一模一樣，所以有一條測試
       #（platform/eslint-config/tests/a11y.test.ts）在比對「repo 裡有幾個
       # .vue」與「閘門掃到幾個」。那條測試跑在上面的「測試」步驟裡。
-      - name: 無障礙靜態檢查
+      - name: 層 1 約束 · 無障礙靜態檢查
         run: ./node_modules/.bin/eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0
 
       - name: Save Vite task cache
