@@ -108,13 +108,21 @@ function fileList(root: string, cwd: string): string[] {
  * ⚠️ 這個目錄裡除了 `vite.config.ts` 之外全是指向真樹的符號連結，
  * 而「遞迴刪除會不會跟著連結走進去」是一個我不想賭的問題。
  * 逐項刪的話，刪錯的上限是這個暫存目錄本身。
+ *
+ * ⚠️ **整段吞例外**：它跑在 `finally` 裡，這裡丟出去會把正在飛的那個
+ * `ProbeError` 蓋掉 —— 一句「輸出不是 JSON」會變成一個看不懂的 ENOTEMPTY。
+ * 掃不乾淨的代價是暫存目錄裡留下一個空殼，那比掉一則診斷便宜。
  */
 function tearDown(farm: string): void {
-  for (const entry of readdirSync(farm)) {
-    const path = join(farm, entry);
-    if (lstatSync(path).isSymbolicLink() || lstatSync(path).isFile()) unlinkSync(path);
+  try {
+    for (const entry of readdirSync(farm)) {
+      const path = join(farm, entry);
+      if (lstatSync(path).isSymbolicLink() || lstatSync(path).isFile()) unlinkSync(path);
+    }
+    rmdirSync(farm);
+  } catch {
+    /* 見上 */
   }
-  rmdirSync(farm);
 }
 
 export function probe(root: string): ProbeOutcome {

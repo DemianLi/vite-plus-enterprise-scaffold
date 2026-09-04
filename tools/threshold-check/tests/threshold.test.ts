@@ -155,7 +155,12 @@ describe("parseDiagnostics", () => {
         },
       ],
     });
-    expect(parsed).toEqual({ readings: [], unparsed: [] });
+    expect(parsed).toEqual({ readings: [], unparsed: [], files: 0 });
+  });
+
+  it("⚠️ 量測那一趟自己的射程要帶出來 —— 檔案清單那條夾具問的是另一趟呼叫", () => {
+    expect(parseDiagnostics({ diagnostics: [], number_of_files: 257 }).files).toBe(257);
+    expect(parseDiagnostics({ diagnostics: [] }).files).toBe(0);
   });
 
   it("⚠️ 讀不出數字的門檻訊息要被點名，不是被丟掉 —— 丟掉的話上游換措辭會全綠", () => {

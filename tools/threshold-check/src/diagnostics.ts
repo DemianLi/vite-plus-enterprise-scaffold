@@ -29,6 +29,14 @@ export interface ParsedDiagnostics {
   readonly readings: readonly Reading[];
   /** 看起來是門檻違規、卻讀不出數字的訊息。**非空就是紅的。** */
   readonly unparsed: readonly string[];
+  /**
+   * ⚠️ **量測那一趟自己掃了幾個檔。**
+   *
+   * 檔案集合那條夾具問的是 `--debug=files` 那兩趟，而讀數來自 `-f json` 那一趟
+   * —— **是不同的呼叫**。這一欄讓呼叫端問得到「真正產出讀數的那一趟射程對不對」，
+   * 而不是拿另一趟的射程去替它作證。
+   */
+  readonly files: number;
 }
 
 const MEASURE = /(?:\((\d+)\)|(\d+))\.\s*Maximum allowed is (\d+)\./;
@@ -61,5 +69,12 @@ export function parseDiagnostics(payload: unknown): ParsedDiagnostics {
     readings.push({ code, reported: Number(reported), allowed: Number(allowed) });
   }
 
-  return { readings, unparsed };
+  const files =
+    typeof payload === "object" &&
+    payload !== null &&
+    typeof (payload as { number_of_files?: unknown }).number_of_files === "number"
+      ? (payload as { number_of_files: number }).number_of_files
+      : 0;
+
+  return { readings, unparsed, files };
 }

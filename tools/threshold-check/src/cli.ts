@@ -30,6 +30,13 @@ if (!FLAGS.ok) {
 const ROOT = repoRoot();
 
 /**
+ * 一個**一定會被 lint 到**的檔案。用來證明檔案清單真的是檔案清單。
+ *
+ * ⚠️ 刻意不挑 `vite.config.ts` —— 那正是農場裡唯一被換掉的那一個。
+ */
+const ANCHOR = "tools/gate-roster/src/cli.ts";
+
+/**
  * 量測台自己的四條夾具。
  *
  * ⚠️ 依 C154 §三 第 3 條，這四條**不計 D16 迭代軸的分** —— 它們守的是這支
@@ -47,6 +54,22 @@ function fixtures(outcome: ReturnType<typeof probe>): string | undefined {
   }
   if (outcome.realFiles.length === 0) {
     return "真樹上 vp lint 一個檔案都沒掃到 —— 量測台壞了，不是這棵樹乾淨。";
+  }
+  // ⚠️ **非空與逐行相同都接不住「兩邊都是同一坨垃圾」。** 檔案清單走的是
+  // `--debug=files`，而那條輸出串流是上游的事（今天在 stderr）—— 哪天它往
+  // stdout 印一行 `note:`，兩趟都會拿到同一個單行字串：長度是 1 不是 0、
+  // 兩邊還相等。**綠燈，而什麼都沒量到。** 釘一個一定會被 lint 到的檔案，
+  // 是這一格唯一擋得住的辦法。
+  if (!outcome.realFiles.includes(ANCHOR)) {
+    return `vp lint 的檔案清單裡沒有 ${ANCHOR} —— 那個清單不是檔案清單（見 src/probe.ts 的 bothStreams）。`;
+  }
+  // ⚠️ 上面兩條問的是 `--debug=files` 那兩趟，而讀數來自 `-f json` 那一趟 ——
+  // **不同的呼叫**。射程要問產出讀數的那一趟自己，不能拿另一趟替它作證。
+  if (outcome.parsed.files !== outcome.realFiles.length) {
+    return (
+      `量測那一趟掃了 ${outcome.parsed.files} 個檔，而這棵樹是 ${outcome.realFiles.length} 個。\n` +
+      `  → 產出讀數的那一趟射程不對，讀數就是不對的 —— 差多少不重要，不等就是紅。`
+    );
   }
   if (outcome.realFiles.join("\n") !== outcome.probeFiles.join("\n")) {
     return (
