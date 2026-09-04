@@ -120,6 +120,17 @@ export function trackedSlices(root: string): SliceInfo[] {
 export const SANDBOX_LAYERS = ["platform", "apps", ".github"] as const;
 
 /**
+ * 副本裡還要有哪幾個**根層檔案**。
+ *
+ * ⚠️ 與 `SANDBOX_LAYERS` 分開，不是為了整齊：`tests/sandbox.test.ts` 對層做的是
+ * 「遞迴數檔案」，對一個檔案做那件事會 ENOTDIR。兩種素材的驗法本來就不同。
+ *
+ * `vite.config.ts` 是 C163 補的 —— `tools/threshold-check` 被驗的對象就是這個
+ * 檔案裡那幾格門檻的數字，副本裡沒有它，那道閘門在副本上只會說「這裡沒有設定檔」。
+ */
+export const SANDBOX_FILES = ["vite.config.ts"] as const;
+
+/**
  * 把版控裡 `dir` 底下的檔案複製過去。
  *
  * ⚠️ **事實來源是 `git ls-files`，不是 `cpSync` 遞迴**（C73／C98 那條規矩，
@@ -168,6 +179,7 @@ export function makeSandbox(root: string, slices: readonly SliceInfo[]): Sandbox
 
   for (const slice of slices) copyTracked(root, `features/${slice.dir}`, dir);
   for (const layer of SANDBOX_LAYERS) copyTracked(root, layer, dir);
+  for (const file of SANDBOX_FILES) copyTracked(root, file, dir);
 
   writeFileSync(
     join(dir, "CODEOWNERS"),
@@ -204,6 +216,39 @@ function insertAfter(path: string, anchor: string, line: string): void {
   }
   lines.splice(index + 1, 0, line);
   writeFileSync(path, lines.join("\n"));
+}
+
+/**
+ * 設定裡第一格複雜度門檻的數字。
+ *
+ * ⚠️ 只認 `["error"|"warn", { <選項>: <數字> }]` 這個形狀，與
+ * `tools/threshold-check/src/config.ts` 的 `RULE_LINE` 同一種寫法 ——
+ * 兩邊各自寫死是刻意的：這裡是**接線**，去 import 那支工具的內部樣式
+ * 等於讓被驗的對象自己決定要被怎麼弄壞。
+ */
+const THRESHOLD = /(:\s*\[\s*"(?:error|warn)"\s*,\s*\{\s*\w+\s*:\s*)(\d+)(\s*\}\s*\])/u;
+
+/**
+ * 把副本裡第一格門檻抬到沒有人碰得到的高度。
+ *
+ * ⚠️ **抬，不是降。** 降下去只會讓那道閘門報「被超過」，而那條紅燈說的是
+ * 另一件事（去看 `vp check`）。承諾要問的是**過期**：門檻留在舊高度，
+ * 而實測最大值早就掉下來了。
+ *
+ * ⚠️ 找不到就丟錯，不是安靜跳過 —— 那代表這條承諾其實什麼都沒破壞，而它會「通過」。
+ */
+function raiseFirstThreshold(sandbox: Sandbox): void {
+  const path = join(sandbox.dir, "vite.config.ts");
+  const source = readFileSync(path, "utf8");
+  const match = THRESHOLD.exec(source);
+  if (match === null) {
+    throw new Error(
+      `[promise-check] 在 ${path} 找不到任何一格複雜度門檻。\n` +
+        "  設定的寫法變了。改這裡的樣式，不要改規格 —— 承諾沒有變。",
+    );
+  }
+  const raised = Number(match[2]) + 900;
+  writeFileSync(path, source.replace(THRESHOLD, `$1${String(raised)}$3`));
 }
 
 /** 這一片的第一個 view。⚠️ 檔名各案不同，所以用掃的，不寫死。 */
@@ -250,6 +295,14 @@ export const BREAKAGES: ReadonlyMap<string, (sandbox: Sandbox) => void> = new Ma
       const path = slicePath(sandbox, 0, "src/index.ts");
       writeFileSync(path, `import { cloneDeep } from "lodash-es";\n${readFileSync(path, "utf8")}`);
     },
+  ],
+  ["有人把一格複雜度門檻調高到沒有人碰得到", raiseFirstThreshold],
+  [
+    // ⚠️ 這一條與上面那個空的破壞手法**不能共用**：鍵要與規格的句子逐字相同，
+    // 而兩份規格各有自己的對照組句子。合成一條的話，刪掉其中一份規格的對照組
+    // 不會變成孤兒 —— 另一份還在用它，於是「規格悄悄少了對照組」全綠。
+    "一份沒有被動過的門檻設定",
+    () => {},
   ],
   [
     // ⚠️ 什麼都不做，而這一條**必須存在**：它是「沒有違規時不得紅」那條承諾的接線。

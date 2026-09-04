@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { repoRoot } from "@org/gate-kit";
@@ -16,15 +18,27 @@ import {
 import { parseDiagnostics } from "../src/diagnostics.ts";
 
 /**
- * ⚠️ **這一支不 mount 任何東西，也不跑 lint。**
+ * ⚠️ **判定那一半不 mount 任何東西，也不跑 lint。**
  *
  * 判定那一半（`config.ts`／`diagnostics.ts`／`check.ts`）是純函式，餵得進假資料；
  * 量測那一半（`probe.ts`）要起子行程掃全樹，跑一趟三秒多，**而且它的正確性
- * 靠的是自己那四條夾具**（檔案集合一致、改寫格數對得上、訊息解析得出來、
- * 門檻配得起來）—— 那四條每一趟 `vpr gate` 都在跑。
+ * 靠的是自己那六條夾具**（檔案集合一致、改寫格數對得上、訊息解析得出來、
+ * 射程對得上、錨點在清單裡、門檻配得起來）—— 那幾條每一趟 `vpr gate` 都在跑。
  *
  * 在測試裡再跑一次同樣的東西，換到的不是覆蓋率，是一條會跟其他測試
  * 搶同一棵樹的整合測試（C87 記過那個形狀）。
+ *
+ * ── ⚠️ 最後那一組是例外，而它買到的東西別處沒有 ────────────────────
+ *
+ * `--root`（C163）之後，這支工具有**兩個 root**：跑在哪、以及被驗的設定在哪。
+ * 上面每一條純函式測試對「這兩個有沒有被接錯」完全無感 —— 一份把 `--root`
+ * 只用在「檔案存不存在」、然後照樣壓真樹設定的實作，會通過這裡全部的斷言、
+ * 通過承諾檢查的探針（兩趟輸出確實不同）、也通過沙盒的逐位元組比對，
+ * 然後讓 `specs/gate-thresholds.feature` 那條「必須紅」報〈承諾沒有牙齒〉——
+ * 一則指向閘門或規格、而兩者都不是原因的紅燈。
+ *
+ * 擋它的只有一件事：**紅燈裡那個數字要是目標設定裡的數字，不是真樹的。**
+ * 那條斷言在檔案最後，代價約三秒，排程相依見 `vite.config.ts`。
  */
 
 const CONFIG = {
@@ -275,4 +289,45 @@ describe("measure ＋ judge", () => {
     expect(findings.map((f) => f.rule)).toEqual(["門檻被超過"]);
     expect(findings[0]?.fix).toContain("不要動門檻");
   });
+});
+
+describe("--root 換的是被驗的那份設定", () => {
+  /**
+   * ⚠️ **載重的是「500」這三個字，不是「紅了」。**
+   *
+   * 真樹那一格是 5。訊息裡出現 500，唯一的解釋是它讀了**目標設定的內容** ——
+   * 換成只讀「那個目錄存不存在」的實作，這裡會拿到 5，或者根本是綠的。
+   *
+   * ⚠️ 反過來那一半（指向真樹 → 綠）不在這裡：每一趟 `vpr gate` 都在跑它，
+   * 而在這裡再跑一次要多付三秒。
+   */
+  it("★ 指向一份門檻被抬高的設定 → 紅，而紅燈點名的是那一份裡的數字", () => {
+    const root = repoRoot();
+    const source = readFileSync(join(root, "vite.config.ts"), "utf8");
+    // 第一個 max-depth 是根層那一格（5）。⚠️ 非全域替換，覆寫的只有它。
+    const raised = source.replace(/("max-depth":\s*\[\s*"error",\s*\{\s*max:\s*)\d+/u, "$1500");
+    expect(raised, "設定的寫法變了 —— 這裡什麼都沒改壞，而它會「通過」").not.toBe(source);
+
+    const dir = mkdtempSync(join(tmpdir(), "threshold-root-"));
+    try {
+      writeFileSync(join(dir, "vite.config.ts"), raised);
+      const result = spawnSync(
+        "node",
+        [join(root, "tools/threshold-check/src/cli.ts"), "--root", dir],
+        {
+          cwd: root,
+          encoding: "utf8",
+        },
+      );
+      const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+
+      expect(result.status, output).not.toBe(0);
+      expect(output).toContain("門檻過期");
+      expect(output, "紅燈裡的數字是真樹的，不是那一份的 —— --root 只被拿去看目錄在不在").toContain(
+        "設在 500",
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
 });

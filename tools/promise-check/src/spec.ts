@@ -23,6 +23,13 @@ import { collect, type Finding } from "@org/conformance/finding";
 
 /** 一條承諾：把樹弄壞成什麼樣、跑哪一道閘門、期待什麼結果。 */
 export interface PromiseScenario {
+  /**
+   * 這條承諾寫在哪一份規格裡。
+   *
+   * ⚠️ 有兩份規格之後才需要它：「至少要有一條對照組」如果整批問，
+   * 刪掉其中一份的對照組會被另一份蓋過去（見 `check.ts`）。
+   */
+  readonly spec: string;
   /** `功能:` 那一行 —— 承諾的標題。 */
   readonly feature: string;
   /** `場景:` 那一行。 */
@@ -155,6 +162,7 @@ export function parseSpec(path: string, text: string): ParseResult {
       }
 
       scenarios.push({
+        spec: path,
         feature: feature.name,
         scenario: scenario.description,
         given,

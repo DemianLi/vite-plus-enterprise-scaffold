@@ -22,15 +22,21 @@ import { parseSpec } from "../src/spec.ts";
  */
 
 /**
- * ⚠️ **這一支對真 repo 跑別的工具，所以排程相依查過了：不需要 `dependsOn`。**
+ * ⚠️ **這一支對真 repo 跑別的工具，而排程相依現在是需要的**（`vite.config.ts`）。
  *
  * C87 記著 `@org/slice-gen#test` 會在**真的** `features/` 底下建一個 `zz-` 切片，
  * 而那種切片自帶 `specs/<name>.feature`（C114）—— 看起來正好會讓下面那條
- * `spec-report --check` 間歇變紅。**不會**：`tools/slice-gen/tests/e2e.test.ts`
+ * `spec-report --check` 間歇變紅。**那一條不會**：`tools/slice-gen/tests/e2e.test.ts`
  * 整份沒有碰過 git，而 `spec-report` 與 `promise-check` 的事實來源都是
  * `git ls-files`（C73／C98）。沒進 index 的東西，兩支都看不見。
  *
- * 這句話寫在這裡，是因為下一個人會重新問一次同一個問題。
+ * ⚠️⚠️ **而那個論證在 C163 之後不涵蓋全部了。** 這一支現在會執行
+ * `specs/gate-thresholds.feature`，那兩個場景各起一次 `tools/threshold-check` ——
+ * 它**不走 `git ls-files`**，它跑 `vp lint` 掃磁碟，於是那個 `zz-` 切片它看得見。
+ * 所以修的是排程，理由逐字寫在 `tools/threshold-check/vite.config.ts`。
+ *
+ * 這段話寫在這裡，是因為下一個人會重新問一次同一個問題 —— 而上一次問的人
+ * 得到的答案在當天是對的。
  */
 
 const HERE = resolve(fileURLToPath(import.meta.url), "..");
@@ -45,6 +51,13 @@ function run(args: readonly string[]): { status: number | null; output: string }
 }
 
 describe("CLI", () => {
+  /**
+   * ⚠️ **逾時放寬到 60 秒，而那不是「調鬆門檻換綠燈」。** 這一趟現在會真的跑三次
+   * `tools/threshold-check`（探針一次、`specs/gate-thresholds.feature` 兩個場景各一次），
+   * 每次約三秒 —— 實測整趟約 10 秒，而 vitest 的預設是 5 秒。
+   * 這裡量的是「承諾成不成立」，不是「它跑多快」；真要守速度，那是另一條斷言，
+   * 而且它得先有一個被裁過的預算（C147 §二 那種）。
+   */
   it("版控裡的承諾全部成立時回傳 0，並說出執行過幾條", () => {
     const { status, output } = run([CLI]);
 
@@ -52,7 +65,7 @@ describe("CLI", () => {
     // ⚠️ 印的是**執行過**的場景數，不是規格裡寫了幾條 —— 兩者不同的那一天，
     // 差別就是「有幾條沒被跑到」。
     expect(output).toContain("個場景各執行過一次");
-  });
+  }, 60_000);
 
   it("找不到規格時回傳非零（結束碼是唯一會被 CI 讀到的東西）", () => {
     const { status, output } = run([CLI, "--spec", "specs/不存在的規格.feature"]);
