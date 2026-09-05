@@ -4328,3 +4328,176 @@ Tier 的視角看不到這件事 —— 它只顯示兩個綠勾。
 
 **沒有任何既有產出需要重跑。** 本則零行為變更：`pnpm ready` 退出 0、
 `gate-roster` 退出 0、地圖步驟本機實跑無誤縮排。
+
+---
+
+### C168 — 測試接縫的架構審查：真重複只有八組，而 harness 是十一份實作的同一個 module；收進 `@org/gate-kit/testing`，其餘互補的三十列一併登記（2026-09-05）
+
+#### 一、問法與判準
+
+起於一次「有沒有重複守同一條接縫的測試」的架構審查，84 支測試檔逐支讀。
+判準是機械的：**同一個變異會不會讓兩邊同時紅**，再加 deletion test ——
+同時紅且刪掉一邊複雜度**消失**＝真重複；只有一邊紅＝互補；刪掉一邊複雜度
+**搬家**＝留。「同時紅」是從 import 與讀檔目標推導的，樹上有實測記錄的地方
+引用記錄；沒有跑 Stryker。
+
+⚠️ **這個問法先被 C137 §一 裁過一次**：不准拿成本或「過度設計」論證增減閘門。
+本則每一項處置動的都是**測試碼**，`vpr gate` 那條鏈一支不動；C43 起的原則
+「每一道閘門附一支反向測試」原樣保留 —— harness 決定**怎麼建樹、怎麼跑**，
+不決定**什麼算對**。
+
+#### 二、真重複的八組，與最大的那一組
+
+| 接縫                     | 兩邊                                                                                                 | 處置        |
+| ------------------------ | ---------------------------------------------------------------------------------------------------- | ----------- |
+| **CLI 測試 harness**     | 11 份沙盒建構、8 份 spawn 包裝、17 處手抄 repo 根、14 檔的輸出合併、`slice-gen` 的 `read()` 逐字三份 | **本則**    |
+| 未知旗標／缺值 → 紅      | `gate-kit` flags＋adoption ↔ `pii-check`:184 · `compliance`:230 · `sbom-negative`:119,161            | 候選（§六） |
+| 各閘門對真樹 exit 0      | 九支測試各一次 ↔ 腿④ `vpr gate` 再一次；只有 `gate-roster`:146 留了辯護                              | 候選（§六） |
+| `defineFeature` 命名空間 | `define-feature.test`:38 ↔ 三片切片的範本測試（違規時 import 先炸，斷言不可達）                      | 候選（§六） |
+| `maskName`               | `platform/pii` mask.test:59 ↔ `features/order` masking.test:22（同一個字面值）                       | 候選（§六） |
+| BFF 401／403／CSRF       | `bff-mock` routes.test ↔ `bff-check` contract.test（同一個 `startBffMock`）                          | 候選（§六） |
+| `index.ts` 匯出完整性    | `platform/ui` styles.test:315 ↔ component-contract:69，**兩邊檔頭都沒提對方**                        | 候選（§六） |
+| `threshold-check` 探針   | 一次 `vpr ready` 跑 8 次；樹自己在 `promise-check/tests/sandbox.test.ts:96` 拒絕過第三份             | 候選（§六） |
+
+harness 那一組與其他七組性質不同：它不是斷言重複，是 **deletion test 判「搬家」
+的那一種** —— 每一份都在做事，但「臨時目錄要不要 `git init`、要不要清、用
+`git ls-files` 還是 `readdirSync`」這種政策改一次得改十一處。清理方式已經分裂
+成三派（`afterEach` 掃陣列／`try-finally`／單一變數）。`@org/gate-kit` 早就導出
+`repoRoot()`，而只有兩支測試在用。
+
+#### 三、裁決：收進 `@org/gate-kit/testing`
+
+| 決定          | 取法                                                                                                                                                                 | 沒取的                                                                                                                    |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| seam 位置     | `@org/gate-kit` 加 subpath export `./testing`；17 支工具本來就宣告它，一行相依不加                                                                                   | 新 package（要進 `gate-roster` 名冊）；跨 package 相對路徑（conformance 會紅）                                            |
+| interface     | `sandbox({files, copy, git, within, prefix, lifetime})` → `{root, read, write, git}`；`runCli(cli, args)` → `{status, stdout, stderr, output}`；re-export `repoRoot` | `pii-check` 那段「幾個檔算夠」的迴圈（那是它的斷言）；`gate-roster` 的 layout DSL；`promise-check` 產品碼的 `makeSandbox` |
+| `copy` 的語意 | **只複製版控裡的檔**（`git ls-files`）；指到的路徑一個版控檔都沒有時丟例外                                                                                           | `cpSync` 整個目錄再濾 `node_modules` —— 沙盒會隨工作區狀態變                                                              |
+| 清理歸誰      | harness 在 import 時自己向 vitest 註冊 `afterEach`／`afterAll`（`lifetime: "each" \| "all"`）                                                                        | 回傳 cleanup 讓各檔自己掛（三派保留成一派但仍十七份）；`using`（樹上零使用、轉譯未驗）                                    |
+| 旗標          | args 全由呼叫端明寫，**不補 `--root`** —— C126 之後八支 CLI 拒絕不認得的旗標                                                                                         | —                                                                                                                         |
+| `cwd`         | 固定 `repoRoot()`；沙盒走 `--root` 不走 `cwd`                                                                                                                        | —                                                                                                                         |
+| 兩條明文例外  | `root.test.ts:11-18` 的 symlink 斷言留在消費端（它不是 harness）；`vue-typecheck` 的沙盒用 `within` 容納，理由留在它自己檔頭                                         | —                                                                                                                         |
+
+⚠️ **`gate-kit/package.json` 的 description 從 C125 §五 起寫著「這條線只帶
+parseFlags」。** 那是 `release/v1` 時代的話；`main` 的 `root.ts`、`walk.ts` 早就在，
+併線之後沒人改。本則順手重寫，不另立一則。
+
+#### 四、交付分兩支 PR，證據怎麼算
+
+- **PR 1（本則）**：模組、它自己的測試（含一次真的短路：把清理改成空操作，
+  「已被清掉」那條紅、其餘綠，還原）、description、本則。
+- **PR 2**：17 支測試檔遷移；絆線；本則補 §八。
+
+**零斷言損失的證據**：`vp test --reporter=json` 抽前後**逐檔** `it` 數，逐位相同
+才算。不用 `grep -c "it("`（會把 `it.each` 與註解裡的算進去），不用 `vpr ready`
+全綠（證明不了「沒少」），不跑 Stryker 前後比（子行程型測試對它不可見，差是雜訊）。
+
+**絆線**（PR 2）：`tools/gate-kit/tests` 加一條，掃 `tools/*/tests/**/*.test.ts` 裡直接
+呼叫 `mkdtempSync(`、`spawnSync("node"`、`execFileSync("node"` 的檔，例外名單
+`toEqual([])` 明寫；`spawnSync("git"` 放行；inline fixture 當已知非零的對照。
+只掃 `tools/` —— harness 是為閘門 CLI 長的，`platform/ui` 那些 `mount()` 不是這個形狀。
+⚠️ 它放 PR 2 不放 PR 1，因為 PR 1 到 PR 2 之間它是紅的，而「先列現況當例外再清空」
+是一份只活一支 PR 的清單，不值得。
+
+⚠️ 不做「模組先進、消費端有動到再改」：那會長成沒有追蹤處的餘數，樹上已有三個。
+
+#### 五、Stryker：不排除，而那句手算式已經過期一次
+
+`tools/*/src/**/*.ts` 會把 `testing.ts` 收進射程。**不排除**：harness 的變異若存活，
+意思是「某支測試不管沙盒內容怎樣都綠」，那正是這棵樹最想抓的形狀。跑一趟看存活
+清單再決定，符合〈先寬、先量、先記〉。
+
+⚠️ `stryker.config.mjs` 那句「N 是 78 ＝ 86 − 8」是 `d67583e` 那天的數，到 `0645fba`
+已經是 136 − 8 ＝ 128 而沒有任何東西在守它。本則改成 129（加 `testing.ts`），
+並寫明「這個數只在跑的那天對」。⚠️ 量的時候先踩了一次：第一把尺濾掉了 `.d.ts`
+得到 127，而 86 那次沒濾 —— 兩把尺要對得上才可以寫下來。
+
+#### 六、候選、未裁
+
+§二 表的另外七組，各一行，**本則不裁它們**：
+
+1. 旗標 interface 只守一次，adoption 的名冊改吃 `gate-roster` 的 `GATES ∪ variants`
+   （順帶收掉 `scripts.gate` 的三個 parser，關掉看不見四支 CLI 與四條 variant 的洞）。
+2. 「真樹綠」收成 adoption 裡一條 `it.each`，刪九處光禿禿的 `status === 0`；
+   ⚠️ `compliance --evidence` 不在 `scripts.gate`，本機唯一跑到它的是那條測試 —— 那是洞不是重複。
+3. `slice-gen` 範本的命名空間 describe 不可達；conformance 的 `hasTestFile` 認 `.spec.ts`。
+   ⚠️ 會動 conformance 一條規則的射程，要先裁。
+4. `bff-mock` 的測試收到只剩注入 seam 特有的性質；body 形狀算不算契約要先決定。
+5. `platform/ui/tests/styles.test.ts:315-329` 刪，:331-337 留。十行。
+6. `promise-check` 的 CLI 測試走假閘門，不 spawn 真的 `threshold-check`。
+   ⚠️ C165 剛把那支測試從恆綠救出來，第三次換形狀，所以只列不推。
+7. 零散：`promise-check/tests/sandbox.test.ts:128-134`（檔案自己在 :136-139 承認）；
+   `sbom-negative.test.ts:194-198`（`gate-roster` variant 已守）；lockfile 拆兩份文件那四條
+   只留 `--split-lockfile` adapter 那一條。
+
+#### 七、查過、判互補、不動 —— 登記在這裡，下一次審查不重判
+
+| 接縫                             | 兩邊                                                                         | 為什麼不是重複                                                        |
+| -------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| a11y 三支                        | `eslint-config` · `platform/ui` · `compliance`                               | 讀檔目標互不相交（lint 規則／元件原始碼＋Tailwind 產物／分工表）      |
+| PII 偵測 vs 遮罩                 | `pii-check` detect.test ↔ `platform/pii`                                     | 耦合不是重複：mask.test 的資料刻意寫成不通過校驗                      |
+| CSP 政策／靜態違規／跑起來的標頭 | policy.test ↔ static-csp.test ↔ `bff-check`:251                              | 三個讀的東西不同；`apps/console` 四支與 CSP 零交集                    |
+| 切片契約四組                     | define-feature ↔ conformance rules ↔ contract-alignment ↔ boundary-alignment | `isValidComposableFile` 三邊各走不同分支；boundary-alignment 檔頭自陳 |
+| `composableFunctionName`         | define-feature:150 ↔ contract-alignment:239                                  | 同時紅但**搬家** —— 後者守「產生器有沒有跟上」                        |
+| usecase `queryInvoice`           | `invoice.spec.ts` 唯一；`invoice.test.ts` 零條 usecase 斷言                  | 無重複                                                                |
+| `repoRoot()`                     | `gate-kit` root.test:7 ↔ `pii-check` roster.test:37                          | symlink 變異只後者紅；root.test:11-18 明文                            |
+| `--root` 換的是被驗的設定        | threshold.test:294 ↔ `promise-check/sandbox`:98                              | sandbox:92-97 明文                                                    |
+| conformance 讀 `--root`          | sandbox:113 ↔ probe.test:26                                                  | 同時紅但**搬家**：probe:36-43 是探針唯一的非零列                      |
+| markdown 事實三支                | doc-facts／threshold-check／promise-check                                    | 嫌疑不成立：後兩支不讀 `.md`                                          |
+| `HANDOFF.md` 的數字              | doc-facts ↔ exit-drill counts                                                | 守不同數字；`counts.ts:148` 明文分界                                  |
+| 樹上有哪些 tools／有沒有登記     | gate-roster ↔ scope-check ↔ pii-check roster                                 | `scope.test:162-170` 專門斷言 tools 那層必須綠（C136 §四）            |
+| 閘門鏈成員資格                   | gate-roster check ↔ adoption ↔ promise-check check                           | 三個問句；三個 parser 是 §六 第 1 項                                  |
+| exit-drill 五支                  | 一對一對五個 src 模組                                                        | 「空帳目與全部登記過同形」是判準重複，不是接縫重複                    |
+| 兩軌 lint                        | `vp check`（oxlint）↔ gate 的 eslint ×2                                      | 規則集刻意零重疊（`vite.config.ts:1-10`）                             |
+| 原始顏色判定                     | theme-verify palette.test ↔ contract-alignment:363                           | 共用 `findPaletteUsage`、輸入不同；:360-361 明文                      |
+| `sr-only` span 形狀              | ui a11y.test:201 ↔ dropdown-menu:198                                         | 同時紅但**搬家**：各是別條的前置；兩邊檔頭載明                        |
+| 模板 HTML 註解                   | a11y:387（廣）↔ field-wiring／alert-dialog／dropdown-menu（深）              | alert-dialog:292 實測：content 外只有廣的紅                           |
+| gate-roster 真樹 vs fixture      | roster.test:141 ↔ :145                                                       | :146-147 有辯護；併入 §六 第 2 項                                     |
+| vitest project 重疊              | 根層 `vite.config.ts` 無 `test` 區塊                                         | 結構上不可能：收集靠 `pnpm-workspace` × `vp run -r`                   |
+
+順帶撞到、**不是重複、本則不處理**的缺口：a11y 規則清單縮水時三支都綠；
+`form-control-has-label` 的範圍豁免沒進交付文件（`compliance/src/a11y.ts:145` 的
+`.find()` 只取第一個區塊）；CSP 指令被刪具名三條以外兩邊都綠；覆蓋率 `enabled: true`
+三片＋範本各抄一份；`apps/console`、`features/order` 兩支 `vite.config.ts` 的散文描述
+一個已不存在的根層 `test` 區塊；`tools/sast/` 是只有 `node_modules` 的幽靈目錄，
+兩份名冊都看不見。
+
+#### 八、實測（PR 2 補）
+
+留白。PR 2 合併時補：前後逐檔 `it` 數、絆線的對照組實跑、Stryker 一趟的存活清單。
+
+#### 九、與既有裁決的關係（C136 §八）
+
+| 既有                           | 本則做了什麼                                                                                       |
+| ------------------------------ | -------------------------------------------------------------------------------------------------- |
+| **C137 §一**                   | **遵守** —— 零閘門增減；§一 明寫每一項處置動的是測試碼                                             |
+| **C43**                        | **不動** —— 每道閘門的反向測試留在原處，harness 不碰斷言                                           |
+| **C125 §五**                   | **部分過期，本則更正** —— `repoRoot` 早已在 `main` 的 `gate-kit`；description 那句跟著改           |
+| **C126**                       | **引它** —— `runCli` 不補 `--root` 的理由                                                          |
+| **C153 §三**                   | **遵守** —— 這次審查的詞彙與裁決都落在這裡，不造 `CONTEXT.md`、`docs/adr/`                         |
+| **C121／`stryker.config.mjs`** | **不排除新檔，改那句過期的手算**（§五）                                                            |
+| **D16**                        | 兩軸都有分：迭代軸 —— 清理政策改一次到處生效；交付軸 —— 無                                         |
+| **`TESTING.md`**               | **不改。** 層 2 第一類的「無下限門檻」不受影響；§六 第 3 項若裁，會動到它 §四 對 `.spec.ts` 的定位 |
+
+#### 十、⚠️ 與 `#237` 的關係 —— 同一個問題、兩把尺，而兩半差點沒見面
+
+本則寫到一半，`#237`（`2722de9`，`reports/research/test-redundancy-loo-2026-09-02.md`）
+合進了 `main`。它問的是**同一個問題**（有沒有多餘的測試），答案是
+「量得到的 35 支裡可裁 **0** 支，另外 43 支沒被量過」。本則說有八組真重複。
+兩個答案**不矛盾，因為尺不同**：
+
+| 尺                | `#237` 留一法                            | 本則                                     |
+| ----------------- | ---------------------------------------- | ---------------------------------------- |
+| 最小單位          | **一支檔案**（拿掉整支，看覆蓋率／擊殺） | **一條接縫**，斷言到 describe／`it` 層級 |
+| 問的              | 拿掉它，儀器讀數動不動                   | 同一個變異會不會讓兩邊同時紅             |
+| 射程              | `tools/` 未釘住的 35 支                  | 84 支全部（讀，不跑）                    |
+| 看得見 harness 嗎 | 看不見（它不是斷言，不影響讀數）         | 是本則最大的一組                         |
+
+所以本則的八組**沒有一組是整支檔案**：每一支都同時裝著獨有的斷言（§七 那些
+「留」的就在同一支檔裡），拿掉整支當然 Δ>0 或紅 —— `#237` 的「可裁 0」在檔案
+粒度上成立，而本則在檔內粒度上找到的東西，那把尺結構上照不到。反過來，`#237`
+的 Δ0 五支裡 `boundary-alignment.test.ts` 本則判**互補**（它守產生器產出的相對
+路徑，contract-alignment 守常數）—— Δ0 是必要不充分條件，那份報告自己也這麼寫。
+
+⚠️ **這一節存在的理由是形狀，不是內容**：兩份對同一個問題的產出各自開工、
+各自快寫完才撞見，而它們用不同的尺得到看似相反的一句話。沒有這一節，下一個人
+會拿「可裁 0」否決本則，或拿本則否決 `#237`。
