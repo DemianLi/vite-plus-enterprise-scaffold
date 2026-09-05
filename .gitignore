@@ -59,3 +59,19 @@ reports/*
 .stryker-tmp/
 stryker.log
 stryker-setup-*.js
+
+# ⚠️ `.vite-plus` 刻意不加 —— 它不在這棵樹裡（#292）
+#
+# `tools/pii-check` 手抄的跳過清單有這一列。改成問 git 之後（C182 §六），
+# 八列裡七列由這份檔案接手，只有它沒有 —— 而查下去的結論是**不該接手**：
+# Vite+ 把受管執行期放在 `~/.vite-plus`（`VP_HOME`，見
+# `node_modules/vite-plus/docs/guide/env.md`），不在 repo 裡，
+# 而 `VP_HOME` 在本 repo 一處都沒設。
+#
+# 加一列會是一列**沒有受害者的黑名單** —— 正是 C182 §五 否決
+# 「`SKIP` 加一列 `.claude`」的那個形狀。
+#
+# ⚠️ 萬一哪天真的長出來：它會以「未追蹤且未 ignore」的身分被掃到，
+# 也就是 `git status` 上看得見 —— 壞法是**吵**（誤報），不是安靜地漏。
+# 讓這段話失效的觸發條件是「有人把 `VP_HOME` 指到 repo 相對路徑」，
+# 而**沒有任何閘門在看 `VP_HOME`**。

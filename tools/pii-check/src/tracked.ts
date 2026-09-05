@@ -34,10 +34,15 @@ import { spawnSync } from "node:child_process";
  * 閘門才紅，看起來像幽靈（C133 §九）。現在擋住它的是 `.gitignore` 那一行，
  * 不是這裡的清單。
  *
- * ⚠️ **而 `.vite-plus` 沒有被吸收**：舊清單有它，`.gitignore` 沒有，
- * 量測當下磁碟上也沒有這個目錄（`git check-ignore` RC 1）。它要是哪天長出來，
- * 會以「未追蹤且未 ignore」的身分進來 —— 但那同時也代表 `git status` 上
- * 看得見它，而不是安靜地被掃。要不要補 `.gitignore` 是設定的事，另議。
+ * ⚠️ **`.vite-plus` 是唯一沒有被吸收的一列，而那是決定不是遺漏**（#292）。
+ * 它要是哪天長出來，會以「未追蹤且未 ignore」的身分進來 —— 也就是
+ * `git status` 上看得見它：壞法是**吵**（誤報），不是安靜地漏。
+ * 而它至今一次都沒長出來過 —— Vite+ 把受管執行期放在 `~/.vite-plus`
+ * （`VP_HOME`，見 `node_modules/vite-plus/docs/guide/env.md`），不在這棵樹裡，
+ * 而 `VP_HOME` 在本 repo 一處都沒設。補一列進 `.gitignore` 會是一列
+ * **沒有受害者的黑名單** —— 正是 C182 §五 否決「`SKIP` 加一列 `.claude`」
+ * 的那個形狀。⚠️ 讓這段話失效的觸發條件是「有人把 `VP_HOME` 指到 repo
+ * 相對路徑」，而**沒有任何閘門在看 `VP_HOME`**；量測與三條路寫在 #292。
  *
  * ── 巢狀工作樹是 git 自己擋掉的，不是靠 `.gitignore` 那一行 ──────────
  *
