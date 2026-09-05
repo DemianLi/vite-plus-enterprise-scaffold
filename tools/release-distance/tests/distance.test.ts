@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 import { repoRoot, runCli, sandbox } from "@org/gate-kit/testing";
@@ -15,14 +16,29 @@ const CLI = "tools/release-distance/src/cli.ts";
  * 結束碼上分不出來，所以那條界線只有測試看得見。
  */
 describe("結束碼：除了旗標，什麼都不紅", () => {
-  it("★ 真樹上是 0，而且真的量到了（不是靠量不到才綠的）", () => {
+  it("★ 真樹：結束碼 0，而且「量到了沒有」要與 git 自己的說法一致", () => {
     const result = runCli(CLI, []);
     expect(result.status, result.output).toBe(0);
-    // ⚠️ 對照組：少了這一條，一棵沒有 tag 的樹會讓上面那條與下面每一條
-    // 都「通過」—— 而通過的原因是它什麼都沒量。
-    expect(report(readGit(repoRoot())).kind, "真樹上量不到 tag —— 那下面的綠燈不算數").toBe(
-      "measured",
-    );
+    // ⚠️ 對照組不斷言定值，斷言兩個讀數相等（C179 §二）：本機看得到 tag ⇒ 必須量到；
+    // CI 的淺 checkout 一個都看不到 ⇒ 必須「量不到」而且說出成因。
+    // 斷言定值的版本會在 CI 紅；寫成 skipIf 則讓「未執行」與「全綠」長一樣（C114 §二）。
+    // 少了它，一棵沒有 tag 的樹會讓下面每一條「回 0」的斷言都假性通過。
+    const reachable = spawnSync("git", ["tag", "--merged", "HEAD"], {
+      cwd: repoRoot(),
+      encoding: "utf8",
+    }).stdout.trim();
+    const out = report(readGit(repoRoot()));
+    if (reachable.length > 0) {
+      expect(
+        out.kind,
+        `git 看得到 tag（${reachable.split("\n").length} 個），report 卻說量不到`,
+      ).toBe("measured");
+    } else {
+      expect(out, "git 一個 tag 都看不到，report 卻量出了東西").toMatchObject({
+        kind: "unmeasurable",
+        why: expect.stringContaining("fetch-depth"),
+      });
+    }
   });
 
   it("剛 git init、一個 tag 都沒有時是 0", () => {
