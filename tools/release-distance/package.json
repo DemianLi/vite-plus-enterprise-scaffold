@@ -1,0 +1,24 @@
+{
+  "name": "@org/release-distance",
+  "version": "0.0.0",
+  "private": true,
+  "description": "距上一個 tag 幾支、幾天（C169 §一 —— 報數的，沒有門檻）",
+  "bin": {
+    "release-distance": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@org/gate-kit": "workspace:*"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}
