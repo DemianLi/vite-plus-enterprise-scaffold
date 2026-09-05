@@ -69,7 +69,7 @@ import { parseFlags } from "@org/gate-kit";
  * `.github/workflows/*.yml`（⚠️ **含排程那兩個**，它們不在 `gate`／`ready` 上，
  * `gate-kit` 的名冊測試看不見它們）、以及這支工具自己的 `tests/`。
  */
-const FLAGS = parseFlags(process.argv.slice(2), {
+const PARSED = parseFlags(process.argv.slice(2), {
   update: { kind: "boolean" },
   capture: { kind: "boolean" },
   "capture-health": { kind: "boolean" },
@@ -80,10 +80,12 @@ const FLAGS = parseFlags(process.argv.slice(2), {
   "split-lockfile": { kind: "value", noun: "目錄" },
   "verify-sbom": { kind: "value", noun: "檔案" },
 } as const);
-if (!FLAGS.ok) {
-  console.error(FLAGS.message);
+if (!PARSED.ok) {
+  console.error(PARSED.message);
   process.exit(1);
 }
+/** ⚠️ 收窄要在頂層做一次：`process.exit` 的 `never` 不會把 `PARSED` 的型別帶進函式體。 */
+const FLAGS = PARSED.flags;
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const LOCKFILE = join(ROOT, "pnpm-lock.yaml");
@@ -1263,8 +1265,9 @@ function runDossier(): number {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<number> {
-  const args = process.argv.slice(2);
-  if (args.includes("--update")) {
+  // ⚠️ 模式全部從 `FLAGS` 取，不再自己掃 argv（C180）。順序逐字保留自手讀
+  // 時期：同時給兩個模式時先出現在這條鏈上的贏，這一點沒有裁過。
+  if (FLAGS.update) {
     writeFileSync(INVENTORY_PATH, serialise(readInventory()));
     const inventory = readInventory();
     console.log(
@@ -1274,13 +1277,8 @@ async function main(): Promise<number> {
   }
   // --split-lockfile <dir>：把 lockfile 的每一份 YAML 文件寫成獨立的 pnpm-lock.yaml，
   // 各放一個子目錄。掃描器掃這個父目錄就會看到全部，不會只看到第一份（C34）。
-  const splitFlag = args.indexOf("--split-lockfile");
-  if (splitFlag >= 0) {
-    const outDir = args[splitFlag + 1];
-    if (outDir === undefined) {
-      console.error("--split-lockfile 需要一個輸出目錄");
-      return 1;
-    }
+  if (FLAGS["split-lockfile"] !== undefined) {
+    const outDir = FLAGS["split-lockfile"];
     const documents = splitDocuments(readFileSync(LOCKFILE, "utf8"));
     for (const [index, document] of documents.entries()) {
       const dir = join(resolve(outDir), `doc${index + 1}`);
@@ -1296,14 +1294,8 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  const sbomFlag = args.indexOf("--verify-sbom");
-  if (sbomFlag >= 0) {
-    const path = args[sbomFlag + 1];
-    if (path === undefined) {
-      console.error("--verify-sbom 需要一個檔案路徑");
-      return 1;
-    }
-    const failures = checkSbom(resolve(path), readInventory());
+  if (FLAGS["verify-sbom"] !== undefined) {
+    const failures = checkSbom(resolve(FLAGS["verify-sbom"]), readInventory());
     if (failures.length === 0) return 0;
     console.error("\nSBOM 檢查未通過：\n");
     for (const failure of failures) {
@@ -1313,12 +1305,12 @@ async function main(): Promise<number> {
     }
     return 1;
   }
-  if (args.includes("--capture-health")) return runCaptureHealth();
-  if (args.includes("--recapture-safe")) return runRecaptureSafe();
-  if (args.includes("--capture")) return runCapture();
-  if (args.includes("--manifest")) return runManifest();
-  if (args.includes("--dossier")) return runDossier();
-  if (args.includes("--airgap")) return runAirgap();
+  if (FLAGS["capture-health"]) return runCaptureHealth();
+  if (FLAGS["recapture-safe"]) return runRecaptureSafe();
+  if (FLAGS.capture) return runCapture();
+  if (FLAGS.manifest) return runManifest();
+  if (FLAGS.dossier) return runDossier();
+  if (FLAGS.airgap) return runAirgap();
   return runGate();
 }
 
