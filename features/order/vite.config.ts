@@ -5,8 +5,8 @@ import { USECASE_COVERAGE_GLOB, USECASE_COVERAGE_MIN } from "@org/slice-kit/cont
 /**
  * 切片自己的 Vite 設定。**這支檔案存在的唯一理由是覆蓋率門檻**（C120）。
  *
- * ⚠️ 為什麼不放根層：`vp test` 的設定以 package 為根解析，而一個 package
- * 只要有自己的 `vite.config.ts`，根層那份的 `test` 區塊就**整塊不繼承**。
+ * ⚠️ 為什麼不放根層：根層**刻意不放** `test` 區塊。`vp test` 的設定以 package
+ * 為根解析，就算根層放了，一個有自己 `vite.config.ts` 的 package 也**整塊不繼承**。
  * `apps/console` 實測過這一格：它有自己的設定，於是覆蓋率退回預設射程
  * （只把「測試載入過的檔案」放進分母），報表寫 **100%**，一個 99% 的門檻
  * 照樣通過、exit 0 —— 沒有任何錯誤訊息。門檻放根層等於對「有自己設定的

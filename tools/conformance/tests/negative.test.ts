@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
 import { repoRoot, runCli, sandbox } from "@org/gate-kit/testing";
@@ -520,6 +520,60 @@ describe("CI 的 action 必須以 commit SHA 釘住", () => {
 
     const result = runConformance(root);
     expect(result.output).not.toContain("action 未以 SHA 釘住");
+    expect(result.red, result.output).toBe(false);
+  });
+});
+
+describe("C120：覆蓋率門檻有沒有真的會跑", () => {
+  const CONFIG = "vite.config.ts";
+
+  it("enabled: true 改成 false → 紅，訊息含 enabled 與切片名", () => {
+    const root = makeSandbox();
+    patch(root, CONFIG, "enabled: true,", "enabled: false,");
+
+    const result = runConformance(root);
+    expect(result.red, result.output).toBe(true);
+    expect(result.output).toContain("enabled");
+    expect(result.output).toContain("features/order");
+  });
+
+  it("整個 coverage 區塊刪掉 → 紅", () => {
+    const root = makeSandbox();
+    const configPath = fileIn(root, CONFIG);
+    const source = readFileSync(configPath, "utf8");
+    const noCoverage = source.replace(/coverage\s*:\s*\{[\s\S]*?\},\s*/, "");
+    writeFileSync(configPath, noCoverage);
+
+    const result = runConformance(root);
+    expect(result.red, result.output).toBe(true);
+  });
+
+  it("沒有 vite.config.ts → 紅，訊息含 vite.config.ts", () => {
+    const root = makeSandbox();
+    const configPath = fileIn(root, CONFIG);
+    unlinkSync(configPath);
+
+    const result = runConformance(root);
+    expect(result.red, result.output).toBe(true);
+    expect(result.output).toContain("vite.config.ts");
+  });
+
+  it("enabled: true 只在註解裡（真的那行刪掉）→ 仍紅", () => {
+    const root = makeSandbox();
+    patch(root, CONFIG, "enabled: true,", "// enabled: true,");
+
+    const result = runConformance(root);
+    expect(result.red, result.output).toBe(true);
+    expect(result.output).toContain("enabled");
+  });
+
+  it("★ 真樹 features/order/vite.config.ts 原文放進沙盒 → 零 finding", () => {
+    const root = makeSandbox();
+    const realConfig = readFileSync(join(ROOT, "features/order/vite.config.ts"), "utf8");
+    writeFileSync(fileIn(root, CONFIG), realConfig);
+
+    // 絆線掛在被守的對象上：規則要是嚴到連真樹那一份都過不了，上面四條紅就沒有意義。
+    const result = runConformance(root);
     expect(result.red, result.output).toBe(false);
   });
 });
