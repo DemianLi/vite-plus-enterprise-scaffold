@@ -135,7 +135,13 @@ describe("CLI", () => {
     return runCli(CLI, ["--evidence"]);
   }
 
-  it("--evidence 在這個 repo 是綠的", () => {
+  /**
+   * ⚠️ 這一條長得像其他閘門那種「真樹綠」，而那種在 C170 被刪掉了 —— 這條不能刪。
+   * `--evidence` 不在 `scripts.gate` 也不在 `scripts.ready`（只有手動別名 `scripts.evidence`
+   * 與 CI 的 variant），所以本機唯一會自動跑到它的路徑就是這裡。下面兩條只看 stdout，
+   * 非零退出照樣印得出那兩句。
+   */
+  it("--evidence 在這個 repo 是綠的 —— 本機唯一的自動路徑", () => {
     const result = run();
     expect(result.status, result.output).toBe(0);
   });

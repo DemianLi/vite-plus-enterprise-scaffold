@@ -536,9 +536,5 @@ describe("repo 本身沒有被動到", () => {
 
     const realStore = readFileSync(join(ROOT, "features/order/src/store.ts"), "utf8");
     expect(realStore).not.toContain('import { http } from "@org/http-client";');
-
-    // 而且真正的 repo 仍然是綠的。
-    const real = runConformance(ROOT);
-    expect(real.red, real.output).toBe(false);
   });
 });

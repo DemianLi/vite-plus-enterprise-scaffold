@@ -207,8 +207,9 @@ describe("閘門沒寫理由（C155）", () => {
     expect(kinds(write(healthy(roster)), roster)).toEqual([]);
   });
 
-  it("真的名冊 16 列全部通過 —— 這條規則今天不咬任何一列", () => {
-    // 記錄一個事實，不是要求它：今天不痛是刻意的，它在加第 17 列那天才擋人。
+  it("真的名冊每一列都通過 —— 這條規則今天不咬任何一列", () => {
+    // 記錄一個事實，不是要求它：今天不痛是刻意的，它在下一列加進來那天才擋人。
+    // ⚠️ 標題不寫列數：第一版寫「16 列」，第 17 列加進來時沒人動它（C170）。
     for (const gate of GATES) expect(gate.why.length, gate.id).toBeGreaterThan(20);
   });
 });

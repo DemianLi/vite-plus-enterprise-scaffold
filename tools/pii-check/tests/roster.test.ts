@@ -138,11 +138,6 @@ describe("例外：記錄「這一份看過了」，不是「這個目錄不用�
 });
 
 describe("CLI 端對端", () => {
-  it("這個 repo 現在是乾淨的", () => {
-    const result = runCli(CLI);
-    expect(result.status, result.output).toBe(0);
-  });
-
   it("★ 通過訊息要講出偵測不到什麼 —— 否則綠燈會被讀成「沒有個資」", () => {
     expect(runCli(CLI).stdout).toContain("姓名抓不到");
   });
