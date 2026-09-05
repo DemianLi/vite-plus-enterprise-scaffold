@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -311,23 +311,13 @@ describe("文件本體", () => {
   });
 });
 
+/**
+ * ⚠️ 這裡刻意不驗「index.ts 匯出每一個元件」：那由 `component-contract.test.ts` 的
+ * ① 守，而且守得比這裡曾經的那條嚴 —— 它先去註解、要求匯出名與檔名在同一行成對，
+ * 還有「至少掃到兩個元件」的保險。同一個變異兩邊同時紅，第二份不多守任何東西（C175）。
+ * 留下的這條是 index.ts 自己的禁止事項，全樹只有它在守。
+ */
 describe("公開契約", () => {
-  it("index.ts 匯出每一個 components/ 裡的元件", () => {
-    // 元件寫好了卻忘了匯出，使用端只會得到「找不到 UiXxx」——
-    // 而那個錯誤訊息不會提示你去看 index.ts。
-    const index = readFileSync(join(PACKAGE_ROOT, "src/index.ts"), "utf8");
-    const components = readdirSync(join(PACKAGE_ROOT, "src/components")).filter((file) =>
-      file.endsWith(".vue"),
-    );
-
-    expect(components.length).toBeGreaterThan(0);
-    for (const file of components) {
-      const name = file.replace(".vue", "");
-      expect(index, `${file} 沒有在 index.ts 匯出`).toContain(`./components/${file}`);
-      expect(index).toContain(`export { default as ${name} }`);
-    }
-  });
-
   it("不轉出 reka-ui 的基元", () => {
     // 直接轉出等於把「哪些基元可以用」交給每個團隊各自決定 ——
     // 而其中 Splitter 會在執行期注入 <style>，被 style-src 'self' 擋掉。
