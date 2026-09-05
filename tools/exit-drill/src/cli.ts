@@ -22,20 +22,10 @@ import {
   DROPPED_TEST_DEPENDENCIES,
   type ManifestDevDependencies,
 } from "./dependencies.ts";
-import {
-  checkDocumentedCounts,
-  DOCUMENTS_CITING_EVIDENCE,
-  parseTestCounts,
-  stripAnsi,
-  type DocumentSource,
-} from "./counts.ts";
+import { DOCUMENTS_CITING_EVIDENCE, parseTestCounts, stripAnsi } from "./counts.ts";
 import { collectFailures, reconcileFailures, type VitestJsonReport } from "./expected-failures.ts";
-import {
-  compareFingerprint,
-  fingerprintOf,
-  type FileDigest,
-  type Fingerprint,
-} from "./tree-fingerprint.ts";
+import { judgeFreshness, type Evidence } from "./freshness.ts";
+import { fingerprintOf, type FileDigest, type Fingerprint } from "./tree-fingerprint.ts";
 import { parseFlags } from "@org/gate-kit";
 
 /**
@@ -136,8 +126,6 @@ function isViteConfig(relative: string): boolean {
 }
 
 /** 演練證據的有效期。超過就不再是「已驗證」，只是「曾經驗證過」。 */
-const FRESHNESS_DAYS = 120;
-
 // 受守的文件清單住在 counts.ts —— 與比對邏輯放在一起，測試才驗得到它（C64）。
 
 const SCAN_DIRS = ["apps", "features", "platform"];
@@ -152,35 +140,6 @@ const UPSTREAM = {
   "@vitejs/plugin-vue": "^6.0.8",
   vitest: "4.1.10",
 };
-
-interface Evidence {
-  readonly lastRun: string;
-  readonly result: "pass" | "fail";
-  readonly replaced: Record<string, string>;
-  readonly upstream: Record<string, string>;
-  readonly exitSurface: readonly string[];
-  readonly durationSeconds: number;
-  /** 演練跑過的測試數。文件裡引用的那個數字，唯一的來源就是這裡（見 checkDocumentedCounts）。 */
-  readonly tests: number;
-  readonly testFiles: number;
-  /**
-   * 登記在 `EXPECTED_FAILURES` 裡、這次如期失敗的條數（C148 §五）。
-   *
-   * ⚠️ 與 `tests` 分開記，因為它們是兩種主張：`tests` 是「退到上游之後照樣
-   * 通過的條數」，這一個是「因為演練換掉了它要問的東西而必然失敗的條數」。
-   * 合成一個數字的話，帳目膨脹起來不會有人看得出來。
-   */
-  readonly expectedFailures: number;
-  /**
-   * 演練涵蓋範圍的內容指紋，以及進到指紋裡的檔案數（C149）。
-   *
-   * ⚠️ 檔案數不是說明文字，是**對照組**：0 個檔案在兩邊會算出同一個空雜湊，
-   * 然後「相符」—— 見 tree-fingerprint.ts。
-   */
-  readonly treeHash?: string;
-  readonly treeFiles?: number;
-  readonly note: string;
-}
 
 function collectFiles(dir: string, found: string[] = []): string[] {
   if (!existsSync(dir)) return found;
@@ -363,83 +322,28 @@ function currentFingerprint(): Fingerprint {
   return fingerprintOf(digests);
 }
 
+/**
+ * 判斷表在 `freshness.ts`，這裡只負責把東西讀進來、印出來（C183）。
+ * 指紋與文件用 thunk 傳：原本它們只在證據過了前兩關之後才算，照值傳會改順序。
+ */
 function checkFreshness(): number {
-  if (!existsSync(EVIDENCE_PATH)) {
-    console.warn("⚠ 尚未跑過完整退出演練（R9）。執行：node tools/exit-drill/src/cli.ts --full");
-    return FLAGS["require-fresh"] ? 1 : 0;
-  }
+  const evidence = existsSync(EVIDENCE_PATH)
+    ? (JSON.parse(readFileSync(EVIDENCE_PATH, "utf8")) as Evidence)
+    : null;
 
-  const evidence = JSON.parse(readFileSync(EVIDENCE_PATH, "utf8")) as Evidence;
-  const ageDays = Math.floor((Date.now() - Date.parse(evidence.lastRun)) / 86_400_000);
+  const verdict = judgeFreshness({
+    evidence,
+    now: Date.now(),
+    current: currentFingerprint,
+    documents: () =>
+      DOCUMENTS_CITING_EVIDENCE.filter((relative) => existsSync(join(ROOT, relative))).map(
+        (relative) => ({ path: relative, source: readFileSync(join(ROOT, relative), "utf8") }),
+      ),
+    requireFresh: FLAGS["require-fresh"],
+  });
 
-  if (evidence.result !== "pass") {
-    console.error(`✗ 最後一次退出演練是失敗的（${evidence.lastRun}）`);
-    return 1;
-  }
-
-  if (ageDays > FRESHNESS_DAYS) {
-    const message =
-      `⚠ 退出演練證據已過期：最後一次 ${evidence.lastRun}（${ageDays} 天前，上限 ${FRESHNESS_DAYS} 天）。\n` +
-      "  過期的演練不是控制措施，只是一段曾經跑過的程式碼。";
-    if (FLAGS["require-fresh"]) {
-      console.error(`✗ ${message}`);
-      return 1;
-    }
-    console.warn(message);
-    return 0;
-  }
-
-  // ⚠️ **這一行原本只問「幾天前」，而它是肯定句。** 併線讓樹變兩倍之後，
-  // 它連續 10 天印「✓ 證據有效」——「幾天前」答不出「同一棵樹嗎」（C148 §七）。
-  const verdict = compareFingerprint(evidence, currentFingerprint());
-
-  if (verdict.kind === "empty") {
-    console.error(`✗ ${verdict.message}`);
-    return 1;
-  }
-
-  if (verdict.kind === "match") {
-    console.log(`✓ 退出演練證據有效（${evidence.lastRun}，${ageDays} 天前）—— ${verdict.message}`);
-  } else {
-    // ⚠️ **drift 刻意不 fail，連 --require-fresh 都不 fail**（C149 §二）：
-    // 實測最近 60 支 main commit 有 25 支動到涵蓋路徑（42%），擋它等於把每季
-    // 一次的控制措施變成每次合併的阻斷器 —— 那種閘門會先被繞過、再被忽略。
-    // `unrecorded` 是舊格式的過渡狀態，那一個在排程上要紅，否則它會一直躺著。
-    const line = `退出演練證據 ${evidence.lastRun}（${ageDays} 天前）：${verdict.message}`;
-    if (verdict.kind === "unrecorded" && FLAGS["require-fresh"]) {
-      console.error(`✗ ${line}`);
-      return 1;
-    }
-    console.warn(`⚠ ${line}`);
-  }
-
-  // 舊的 evidence.json 沒有 tests 欄位（C36 之前產生的）。那種情況跳過比較，
-  // 而不是拿 undefined 去比出一堆假紅燈 —— 下一次 --full 會自動補上。
-  if (typeof evidence.tests !== "number" || evidence.tests === 0) {
-    console.warn("⚠ evidence.json 沒有測試數，文件比對跳過。下次 --full 會補上。");
-    return 0;
-  }
-
-  const documents: DocumentSource[] = DOCUMENTS_CITING_EVIDENCE.filter((relative) =>
-    existsSync(join(ROOT, relative)),
-  ).map((relative) => ({ path: relative, source: readFileSync(join(ROOT, relative), "utf8") }));
-
-  const countErrors = checkDocumentedCounts(documents, evidence.tests);
-  if (countErrors.length > 0) {
-    console.error("\n✗ 文件引用的演練成績與證據不符\n");
-    for (const error of countErrors) console.error(`  ✗ ${error}`);
-    console.error(
-      "\n  這個數字是拿去跟採購與稽核講的話，而它被抄在好幾份文件裡。\n" +
-        "  每季重跑一次演練它就會變，於是那幾處同時變成錯的 ——\n" +
-        "  這個 repo 在「人抄下來的數字沒有人再推導一次」上已經栽了六次。\n\n" +
-        `  唯一的事實來源是 evidence.json 的 tests（目前 ${evidence.tests}）。\n` +
-        "  請把上列位置改成該數字；如果是演練本身該重跑，執行 vpr exit-drill。\n",
-    );
-    return 1;
-  }
-
-  console.log(`✓ 文件引用的演練成績與證據一致（${evidence.tests} 個測試，${documents.length} 份）`);
-  return 0;
+  for (const line of verdict.lines) console[line.level](line.text);
+  return verdict.code;
 }
 
 // ── 完整演練：真的用上游 Vite 建一次 ──────────────────────────────────
