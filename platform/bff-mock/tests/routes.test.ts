@@ -17,6 +17,11 @@ import { CSRF_COOKIE, CSRF_HEADER, DEFAULT_SESSION_COOKIE } from "@org/bff-contr
  *   D8 那條路徑（登入 → 帶 cookie → 被 CSRF 擋 → 補標頭 → 通過）走得通。
  *
  * 所以底下標 ★ 的那幾條不是覆蓋率，它們是這道接縫的驗收條件本身。
+ *
+ * ⚠️ 這裡刻意不驗「預設權限不含 admin」：那由 `tools/bff-check` 的
+ * `403-forbidden` 守，`negative.test.ts` 有它的牙齒；同一個變異兩邊同時紅，
+ * 第二份不多守任何東西（C174）。這裡也不釘 mock 自己回的 body ——
+ * 那是示範資料不是契約（C174 §三）；釘的只有 handler 自己回的東西。
  */
 
 /** 起一個只有這支測試在用的 mock（port 0 讓 OS 配，避免撞 8080 上的東西）。 */
@@ -87,7 +92,6 @@ describe("注入的資料端點", () => {
       const response = await fetch(`${mock.origin}/api/customer`);
 
       expect(response.status).toBe(401);
-      expect(await response.json()).toEqual({ error: "unauthenticated" });
     });
   });
 
@@ -103,7 +107,9 @@ describe("注入的資料端點", () => {
       const { cookie } = await signIn(mock.origin);
       const response = await fetch(`${mock.origin}/api/session`, { headers: { cookie } });
 
-      expect(await response.json()).toMatchObject({ authenticated: true });
+      // 只驗「沒有 hijacked」不夠：契約端點整個消失變 404 時 body 也沒有它。
+      expect(response.status).toBe(200);
+      expect(await response.json()).not.toHaveProperty("hijacked");
     });
   });
 
@@ -150,13 +156,20 @@ describe("注入的資料端點", () => {
   });
 
   it("沒有命中任何注入路由時，示範資料仍在", async () => {
-    await withMock({ routes: customers }, async (mock) => {
-      const { cookie } = await signIn(mock.origin);
-      const response = await fetch(`${mock.origin}/api/orders`, { headers: { cookie } });
+    // 差分而不是釘值：問的是「fallthrough 給的東西與沒注入時一樣」，
+    // 示範資料改幾筆兩邊一起動。只驗 200 接不住「落到了另一個 200」。
+    const ordersFrom = async (options: Parameters<typeof startBffMock>[1]): Promise<unknown> => {
+      let payload: unknown;
+      await withMock(options, async (mock) => {
+        const { cookie } = await signIn(mock.origin);
+        const response = await fetch(`${mock.origin}/api/orders`, { headers: { cookie } });
+        expect(response.status).toBe(200);
+        payload = await response.json();
+      });
+      return payload;
+    };
 
-      expect(response.status).toBe(200);
-      expect(await response.json()).toMatchObject({ total: 4 });
-    });
+    expect(await ordersFrom({ routes: customers })).toEqual(await ordersFrom(undefined));
   });
 
   it("處理器丟例外時回 500，而且訊息說得出是哪一條路由", async () => {
@@ -181,20 +194,11 @@ describe("注入的資料端點", () => {
 });
 
 describe("權限碼的注入", () => {
-  it("★ 預設值不含 admin —— 契約要驗 401 與 403 確實分開", async () => {
-    // 這一條釘住的是**預設值**，不是合併語意。契約測試呼叫的是無參數的
-    // startBffMock()，admin 一旦進了預設清單，403 那條就永遠驗不到。
-    await withMock(undefined, async (mock) => {
-      const { cookie } = await signIn(mock.origin);
-      const response = await fetch(`${mock.origin}/api/admin/ping`, { headers: { cookie } });
-
-      expect(response.status).toBe(403);
-    });
-  });
-
   it("★ 是追加，不是取代", async () => {
     // 取代的話，採用團隊加一片切片就得把示範切片的權限碼重列一次 ——
     // 而漏列的症狀是示範切片安靜地壞掉，沒有東西會說話。
+    // 底下兩個字面刻意留著：示範切片改權限碼名時 MOCK_PERMISSIONS 必須跟著改，
+    // 這裡紅是對的紅，與上面 /api/orders 那條釘 total 不同類（C174 §四）。
     await withMock({ extraPermissions: ["customer:read"] }, async (mock) => {
       const response = await fetch(`${mock.origin}/api/session`, { method: "POST" });
       const payload = (await response.json()) as { permissions: string[] };
