@@ -46,13 +46,16 @@ import { parseFlags } from "@org/gate-kit";
  *
  * ── 兩種模式 ────────────────────────────────────────────────────────
  *
- *   --static（預設）不連網、幾秒鐘、跑在每次 gate 裡
+ *   （預設，不帶旗標）不連網、幾秒鐘、跑在每次 gate 裡
  *       驗「退出面」有沒有擴大：除了設定檔以外，沒有任何原始碼 import vite-plus。
  *       這是**真的會腐化的那一半** —— 有人在切片裡 import 一個 vite-plus 的
  *       helper，退出成本就從「改兩個設定檔」變成「改四十個檔案」，而且沒人會發現。
  *
  *   --full  連網、數分鐘、每季一次
  *       真的用上游 Vite 建一次、用上游 Vitest 跑一次測試，並寫下帶日期的證據。
+ *
+ *   --root <dir>  換一棵被驗的樹（反向測試用，C184）。⚠️ 與 --full 互斥：演練要真樹的
+ *       node_modules 與建置產物，副本裡沒有答案 —— 靜默降級成靜態就是頂著名字回綠。
  *
  * ── 為什麼證據要進版控 ──────────────────────────────────────────────
  *
@@ -76,6 +79,7 @@ import { parseFlags } from "@org/gate-kit";
 const PARSED = parseFlags(process.argv.slice(2), {
   full: { kind: "boolean" },
   "require-fresh": { kind: "boolean" },
+  root: { kind: "value", noun: "目錄" },
 } as const);
 if (!PARSED.ok) {
   console.error(PARSED.message);
@@ -84,7 +88,23 @@ if (!PARSED.ok) {
 /** ⚠️ 收窄要在頂層做一次：`process.exit` 的 `never` 不會把 `PARSED` 的型別帶進函式體。 */
 const FLAGS = PARSED.flags;
 
-const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
+if (FLAGS.full && FLAGS.root !== undefined) {
+  console.error(
+    "✗ --full 只跑真樹：它要真樹的 node_modules（vp fmt）與 apps/console/dist 當比對基準，副本裡沒有。",
+  );
+  process.exit(1);
+}
+
+/**
+ * 被驗的樹。C127 §一 的問題（哪些基準點是工具自己的素材、不隨 `--root` 走）在這支的答案
+ * 是**沒有**：它沒有 `fixtures/`，證據檔也是被驗的對象 —— 沙盒要放一份過期的證據，
+ * 才做得出 `--require-fresh` 的差分。唯一需要真樹的兩處（`vp fmt`、`dist`）都在
+ * `--full`，而那個組合上面已經拒絕。
+ */
+const ROOT =
+  FLAGS.root === undefined
+    ? resolve(fileURLToPath(import.meta.url), "../../../..")
+    : resolve(FLAGS.root);
 const EVIDENCE_PATH = join(ROOT, "tools/exit-drill/evidence.json");
 
 /**
