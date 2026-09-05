@@ -157,9 +157,12 @@ export default defineConfig({
         // 所以被提到 `buildSliceFiles` 外面當 module 層常數（見 files.ts 的
         // `VITE_CONFIG`），函式只長 8 行而不是 47 行。**這條線每被推高一次，
         // 就是一次要寫下來的帳**，不是改個數字就算了。
+        //
+        // 850 → 843（C172）：範本測試刪了十條 import 時就已經驗過的斷言。
+        // 降是 `threshold-check` 的「門檻過期」規則要求的（C147 §二）。
         files: ["tools/slice-gen/src/files.ts"],
         rules: {
-          "max-lines-per-function": ["error", { max: 850 }],
+          "max-lines-per-function": ["error", { max: 843 }],
         },
       },
       {
