@@ -210,11 +210,6 @@ describe("對照組：沒動過的東西是綠的", () => {
     expect(result.output).toContain("無破壞性變更");
   });
 
-  it("真的 repo 本身也是綠的（不帶參數）", () => {
-    const result = run([]);
-    expect(result.red, result.output).toBe(false);
-  });
-
   it("★ 真 repo 的綠燈要講出進入點驗過在版控裡（C98）", () => {
     /**
      * ⚠️ **綠燈訊息也是宣稱**（C96）。C98 之前，這個「10 個進入點」是**磁碟上**

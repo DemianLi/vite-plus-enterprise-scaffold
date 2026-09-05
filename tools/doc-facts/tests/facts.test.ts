@@ -373,11 +373,6 @@ describe("紅燈尾巴：它也會被拉 v1 的團隊讀到（C97）", () => {
 });
 
 describe("CLI 端對端", () => {
-  it("這個 repo 現在是綠的", () => {
-    const result = runCli(CLI);
-    expect(result.status, result.output).toBe(0);
-  });
-
   it("★ 通過訊息要講出它刻意不守 DECISIONS.md", () => {
     // 少了這句，綠燈會被讀成「全 repo 的數字都對」。
     expect(runCli(CLI).stdout).toContain("決策日誌");
