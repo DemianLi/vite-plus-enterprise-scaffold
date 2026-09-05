@@ -9,6 +9,7 @@ import { checkSliceLayering } from "./layering.ts";
 import { checkOwnership } from "./ownership.ts";
 import { checkRelativeEscapes } from "./relative-escape.ts";
 import {
+  checkCoverageGate,
   checkPackageName,
   checkRequiredFiles,
   checkSliceNaming,
@@ -50,6 +51,7 @@ export function checkSlice(
   findings.push(
     ...checkPackageName(pkg, dir, slice),
     ...checkSliceTests(slicePath, slice),
+    ...checkCoverageGate(slicePath, slice),
     ...checkSliceDependencies(pkg, dir, slice, sliceNames),
     // D4 第 3 層：相對路徑逃逸
     ...checkRelativeEscapes(root, slicePath, slice),

@@ -6942,3 +6942,68 @@ catalog 那個 —— 五顆變異改前全零（§六）。這五件事每一�
 - **C154 §三**：對象在外（mock 與真 gateway 都讀同一份政策）、壞法安靜（刪一條兩邊一起少）—— 兩軸都填，絆線要有。
 - **D11**：單一事實來源不變，三個消費端仍讀同一份 `BASE_DIRECTIVES`；加的是它的釘子，不是第二份來源。
 - **C173 §五**：本則編號的字面與本則同一支 commit。
+
+### C189 — 覆蓋率門檻的 `enabled: true` 四份副本：範本那份有守，樹上三片零守 —— 一片自己一行就能把自己的門檻關掉而 `vpr ready` 綠；「根層那份整塊不繼承」講的是一個從來沒放過的東西（2026-09-06，#299）
+
+票 #299（#295 地圖，C168 附錄 C 第 4＋5 條），基準 `1577345`（C188 合併後的 `main`），worktree `coverage-enabled`。
+
+#### 一、事實
+
+1. **四份副本的位置。** `features/invoice/vite.config.ts:55`、`features/order/vite.config.ts:53`、`features/shipment/vite.config.ts:53`、範本 `tools/slice-gen/src/files.ts:79`。每一份上面都抄了同一段「`enabled` 這一行才是門檻真的會跑的原因」。
+2. **只有範本那份有守。** `tools/slice-gen/tests/coverage-gate.test.ts:105`「★ 覆蓋率預設開著」對**產生器輸出**做文字斷言；`contract-alignment.test.ts` 也只讀產生器輸出。樹上三片沒有任何東西讀它們的 `vite.config.ts`：`conformance` 對切片讀 `REQUIRED_FILES` 四項（`package.json`／`tsconfig.json`／`README.md`／`src/index.ts`，`platform/slice-kit/src/contract.ts:23-28`）與 `SOURCE_EXTENSIONS` 五種副檔名的原始碼（`tools/conformance/src/scan.ts:49-55`），不含 `vite.config.ts`。
+3. **一片自己一行就能把自己的門檻關掉。** 拿掉 `features/order/vite.config.ts:53` 那行：`vpr ready` `READY_RC=0`，log 裡「Coverage enabled with v8」從 3 段變 2 段 —— `features/order` 的門檻**沒有跑**，不是跑了剛好過。整個 `coverage` 區塊刪掉同樣綠。`npx vitest run` 在該 package 單獨跑：RC=0、覆蓋率零行（真設定是 2 行）。拿掉範本那一行則 slice-gen 2/106 紅（對照組正常）。
+4. **這正是 AGENTS.md 規則二的形狀。** 「一個可以被受檢者自己調鬆的門檻，量到的只是它自己」—— `threshold-check` 守的是根層 lint 門檻不得調鬆，覆蓋率門檻住在切片自己的檔裡（C120 §一 刻意），而它的開關沒有人守。
+5. **兩段散文講的是一個從來沒放過的東西。** `features/order/vite.config.ts:8-9`（`features/shipment` 同段）「根層那份的 `test` 區塊就整塊不繼承」、`apps/console/vite.config.ts:72-73`「根層 `vite.config.ts` 的 `test` 區塊整塊不繼承」—— 根層 `vite.config.ts` 現在沒有 `test` 區塊，`git log -S` 查歷史也從來沒有過。那兩段是 C120 §一 的機制理由（就算放了也不繼承），讀起來卻像在描述曾經存在的設定。同段的「100%」「13.20%」是 #130 當時的量測記錄，有出處，不是現況斷言。
+
+#### 二、裁決
+
+1. **`conformance` 的 `slice-shape` 加一條 `checkCoverageGate`：切片的 `vite.config.ts` 必須存在、去註解後要有 `coverage:` 區塊、`enabled: true`、並引用 `USECASE_COVERAGE_GLOB` 與 `USECASE_COVERAGE_MIN`。** 缺哪一項各自一條 finding，點名切片與缺項。放 `conformance` 而不是 slice-gen 的測試：slice-gen 的測試只在這棵樹的開發迴圈跑、只看產生器；`conformance` 是 tier1 閘門鏈上逐片判「這是不是一片合格的切片」的那一支，採用團隊 fork 後手改切片、在他們的樹上跑的是它。C120 §一 已裁門檻必須住在切片自己的檔裡，所以「那支檔在、門檻開著、數字從契約取」是切片形狀的一部分，與 `checkRequiredFiles`／`checkSliceTests` 同一類 —— 同一個對象多問一句，多讀一支檔。
+2. **文字比對，不 import 設定物件。** `conformance` 跑在 bare node，import 切片的 `vite.config.ts` 會把 `vite-plus` 的 `defineConfig` 與 `@vitejs/plugin-vue` 拉進閘門的執行期；`coverage-gate.test.ts:105` 對範本也是文字比對，同一把尺。先去掉 `//` 與 `/* */` 註解再比對 —— 這幾支檔的註解裡本來就有 `enabled` 這個字。
+3. **反向測試五條，掛在被守的對象上。** `enabled: true` 改 `false`、整個 `coverage` 區塊刪掉、沒有 `vite.config.ts`、`enabled: true` 只留在註解裡（去註解那步的反向測試）→ 各自紅、訊息含缺項與切片名；對照：把真樹 `features/order/vite.config.ts` 原文放進沙盒 → 綠 —— 規則要是嚴到連真的那份都過不了，前四條紅就沒有意義。
+4. **散文三處各改一句。** 「根層那份的 `test` 區塊就整塊不繼承」改成「根層**刻意不放** `test` 區塊；就算放了，一個有自己 `vite.config.ts` 的 package 也整塊不繼承」。「100%」「13.20%」「#130」一字不動。
+5. **`REQUIRED_FILES` 不動。** 它有 slice-gen `contract-shape.ts`、codemods 測試等消費者，加一項會漣漪到票外；缺檔由新規則自己回報。
+
+#### 三、不裁
+
+- **不另守、「靠範本生成就是答案」**：範本守的是產出那一刻，樹上的三片是人手改的；C154 §三 兩軸 —— 對象在外（採用團隊的切片）、壞法安靜（關掉門檻長得跟全綠一樣）—— 都填，絆線要有。第一段查證推薦不守的理由是「加規則等於新對象、成本大」，C137 §一 不准拿成本論證閘門增減，不採。
+- **放 slice-gen 的 `contract-alignment` 讀真三片**：那是這棵樹的 package 測試，採用團隊的樹上不跑；而且它的職責是產生器。
+- **加一條守「根層 `vite.config.ts` 沒有 `test` 區塊」**：對象在內（這棵樹自己的根層設定），C154 §三 一軸沒填；reviewer 讀 diff 看得到。
+- **散文整段刪**：「100%」「13.20%」是有出處的量測記錄，刪了 C120 的理由就沒了。
+- **散文原樣留**：「根層那份的 `test` 區塊」這個名詞指向一個不存在的東西，讀的人會去找它。
+
+#### 四、實測
+
+改前（基準 `1577345`，真的改檔、量完還原）：
+
+| 變異                                   | `vpr ready` | 「Coverage enabled」段數 | conformance CLI | slice-gen |
+| -------------------------------------- | ----------- | ------------------------ | --------------- | --------- |
+| 真設定（對照）                         | RC=0        | 3                        | RC=0            | 106/106   |
+| 刪 `features/order` 的 `enabled: true` | RC=0        | 2                        | RC=0            | 106/106   |
+| 刪 `features/order` 整個 `coverage`    | RC=0        | 2                        | RC=0            | 106/106   |
+| 刪範本 `files.ts:79`                   | RC=1        | 3                        | RC=0            | 104/106   |
+
+改後（conformance 100 條測試全綠為對照）：
+
+| 變異                                      | conformance CLI | 訊息                                     | slice-gen |
+| ----------------------------------------- | --------------- | ---------------------------------------- | --------- |
+| 真設定（對照）                            | RC=0            | —                                        | 106/106   |
+| 刪 `features/order` 的 `enabled: true`    | RC=1            | `features/order` 沒有 `enabled: true`    | —         |
+| 刪 `features/order` 整個 `coverage`       | RC=1            | 缺 `coverage` 區塊 ＋ 沒有 `enabled`     | —         |
+| 刪 `features/invoice/vite.config.ts` 整支 | RC=1            | `features/invoice` 缺少 `vite.config.ts` | —         |
+| `features/shipment` 門檻數字改字面 `90`   | RC=1            | 沒有引用 `USECASE_COVERAGE_MIN`          | —         |
+| 刪範本 `files.ts:79`                      | RC=0            | 不是它的對象                             | 103/106   |
+
+範本那顆改後 slice-gen 多紅一條（104 → 103），是 e2e 的「違規恰好一項」：產出的切片現在同時被 `conformance` 的新規則抓到，它的訊息說出了那一行。
+
+`vpr ready`：第二段實作者第一趟 oxfmt 紅、第二趟綠；監督者改完規則、測試、散文與本則之後再跑一趟，見 PR。
+
+#### 五、與既有裁決的關係
+
+- **C120 §一**：門檻住在切片自己的檔裡，本則不搬它，守它的開關。
+- **C119**：glob 與數字從契約取，本則把「有沒有引用契約常數」一起問。
+- **C168 §一**：同一顆變異兩邊都紅 —— 拿掉 `enabled` 在 conformance CLI 與它的反向測試兩頭紅，訊息說得出哪一片；附錄 C 第 4、5 條由此關閉。
+- **C154 §三**：對象在外、壞法安靜，兩軸都填。
+- **C137 §一**：本則擴 `conformance` 射程（多讀一支檔）的理由是上面兩軸，不是成本；第一段用成本推薦不守，被本則否決。
+- **C43**：新規則自帶五條反向測試。
+- **AGENTS.md 規則二**：「可以被受檢者自己調鬆的門檻，量到的只是它自己」—— 本則是這句話在覆蓋率那一格的落地。
+- **C173 §五**：本則編號的字面與本則同一支 commit。
