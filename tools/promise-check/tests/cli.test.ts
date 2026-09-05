@@ -76,6 +76,30 @@ function slicesMissingResults(): string[] {
   );
 }
 
+/**
+ * 版控裡每一份承諾規格的場景總數，事實來源與 `cli.ts` 同一個（`git ls-files`）。
+ *
+ * ⚠️ 下面那條綠燈斷言比的是這個數字，不是「有沒有印那句話」：`toContain("個場景各執行過一次")`
+ * 對「0 個場景各執行過一次」也綠，而 0 正是「一條都沒跑」的樣子（C176）。
+ * 場景數不在這裡抄成字面 —— 規格加一個場景的那天，字面會安靜地少守一條。
+ */
+function scenarioCount(): number {
+  const listed = spawnSync("git", ["ls-files", "-z", "--", "specs/*.feature"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  const specs = listed.stdout.split("\0").filter((path) => path.length > 0);
+  expect(
+    specs.length,
+    "版控裡一份 specs/*.feature 都沒有，這條斷言就沒有東西可比對",
+  ).toBeGreaterThan(0);
+  return specs.reduce(
+    (total, path) =>
+      total + parseSpec(path, readFileSync(join(ROOT, path), "utf8")).scenarios.length,
+    0,
+  );
+}
+
 const ROOT = repoRoot();
 const CLI = "tools/promise-check/src/cli.ts";
 const SPEC_REPORT_CLI = "tools/spec-report/src/cli.ts";
@@ -83,9 +107,9 @@ const REAL_SPEC = "specs/promise-1-architecture.feature";
 
 describe("CLI", () => {
   /**
-   * ⚠️ **逾時放寬到 60 秒，而那不是「調鬆門檻換綠燈」。** 這一趟現在會真的跑三次
-   * `tools/threshold-check`（探針一次、`specs/gate-thresholds.feature` 兩個場景各一次），
-   * 每次約三秒 —— 實測整趟約 10 秒，而 vitest 的預設是 5 秒。
+   * ⚠️ **逾時放寬到 60 秒，而那不是「調鬆門檻換綠燈」。** 這一趟現在會真的跑四次
+   * `tools/threshold-check`（探針**兩趟**、`specs/gate-thresholds.feature` 兩個場景各一次；
+   * C176 §三 實測），每次約三秒 —— 實測整趟約 10 秒，而 vitest 的預設是 5 秒。
    * 這裡量的是「承諾成不成立」，不是「它跑多快」；真要守速度，那是另一條斷言，
    * 而且它得先有一個被裁過的預算（C147 §二 那種）。
    */
@@ -94,8 +118,8 @@ describe("CLI", () => {
 
     expect(status, output).toBe(0);
     // ⚠️ 印的是**執行過**的場景數，不是規格裡寫了幾條 —— 兩者不同的那一天，
-    // 差別就是「有幾條沒被跑到」。
-    expect(output).toContain("個場景各執行過一次");
+    // 差別就是「有幾條沒被跑到」。所以比的是那個數字。
+    expect(output).toContain(`${scenarioCount()} 個場景各執行過一次`);
   }, 60_000);
 
   it("找不到規格時回傳非零（結束碼是唯一會被 CI 讀到的東西）", () => {
