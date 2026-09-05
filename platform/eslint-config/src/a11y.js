@@ -148,6 +148,9 @@ export default [
      * ⚠️ **同一組基元裡 `<input>` 沒有紅，而那是巧合不是差別**：規則對
      * 沒有 `type` 的 `<input>` 直接提早 return。靠那個提早 return 當作
      * 「我們的 input 沒問題」的證據是錯的 —— 兩者處境完全一樣。
+     *
+     * 這個區塊會被 `tools/compliance` 讀進交付文件的覆寫表；改 `files` 或加
+     * 規則之後 `node tools/compliance/src/cli.ts --update`，不然閘門紅。
      */
     files: ["platform/ui/src/components/**/*.vue"],
     rules: { "vuejs-accessibility/form-control-has-label": "off" },

@@ -141,8 +141,8 @@ export const CRITERIA: readonly Criterion[] = [
  * 刻意**不**宣稱這些規則各自對應哪一條成功準則：那個對照需要規範原文，
  * 而猜一個對照寫進交付文件，比不寫更糟。
  */
-export function preFilterRules(): readonly string[] {
-  const withRules = a11yConfig.find(
+export function preFilterRules(config: readonly unknown[] = a11yConfig): readonly string[] {
+  const withRules = config.find(
     (entry): entry is { rules: Record<string, unknown> } =>
       typeof entry === "object" && entry !== null && "rules" in entry,
   );
@@ -150,6 +150,69 @@ export function preFilterRules(): readonly string[] {
     throw new Error("@org/eslint-config/a11y 裡找不到 rules —— 讀不到就不要給判決");
   }
   return Object.keys(withRules.rules).sort();
+}
+
+/**
+ * 範圍覆寫：全域清單之後、只對某些路徑生效的規則調整。
+ *
+ * 這張表存在的理由（#297）：交付文件把全域清單印成「實際檢查的項目」，
+ * 而 `platform/ui` 的基元對其中一條根本不跑 —— 那個覆寫在第二個區塊，
+ * `preFilterRules` 的 `.find()` 永遠走不到。交付文件因此在樂觀的方向說謊。
+ */
+export interface ScopedOverride {
+  readonly rule: string;
+  readonly files: readonly string[];
+  readonly setting: string;
+}
+
+export function scopedOverrides(
+  config: readonly unknown[] = a11yConfig,
+): readonly ScopedOverride[] {
+  const firstRulesIndex = config.findIndex(
+    (entry): entry is { rules: Record<string, unknown> } =>
+      typeof entry === "object" && entry !== null && "rules" in entry,
+  );
+  if (firstRulesIndex === -1) {
+    throw new Error("@org/eslint-config/a11y 裡找不到 rules —— 讀不到就不要給判決");
+  }
+
+  const overrides: ScopedOverride[] = [];
+
+  for (let i = firstRulesIndex + 1; i < config.length; i++) {
+    const entry = config[i];
+    if (
+      typeof entry === "object" &&
+      entry !== null &&
+      "rules" in entry &&
+      typeof (entry as Record<string, unknown>).rules === "object"
+    ) {
+      const block = entry as { files?: unknown; rules: Record<string, unknown> };
+      const files = block.files;
+      if (!files || !Array.isArray(files) || files.length === 0) {
+        // 沒有範圍的第二個 rules 區塊會靜默蓋掉全域設定 —— 讀不到範圍就不要給判決。
+        throw new Error("@org/eslint-config/a11y 的覆寫區塊沒有 files");
+      }
+
+      const rules = block.rules;
+      for (const [rule, setting] of Object.entries(rules)) {
+        const settingStr = setting === "off" || setting === 0 ? "off" : JSON.stringify(setting);
+        overrides.push({
+          rule,
+          files: [...files],
+          setting: settingStr,
+        });
+      }
+    }
+  }
+
+  // 排序過 = 產出穩定，baseline 不隨物件鍵順序漂移。
+  overrides.sort((a, b) => {
+    const ruleCompare = a.rule.localeCompare(b.rule);
+    if (ruleCompare !== 0) return ruleCompare;
+    return a.files.join(",").localeCompare(b.files.join(","));
+  });
+
+  return overrides;
 }
 
 export interface A11yProblem {
