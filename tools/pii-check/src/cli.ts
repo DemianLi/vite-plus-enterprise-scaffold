@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 
-import { parseFlags, repoRoot, walk } from "@org/gate-kit";
+import { parseFlags, repoRoot } from "@org/gate-kit";
 
 import { scanRepo } from "./scan.ts";
+import { trackedFiles } from "./tracked.ts";
 
 /**
  * §11 II ⑥ —— 測試環境不得使用真實個人資料。
@@ -23,38 +24,22 @@ import { scanRepo } from "./scan.ts";
  * **遮罩還在，只是沒有機制強制。**（見 DECISIONS 的 C52）
  */
 
-/** 不進去的目錄。掃 node_modules 會把全世界的測試資料一起掃進來。 */
-const SKIP = [
-  "node_modules",
-  ".git",
-  "dist",
-  ".scan",
-  "coverage",
-  ".vite-plus",
-  // ⚠️ 突變測試的產物（C121／`stryker.config.mjs`）。增量檔內嵌**每一支產品碼
-  // 與測試碼的完整原始碼**，掃它等於把整棵樹再掃一次 —— 而且那份副本上的
-  // 命中，路徑指向一個不存在的檔案。兩個都不進版控。
-  "reports",
-  ".stryker-tmp",
-];
+/**
+ * 檔案列舉問 git，不掃磁碟 —— 理由與實測在 `src/tracked.ts` 的檔頭（C182）。
+ *
+ * ⚠️ 那裡也記著這一版**吃掉了什麼**：原本兩張手抄的跳過清單（八個目錄名、
+ * 一個檔名）現在由 `.gitignore` 承擔，而其中 `.vitest-results.json` 那一格
+ * 是併線那天才長出來的（C133 §九），不要以為它從來不重要。
+ */
 
 /**
- * 跳過的**檔名**（不分目錄）。
+ * 只看文字檔。二進位檔的位元組隨機通過 Luhn 的機率不低，而那是純誤報。
  *
- * ⚠️ `walk()` 的 `skip` 只比對目錄名，所以這一格必須在這裡自己濾。
- *
- * `.vitest-results.json` 是 `vp run -r test --reporter=json` 每個 package 各留
- * 一份的產物（`tools/spec-report` 吃它），內容含**每一次執行的毫秒時間戳**，
- * 而 13～16 位的時間戳有相當比例通過 Luhn 校驗 —— 於是這道閘門會報出
- * 「信用卡號的形狀」，而那些數字是時鐘。
- *
- * ⚠️ **這一格是併線那天才長出來的**（C133 §九）：`pii-check` 在 `main`、
- * json reporter 在 `release/v1`，兩邊從來沒有見過面。症狀是**跑過測試之後**
- * 閘門才紅 —— 先跑閘門是綠的，所以它看起來像個幽靈。
+ * ⚠️ **今天這條一個檔都沒濾掉**（git 那份聯集裡落在射程內的 112 個，
+ * 過完這條還是 112）。留著不是因為它現在攔得到東西，是因為它攔的那一類
+ * —— 一份塞進 `tests/` 的 `.png` —— 明天就可能進來。拿「今天 N=0」當
+ * 拿掉的理由，正是 C182 §五 否決 `skipDotDirs` 的那個形狀。
  */
-const SKIP_FILES = [".vitest-results.json"];
-
-/** 只看文字檔。二進位檔的位元組隨機通過 Luhn 的機率不低，而那是純誤報。 */
 const TEXT = [
   ".ts",
   ".tsx",
@@ -78,8 +63,8 @@ const TEXT = [
 const SPEC = { root: { kind: "value", noun: "目錄", fallback: repoRoot() } } as const;
 
 function runScan(root: string): number {
-  const files = walk(root, { skip: SKIP, extensions: TEXT }).filter(
-    (file) => !SKIP_FILES.includes(basename(file)),
+  const files = trackedFiles(root).filter((file) =>
+    TEXT.some((extension) => file.endsWith(extension)),
   );
   const report = scanRepo(files, (path) => readFileSync(join(root, path), "utf8"));
 

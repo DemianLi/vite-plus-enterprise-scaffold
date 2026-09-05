@@ -143,18 +143,29 @@ describe("CLI 端對端", () => {
   });
 
   it("🔴 塞一筆真的進去 → 紅", () => {
-    const box = sandbox({ prefix: "pii-check-" });
+    // ⚠️ **沙盒必須是 git repo**：C182 之後檔案列舉問的是 git，不是磁碟 ——
+    // 一個沒 `git init` 過的暫存目錄會讓這支 CLI 直接拋錯，而紅的原因
+    // 看起來像別的事。
+    //
     // 湊滿下限，否則會先被 too-few-files 擋下 —— 那樣就不算證明「偵測得到」。
-    for (let at = 0; at <= MINIMUM_SCANNED; at += 1) {
-      box.write(`p${at}/tests/a.test.ts`, "// 乾淨\n");
-    }
-    box.write("p0/tests/a.test.ts", `const id = "${VALID_ID}";\n`);
+    // 這批乾淨檔走 `files:`，所以它們在 `git add -A` 之前進來、是**追蹤中**的。
+    const clean = Object.fromEntries(
+      Array.from({ length: MINIMUM_SCANNED + 1 }, (_, at) => [
+        `p${at}/tests/a.test.ts`,
+        "// 乾淨\n",
+      ]),
+    );
+    const box = sandbox({ prefix: "pii-check-", git: true, files: clean });
+    // ⚠️ 而那一筆真的走 `box.write()`，落在建構之後 —— 它是**未追蹤**的。
+    // 於是這條同時驗到聯集的兩半，而「真資料還沒 commit」正是這道閘門
+    // 最該說話的一刻（C182 §六 第 1 點）。
+    box.write("p0/tests/leaked.test.ts", `const id = "${VALID_ID}";\n`);
     // 例外指向的檔案在這個暫存 repo 裡不存在，stale-exemption 一定會有一條；
     // 這裡驗的是**另外那一條**確實出現了。
     const result = runCli(CLI, ["--root", box.root]);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("national-id");
-    expect(result.stderr).toContain("p0/tests/a.test.ts");
+    expect(result.stderr).toContain("p0/tests/leaked.test.ts");
   });
 });
 

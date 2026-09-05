@@ -37,6 +37,8 @@ parseFlags(argv, spec): { ok: true; flags } | { ok: false; message }
 `conformance` 最短（只有 `node_modules`／`dist`）。給它一份聯集清單會讓它
 **不再讀今天讀得到的檔案** —— 一道閘門悄悄變弱，比誤報難發現得多。
 這一版只把分歧收攏到同一個型別上看得見；調和要帶自己的反向測試。
+⚠️ **C182 之後 `walk()` 在產品碼裡零呼叫端**（`pii-check` 是最後一個，改成問 git）——
+那個「八份」是當天數的，沒有重新數，理由見 `src/walk.ts` 檔頭。
 
 **沒有 `report()` 或 `Finding`。** 現在沒有任何一支工具產出 `Finding[]` ——
 `theme-verify` 用的是一個 module-level 的可變計數器，`pii-check` 成功時印的
