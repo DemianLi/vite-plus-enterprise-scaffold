@@ -1,8 +1,9 @@
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { sandbox } from "@org/gate-kit/testing";
+import { describe, expect, it } from "vitest";
 
 import { missingViews, type Program } from "../src/programs.ts";
 import { parseOutput, runVueTsc, type RunResult } from "../src/run.ts";
@@ -17,7 +18,7 @@ import { parseOutput, runVueTsc, type RunResult } from "../src/run.ts";
  */
 
 const HERE = resolve(fileURLToPath(import.meta.url), "..");
-const FIXTURE = join(HERE, "fixtures/app");
+const FIXTURE = "tools/vue-typecheck/tests/fixtures/app";
 const BIN = join(HERE, "../node_modules/vue-tsc/bin/vue-tsc.js");
 
 /**
@@ -32,23 +33,15 @@ const BIN = join(HERE, "../node_modules/vue-tsc/bin/vue-tsc.js");
  */
 const SPAWNS_VUE_TSC = 120_000;
 
-let dir: string | undefined;
-
 /**
- * 副本放在 `fixtures/` 底下而不是 `os.tmpdir()` —— `vue-tsc` 要解析 `vue`，
- * 而 `.npmrc` 是 `node-linker=isolated`，repo 外面往上找不到本 package 的
+ * 副本放在 `fixtures/` 底下而不是 `os.tmpdir()`（`within`）—— `vue-tsc` 要解析
+ * `vue`，而 `.npmrc` 是 `node-linker=isolated`，repo 外面往上找不到本 package 的
  * `node_modules`。理由完整寫在 `fixtures/README.md`。
  */
 function copy(): string {
-  dir = mkdtempSync(join(HERE, "fixtures/.tmp-"));
-  cpSync(FIXTURE, dir, { recursive: true });
-  return dir;
+  const box = sandbox({ within: join(HERE, "fixtures"), prefix: ".tmp-", copy: [FIXTURE] });
+  return join(box.root, FIXTURE);
 }
-
-afterEach(() => {
-  if (dir !== undefined) rmSync(dir, { recursive: true, force: true });
-  dir = undefined;
-});
 
 function edit(root: string, file: string, from: string, to: string): void {
   const path = join(root, "src", file);

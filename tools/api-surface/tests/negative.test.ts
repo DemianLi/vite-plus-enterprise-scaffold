@@ -1,9 +1,8 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { beforeAll, describe, expect, it } from "vitest";
+import { cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { repoRoot, runCli, sandbox } from "@org/gate-kit/testing";
 
 /**
  * `tools/api-surface` 的**反向測試**。
@@ -25,10 +24,10 @@ import { fileURLToPath } from "node:url";
  * 名稱層級的那幾條保留原意，形狀層級的是新的。
  */
 
-const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
-const CLI = join(ROOT, "tools/api-surface/src/cli.ts");
+const ROOT = repoRoot();
+const CLI = "tools/api-surface/src/cli.ts";
 const REAL_BASELINE = join(ROOT, "tools/api-surface/surface.json");
-const FIXTURES = join(ROOT, "tools/api-surface/tests/fixtures");
+const FIXTURES = "tools/api-surface/tests/fixtures";
 const FIXTURE_SOURCE = join("sample", "src", "index.ts");
 const FIXTURE_COMPONENT = join("sample", "src", "SampleWidget.vue");
 
@@ -51,20 +50,9 @@ interface Baseline {
   codemods: CodemodRecord[];
 }
 
-const sandboxes: string[] = [];
-
-function sandbox(): string {
-  const dir = mkdtempSync(join(tmpdir(), "api-surface-negative-"));
-  sandboxes.push(dir);
-  return dir;
+function scratch(): string {
+  return sandbox({ prefix: "api-surface-negative-" }).root;
 }
-
-afterEach(() => {
-  while (sandboxes.length > 0) {
-    const dir = sandboxes.pop();
-    if (dir !== undefined) rmSync(dir, { recursive: true, force: true });
-  }
-});
 
 interface Result {
   readonly red: boolean;
@@ -72,15 +60,15 @@ interface Result {
 }
 
 function run(args: readonly string[]): Result {
-  const result = spawnSync("node", [CLI, ...args], { cwd: ROOT, encoding: "utf8" });
-  return { red: result.status !== 0, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
+  const result = runCli(CLI, args);
+  return { red: result.status !== 0, output: result.output };
 }
 
 // ── 基準副本 ──────────────────────────────────────────────────────────
 
 /** 把真的基準檔複製一份，交給 `mutate` 動手腳，回傳副本路徑。 */
 function baselineCopy(mutate: (baseline: Baseline) => void): string {
-  const dir = sandbox();
+  const dir = scratch();
   const baseline = JSON.parse(readFileSync(REAL_BASELINE, "utf8")) as Baseline;
   mutate(baseline);
   const path = join(dir, "surface.json");
@@ -122,29 +110,23 @@ let pristineFixture: string;
 
 beforeAll(() => {
   // 先用未改動的 fixture 產一份基準，之後每條測試都從這份乾淨的複製出去。
-  pristineFixture = mkdtempSync(join(tmpdir(), "api-surface-fixture-"));
-  cpSync(FIXTURES, pristineFixture, { recursive: true });
-  const seeded = spawnSync(
-    "node",
-    [
-      CLI,
-      "--platform",
-      pristineFixture,
-      "--baseline",
-      join(pristineFixture, "surface.json"),
-      "--update",
-    ],
-    { cwd: ROOT, encoding: "utf8" },
+  pristineFixture = join(
+    sandbox({ copy: [FIXTURES], prefix: "api-surface-fixture-", lifetime: "all" }).root,
+    FIXTURES,
   );
-  if (seeded.status !== 0) {
-    throw new Error(`fixture 基準產不出來：${seeded.stdout ?? ""}${seeded.stderr ?? ""}`);
-  }
-  return () => rmSync(pristineFixture, { recursive: true, force: true });
+  const seeded = run([
+    "--platform",
+    pristineFixture,
+    "--baseline",
+    join(pristineFixture, "surface.json"),
+    "--update",
+  ]);
+  if (seeded.red) throw new Error(`fixture 基準產不出來：${seeded.output}`);
 });
 
 /** 複製一份乾淨的 fixture（含基準），對某個檔案動手腳後跑閘門。 */
 function runFixtureFile(relative: string, mutate: (source: string) => string): Result {
-  const dir = sandbox();
+  const dir = scratch();
   cpSync(pristineFixture, dir, { recursive: true });
   const file = join(dir, relative);
   const before = readFileSync(file, "utf8");
@@ -167,7 +149,7 @@ function runFixture(mutate: (source: string) => string): Result {
  * —— 而拿掉 prop 本來就該紅，測試因此在測一件它不打算測的事。
  */
 function surfaceAfter(relative: string, mutate: (source: string) => string): Baseline {
-  const dir = sandbox();
+  const dir = scratch();
   cpSync(pristineFixture, dir, { recursive: true });
   const file = join(dir, relative);
   const before = readFileSync(file, "utf8");
@@ -251,7 +233,7 @@ describe("對照組：沒動過的東西是綠的", () => {
   });
 
   it("fixture 原封不動 → 通過", () => {
-    const dir = sandbox();
+    const dir = scratch();
     cpSync(pristineFixture, dir, { recursive: true });
     const result = run(["--platform", dir, "--baseline", join(dir, "surface.json")]);
     expect(result.red, result.output).toBe(false);
@@ -265,7 +247,7 @@ describe("對照組：沒動過的東西是綠的", () => {
      *
      * 這個 repo 剛為「看起來在守、其實沒有」付過兩次代價（C94、C97）。
      */
-    const dir = sandbox();
+    const dir = scratch();
     cpSync(pristineFixture, dir, { recursive: true });
     const result = run(["--platform", dir, "--baseline", join(dir, "surface.json")]);
     expect(result.output, "沒說那道檢查沒跑").toContain("沒有跑");
@@ -284,7 +266,7 @@ describe("形狀參考（C100）", () => {
    * 紅零條。
    */
   function withReference(mutate: (reference: string) => void) {
-    const dir = sandbox();
+    const dir = scratch();
     cpSync(pristineFixture, dir, { recursive: true });
     const baseline = join(dir, "surface.json");
     const reference = join(dir, "API.md");
@@ -330,7 +312,7 @@ describe("形狀參考（C100）", () => {
      * —— **跑一次測試就把 repo 根層的參考換成 fixture 的內容**。
      */
     const before = readFileSync(join(ROOT, "API.md"), "utf8");
-    const dir = sandbox();
+    const dir = scratch();
     cpSync(pristineFixture, dir, { recursive: true });
     const result = run(["--platform", dir, "--baseline", join(dir, "surface.json"), "--update"]);
     expect(result.red, result.output).toBe(false);
@@ -634,7 +616,7 @@ describe("基準檔格式", () => {
      * 憑空冒出來的違規 —— 或者反過來一片綠。兩種都是**對一份沒讀懂的
      * 基準檔給出判決**，而那比沒有判決更糟。
      */
-    const dir = sandbox();
+    const dir = scratch();
     const path = join(dir, "surface.json");
     writeFileSync(
       path,
@@ -647,7 +629,7 @@ describe("基準檔格式", () => {
   });
 
   it("★ 沒有 version 欄位也要紅（不能猜它是新版）", () => {
-    const dir = sandbox();
+    const dir = scratch();
     const path = join(dir, "surface.json");
     writeFileSync(path, JSON.stringify({ surface: {}, codemods: [] }));
 
@@ -671,7 +653,7 @@ describe("參數本身", () => {
     // 寫這條時我預期的是「空基準 → 沒有移除 → 綠燈」，並準備在註解裡
     // 警告「路徑打錯會靜默通過」。**實際行為比那安全**：
     // 空基準之下，現況的每一個 export 都算「未登記的變更」，於是它紅了。
-    const result = run(["--baseline", join(sandbox(), "nope.json")]);
+    const result = run(["--baseline", join(scratch(), "nope.json")]);
     expect(result.red).toBe(true);
     expect(result.output).toContain("未登記在基準中");
   });
@@ -820,7 +802,7 @@ describe("這些重構不該讓形狀漂移", () => {
      * 一個把自己的名字當成自己形狀的條目。改名抓得到（鍵變了），
      * 改內容抓不到，而改內容才是破壞下游的那一種。
      */
-    const dir = sandbox();
+    const dir = scratch();
     cpSync(pristineFixture, dir, { recursive: true });
     const baseline = JSON.parse(readFileSync(join(dir, "surface.json"), "utf8")) as Baseline;
     const shapes = Object.values(baseline.surface)[0] as Record<string, ExportShape>;
@@ -1048,7 +1030,7 @@ describe(".vue 元件的公開面", () => {
      * 改動裡加進去的。實測 `compare.ts` 判的是 `members !== undefined`，
      * 所以它是對的 —— 但那是推論，這裡把它變成量測。
      */
-    const dir = sandbox();
+    const dir = scratch();
     cpSync(pristineFixture, dir, { recursive: true });
     const file = join(dir, FIXTURE_COMPONENT);
     writeFileSync(file, stripSurface(readFileSync(file, "utf8")));
@@ -1147,7 +1129,7 @@ describe(".vue 元件的公開面", () => {
      * 於是紅燈來自「破壞性變更」而不是解析 —— 兩者都是紅，意思完全不同。
      * 所以種一份新的基準來問。
      */
-    const dir = sandbox();
+    const dir = scratch();
     cpSync(pristineFixture, dir, { recursive: true });
     writeFileSync(join(dir, FIXTURE_COMPONENT), "<template>\n  <hr>\n</template>\n");
 
@@ -1320,7 +1302,7 @@ describe("repo 沒有被動到", () => {
   });
 
   it("跑 fixture 不會動到 repo 裡的 fixture 原始碼", () => {
-    const file = join(FIXTURES, FIXTURE_SOURCE);
+    const file = join(ROOT, FIXTURES, FIXTURE_SOURCE);
     const before = readFileSync(file, "utf8");
     runFixture((source) => source.replaceAll("InternalOnly", "ScratchShape"));
     expect(readFileSync(file, "utf8")).toBe(before);

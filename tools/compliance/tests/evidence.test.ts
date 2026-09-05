@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+
+import { repoRoot, runCli } from "@org/gate-kit/testing";
 
 import { GATES } from "../src/map.ts";
 import {
@@ -26,8 +26,8 @@ import {
  * 第二種比較常發生（加工具的人不會想到要來改這裡），第一種比較危險。
  */
 
-const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
-const CLI = join(ROOT, "tools/compliance/src/cli.ts");
+const ROOT = repoRoot();
+const CLI = "tools/compliance/src/cli.ts";
 
 const FILE: EvidenceFile = {
   path: "tools/demo/evidence.json",
@@ -132,12 +132,12 @@ describe("交接用的表格", () => {
 
 describe("CLI", () => {
   function run() {
-    return spawnSync("node", [CLI, "--evidence"], { cwd: ROOT, encoding: "utf8" });
+    return runCli(CLI, ["--evidence"]);
   }
 
   it("--evidence 在這個 repo 是綠的", () => {
     const result = run();
-    expect(result.status, `${result.stdout ?? ""}${result.stderr ?? ""}`).toBe(0);
+    expect(result.status, result.output).toBe(0);
   });
 
   it("★ 輸出要講出 §16 的三類裡只涵蓋一類", () => {

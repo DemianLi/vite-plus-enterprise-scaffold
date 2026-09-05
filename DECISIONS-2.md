@@ -4461,9 +4461,56 @@ parseFlags」。** 那是 `release/v1` 時代的話；`main` 的 `root.ts`、`wa
 一個已不存在的根層 `test` 區塊；`tools/sast/` 是只有 `node_modules` 的幽靈目錄，
 兩份名冊都看不見。
 
-#### 八、實測（PR 2 補）
+#### 八、實測（PR 2，2026-09-05，基準 `390f585`）
 
-留白。PR 2 合併時補：前後逐檔 `it` 數、絆線的對照組實跑、Stryker 一趟的存活清單。
+**遷了 22 支，不是 §四 說的 17。** 17 是「手抄 repo 根」那一列的數；絆線的三個
+pattern（`mkdtempSync(`／`spawnSync("node"`／`execFileSync("node"`）掃出來是 22，
+差的五支是「只建沙盒沒 spawn」或反過來的那種 —— 同一個 module 的消費端，一起遷。
+⚠️ 一份裁決裡的數字是哪把尺量的，要寫在數字旁邊；這一則第一版沒寫。
+
+**逐檔 `it` 數（`vp run -r test -- --reporter=json`，從根層跑一次、跑序由 `dependsOn`
+綁住）：** 前 57 支 974 條，後 58 支 982 條。57 支逐位相同；差的 8 條全在 `gate-kit`
+自己：絆線 6 條（新檔）＋ `testing.test.ts` 12 → 14（下面 Stryker 逼出來的兩條）。
+⚠️ 第一版的量法是逐 package 單獨跑，`promise-check/cli.test` 因為切片的
+`.vitest-results.json` 還沒產生而紅 —— 那是 C87／C165 那種紅，不是遷移的；換成根層
+一次跑就沒了。**量測台自己先給了一個假的紅。**
+
+**絆線的對照組，真的跑過：** `harness-tripwire.test.ts` 六條 —— 三個 pattern 各一條
+inline fixture、`spawnSync("git"` 放行一條、「本檔自己含那三個字串所以必須被點到」
+一條（掃到零支與 `walk` 指錯目錄長得一樣）、例外名單 `toEqual([])` 一條。短路法：
+把 `gate-roster/tests/roster.test.ts` 換回 `390f585` 的版本再跑 —— 紅一條，`Received`
+是 `["tools/gate-roster/tests/roster.test.ts"]`，還原回綠。
+
+**Stryker 一趟（只 mutate `testing.ts`，85 顆）：** 第一趟殺 68、逾時 8、靜態忽略 4、
+未覆蓋 2、**存活 3**。三顆各補一條斷言後第三趟**存活 0**（殺 71）：
+
+| 存活的                                 | 它說的事                                                             | 補的斷言                                           |
+| -------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------- |
+| `runCli` 的 `args = []` → `["…"]`      | **真缺口**：「不給 args 就不夾帶任何旗標」沒人守，而那是 C126 那一半 | `runCli(fixture)` 的 argv `toEqual([])`            |
+| `prefix ?? "gate-kit-sandbox-"` → `""` | 預設前綴是給清理失敗時認屍的，沒斷言                                 | `basename(root)` 以它開頭                          |
+| `args.join(" ")` → `join("")`          | 單一參數時等價；訊息少一個空白沒人管                                 | 兩個參數的 git 呼叫，訊息要含 `git ls-files --zzz` |
+
+未覆蓋那 2 顆是 `result.stdout ?? ""` 的右手邊 —— 只在 `spawnSync` 連 stdout 都給不出
+時走到，測試裡沒有那種情況。逾時 8 顆是清理與 `sandbox()` 內部（`read`／`write`／`git`
+換成空函式），Stryker 記成偵測到；⚠️ 那是時間相依的判定，不當殺數讀（`stryker.config.mjs`
+檔頭）。
+
+⚠️⚠️ **這一趟不是照 `stryker.config.mjs` 跑的，而原因與本則無關、但要記下來：**
+照原設定跑，乾跑在**第一支紅**就停（vitest 被 runner 設成 bail），三趟各停在不同的地方 ——
+
+1. `vue-typecheck/tests/negative.test.ts`：`disableTypeChecks` 預設 `true` 是**全部檔案**，
+   Stryker 就地往 `tests/fixtures/app/src/*.vue` 插 `// @ts-nocheck`，`vue-tsc` 從此
+   什麼都不報，六條 🔴 全紅。**與遷移無關** —— 把 `390f585` 的舊版測試放回去、手動插
+   `@ts-nocheck`，同樣六條紅。設定檔那段「排除 `tools/vue-typecheck/src` 就好了」的
+   敘述在今天的樹上**不成立**；它 2026-09-02 為什麼過得了，本則沒有查。
+2. `promise-check/tests/negative.test.ts`：`gate-thresholds.feature` 讓 `threshold-check`
+   讀**真樹**，而真樹裡此刻躺著被插樁的 `testing.ts` —— 複雜度 42，門檻 39，紅。
+   任何被插樁的檔都會這樣；這一條在 #255／#257 之後才有，09-02 那趟碰不到它。
+
+所以這一趟用的是一份**只活在 scratchpad 的設定**：`disableTypeChecks` 縮成
+`tools/gate-kit/src/**`、vitest 只收 `tools/*/tests`（排除 `promise-check` 四支）。
+問的問題因此是「`tools/` 底下所有執行到 harness 的測試殺不殺得動它」，不是全樹。
+**`stryker.config.mjs` 一個字沒動** —— 修那兩件事是另一則的事，不是本則的。
 
 #### 九、與既有裁決的關係（C136 §八）
 

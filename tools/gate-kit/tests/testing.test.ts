@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -42,9 +42,16 @@ describe("sandbox · 建樹", () => {
     expect(box.git(["ls-files"]).trim()).toBe("tracked.ts");
   });
 
-  it("🔴 git 非零退出 → 丟例外，不回一個空字串", () => {
+  it("🔴 git 非零退出 → 丟例外，不回一個空字串，而且訊息要說是哪一道命令", () => {
     const box = sandbox({ files: { f: "" } });
-    expect(() => box.git(["ls-files"])).toThrow("失敗");
+    // ⚠️ 「git ls-files」那一段是 Stryker 逼出來的：把 `join(" ")` 改成 `join("")`
+    // 曾經存活 —— 訊息裡少一個空白沒人管，而讀錯誤的人要靠它知道是哪一道命令。
+    // 兩個參數，不是一個：只給一個時 `join(" ")` 與 `join("")` 分不出來。
+    expect(() => box.git(["ls-files", "--zzz"])).toThrow("git ls-files --zzz 在");
+  });
+
+  it("預設的目錄名前綴是 gate-kit-sandbox-，清理失敗時認得出是誰的", () => {
+    expect(basename(sandbox().root).startsWith("gate-kit-sandbox-")).toBe(true);
   });
 
   it("within：沙盒建在指定目錄底下（vue-typecheck 那條例外的入口）", () => {
@@ -89,6 +96,13 @@ describe("runCli", () => {
     // C126 之後八支 CLI 拒絕不認得的旗標，一個「貼心」補上的 --root 會讓不吃它的那支變紅。
     const result = runCli("tools/gate-kit/tests/fixtures/echo-argv.mjs", ["--only-this"]);
     expect(JSON.parse(result.stdout)).toEqual({ cwd: repoRoot(), argv: ["--only-this"] });
+  });
+
+  it("★ 不給 args → argv 是空的（預設值不得夾帶任何旗標）", () => {
+    // Stryker 把預設值 `[]` 換成非空陣列時，上面那條照樣綠 —— 它只證明「給的會到」，
+    // 沒證明「沒給的不會多出來」。而後者才是 C126 在意的那一半。
+    const result = runCli("tools/gate-kit/tests/fixtures/echo-argv.mjs");
+    expect(JSON.parse(result.stdout).argv).toEqual([]);
   });
 });
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+
+import { repoRoot, runCli } from "../src/testing.ts";
 
 /**
  * **這個 module 有沒有真的被用上。**
@@ -31,7 +31,7 @@ import { fileURLToPath } from "node:url";
  * 它是第三方 CLI，旗標解析不歸這條線管。名冊只收 `node tools/<某支>/src/cli.ts` 這個形狀。
  */
 
-const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
+const ROOT = repoRoot();
 
 /** 從 `scripts.gate` ＋ `scripts.ready` 推導出這條線上自己寫的 CLI。 */
 function trackedClis(): string[] {
@@ -58,8 +58,8 @@ describe("不認得的旗標一律失敗 —— 這條線上每一支 CLI", () =
   });
 
   it.each(CLIS)("%s 收到不認得的旗標必須非零", (cli) => {
-    const result = spawnSync("node", [join(ROOT, cli), NONSENSE], { cwd: ROOT, encoding: "utf8" });
-    const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+    const result = runCli(cli, [NONSENSE]);
+    const output = result.output;
 
     expect(result.status, `這一支靜靜地跑完了一趟：\n${output}`).not.toBe(0);
     // ⚠️ 非零還不夠 —— 它可能是**別的原因**紅的（掃不到東西、路徑不存在）。

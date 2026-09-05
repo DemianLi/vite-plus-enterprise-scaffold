@@ -1,9 +1,9 @@
-import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
+
+import { type Sandbox, sandbox } from "@org/gate-kit/testing";
 
 import {
   PHANTOM_REMEDIATION,
@@ -22,13 +22,10 @@ import {
  * 印不出它。而在真 `platform/` 底下造一個假目錄去測，被中斷時會留下殘骸，
  * 讓所有人的閘門紅在一個不存在的問題上。`scope-check` 的測試用同一個做法。
  */
-function repo(): { root: string; cleanup: () => void } {
-  const root = mkdtempSync(join(tmpdir(), "api-surface-tracked-"));
-  const git = (...args: string[]) => execFileSync("git", args, { cwd: root, stdio: "ignore" });
-  git("init", "-q");
-  git("config", "user.email", "t@example.com");
-  git("config", "user.name", "t");
-  return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+function repo(): Sandbox {
+  const box = sandbox({ prefix: "api-surface-tracked-" });
+  box.git(["init", "-q"]);
+  return box;
 }
 
 function pkg(root: string, name: string): void {
@@ -39,13 +36,9 @@ function pkg(root: string, name: string): void {
 
 describe("trackedPackageDirs：問 index，不問磁碟", () => {
   it("🔴 磁碟上有、版控裡沒有 → 不在集合裡", () => {
-    const { root, cleanup } = repo();
-    try {
-      pkg(root, "ghost");
-      expect(trackedPackageDirs(root, join(root, "platform"))).toEqual(new Set());
-    } finally {
-      cleanup();
-    }
+    const { root } = repo();
+    pkg(root, "ghost");
+    expect(trackedPackageDirs(root, join(root, "platform"))).toEqual(new Set());
   });
 
   it("★ staged 就算數（不必先 commit）—— C73 選 index 而不是 HEAD 的首要理由", () => {
@@ -54,28 +47,19 @@ describe("trackedPackageDirs：問 index，不問磁碟", () => {
      * `git add` 了、跑 `vpr ready` —— 是綠的，要等 commit 完才紅。
      * 而 `vpr ready` 存在的全部理由就是「推上去之前先知道」。
      */
-    const { root, cleanup } = repo();
-    try {
-      pkg(root, "staged");
-      execFileSync("git", ["add", "platform/staged"], { cwd: root, stdio: "ignore" });
-      expect(trackedPackageDirs(root, join(root, "platform"))).toEqual(new Set(["staged"]));
-    } finally {
-      cleanup();
-    }
+    const box = repo();
+    pkg(box.root, "staged");
+    box.git(["add", "platform/staged"]);
+    expect(trackedPackageDirs(box.root, join(box.root, "platform"))).toEqual(new Set(["staged"]));
   });
 
   it("★ 只認 platform/<name>/package.json 那一層", () => {
     // 套件內部的 package.json（例如 node_modules 或巢狀 workspace）不是進入點。
-    const { root, cleanup } = repo();
-    try {
-      pkg(root, "real");
-      mkdirSync(join(root, "platform/real/nested/deep"), { recursive: true });
-      writeFileSync(join(root, "platform/real/nested/deep/package.json"), "{}");
-      execFileSync("git", ["add", "platform"], { cwd: root, stdio: "ignore" });
-      expect(trackedPackageDirs(root, join(root, "platform"))).toEqual(new Set(["real"]));
-    } finally {
-      cleanup();
-    }
+    const box = repo();
+    pkg(box.root, "real");
+    box.write("platform/real/nested/deep/package.json", "{}");
+    box.git(["add", "platform"]);
+    expect(trackedPackageDirs(box.root, join(box.root, "platform"))).toEqual(new Set(["real"]));
   });
 
   it("🔴 git 答不出來 → 丟例外，**不是**回報「零個被追蹤」", () => {
@@ -84,13 +68,9 @@ describe("trackedPackageDirs：問 index，不問磁碟", () => {
      * 閘門紅一整片 —— 而真正壞掉的是儀器。`scope-check/tree.ts` 對同一件事
      * 有同一條規矩，`doc-facts` 的 `no-documents` 也是（「零個不符不是通過」）。
      */
-    const root = mkdtempSync(join(tmpdir(), "api-surface-nogit-"));
-    try {
-      mkdirSync(join(root, "platform"), { recursive: true });
-      expect(() => trackedPackageDirs(root, join(root, "platform"))).toThrow(/git ls-files/);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+    const { root } = sandbox({ prefix: "api-surface-nogit-" });
+    mkdirSync(join(root, "platform"), { recursive: true });
+    expect(() => trackedPackageDirs(root, join(root, "platform"))).toThrow(/git ls-files/);
   });
 });
 

@@ -1,17 +1,14 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
+import { sandbox } from "../src/testing.ts";
 import { walk } from "../src/walk.ts";
 
 let root: string;
 
 beforeAll(() => {
-  root = mkdtempSync(join(tmpdir(), "gate-kit-walk-"));
-  for (const dir of ["src", "src/deep", "node_modules", ".git", "dist", ".vite-plus"]) {
-    mkdirSync(join(root, dir), { recursive: true });
-  }
+  const files: Record<string, string> = {};
   for (const file of [
     "src/a.ts",
     "src/b.vue",
@@ -22,11 +19,10 @@ beforeAll(() => {
     "dist/bundle.ts",
     ".vite-plus/cache.ts",
   ]) {
-    writeFileSync(join(root, file), "// x\n");
+    files[file] = "// x\n";
   }
+  root = sandbox({ prefix: "gate-kit-walk-", files, lifetime: "all" }).root;
 });
-
-afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 describe("walk", () => {
   it("回傳的是相對於 root 的路徑，不是絕對路徑", () => {

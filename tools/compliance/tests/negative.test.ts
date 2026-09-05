@@ -1,9 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { repoRoot, runCli, sandbox } from "@org/gate-kit/testing";
 
 import { CONTROLS, GATES, type Control, type Gate } from "../src/map.ts";
 import { conventionalNegativeTest, verifyMap } from "../src/verify.ts";
@@ -26,21 +25,11 @@ import { conventionalNegativeTest, verifyMap } from "../src/verify.ts";
  * 意義：一旦有人習慣「那幾格本來就是紅的」，這張表就沒有人在讀了。
  */
 
-const HERE = resolve(fileURLToPath(import.meta.url), "..");
-const ROOT = resolve(HERE, "../../..");
-const CLI = join(ROOT, "tools/compliance/src/cli.ts");
-
-let sandbox: string | undefined;
-
-afterEach(() => {
-  if (sandbox !== undefined) rmSync(sandbox, { recursive: true, force: true });
-  sandbox = undefined;
-});
+const ROOT = repoRoot();
+const CLI = "tools/compliance/src/cli.ts";
 
 function makeSandbox(): string {
-  const dir = mkdtempSync(join(tmpdir(), "compliance-negative-"));
-  sandbox = dir;
-  return dir;
+  return sandbox({ prefix: "compliance-negative-" }).root;
 }
 
 interface Result {
@@ -65,12 +54,9 @@ interface Result {
  */
 const CLI_TIMEOUT_MS = 30_000;
 
-function runCli(args: readonly string[]): Result {
-  const result = spawnSync("node", [CLI, ...args], { cwd: ROOT, encoding: "utf8" });
-  return {
-    red: result.status !== 0,
-    output: `${result.stdout ?? ""}${result.stderr ?? ""}`,
-  };
+function run(args: readonly string[]): Result {
+  const result = runCli(CLI, args);
+  return { red: result.status !== 0, output: result.output };
 }
 
 /** 一組乾淨的最小映射，用來把每個破壞隔離開來。 */
@@ -185,14 +171,14 @@ describe(
      */
     function generateInto(dir: string): string {
       const path = join(dir, "COMPLIANCE.md");
-      const result = runCli(["--update", "--file", path]);
+      const result = run(["--update", "--file", path]);
       expect(result.red, result.output).toBe(false);
       return path;
     }
 
     it("★ 剛產出來的檔案通過驗證（對照組）", () => {
       const path = generateInto(makeSandbox());
-      const result = runCli(["--file", path]);
+      const result = run(["--file", path]);
 
       expect(result.red, result.output).toBe(false);
       expect(result.output).toContain("一致");
@@ -215,20 +201,20 @@ describe(
 
       writeFileSync(path, before.replace(worse as string, "✅ 已證明"));
 
-      const result = runCli(["--file", path]);
+      const result = run(["--file", path]);
       expect(result.red, `仍然綠燈 —— 這張表擋不住手改\n${result.output}`).toBe(true);
       expect(result.output).toContain("高估");
     });
 
     it("檔案不存在 → 紅，而且要說怎麼產", () => {
-      const result = runCli(["--file", join(makeSandbox(), "nope.md")]);
+      const result = run(["--file", join(makeSandbox(), "nope.md")]);
 
       expect(result.red).toBe(true);
       expect(result.output).toContain("--update");
     });
 
     it("--file 後面沒接東西 → 紅", () => {
-      const result = runCli(["--file"]);
+      const result = run(["--file"]);
       expect(result.red).toBe(true);
     });
   },
@@ -242,17 +228,16 @@ describe(
       const path = generateAndBreak();
       expect(existsSync(path)).toBe(false);
 
-      const result = runCli([]);
+      const result = run([]);
       expect(result.red, result.output).toBe(false);
     });
 
     function generateAndBreak(): string {
       const dir = makeSandbox();
       const path = join(dir, "COMPLIANCE.md");
-      runCli(["--update", "--file", path]);
+      run(["--update", "--file", path]);
       writeFileSync(path, "壞掉的內容");
       rmSync(dir, { recursive: true, force: true });
-      sandbox = undefined;
       return path;
     }
   },

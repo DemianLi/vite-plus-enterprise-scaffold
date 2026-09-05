@@ -1,9 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync, readdirSync, rmSync, unlinkSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
+
+import { repoRoot, runCli } from "@org/gate-kit/testing";
 
 import { SANDBOX_FILES, SANDBOX_LAYERS, makeSandbox, trackedSlices } from "../src/breakage.ts";
 
@@ -25,10 +26,15 @@ import { SANDBOX_FILES, SANDBOX_LAYERS, makeSandbox, trackedSlices } from "../sr
  * 一支在量真樹的閘門會讓下面每一條斷言都通過（C124 §一 整則就是這件事）。
  */
 
-const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
-const THEME_VERIFY = join(ROOT, "tools/theme-verify/src/cli.ts");
-const CONFORMANCE = join(ROOT, "tools/conformance/src/cli.ts");
+const ROOT = repoRoot();
+const THEME_VERIFY = "tools/theme-verify/src/cli.ts";
+const CONFORMANCE = "tools/conformance/src/cli.ts";
 
+/**
+ * 沙盒是**產品碼**的 `makeSandbox` 建的 —— 被測的就是它，所以不走
+ * `@org/gate-kit/testing` 的 `sandbox()`（C168 §三）。它建的目錄 harness 不認得，
+ * 清理只好留在這裡。
+ */
 const sandboxes: string[] = [];
 
 afterEach(() => {
@@ -42,8 +48,7 @@ function sandbox(): string {
 }
 
 function runThemeVerify(root: string): { status: number | null; output: string } {
-  const result = spawnSync("node", [THEME_VERIFY, "--root", root], { cwd: ROOT, encoding: "utf8" });
-  return { status: result.status, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
+  return runCli(THEME_VERIFY, ["--root", root]);
 }
 
 /** 版控裡 `dir` 底下有幾個檔。⚠️ `git ls-files`，不是 `readdirSync`（C73／C98）。 */
@@ -118,8 +123,8 @@ describe("沙盒契約", () => {
     expect(victim, "副本裡一個 workflow 都沒有 —— .github 沒進沙盒契約").toBeDefined();
     appendFileSync(join(workflows, victim as string), "\n      - uses: actions/checkout@v5\n");
 
-    const result = spawnSync("node", [CONFORMANCE, "--root", dir], { cwd: ROOT, encoding: "utf8" });
-    const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+    const result = runCli(CONFORMANCE, ["--root", dir]);
+    const output = result.output;
 
     expect(result.status, output).not.toBe(0);
     expect(output).toContain("action 未以 SHA 釘住");
@@ -168,8 +173,8 @@ describe("沙盒契約", () => {
 
   /** 對照：不帶 `--root` 的那條路徑一個字都不能變 —— 那是 fork 每天跑的那一條。 */
   it("不帶 --root 時三段都跑，而且宣稱兩條軸都驗了", () => {
-    const result = spawnSync("node", [THEME_VERIFY], { cwd: ROOT, encoding: "utf8" });
-    const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+    const result = runCli(THEME_VERIFY);
+    const output = result.output;
 
     expect(result.status, output).toBe(0);
     expect(output).toContain("✓ 建置：");

@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+
+import { sandbox as gateKitSandbox } from "@org/gate-kit/testing";
 
 import {
   TRANSIENT_PREFIX,
@@ -24,17 +25,9 @@ import {
  * 用一棵臨時目錄樹來測「數目錄」這件事，才不會自己就是下一個競態。
  */
 
-const SANDBOXES: string[] = [];
-
 function sandbox(): string {
-  const dir = mkdtempSync(join(tmpdir(), "doc-facts-derive-"));
-  SANDBOXES.push(dir);
-  return dir;
+  return gateKitSandbox({ prefix: "doc-facts-derive-" }).root;
 }
-
-afterEach(() => {
-  for (const dir of SANDBOXES.splice(0)) rmSync(dir, { recursive: true, force: true });
-});
 
 /** 建一棵最小的 workspace：`packages` 樣式 ＋ 幾個帶 package.json 的目錄。 */
 function workspace(members: readonly string[], globs = ["features", "platform"]): string {

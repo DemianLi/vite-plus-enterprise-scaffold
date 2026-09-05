@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { repoRoot } from "@org/gate-kit";
+import { runCli, sandbox } from "@org/gate-kit/testing";
 
 import { EXEMPT, MINIMUM_SCANNED, SCAN_RULES, inScope, scanRepo } from "../src/scan.ts";
 import { scanText } from "../src/detect.ts";
@@ -22,7 +20,7 @@ import { scanText } from "../src/detect.ts";
  */
 
 const ROOT = repoRoot();
-const CLI = join(ROOT, "tools/pii-check/src/cli.ts");
+const CLI = "tools/pii-check/src/cli.ts";
 
 /**
  * ★ `repoRoot()` 穿過 pnpm 的 symlink 之後仍然落在 repo 根。
@@ -100,9 +98,9 @@ describe("🔴 掃到零個檔案不是通過", () => {
 
   it("★ 下限訂得比現況低一截，不是貼著現況", () => {
     // 貼著現況的話，每刪一支測試都要來改這個數字，然後有人會把它改成 0。
-    const actual = spawnSync("node", [CLI], { cwd: ROOT, encoding: "utf8" });
-    const scanned = /掃了 (\d+) 個檔案/.exec(actual.stdout ?? "")?.[1];
-    expect(scanned, `工具沒有回報掃了幾個：\n${actual.stdout}${actual.stderr}`).toBeDefined();
+    const actual = runCli(CLI);
+    const scanned = /掃了 (\d+) 個檔案/.exec(actual.stdout)?.[1];
+    expect(scanned, `工具沒有回報掃了幾個：\n${actual.output}`).toBeDefined();
     expect(Number(scanned)).toBeGreaterThan(MINIMUM_SCANNED);
   });
 });
@@ -141,33 +139,27 @@ describe("例外：記錄「這一份看過了」，不是「這個目錄不用�
 
 describe("CLI 端對端", () => {
   it("這個 repo 現在是乾淨的", () => {
-    const result = spawnSync("node", [CLI], { cwd: ROOT, encoding: "utf8" });
-    expect(result.status, `${result.stdout ?? ""}${result.stderr ?? ""}`).toBe(0);
+    const result = runCli(CLI);
+    expect(result.status, result.output).toBe(0);
   });
 
   it("★ 通過訊息要講出偵測不到什麼 —— 否則綠燈會被讀成「沒有個資」", () => {
-    const result = spawnSync("node", [CLI], { cwd: ROOT, encoding: "utf8" });
-    expect(result.stdout).toContain("姓名抓不到");
+    expect(runCli(CLI).stdout).toContain("姓名抓不到");
   });
 
   it("🔴 塞一筆真的進去 → 紅", () => {
-    const dir = mkdtempSync(join(tmpdir(), "pii-check-"));
-    try {
-      // 湊滿下限，否則會先被 too-few-files 擋下 —— 那樣就不算證明「偵測得到」。
-      for (let at = 0; at <= MINIMUM_SCANNED; at += 1) {
-        mkdirSync(join(dir, `p${at}`, "tests"), { recursive: true });
-        writeFileSync(join(dir, `p${at}`, "tests", "a.test.ts"), "// 乾淨\n");
-      }
-      writeFileSync(join(dir, "p0", "tests", "a.test.ts"), `const id = "${VALID_ID}";\n`);
-      // 例外指向的檔案在這個暫存 repo 裡不存在，stale-exemption 一定會有一條；
-      // 這裡驗的是**另外那一條**確實出現了。
-      const result = spawnSync("node", [CLI, "--root", dir], { cwd: ROOT, encoding: "utf8" });
-      expect(result.status).toBe(1);
-      expect(result.stderr).toContain("national-id");
-      expect(result.stderr).toContain("p0/tests/a.test.ts");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
+    const box = sandbox({ prefix: "pii-check-" });
+    // 湊滿下限，否則會先被 too-few-files 擋下 —— 那樣就不算證明「偵測得到」。
+    for (let at = 0; at <= MINIMUM_SCANNED; at += 1) {
+      box.write(`p${at}/tests/a.test.ts`, "// 乾淨\n");
     }
+    box.write("p0/tests/a.test.ts", `const id = "${VALID_ID}";\n`);
+    // 例外指向的檔案在這個暫存 repo 裡不存在，stale-exemption 一定會有一條；
+    // 這裡驗的是**另外那一條**確實出現了。
+    const result = runCli(CLI, ["--root", box.root]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("national-id");
+    expect(result.stderr).toContain("p0/tests/a.test.ts");
   });
 });
 
@@ -183,35 +175,27 @@ describe("CLI 端對端", () => {
  */
 describe("🔴 不認得的旗標", () => {
   it("`--masking`（已移除）→ 紅，不得靜靜當成一次普通掃描", () => {
-    const result = spawnSync("node", [CLI, "--masking"], { cwd: ROOT, encoding: "utf8" });
+    const result = runCli(CLI, ["--masking"]);
     expect(result.status, `仍然綠燈 —— 被拿掉的旗標又會在 CI 裡假裝成一道檢查`).toBe(1);
     expect(result.stderr).toContain("--masking");
   });
 
   it("任何沒見過的旗標都一樣 → 紅", () => {
-    const result = spawnSync("node", [CLI, "--nope"], { cwd: ROOT, encoding: "utf8" });
-    expect(result.status).toBe(1);
+    expect(runCli(CLI, ["--nope"]).status).toBe(1);
   });
 
   it("★ 訊息要說得出「為什麼這會紅」，不只是「不認得」", () => {
     // 讀到這條訊息的人多半正在 CI 上看紅燈。少了原因，
     // 最短的修法是把旗標加回 KNOWN_FLAGS —— 那正好是錯的方向。
-    const result = spawnSync("node", [CLI, "--masking"], { cwd: ROOT, encoding: "utf8" });
-    expect(result.stderr).toContain("綠燈");
+    expect(runCli(CLI, ["--masking"]).stderr).toContain("綠燈");
   });
 
   it("★ 對照組：認得的旗標照常運作", () => {
     // 少了這條，一個「什麼旗標都紅」的實作也會讓上面三條全過。
-    const dir = mkdtempSync(join(tmpdir(), "pii-check-flag-"));
-    try {
-      for (let at = 0; at <= MINIMUM_SCANNED; at += 1) {
-        mkdirSync(join(dir, `p${at}`, "tests"), { recursive: true });
-        writeFileSync(join(dir, `p${at}`, "tests", "a.test.ts"), "// 乾淨\n");
-      }
-      const result = spawnSync("node", [CLI, "--root", dir], { cwd: ROOT, encoding: "utf8" });
-      expect(result.stderr).not.toContain("不認得的旗標");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
+    const box = sandbox({ prefix: "pii-check-flag-" });
+    for (let at = 0; at <= MINIMUM_SCANNED; at += 1) {
+      box.write(`p${at}/tests/a.test.ts`, "// 乾淨\n");
     }
+    expect(runCli(CLI, ["--root", box.root]).stderr).not.toContain("不認得的旗標");
   });
 });

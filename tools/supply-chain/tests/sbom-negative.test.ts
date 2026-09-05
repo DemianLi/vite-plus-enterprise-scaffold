@@ -1,9 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { repoRoot, runCli, sandbox } from "@org/gate-kit/testing";
 
 import { parseLockfile } from "../src/lockfile.ts";
 
@@ -31,25 +30,16 @@ import { parseLockfile } from "../src/lockfile.ts";
  * 那一格是誠實的，不要拿這支測試去填它。
  */
 
-const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
-const CLI = join(ROOT, "tools/supply-chain/src/cli.ts");
+const ROOT = repoRoot();
+const CLI = "tools/supply-chain/src/cli.ts";
 const WORKFLOW = join(ROOT, ".github/workflows/tier2-security.yml");
 
 /** lockfile 實際有幾個套件。SBOM 的門檻由它推導，不寫死。 */
 const LOCK_PACKAGES = parseLockfile(readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8")).packages
   .length;
 
-let sandbox: string | undefined;
-
-afterEach(() => {
-  if (sandbox !== undefined) rmSync(sandbox, { recursive: true, force: true });
-  sandbox = undefined;
-});
-
 function makeSandbox(): string {
-  const dir = mkdtempSync(join(tmpdir(), "supply-chain-negative-"));
-  sandbox = dir;
-  return dir;
+  return sandbox({ prefix: "supply-chain-negative-" }).root;
 }
 
 interface Result {
@@ -58,8 +48,8 @@ interface Result {
 }
 
 function run(args: readonly string[]): Result {
-  const result = spawnSync("node", [CLI, ...args], { cwd: ROOT, encoding: "utf8" });
-  return { red: result.status !== 0, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
+  const result = runCli(CLI, args);
+  return { red: result.status !== 0, output: result.output };
 }
 
 /** 寫一份只有 component 數有意義的 CycloneDX 骨架。 */
