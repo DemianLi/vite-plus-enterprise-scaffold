@@ -6708,3 +6708,109 @@ catalog 那個 —— 五顆變異改前全零（§六）。這五件事每一�
   `threshold-check` 報（§六）—— 這是它守的那一格第一次因為抽測試 seam 而動。
 - **C168 §一**：§六 A1–A7 每顆至少一條測試。**C154 §三**：§四。**C137 §一**：零閘門增減。
 - **C136 §八**：§三 不改舊則。**C173 §五**：`C185` 字面與本則同一個 commit。
+
+### C186 — a11y 規則清單縮水：三支測試都綠是真的，而守它的是閘門的 baseline 比對 —— 真缺口是那條分支零反向測試，而且測試一直在改寫真樹的交付文件（2026-09-06，#296）
+
+票 #296（地圖 #295 的子票，C168 附錄 C 第 1 條），基準 `575334d`，worktree `a11y-shrink`。
+這張票開的是 `wayfinder:grilling`（HITL）；本則由監督 session 依使用者指示代為裁決，
+子代理負責量測與實作，監督者逐項複核 —— 第一個子代理的量測表整張作廢（對照組沒紅、
+結果檔不存在），下面的數字全部是監督者在同一個 worktree 重量的。
+
+#### 一、事實
+
+1. **規則清單不是手寫的。** `platform/eslint-config/src/a11y.js:50-53` 的 `ALL_RULES` 是
+   `Object.keys(a11y.rules)` 全開，23 條全從 plugin 推導。所以「縮水」的真實路徑有兩條：
+   上游升版拿掉一條規則、或本地加 `.filter`／`off` 覆寫 —— 不是「刪一行」。
+2. **附錄 C 說的「三支都綠」成立。** 變異 M1（`ALL_RULES` 加 `.filter((name) => name !== "no-access-key")`）：
+   `platform/eslint-config` 7/7、`tools/compliance` 65/65、`platform/ui` 全綠。
+   `eslint-config/tests/a11y.test.ts` 的 `enabled` 與 `fired` 兩個集合都從同一份設定推導，
+   少一條就一起少。對照組 C1（fixture `:70` 的 `<button accesskey="k">` 改成 `<button>`）
+   → 7 條 1 紅（「★ fixture 觸發了每一條被啟用的規則」），量測台有反應。
+3. **但「減的方向沒有守」不成立。** `tools/compliance/ACCESSIBILITY.md` 進版控（24 行含
+   `vuejs-accessibility/`），`tools/compliance/src/cli.ts` 在驗證模式拿 `renderAccessibilityFormatted()`
+   與版控那份逐字比。同一顆 M1 下 `node tools/compliance/src/cli.ts` → **RC=1
+   「✗ ACCESSIBILITY.md 與 a11y.ts 不一致」**；乾淨樹 RC=0。守它的是 `vpr gate` 那條鏈上的
+   閘門，絆線掛在被守的對象（交付文件）上，位置正確；`--update` 是唯一出口，而它會在
+   版控的交付文件上留下一個少一行的 diff。
+4. **C168 為什麼看漏：** 那次審查的量法是「從 import／讀檔目標推導」，只讀了測試檔；
+   守這件事的比對住在 CLI 裡，不在任何一支 `*.test.ts`。與 C185 §一 同一個形狀的教訓反過來：
+   那邊是步驟名印 ✓ 而輸入不存在，這邊是測試全綠而閘門有紅。
+5. **真缺口 A —— 那條分支零反向測試（C43）。** `cli.ts` 的 `a11yBaseline` 寫死
+   `join(ROOT, "tools/compliance/ACCESSIBILITY.md")`，`--file` 只導 `COMPLIANCE.md`。
+   `tests/negative.test.ts`「手改 COMPLIANCE.md 會被抓到」那個 describe 碰不到它。
+   變異 M2（刪掉「不一致 → return 1」那五行）：compliance 三支測試 **65/65 綠**。
+   對照組 C2（刪 `COMPLIANCE.md` 那段比對）→ negative.test 1 紅。
+6. **真缺口 B —— 測試一直在改寫真樹。** `--update` 分支的 `writeFileSync(a11yBaseline, …)`
+   不看 `--file`。`negative.test.ts` 兩個 describe 跑 `--update --file <沙盒>` 時，沙盒只拿到
+   `COMPLIANCE.md`，真樹 `tools/compliance/ACCESSIBILITY.md` 被重寫一次（實測 mtime
+   `1788633608 → 1788634157`）。內容相同所以 `git status` 看不到 —— 這正是 C124 記的形狀：
+   閘門看副本是逐規則的，同一支 CLI 一份文件走副本、另一份走真樹。
+
+#### 二、裁決
+
+1. **不加凍結清單，不動 `platform/eslint-config` 的任何測試。** 減的方向已由閘門守，
+   位置對、出口唯一。在測試裡再放一份 23 條的字面清單，是同一條守衛的第二份副本 ——
+   C168 §一 的判準（同一變異兩邊同紅、刪掉一邊複雜度消失）判它是真重複，而那一族裁決
+   在刪的正是這種。這不是增減閘門：本則零閘門增減。
+2. **`--file` 同時導 `ACCESSIBILITY.md`。** `A11Y_BASELINE` 取 `--file` 所在目錄的手足
+   （`join(dirname(resolve(FLAGS.file)), "ACCESSIBILITY.md")`），沒給 `--file` 時維持真樹路徑。
+   不加新旗標：`--file` 的意思從「COMPLIANCE.md 的路徑」變成「兩份交付文件所在」，
+   說明文字跟著改。這一條同時關掉缺口 B。
+3. **補兩條反向測試**，都在 `negative.test.ts` 既有的 describe 裡：(a) 沙盒 `--update --file`
+   後從沙盒的 `ACCESSIBILITY.md` 刪一行 `vuejs-accessibility/…`，驗證模式要紅且說得出
+   「ACCESSIBILITY.md 與 a11y.ts 不一致」—— 斷言前先確認有破壞對象；(b) 跑
+   `--update --file <沙盒>` 前後真樹 `ACCESSIBILITY.md` 的內容與 mtime 都不變。
+4. **`a11y.js` 檔頭補一句事實**：減的方向由 `tools/compliance/ACCESSIBILITY.md` 守、`--update`
+   是唯一出口。檔頭原本只寫「新規則會自動進來、反向測試會紅」—— 那是加的方向；少了這一句，
+   下一次審查會再問一次同樣的問題。
+5. **不動門檻。** `threshold-check` 沒有話說（見 §四）。
+
+#### 三、不裁
+
+- **`compliance` 測試做 subset 檢查**（「產出 ⊇ 版控那份」）：與凍結清單同一個理由，第二份副本。
+- **`--file` 拆成兩個旗標**：兩份文件在真樹裡就是同一個目錄的手足，沙盒裡沒有理由不是。
+- **把「規則清單縮水」升成 `eslint-config` 自己的閘門**：那是增減閘門，C137 §一 不准在這裡論證，
+  而且 §一 第 3 點證明不需要。
+- **`form-control-has-label` 的 `off` 覆寫不在 `preFilterRules()` 的視野裡**：那是 #297 的題，本則不碰。
+- **HITL 票由 session 代裁**這件事本身：使用者明示，記在前言，不另立規則。
+
+#### 四、實測
+
+改前（`575334d`）：
+
+| 變異                                     | 對象                                   | 結果                                         |
+| ---------------------------------------- | -------------------------------------- | -------------------------------------------- |
+| M1 `ALL_RULES` 少一條                    | eslint-config／compliance／ui 三支測試 | 7/7、65/65、全綠                             |
+| M1 同上                                  | `node tools/compliance/src/cli.ts`     | **RC=1** 不一致                              |
+| M2 刪「ACCESSIBILITY.md 不一致 → 1」五行 | compliance 三支測試                    | 65/65 綠（缺口 A）                           |
+| C1 fixture 少一個 `accesskey`            | eslint-config                          | 7 條 **1 紅**                                |
+| C2 刪「COMPLIANCE.md 不一致 → 1」那段    | compliance negative                    | **1 紅**                                     |
+| `--update --file <沙盒>`（舊 CLI）       | 真樹 `ACCESSIBILITY.md` mtime          | **變了**；沙盒只有 `COMPLIANCE.md`（缺口 B） |
+
+改後：
+
+| 變異                            | 對象                | 結果                                                       |
+| ------------------------------- | ------------------- | ---------------------------------------------------------- |
+| M2 同上                         | compliance（67 條） | **1 紅**：「★ 手改 ACCESSIBILITY.md 會被抓到」             |
+| M3 `A11Y_BASELINE` 改回寫死真樹 | compliance（67 條） | **2 紅**：上面那條 ＋「repo 的 ACCESSIBILITY.md 不被動到」 |
+| M1                              | compliance CLI      | RC=1 不變                                                  |
+| C1                              | eslint-config       | 7 條 1 紅不變                                              |
+
+`vpr ready`：兩趟。第一趟 RC=1，oxfmt 對本則與新測試各有意見 → `vp check --fix`；第二趟 RC=0。`threshold-check` 沒有話說。
+
+淨變化：`tools/compliance` ＋2 條 `it`，`cli.ts` 一個常數換位置、零行為變更（沒給 `--file` 時路徑相同），
+零閘門增減，零門檻變動。
+
+#### 五、與既有裁決的關係（C136 §八）
+
+- **C168 §一／附錄 C 第 1 條**：缺口的陳述一半成立（三支測試綠）、一半不成立（減的方向有閘門守）；
+  本則不改 C168，用 §一 第 4 點寫下看漏的成因。
+- **C43**：閘門的每一條紅分支要有反向測試 —— `ACCESSIBILITY.md` 那條在此之前是零。
+- **C124**：閘門看副本是逐規則的 —— 這次是逐**文件**：同一支 CLI 的 `--file` 導了一份、沒導另一份，
+  症狀與 C124 一樣是「副本上綠、真樹被碰」。
+- **C170 §三 第 2 點**：那邊留下 `compliance --evidence` 那條測試是因為它是本機唯一跑到那個
+  variant 的路徑；這邊是同一支工具的另一條分支，本機在此之前**零**路徑跑到它。
+- **C178 §五**：`parseFile` 裡到不了的第二道缺值檢查 —— `A11Y_BASELINE` 一樣只讀 `FLAGS.file`，
+  不另掃 argv。
+- **C185 §一**：「步驟印 ✓ 而輸入不在」與本則「測試全綠而閘門有紅」是同一個教訓的兩面：
+  讀一道守衛時要把它守的東西對到每一條會執行它的路徑。

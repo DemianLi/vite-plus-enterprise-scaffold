@@ -2,7 +2,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CONTROLS, FUTURE, GATES, REGULATION } from "./map.ts";
@@ -72,10 +72,12 @@ const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const DEFAULT_BASELINE = join(ROOT, "tools/compliance/COMPLIANCE.md");
 
 /**
- * 要比對的檔案。`--file <path>` 可以指到別處。
+ * 要比對的檔案們。`--file <path>` 可以指到別處。
  *
  * 這個參數存在的唯一理由是讓這支工具能被反向測試：把產出的表複製到暫存
- * 目錄、改掉一個字，再讓 CLI 去驗那一份 —— repo 的 COMPLIANCE.md 不被動到。
+ * 目錄、改掉一個字，再讓 CLI 去驗那一份 —— repo 的版本不被動到。
+ * COMPLIANCE.md 與 ACCESSIBILITY.md 都跟著 --file 的位置走，
+ * 才能在同一個 sandbox 目錄做完整的反向測試。
  * 與 `tools/conformance` 的 `--root` 同一個取捨，只是範圍更窄：
  * 映射的檔案存在性檢查仍然對**真的** repo 跑，因為那份映射描述的就是這個 repo。
  *
@@ -85,6 +87,10 @@ const DEFAULT_BASELINE = join(ROOT, "tools/compliance/COMPLIANCE.md");
  * `FLAGS` 所以看不見。缺值那道檢查也一起拆：`parseFlags` 先紅，它到不了。
  */
 const BASELINE = FLAGS.file === undefined ? DEFAULT_BASELINE : resolve(FLAGS.file);
+const A11Y_BASELINE =
+  FLAGS.file === undefined
+    ? join(ROOT, "tools/compliance/ACCESSIBILITY.md")
+    : join(dirname(resolve(FLAGS.file)), "ACCESSIBILITY.md");
 
 /** 產出並交給 `vp fmt`。回傳 formatter 的輸出，那才是要比對的東西。 */
 function formatted(markdown: string, name: string): string {
@@ -180,8 +186,6 @@ function main(): number {
     return 0;
   }
 
-  const a11yBaseline = join(ROOT, "tools/compliance/ACCESSIBILITY.md");
-
   // 無障礙那張表的自我檢查：宣稱有閘門守 → 那個閘門必須真的存在。
   const knownGateIds = new Set(GATES.map((gate) => gate.id));
   const a11yProblems = verifyCriteria(CRITERIA, knownGateIds);
@@ -200,8 +204,8 @@ function main(): number {
   if (FLAGS.update) {
     writeFileSync(BASELINE, renderFormatted());
     console.log(`✓ 已更新 ${BASELINE}`);
-    writeFileSync(a11yBaseline, renderAccessibilityFormatted());
-    console.log(`✓ 已更新 ${a11yBaseline}`);
+    writeFileSync(A11Y_BASELINE, renderAccessibilityFormatted());
+    console.log(`✓ 已更新 ${A11Y_BASELINE}`);
     const status = reportMapErrors();
     if (status === 0) summarise();
     return status;
@@ -229,12 +233,12 @@ function main(): number {
     return 1;
   }
 
-  if (!existsSync(a11yBaseline)) {
-    console.error(`✗ 找不到 ${a11yBaseline}`);
+  if (!existsSync(A11Y_BASELINE)) {
+    console.error(`✗ 找不到 ${A11Y_BASELINE}`);
     console.error("  執行：node tools/compliance/src/cli.ts --update\n");
     return 1;
   }
-  if (readFileSync(a11yBaseline, "utf8") !== renderAccessibilityFormatted()) {
+  if (readFileSync(A11Y_BASELINE, "utf8") !== renderAccessibilityFormatted()) {
     console.error("\n✗ ACCESSIBILITY.md 與 a11y.ts 不一致\n");
     console.error("  執行：node tools/compliance/src/cli.ts --update\n");
     return 1;
