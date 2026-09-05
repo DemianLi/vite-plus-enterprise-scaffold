@@ -108,20 +108,12 @@ function findSpecs(root: string): SpecFile[] {
 function readResults(
   root: string,
   specs: readonly SpecFile[],
-  argv: readonly string[],
+  extra: readonly string[],
 ): { results: VitestResults; missing: string[] } {
   const paths = [
     ...new Set(specs.map((spec) => resolvePath(root, "features", spec.slice, RESULTS_FILE))),
+    ...extra.map((path) => resolvePath(root, path)),
   ];
-
-  for (
-    let index = argv.indexOf("--results");
-    index >= 0;
-    index = argv.indexOf("--results", index + 1)
-  ) {
-    const extra = argv[index + 1];
-    if (extra !== undefined) paths.push(resolvePath(root, extra));
-  }
 
   const merged: VitestResults["testResults"][number][] = [];
   const missing: string[] = [];
@@ -144,16 +136,12 @@ function readResults(
  * 那條分支，把報表**覆寫成當下現況**然後回 0。那道閘門於是從「報表過期就紅」
  * 變成「把報表改成永遠不過期」，而 `tier1-quality.yml` 裡那一行就是 `--check`。
  * 完整量測在 C125 §一（連 `git status` 為什麼是乾淨的都在裡面）。
- *
- * ⚠️ **`--results` 可以重複，而 `parseFlags` 只留最後一個** —— 取值仍然由
- * `readResults` 自己走 `argv`。`parseFlags` 在這裡的職責是**不認得的旗標
- * 一律失敗**，不是取值。
  */
 const FLAG_SPEC = {
   check: { kind: "boolean" },
   help: { kind: "boolean" },
   report: { kind: "value", fallback: REPORT_DEFAULT, noun: "檔案路徑" },
-  results: { kind: "value", noun: "檔案路徑" },
+  results: { kind: "list", noun: "檔案路徑" },
   root: { kind: "value", noun: "目錄" },
 } as const;
 
@@ -173,7 +161,7 @@ export function main(argv: readonly string[]): number {
   const reportPath = flags.flags.report;
 
   const specs = findSpecs(root);
-  const { results, missing } = readResults(root, specs, argv);
+  const { results, missing } = readResults(root, specs, flags.flags.results);
   const resolved = resolve(collectInstances(specs), results);
   const content = renderReport(resolved);
   const absoluteReport = resolvePath(root, reportPath);

@@ -128,6 +128,24 @@ describe("CLI", () => {
     expect(status, output).not.toBe(0);
     expect(output).toContain("規格不見了");
   });
+
+  /**
+   * `--spec` 可以重複（`list` kind，C181）。C126 §七 說重複給的能力是「反向測試餵
+   * 多份改壞規格那條路」—— 而 `negative.test.ts` 走的是 `import { checkPromises }`，
+   * 從 C118 起就不經過 CLI；重複給 `--spec` 的路徑在 C181 之前零測試。
+   * 這條是 C180 §二 D1 的形：只留最後一個的話，輸出只會提第二份。
+   */
+  it("★ --spec 給兩次，兩份都被讀到", () => {
+    const { output } = runCli(CLI, [
+      "--spec",
+      "specs/第一份不存在.feature",
+      "--spec",
+      "specs/第二份不存在.feature",
+    ]);
+
+    expect(output).toContain("第一份不存在");
+    expect(output).toContain("第二份不存在");
+  });
 });
 
 describe("與 tools/spec-report 的分界", () => {

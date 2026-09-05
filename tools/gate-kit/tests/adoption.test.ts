@@ -88,9 +88,10 @@ describe("不認得的旗標一律失敗 —— 這條線上每一支 CLI", () =
  * 手讀取第一個而 `parseFlags` 取最後一個（C180 §二 D1）。
  *
  * 這條守的是形狀：每支 `cli.ts` 的程式碼裡 `process.argv` **恰好一次** —— 就是交給
- * `parseFlags` 那一次。⚠️ 它抓不到「抓一次 argv 再自己 `indexOf`」那種形
- * （`spec-report`／`promise-check` 為可重複旗標刻意這樣做，C180 §四 不裁），
- * 更強的版本要等 `parseFlags` 有可重複的 kind 才會零例外。
+ * `parseFlags` 那一次。它抓不到「抓一次 argv 再自己 `indexOf`」那種形，所以下面
+ * 還有一條：對旗標字面做 `indexOf`／`includes`／`lastIndexOf`／`startsWith` 的
+ * 呼叫零次。C180 時 `spec-report`／`promise-check` 為可重複旗標刻意留著那種形，
+ * `parseFlags` 有了 `list` kind 之後（C181）它們是最後兩處，現在零例外。
  */
 describe("`process.argv` 每支 cli.ts 只讀一次 —— 值從 parseFlags 來", () => {
   it("對照組：註解裡的不算，手讀 argv 的形狀算兩次", () => {
@@ -111,10 +112,51 @@ describe("`process.argv` 每支 cli.ts 只讀一次 —— 值從 parseFlags 來
     // 少讀（0）也要紅：那表示註解剝除吃掉了程式碼，這條絆線在量空氣。
     expect(offenders, "有 CLI 在 parseFlags 之外自己讀 process.argv").toEqual([]);
   });
+
+  it("對照組：argv 對旗標字面的方法呼叫算；USAGE 字串、YAML 行、CSS 名字都不算", () => {
+    expect(handParses('const i = argv.indexOf("--spec");')).toBe(1);
+    expect(handParses("if (ARGV.includes('--full')) {}")).toBe(1);
+    expect(handParses("for (let i = argv.indexOf(name); i >= 0; ) {}")).toBe(1);
+    expect(handParses("main(process.argv.slice(2))")).toBe(0);
+    expect(handParses("const USAGE = `  --report <path>  報表檔位置`;")).toBe(0);
+    expect(handParses('// argv.indexOf("--spec")')).toBe(0);
+    // 第一版 pattern 不看接收者，這兩句（`supply-chain` 掃 workflow、`theme-verify`
+    // 判 CSS 自訂屬性）當場誤報 —— 它們比對的字串來自檔案，不是 argv。
+    expect(handParses('line.includes("--frozen-lockfile")')).toBe(0);
+    expect(handParses('utility.startsWith("--") ? null : x')).toBe(0);
+  });
+
+  it("★ 沒有一支自己對旗標字面做比對 —— 可重複的也走 parseFlags", () => {
+    const offenders = CLIS.map((cli) => ({
+      cli,
+      handParses: handParses(readFileSync(join(ROOT, cli), "utf8")),
+    })).filter(({ handParses }) => handParses !== 0);
+    expect(offenders, "有 CLI 在 parseFlags 之外自己比對旗標字面").toEqual([]);
+  });
 });
 
 /** 剝掉區塊註解與整行 `//` 之後，`process.argv` 出現幾次。 */
 function argvReads(source: string): number {
-  const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  return code.match(/process\.argv/g)?.length ?? 0;
+  return stripComments(source).match(/process\.argv/g)?.length ?? 0;
+}
+
+/**
+ * 剝掉註解之後，`argv.indexOf(…)` 這一類「自己在 argv 裡找東西」的呼叫出現幾次。
+ *
+ * 接收者限定 argv 的慣用別名：上一條絆線已經保證 `process.argv` 只出現一次，
+ * 所以手讀只能經由它綁定的那個名字。C180 之前五支的手讀接收者是 `argv`／`args`／
+ * `process.argv`／`ARGV` 四種（`\b` 讓 `process.argv.` 也算），沒有第五種。
+ * ⚠️ 不要求引數是 `"--…"` 字面：`promise-check` 的 `parseRepeated(argv, name)` 寫的是
+ * `argv.indexOf(name)`，要字面的版本對它回 0（C181 §四 實測）。
+ */
+function handParses(source: string): number {
+  return (
+    stripComments(source).match(
+      /\b(?:argv|args|ARGV|ARGS)\.(?:indexOf|lastIndexOf|includes|startsWith|find|some)\(/g,
+    )?.length ?? 0
+  );
+}
+
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 }

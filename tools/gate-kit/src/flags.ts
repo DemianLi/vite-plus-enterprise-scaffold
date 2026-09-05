@@ -11,18 +11,30 @@ interface ValueFlag {
 }
 
 /**
+ * 可以重複給的 value 旗標：`--spec a --spec b` → `["a", "b"]`，順序照給的順序；
+ * 沒給就是 `[]`。⚠️ 不提供 `fallback` —— 兩個呼叫端都是「沒給就換一個來源」
+ * （`git ls-files`），空陣列直接接得上，而 fallback 只會多一個沒人用的分支（C181）。
+ */
+interface ListFlag {
+  readonly kind: "list";
+  readonly noun?: string;
+}
+
+/**
  * 鍵是**去掉 `--` 的旗標名，逐字**：`--require-fresh` 的鍵就是 `"require-fresh"`。
  *
  * 刻意不做 camelCase 轉換。轉換等於同一個旗標有兩種拼法，而這個 repo 一再栽在
  * 「同一件事有兩份寫法然後它們漂開」上（C45 的授權清單、卡片 C 的閘門名冊）。
  */
-export type FlagSpec = Readonly<Record<string, BooleanFlag | ValueFlag>>;
+export type FlagSpec = Readonly<Record<string, BooleanFlag | ValueFlag | ListFlag>>;
 
 type FlagValue<F> = F extends BooleanFlag
   ? boolean
-  : F extends { kind: "value"; fallback: string }
-    ? string
-    : string | undefined;
+  : F extends ListFlag
+    ? readonly string[]
+    : F extends { kind: "value"; fallback: string }
+      ? string
+      : string | undefined;
 
 export type Flags<S extends FlagSpec> = { readonly [K in keyof S]: FlagValue<S[K]> };
 
@@ -50,9 +62,10 @@ export type ParseResult<S extends FlagSpec> =
  */
 export function parseFlags<S extends FlagSpec>(argv: readonly string[], spec: S): ParseResult<S> {
   const known = Object.keys(spec);
-  const values: Record<string, boolean | string | undefined> = {};
+  const values: Record<string, boolean | string | string[] | undefined> = {};
   for (const [name, definition] of Object.entries(spec)) {
-    values[name] = definition.kind === "boolean" ? false : definition.fallback;
+    values[name] =
+      definition.kind === "boolean" ? false : definition.kind === "list" ? [] : definition.fallback;
   }
 
   for (let at = 0; at < argv.length; at += 1) {
@@ -72,7 +85,9 @@ export function parseFlags<S extends FlagSpec>(argv: readonly string[], spec: S)
     if (value === undefined || value.startsWith("--")) {
       return { ok: false, message: `✗ ${argument} 後面要接一個${definition.noun ?? "值"}` };
     }
-    values[name] = value;
+    // ⚠️ value 重複給是最後一個贏（C180 D1 有測試守著），list 才是全收。
+    if (definition.kind === "list") (values[name] as string[]).push(value);
+    else values[name] = value;
     at += 1;
   }
 
