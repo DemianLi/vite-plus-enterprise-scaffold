@@ -56,15 +56,17 @@ import { parseFlags } from "@org/gate-kit";
  * `.github/workflows/*.yml`（⚠️ **含排程那兩個**，它們不在 `gate`／`ready` 上，
  * `gate-kit` 的名冊測試看不見它們）、以及這支工具自己的 `tests/`。
  */
-const FLAGS = parseFlags(process.argv.slice(2), {
+const PARSED = parseFlags(process.argv.slice(2), {
   file: { kind: "value", noun: "路徑" },
   evidence: { kind: "boolean" },
   update: { kind: "boolean" },
 } as const);
-if (!FLAGS.ok) {
-  console.error(FLAGS.message);
+if (!PARSED.ok) {
+  console.error(PARSED.message);
   process.exit(1);
 }
+/** ⚠️ 收窄要在頂層做一次：`process.exit` 的 `never` 不會把 `PARSED` 的型別帶進函式體。 */
+const FLAGS = PARSED.flags;
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const DEFAULT_BASELINE = join(ROOT, "tools/compliance/COMPLIANCE.md");
@@ -76,17 +78,13 @@ const DEFAULT_BASELINE = join(ROOT, "tools/compliance/COMPLIANCE.md");
  * 目錄、改掉一個字，再讓 CLI 去驗那一份 —— repo 的 COMPLIANCE.md 不被動到。
  * 與 `tools/conformance` 的 `--root` 同一個取捨，只是範圍更窄：
  * 映射的檔案存在性檢查仍然對**真的** repo 跑，因為那份映射描述的就是這個 repo。
+ *
+ * ⚠️ 值從 `FLAGS` 來，不再自己掃 argv（C180）。C126 接線時 `parseFlags` 只被
+ * 擋在前面、舊的 `indexOf("--file")` 留著，於是同一個 argv 在同一個行程裡有兩個
+ * 答案（重複給 `--file` 時手讀取第一個、`parseFlags` 取最後一個），而沒人讀
+ * `FLAGS` 所以看不見。缺值那道檢查也一起拆：`parseFlags` 先紅，它到不了。
  */
-function parseFile(argv: readonly string[]): string {
-  const at = argv.indexOf("--file");
-  if (at === -1) return DEFAULT_BASELINE;
-  const value = argv[at + 1];
-  if (value === undefined || value.startsWith("--")) {
-    console.error("--file 後面要接一個路徑");
-    process.exit(1);
-  }
-  return resolve(value);
-}
+const BASELINE = FLAGS.file === undefined ? DEFAULT_BASELINE : resolve(FLAGS.file);
 
 /** 產出並交給 `vp fmt`。回傳 formatter 的輸出，那才是要比對的東西。 */
 function formatted(markdown: string, name: string): string {
@@ -158,10 +156,8 @@ function reportMapErrors(): number {
 }
 
 function main(): number {
-  const argv = process.argv.slice(2);
-
   // ── §16 證據清單 ──────────────────────────────────────────────────
-  if (argv.includes("--evidence")) {
+  if (FLAGS.evidence) {
     const problems = verifyEvidence(RETENTION_EVIDENCE, (path) => existsSync(join(ROOT, path)));
     if (problems.length > 0) {
       console.error(`✗ §16 證據清單與現實不符：${problems.length} 項\n`);
@@ -184,7 +180,6 @@ function main(): number {
     return 0;
   }
 
-  const baseline = parseFile(argv);
   const a11yBaseline = join(ROOT, "tools/compliance/ACCESSIBILITY.md");
 
   // 無障礙那張表的自我檢查：宣稱有閘門守 → 那個閘門必須真的存在。
@@ -202,9 +197,9 @@ function main(): number {
   // COMPLIANCE.md 自己就是 `compliance` 這道閘門宣告的證據檔。在寫出來
   // 之前驗它，等於要求它先於自己存在 —— 第一次產生就永遠卡住。
   // 驗證模式沒有這個問題，所以那一側維持先驗後比。
-  if (argv.includes("--update")) {
-    writeFileSync(baseline, renderFormatted());
-    console.log(`✓ 已更新 ${baseline}`);
+  if (FLAGS.update) {
+    writeFileSync(BASELINE, renderFormatted());
+    console.log(`✓ 已更新 ${BASELINE}`);
     writeFileSync(a11yBaseline, renderAccessibilityFormatted());
     console.log(`✓ 已更新 ${a11yBaseline}`);
     const status = reportMapErrors();
@@ -217,13 +212,13 @@ function main(): number {
 
   const expected = renderFormatted();
 
-  if (!existsSync(baseline)) {
-    console.error(`✗ 找不到 ${baseline}`);
+  if (!existsSync(BASELINE)) {
+    console.error(`✗ 找不到 ${BASELINE}`);
     console.error("  執行：node tools/compliance/src/cli.ts --update\n");
     return 1;
   }
 
-  if (readFileSync(baseline, "utf8") !== expected) {
+  if (readFileSync(BASELINE, "utf8") !== expected) {
     console.error("\n✗ COMPLIANCE.md 與映射不一致\n");
     console.error(
       "  可能是改了 map.ts 卻沒重產，也可能是有人直接手改了 COMPLIANCE.md。\n" +

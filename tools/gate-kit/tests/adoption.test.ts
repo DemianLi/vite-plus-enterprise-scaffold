@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { repoRoot, runCli } from "../src/testing.ts";
@@ -78,3 +78,43 @@ describe("不認得的旗標一律失敗 —— 這條線上每一支 CLI", () =
     expect(output, "紅了，但沒說為什麼會紅").toContain("會紅是刻意的");
   });
 });
+
+/**
+ * 只讀一次 `process.argv`（C180）。
+ *
+ * C126 接線的形狀是把 `parseFlags` 擋在前面、舊的手讀段留著：五支 CLI 拿到
+ * `FLAGS` 之後一次都沒讀，自己再掃一次 `process.argv` 取值。後果兩個，都安靜：
+ * 把 `--file` 的 kind 改成 `boolean` 零紅（C178 §六 M4／M7）、重複給同一個旗標時
+ * 手讀取第一個而 `parseFlags` 取最後一個（C180 §二 D1）。
+ *
+ * 這條守的是形狀：每支 `cli.ts` 的程式碼裡 `process.argv` **恰好一次** —— 就是交給
+ * `parseFlags` 那一次。⚠️ 它抓不到「抓一次 argv 再自己 `indexOf`」那種形
+ * （`spec-report`／`promise-check` 為可重複旗標刻意這樣做，C180 §四 不裁），
+ * 更強的版本要等 `parseFlags` 有可重複的 kind 才會零例外。
+ */
+describe("`process.argv` 每支 cli.ts 只讀一次 —— 值從 parseFlags 來", () => {
+  it("對照組：註解裡的不算，手讀 argv 的形狀算兩次", () => {
+    expect(argvReads("/** process.argv */\nconst x = parseFlags(process.argv.slice(2), {});")).toBe(
+      1,
+    );
+    expect(argvReads("// process.argv\nconst x = parseFlags(process.argv.slice(2), {});")).toBe(1);
+    expect(
+      argvReads('parseFlags(process.argv.slice(2), {});\nif (process.argv.includes("--full")) {}'),
+    ).toBe(2);
+  });
+
+  it("★ 沒有一支多讀或少讀", () => {
+    const offenders = CLIS.map((cli) => ({
+      cli,
+      reads: argvReads(readFileSync(join(ROOT, cli), "utf8")),
+    })).filter(({ reads }) => reads !== 1);
+    // 少讀（0）也要紅：那表示註解剝除吃掉了程式碼，這條絆線在量空氣。
+    expect(offenders, "有 CLI 在 parseFlags 之外自己讀 process.argv").toEqual([]);
+  });
+});
+
+/** 剝掉區塊註解與整行 `//` 之後，`process.argv` 出現幾次。 */
+function argvReads(source: string): number {
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  return code.match(/process\.argv/g)?.length ?? 0;
+}

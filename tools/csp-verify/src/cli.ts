@@ -58,13 +58,15 @@ import { parseFlags } from "@org/gate-kit";
  * 從 C178 起照磁碟上每一支 `tools/<某支>/src/cli.ts` 推導名冊，**所以看得見它**。
  * 在那之前名冊從執行路徑推導，這幾行有 C126 到 C178 之間一段沒有東西在守的日子。
  */
-const FLAGS = parseFlags(process.argv.slice(2), {
+const PARSED = parseFlags(process.argv.slice(2), {
   "print-probe": { kind: "boolean" },
 } as const);
-if (!FLAGS.ok) {
-  console.error(FLAGS.message);
+if (!PARSED.ok) {
+  console.error(PARSED.message);
   process.exit(1);
 }
+/** ⚠️ 收窄要在頂層做一次：`process.exit` 的 `never` 不會把 `PARSED` 的型別帶進函式體。 */
+const FLAGS = PARSED.flags;
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const DIST = join(ROOT, "apps/console/dist");
@@ -104,10 +106,8 @@ function resolveFile(urlPath: string): string | null {
   return existsSync(fallback) ? fallback : null;
 }
 
-const ARGV = process.argv.slice(2);
-
 function main(): number | null {
-  if (ARGV.includes("--print-probe")) {
+  if (FLAGS["print-probe"]) {
     process.stdout.write(`${buildProbeScript()}\n`);
     return 0;
   }

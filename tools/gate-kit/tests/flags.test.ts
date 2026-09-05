@@ -47,6 +47,14 @@ describe("parseFlags —— 認得的旗標", () => {
     const parsed = parseFlags(["something", "--root", "/tmp/x", "trailing"], PII_SPEC);
     expect(parsed.ok && parsed.flags.root).toBe("/tmp/x");
   });
+
+  it("★ 同一個 value 旗標給兩次 → 最後一個贏", () => {
+    // `spec-report` 與 `promise-check` 的檔頭都寫著「`parseFlags` 只留最後一個」，
+    // 而 C180 之前沒有東西守這句：手讀 argv 的那五支取的是**第一個**，同一個
+    // argv 在同一個行程裡兩個答案（`compliance --file 壞 --file 好` 是 RC 1）。
+    const parsed = parseFlags(["--root", "/first", "--root", "/last"], PII_SPEC);
+    expect(parsed.ok && parsed.flags.root).toBe("/last");
+  });
 });
 
 /**

@@ -41,14 +41,16 @@ import { parseFlags } from "@org/gate-kit";
  * 從 C178 起照磁碟上每一支 `tools/<某支>/src/cli.ts` 推導名冊，**所以看得見它**。
  * 在那之前名冊從執行路徑推導，這幾行有 C126 到 C178 之間一段沒有東西在守的日子。
  */
-const FLAGS = parseFlags(process.argv.slice(2), {
+const PARSED = parseFlags(process.argv.slice(2), {
   csp: { kind: "boolean" },
   sca: { kind: "boolean" },
 } as const);
-if (!FLAGS.ok) {
-  console.error(FLAGS.message);
+if (!PARSED.ok) {
+  console.error(PARSED.message);
   process.exit(1);
 }
+/** ⚠️ 收窄要在頂層做一次：`process.exit` 的 `never` 不會把 `PARSED` 的型別帶進函式體。 */
+const FLAGS = PARSED.flags;
 
 const NPM_REGISTRY = "https://registry.npmjs.org";
 
@@ -239,9 +241,8 @@ function runSca(): number {
 // ──────────────────────────────────────────────────────────────────────
 
 function main(): number {
-  const args = process.argv.slice(2);
-  if (args.includes("--csp")) return runCsp();
-  if (args.includes("--sca")) return runSca();
+  if (FLAGS.csp) return runCsp();
+  if (FLAGS.sca) return runSca();
 
   console.log(
     "用法（全部需要公網，刻意不進 gate）：\n" +

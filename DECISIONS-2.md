@@ -5934,3 +5934,126 @@ git 的 ref，追蹤看不見，第一趟之後永遠重播 —— 本機刪光 
 - **C154 §三**：§四 的兩軸。
 
 `it` 數：`vp run -r test` 逐檔 `it` 數 **83 檔 1552 → 84 檔 1571**（C178 基準）—— 差的兩個檔：`tools/release-distance/tests/distance.test.ts` 無 → 13（第一次出現在結果檔裡），`tools/gate-kit/tests/harness-tripwire.test.ts` 6 → 12。其餘 82 檔逐位相同。
+
+### C180 — 五支 CLI 把 `parseFlags` 當門房、拿到 `FLAGS` 一次都沒讀：同一個 argv 在同一個行程裡兩個答案，改成值只從 `parseFlags` 來，三道到不了的缺值檢查刪掉，並在 adoption 加「`process.argv` 只讀一次」的絆線（2026-09-05）
+
+⚠️ **量測基準：`ad405ce`（C179 合併後的 `main`）。** 本則收掉 **C178 §五** 第一項 ——
+那一則自己說「這是產品碼的事，射程是五支閘門」而不裁的那件。
+
+#### 一、事實：C178 §五 那一句記錯兩處，射程仍是五支
+
+| CLI           | spec 鍵                            | 走 `FLAGS.flags` | 手讀                                 | `process.argv`（去註解） | 本機測試餵過的旗標                       |
+| ------------- | ---------------------------------- | ---------------- | ------------------------------------ | ------------------------ | ---------------------------------------- |
+| compliance    | file, evidence, update             | 0                | 3（`indexOf` ＋ 兩個 `includes`）    | 2                        | 三個都有                                 |
+| supply-chain  | 九個                               | 0                | 9（兩個 `indexOf`、七個 `includes`） | 2                        | 只有 `--split-lockfile`、`--verify-sbom` |
+| exit-drill    | full, require-fresh                | 0                | 2（`--require-fresh` 讀三處）        | **5**                    | 零                                       |
+| ui-survey     | csp, sca                           | 0                | 2                                    | 2                        | 零（survey.test 不 spawn CLI）           |
+| csp-verify    | print-probe                        | 0                | 1                                    | 2                        | 零（沒有 `tests/` 目錄）                 |
+| spec-report   | check, help, report, results, root | 4                | 1（`--results` 可重複）              | 1                        | —                                        |
+| promise-check | root, spec                         | 1                | 1（`--spec` 可重複）                 | 1                        | —                                        |
+
+其餘十支：走 `.flags` 或空 spec，`process.argv` 各一次。
+
+C178 §五 記錯的兩處：**`conformance` 那一處 `indexOf("--root")` 在檔頭註解裡**，程式碼沒有；
+**`csp-verify` 漏了**（`ARGV.includes("--print-probe")`，同形）。`spec-report` 不算：四個旗標
+已走 `flags.flags`，剩那一個與 `promise-check` 是同一題（§五）。射程是五支，名單換一支。
+
+#### 二、兩條取值路徑不是等價的：重複給同一個旗標，手讀取第一個、`parseFlags` 取最後一個
+
+差分探針 D1（改前）：`compliance --file /不存在 --file COMPLIANCE.md` → **RC 1**；反過來 → RC 0。
+同一個 argv、同一個行程，`FLAGS.flags.file` 是後者、`parseFile()` 是前者，而沒有人讀
+`FLAGS.flags` 所以看不見。`spec-report` 與 `promise-check` 的檔頭都寫著「`parseFlags` 只留
+最後一個」—— 改前變異 M10（把 `parseFlags` 改成第一個贏）**55 條全綠**：那句話沒有東西在守。
+
+改前變異（逐 package `npx vitest run`）：
+
+| 變異                                                  | 紅                  |
+| ----------------------------------------------------- | ------------------- |
+| M1 compliance `--file` 取值 `indexOf` → `lastIndexOf` | **零**              |
+| M2 compliance 無視 `--file`                           | negative.test 2 條  |
+| M3 compliance 無視 `--evidence`                       | evidence.test 2 條  |
+| M4 supply-chain 無視 `--split-lockfile`               | sbom-negative 2 條  |
+| M5 supply-chain 無視 `--verify-sbom`                  | sbom-negative 3 條  |
+| M6 exit-drill 無視 `--full`                           | **零**              |
+| M7 exit-drill 無視 `--require-fresh`（三處）          | **零**              |
+| M8 ui-survey 無視 `--csp`                             | **零**              |
+| M10 `parseFlags` 重複旗標改「第一個贏」               | **零**（55 條全綠） |
+
+M2–M5 說明取值路徑本身有行為測試接著（收攏不會丟覆蓋）；M1／M10 說明兩條路徑的分歧
+沒有；M6–M8 說明那四個旗標本機什麼都沒有（§五）。
+
+#### 三、裁決：值只從 `parseFlags` 來
+
+1. **五支 CLI 一律讀 `FLAGS`**，手讀段全拆。收窄在頂層做一次
+   （`const FLAGS = PARSED.flags`）—— `process.exit` 的 `never` 不會把型別帶進函式體，
+   api-surface 檔頭記過。`exit-drill` 從五處 `process.argv` 降到一處。
+2. **重複旗標的語意跟 interface 走：最後一個贏。** compliance／supply-chain 因此翻面
+   （§六 D1 改後）。不改 `parseFlags` 去遷就繞過它的 caller。`flags.test` 加一條
+   「同一個 value 旗標給兩次 → 最後一個贏」（+1 `it`），從此那兩句檔頭有東西守。
+3. **三道「缺值 → 紅」的手寫檢查刪掉**（compliance `parseFile`、supply-chain
+   `--split-lockfile`／`--verify-sbom` 各一）：`parseFlags` 先紅，它們到不了；C178 §三
+   已把守它們的測試刪了。deletion test：刪掉沒有複雜度回到任何 caller，
+   `string | undefined` 的 `undefined` 就是「沒給」。
+4. **supply-chain 九個模式的優先序逐字保留**（`--update` > `--split-lockfile` >
+   `--verify-sbom` > `--capture-health` > `--recapture-safe` > `--capture` > `--manifest` >
+   `--dossier` > `--airgap` > gate）。同時給兩個先出現在鏈上的贏，這一點沒有裁（§五）。
+
+零閘門增減（C137 §一），門檻不動，`vpr gate` 那條鏈一支不碰。變的是五道閘門的內部。
+
+#### 四、絆線：每支 `cli.ts` 的 `process.argv` 恰好一次
+
+掛在 `gate-kit/tests/adoption.test.ts`，吃同一份磁碟名冊（C178 §二）。剝掉區塊註解與整行
+`//` 之後數 `process.argv`，17 支各 **1**，零 allowlist；0 也紅（那表示剝除吃掉了程式碼，
+絆線在量空氣）。對照組一條：註解裡的不算、`process.argv.includes("--full")` 那個形狀算兩次。
+
+C154 §三 兩軸：**交付軸** —— 無。**迭代軸** —— ① 對象在外：它報的是五支閘門的形狀，
+不是它自己；② 壞法安靜：C178 §六 M4／M7 與本則 M1、M10 四個零紅。兩條都成立。
+
+⚠️ 它抓不到「抓一次 argv 再自己 `indexOf`」那種形 —— `spec-report`／`promise-check`
+今天就是。更強的版本（`cli.ts` 裡不准 `indexOf("--`／`includes("--`）要等 §五 第一項
+定了才零例外。
+
+#### 五、不裁
+
+- **可重複旗標。** `promise-check` 的 `parseRepeated` 與 `spec-report` 的 inline 迴圈是同一段
+  程式碼寫兩次，`parseFlags` 沒有這個 kind。兩個 adapter 是真的 seam；但它不是 C178 §五
+  那一項，C118 那種「順手做一半」的代價這棵樹付過。給 `parseFlags` 加第三種 kind 要另裁，
+  裁的時候 §四 的絆線可以升成強版。
+- **本機零測試的四個旗標**（`--full`、`--require-fresh`、`--csp`／`--sca`、`--print-probe`）。
+  改前改後 M6／M7／M8 都零紅。收攏之後它們是型別檢查過的屬性存取 —— spec 少一鍵在
+  `vp check` 紅 —— 但「讀到了卻沒用」仍然安靜。`--require-fresh` 要有本機測試得先開一個
+  seam（evidence 路徑寫死在 `ROOT`、CLI 沒有 `--root`、函式沒匯出），那是改一道閘門的
+  interface，題目變了。C178 §五 第二項那句照留。
+- **supply-chain 模式互斥。** 兩個以上同時給要不要紅，沒有事故在後面，不裁。
+- **C178 §五 記錯的兩處**照 C136 §八 記在 §一，不改舊則。
+
+#### 六、實測（基準 `ad405ce`，worktree `flags-value-path`）
+
+改後（每一趟還原後 `git status` 乾淨）：
+
+| 變異                                                     | 紅                                                                          |
+| -------------------------------------------------------- | --------------------------------------------------------------------------- |
+| A1 compliance `--file` 改 `boolean`（C178 M4）           | **7/65 紅** ＋ `vp check` TS2345；C178 §六 那一格是零                       |
+| A2 supply-chain `--verify-sbom` 改 `boolean`（C178 M7）  | **6/94 紅**；C178 §六 那一格是零                                            |
+| A3 exit-drill 放回一句 `process.argv.includes("--full")` | adoption 絆線紅                                                             |
+| A4 `parseFlags` 重複旗標改「第一個贏」（＝M10）          | flags.test 新那條紅                                                         |
+| A5 絆線的註解剝除改成吃掉全部                            | 對照組紅 ＋ 絆線紅（17 支全 0）                                             |
+| A6 compliance 無視 `--file`（＝M2）                      | negative.test 同 2 條                                                       |
+| D1 改後                                                  | `--file 壞 --file 好` → **RC 0**，反過來 RC 1 —— 翻面，與 `parseFlags` 一致 |
+
+- `vpr ready`：第一趟 decision-ids 紅（`C180` 字面先於本則，C173 §五 三態表第一格），
+  其餘全綠；接上本則再跑一趟見 commit。
+- 逐檔 `it` 數（量法同 C172 §七）：**84 檔 1571 → 84 檔 1574**（C179 基準）—— 只有兩個檔變：`tools/gate-kit/tests/flags.test.ts` 11 → 12、`tools/gate-kit/tests/adoption.test.ts` 18 → 20。其餘 82 檔逐位相同。
+
+#### 七、關係
+
+- **C178 §五 第一項**：收掉。§一 記它兩處記錯；§三 第 3 點讓 C178 §三 那句「守的是到不了的
+  第二道檢查」從「半真」（擋掉是真的、取值走另一條路）變成全真。
+- **C178 §六 M4／M7**：兩個零紅在 §六 A1／A2 變成 7 與 6。
+- **C126**：本則拆的就是它接線時留下的形狀 —— `parseFlags` 擋在前面、手讀段沒拆。
+- **C168 §一**：判準照用（M2–M5 改前改後同紅；deletion test 判 §三 第 3 點）。
+- **C154 §三**：§四 的兩軸。
+- **C137 §一**：零閘門增減。**C43**：每道閘門的反向測試一條沒動。
+- **C118**：§五 第一項不順手做一半的理由；反過來，§三 是「五支全收」不是子集。
+- **C173 §五**：`C180` 字面先於本則那一趟紅。
+- **C136 §八**：C178 §五 記錯的兩處不回頭改。

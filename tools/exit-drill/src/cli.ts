@@ -83,14 +83,16 @@ import { parseFlags } from "@org/gate-kit";
  * `.github/workflows/*.yml`（⚠️ **含排程那兩個**，它們不在 `gate`／`ready` 上，
  * `gate-kit` 的名冊測試看不見它們）、以及這支工具自己的 `tests/`。
  */
-const FLAGS = parseFlags(process.argv.slice(2), {
+const PARSED = parseFlags(process.argv.slice(2), {
   full: { kind: "boolean" },
   "require-fresh": { kind: "boolean" },
 } as const);
-if (!FLAGS.ok) {
-  console.error(FLAGS.message);
+if (!PARSED.ok) {
+  console.error(PARSED.message);
   process.exit(1);
 }
+/** ⚠️ 收窄要在頂層做一次：`process.exit` 的 `never` 不會把 `PARSED` 的型別帶進函式體。 */
+const FLAGS = PARSED.flags;
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const EVIDENCE_PATH = join(ROOT, "tools/exit-drill/evidence.json");
@@ -364,7 +366,7 @@ function currentFingerprint(): Fingerprint {
 function checkFreshness(): number {
   if (!existsSync(EVIDENCE_PATH)) {
     console.warn("⚠ 尚未跑過完整退出演練（R9）。執行：node tools/exit-drill/src/cli.ts --full");
-    return process.argv.includes("--require-fresh") ? 1 : 0;
+    return FLAGS["require-fresh"] ? 1 : 0;
   }
 
   const evidence = JSON.parse(readFileSync(EVIDENCE_PATH, "utf8")) as Evidence;
@@ -379,7 +381,7 @@ function checkFreshness(): number {
     const message =
       `⚠ 退出演練證據已過期：最後一次 ${evidence.lastRun}（${ageDays} 天前，上限 ${FRESHNESS_DAYS} 天）。\n` +
       "  過期的演練不是控制措施，只是一段曾經跑過的程式碼。";
-    if (process.argv.includes("--require-fresh")) {
+    if (FLAGS["require-fresh"]) {
       console.error(`✗ ${message}`);
       return 1;
     }
@@ -404,7 +406,7 @@ function checkFreshness(): number {
     // 一次的控制措施變成每次合併的阻斷器 —— 那種閘門會先被繞過、再被忽略。
     // `unrecorded` 是舊格式的過渡狀態，那一個在排程上要紅，否則它會一直躺著。
     const line = `退出演練證據 ${evidence.lastRun}（${ageDays} 天前）：${verdict.message}`;
-    if (verdict.kind === "unrecorded" && process.argv.includes("--require-fresh")) {
+    if (verdict.kind === "unrecorded" && FLAGS["require-fresh"]) {
       console.error(`✗ ${line}`);
       return 1;
     }
@@ -1017,4 +1019,4 @@ function runFull(): number {
   return passed ? 0 : 1;
 }
 
-process.exit(process.argv.includes("--full") ? runFull() : runStatic());
+process.exit(FLAGS.full ? runFull() : runStatic());
