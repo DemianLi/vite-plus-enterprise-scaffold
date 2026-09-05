@@ -5702,3 +5702,139 @@ C170 §三 第 1 項的 A 類：只斷言指令在、`vpr gate` 就是守衛，d
 - 逐檔 `it` 數（量法同 C172 §七，但見 §四 第一項）：**1563 → 1559**，83 支只有三支變：
   sandbox 9 → 8、lockfile 16 → 14、sbom-negative 15 → 14。
 - ⚠️ after 那趟 `decision-ids` 紅過一次（`C177` 字面先於本則），C173 §五 三態表第一格。
+
+### C178 — C168 §六 第 1 項「旗標 interface 只守一次」：名冊改吃磁碟不吃 `GATES`，variant 不是洞、三個 parser 只收一個，而三條「缺值 → 紅」守的是 `parseFlags` 後面到不了的第二道檢查（2026-09-05）
+
+⚠️ **量測基準 `0a9345d`（C177 合併後的 `main`）。** 本則的行號與計數凍結在那一支；
+改後的行號另外標「改後」。
+
+#### 一、問題：C168 那一項有三句話，重盤後三句各對一半
+
+C168 §六 第 1 項：「旗標 interface 只守一次，adoption 的名冊改吃 `gate-roster` 的
+`GATES ∪ variants`（順帶收掉 `scripts.gate` 的三個 parser，關掉看不見四支 CLI 與
+四條 variant 的洞）。」§二 那列指名的重複是 `gate-kit` flags＋adoption ↔
+`pii-check`:184 · `compliance`:230 · `sbom-negative`:119,161（`390f585` 的行號）。
+
+| C168 說                      | `0a9345d` 上的事實                                                                                                                                                                                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| adoption 只讀 `scripts.gate` | C171 §九 之後讀三處（`gate`＋`ready`＋根 `vite.config.ts`），**15 支**；磁碟上 `tools/*/src/cli.ts` **17 支**，看不見的是 `csp-verify`、`ui-survey` —— 兩支檔頭自己寫著「這幾行沒有東西在守」。「四支」在 `390f585` 上也數不出來：那時 16 見 14，差的也是這兩支                       |
+| 四條 variant 是洞            | 四條 variant 的旗標各由該工具自己的行為測試守**接受**方向（`--evidence` evidence.test:144、`--split-lockfile`／`--verify-sbom` sbom-negative），**只有 `--require-fresh` 本機零測試**。而拿掉它 tier2 會大聲紅 —— 不安靜，D16 迭代軸 ② 不成立，不是絆線該補的洞                       |
+| 收掉三個 parser              | `gate-roster` ③ 是產生器＋逐字等於，是名冊的真值來源；`promise-check` 是 `chain.includes(cli)`，問的是「`vpr gate` 真的會執行它」—— 與 GATES 成員資格是**不同問題**（`spec-report` 在 GATES 但 `notInGateScript`）。C168 §七 自己那列寫的就是「三個問句」。能收的只有 adoption 那一個 |
+
+#### 二、名冊：磁碟上每一支，不是執行路徑，也不是 `GATES`
+
+adoption 檔頭的主張是「這條線上**每一支** CLI」。從執行路徑推導名冊，每多一種接線
+形狀就要多讀一處（C171 為 `release-distance` 加了第三處），而 `UNGATED` 裡帶 CLI 的
+兩支永遠不在任何執行路徑上 —— 那個問法**結構上**答不出「每一支」。
+
+C168 的原案是 import `gate-roster` 的 `GATES ∪ UNGATED`。沒取：`gate-roster` 已相依
+`gate-kit`（`parseFlags`），反向再加一條是 workspace 循環；跨 package 相對路徑 C168 §三
+自己說會讓 conformance 紅。而 `gate-roster` ① 已守「`tools/*` 每一個目錄都登記在
+`GATES ∪ UNGATED`」，所以**磁碟清單與名冊等價**，讀磁碟不用付那條相依。
+
+**裁決：名冊＝ `readdirSync("tools")` 底下每一個有 `src/cli.ts` 的目錄。** 17 支。
+錨點從 `spec-report`／`release-distance`（兩個「執行路徑多讀一處」的具名錨）換成
+`csp-verify`（先前看不見的那一支）；名冊改回執行路徑時它紅（§六 M9）。
+
+⚠️ 射程從 15 加到 17，是既有絆線加兩列，照 C154 §三 填兩軸：
+**交付軸** —— 無。**迭代軸** —— ① 對象在外：它報的是 `csp-verify`／`ui-survey` 壞了，
+不是它自己；② 壞法安靜：`0a9345d` 上把 `csp-verify` 的 `parseFlags` 繞掉，
+`csp-verify --nope` 回 0、adoption 16/16 綠（§六 M10 改前那趟）。兩條都成立。
+
+#### 三、裁決：十條逐工具的旗標測試，刪十、adoption 多一句
+
+判準同 C168 §一（同一個變異兩邊同紅＋deletion test），每一格 §六 有實測。
+
+| 測試（`0a9345d` 行號）                                                 | 變異                     | 處置                                                                                                                                                                          |
+| ---------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pii-check/roster.test`:172 `--masking` → 紅、:178 任何旗標 → 紅       | M1 與 adoption 那列同紅  | **刪**；C52 的事故敘述留在原處的區塊註解，指向 adoption                                                                                                                       |
+| `pii-check`:183 訊息要說得出為什麼                                     | M2 **只有它紅**          | **搬進 adoption 的 `it.each`**（多一條 `expect`，零新 `it`）再刪 —— 「原樣轉出 `parseFlags` 的訊息」是每一支的事，不是 `pii-check` 的事；留在一支裡等於按對稱每一支都該有一條 |
+| `pii-check`:188 對照組：認得的旗標照常運作                             | M8 同檔另三條同紅        | **刪**；「什麼旗標都紅」由本檔其餘走 `--root` 的測試接住                                                                                                                      |
+| `release-distance/distance.test`:59 不認得的旗標是唯一的非零           | M3 與 adoption 那列同紅  | **刪**；describe 標題「除了旗標」那一半留一行註解                                                                                                                             |
+| `api-surface/negative.test`:639 `--baseline`、:643 `--platform` 缺值   | M5 與 flags.test:92 同紅 | **刪**；這支讀 `FLAGS.flags`，沒有第二條路（M6 改 kind 是 beforeAll 炸，RC=1）                                                                                                |
+| `compliance/negative.test`:216 `--file` 缺值                           | M5 之下**仍綠**          | **刪**（見 §五：它守的是 `parseFile` 裡到不了的第二道檢查）                                                                                                                   |
+| `sbom-negative.test`:109 `--verify-sbom`、:147 `--split-lockfile` 缺值 | M5 之下**仍綠**          | 同上，**刪**                                                                                                                                                                  |
+
+淨變化 **−10 條 `it`，adoption 名冊 +2 列**（`csp-verify`、`ui-survey`），零閘門增減
+（C137 §一），門檻不動，`vpr gate` 那條鏈一支不碰。`csp-verify`／`ui-survey` 檔頭那段
+「看不見它」改寫成「從 C178 起看得見」。
+
+#### 四、variant 與三個 parser：都不動
+
+- **variant 不進名冊。** 未知旗標的判定不隨 variant 變；接受方向是各工具行為測試的事
+  （§一 表第二列）。`--require-fresh` 本機零測試記在 §五，不開票。
+- **`gate-roster` ③ 與 `promise-check` 不動。** 兩支都是閘門的規則（C137 §一），而且
+  問的是不同的問題；把 `promise-check` 改查 GATES 會把「`vpr gate` 會執行它」換成
+  「名冊上有它」—— 語意變弱。C168「收掉三個」重盤後是一個。
+
+#### 五、順手撞到、本則不裁
+
+- **五支 CLI 把 `parseFlags` 當門房，之後仍手讀 argv，`FLAGS.flags` 一次都沒用**：
+  `compliance`（`indexOf("--file")`＋兩個 `includes`）、`exit-drill`（`--full`、
+  `--require-fresh`）、`spec-report`（`--results`）、`supply-chain`（十個）、`ui-survey`
+  （`--csp`、`--sca`）。`conformance` 用了 `FLAGS.flags` 但也有一處 `indexOf("--root")`。
+  這是 C126 接線的形狀：`parseFlags` 擋在前面，舊的手讀段沒拆。後果有兩個，本則只裁
+  第一個的測試：(a) `compliance`／`supply-chain` 手讀段裡各有一道「缺值 → 紅」，
+  `parseFlags` 先跑所以它到不了，而 §三 那三條測試守的正是它（M5 之下仍綠的原因）；
+  (b) 把 `--file` 從 `value` 改 `boolean` 零紅（M4／M7）—— 手讀段照樣讀到值，spec 的
+  kind 對這五支是裝飾。**這是產品碼的事，射程是五支閘門，不是「測試邊界」這一項的**；
+  拆一半在這裡修是 C118 那種做完的子集＋沒有追蹤處的餘數。不開票，記在這裡。
+- `exit-drill --require-fresh` 本機零測試，只有 tier2 在跑；拿掉它 CI 會紅、不安靜，
+  所以不是絆線的事（§一）。
+- ⚠️⚠️ **`tools/release-distance/tests/distance.test.ts` 十四條，沒有任何東西在跑它。**
+  那個 package 沒有 `test` script、沒有 `vite.config.ts` task，`vp run -r test` 對它
+  回「Task "test" not found」—— 本機 `vpr ready` 與 CI 的 `vp run -r test` 都不跑，
+  逐檔 `it` 數（§六）83 支裡也沒有它。C171（#270，今天）落地時就是這樣。這是
+  `spec-completion-rate-design` 記的第四態「未執行」：與全綠長得一樣。**本則不接**：
+  接上去不是一行的事 —— 它第一條「真樹上是 0 而且真的量到了」要有 tag，而 CI 是淺
+  checkout（C171 §九 自己寫的），接上就紅。要另裁。本則在那支檔刪的那一條（§三），
+  因此改前改後都沒有被執行過；`it` 數是直接 `npx vitest run` 量的，14 → 13。
+- ⚠️ 本則量測時踩了一次：變異腳本用 `git checkout -- <檔>` 還原，而其中一個變異
+  改的是我**還沒 commit** 的 adoption 改寫 —— 還原把改寫一起還原了。改動一寫完就
+  先 commit WIP 再量，`worktree-reset-ate-uncommitted-work` 的同一條。
+
+#### 六、實測（基準 `0a9345d`，worktree `flags-interface-once`）
+
+六個 package 七支測試檔，逐條記狀態（`--reporter=json`），改前 163 條、改後 155 條。
+
+**改前**（決定 §三 每一格的證據）：
+
+| 變異                                          | adoption     | flags.test | 逐工具                                                               |
+| --------------------------------------------- | ------------ | ---------- | -------------------------------------------------------------------- |
+| M1 `pii-check` 在 CLI 層濾掉未知旗標          | pii 列紅     | —          | :172、:178、:183 三條同紅                                            |
+| M2 `pii-check` 印自己的訊息（沒「綠燈」那句） | **綠**       | —          | **只有** :183 紅                                                     |
+| M3 `release-distance` 濾掉未知旗標            | rd 列紅      | —          | :59 紅                                                               |
+| M4 `compliance --file` 改 `boolean`           | —            | —          | **零紅**                                                             |
+| M5 `parseFlags` 缺值不紅                      | —            | :92 紅     | api-surface :639／:643 紅；**compliance :216、sbom :109／:147 仍綠** |
+| M6 `api-surface --platform` 改 `boolean`      | —            | —          | 整檔 beforeAll 炸，RC=1，非 :643                                     |
+| M7 `supply-chain --verify-sbom` 改 `boolean`  | —            | —          | **零紅**                                                             |
+| M8 `pii-check` 拒絕所有旗標                   | —            | —          | :188 對照組紅，同檔另三條也紅                                        |
+| M10 `csp-verify` 濾掉所有旗標                 | **16/16 綠** | —          | `csp-verify --nope` RC=0 —— 這就是 §二 說的洞                        |
+
+**改後**（短路，每一趟還原後 `git status` 乾淨）：M1 → adoption pii 列紅。**M2 → adoption
+pii 列紅**（新那句 `expect` 接住了）。M3 → adoption rd 列紅。M5 → flags.test:92 紅。
+M8 → pii-check 同檔三條紅（對照組刪掉沒損失）。**M9「名冊改回執行路徑」** → 錨點紅、
+`csp-verify`／`ui-survey` 兩列消失（155 → 153）。**M10 → adoption csp-verify 列紅。**
+
+- 逐檔 `it` 數（量法同 C172 §七，⚠️ 見 C177 §四 第一項）：**1559 → 1552**，83 支只有
+  五支變：api-surface 72 → 70、compliance 14 → 13、adoption 16 → 18、pii-check 22 → 18、
+  sbom-negative 14 → 12。合計 −10 ＋ 2 ＝ −8，與 §三 對得上。`release-distance` 不在
+  那 83 支裡（§五 第二項），另量：14 → 13。
+- ⚠️ after 那趟 `decision-ids` 紅過一次（`C178` 字面先於本則），C173 §五 三態表第一格，
+  接上就綠。
+
+#### 七、與既有裁決的關係（C136 §八）
+
+| 既有                 | 本則做了什麼                                                                                                                                                          |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **C168 §六 第 1 項** | **裁了，三句各改一半**：名冊改吃磁碟不吃 `GATES`；variant 不是洞；三個 parser 收一個。§二 那列四處測試全刪，外加 C168 沒列的 api-surface 兩條與 release-distance 一條 |
+| **C168 §一／§七**    | **遵守**同一把判準；§七「三個問句」那列是 §四 不動兩支閘門的理由                                                                                                      |
+| **C126**             | **接上它沒接的那一半**：「八支」如今是 17 支，而只有 15 支在絆線裡；C126 §五「一條只守四支的絆線與沒有絆線長得一樣」在 15 對 17 上又應驗一次                          |
+| **C125 §五**         | **不動**，名冊仍是推導的                                                                                                                                              |
+| **C171 §九**         | **部分過期，本則更正**：它為 `release-distance` 在 adoption 加的第三處事實來源與具名錨，隨名冊改吃磁碟一起拿掉；C171 的理由（task 不是 script）不受影響               |
+| **C137 §一**         | **遵守** —— 零閘門增減；§四 不動兩支閘門的 parser                                                                                                                     |
+| **C43**              | **不動** —— 每道閘門的反向測試留在原處，刪的十條沒有一條是某道閘門唯一的反向測試                                                                                      |
+| **C154 §三／§四**    | **填了兩軸**（§二）—— 既有絆線加兩列，對象在外、壞法安靜                                                                                                              |
+| **C118**             | **引它** —— §五 不拆一半修五支手讀 argv 的理由                                                                                                                        |
+| **C173 §五**         | **引它** —— `C178` 字面先於本則那一趟紅                                                                                                                               |
+| **C177**             | **同系列第七則**（C170／C172／C174／C175／C176／C177 之後）；C168 §六 七項至此**全部裁完**                                                                            |

@@ -106,9 +106,7 @@ describe("SBOM 完整性檢查：Trivy 的兩個失明模式", () => {
     expect(result.output).toContain("找不到 SBOM");
   });
 
-  it("--verify-sbom 後面沒接路徑 → 紅", () => {
-    expect(run(["--verify-sbom"]).red).toBe(true);
-  });
+  // 「--verify-sbom 後面沒接路徑 → 紅」曾經有一條；同下面 `--split-lockfile` 那句（C178）。
 });
 
 describe("--split-lockfile：C34 的修法本身要能被驗", () => {
@@ -144,9 +142,9 @@ describe("--split-lockfile：C34 的修法本身要能被驗", () => {
     );
   });
 
-  it("--split-lockfile 後面沒接目錄 → 紅", () => {
-    expect(run(["--split-lockfile"]).red).toBe(true);
-  });
+  // 「--split-lockfile 後面沒接目錄 → 紅」曾經有一條。缺值的判定住在 `parseFlags`
+  //（`gate-kit/tests/flags.test.ts` 守）；`cli.ts` 手讀 argv 那段還有第二道同樣的檢查，
+  // 但 `parseFlags` 先跑，那一道在正常路徑上到不了（C178 §五）。
 });
 
 /**

@@ -37,10 +37,9 @@ import { parseFlags } from "@org/gate-kit";
 /**
  * ⚠️ **不認得的旗標一律紅**（C126／C133 §五）。
  *
- * ⚠️ 這一支在名冊的 `UNGATED` 裡，所以 `gate-kit` 的絆線
- * （`tests/adoption.test.ts`，名冊從 `scripts.gate` ＋ `scripts.ready` 推導）
- * **看不見它** —— 這幾行沒有東西在守，拿掉不會有人說話。寫下來是因為
- * 「這支不在絆線範圍內」與「這支不需要」是兩件事。
+ * 這一支在名冊的 `UNGATED` 裡，而 `gate-kit` 的絆線（`tests/adoption.test.ts`）
+ * 從 C178 起照磁碟上每一支 `tools/<某支>/src/cli.ts` 推導名冊，**所以看得見它**。
+ * 在那之前名冊從執行路徑推導，這幾行有 C126 到 C178 之間一段沒有東西在守的日子。
  */
 const FLAGS = parseFlags(process.argv.slice(2), {
   csp: { kind: "boolean" },
