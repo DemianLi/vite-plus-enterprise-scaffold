@@ -24,6 +24,8 @@ import {
 } from "./dependencies.ts";
 import { DOCUMENTS_CITING_EVIDENCE, parseTestCounts, stripAnsi } from "./counts.ts";
 import { collectFailures, reconcileFailures, type VitestJsonReport } from "./expected-failures.ts";
+import { assembleEvidence } from "./evidence.ts";
+import { drillWorkspaceFiles, UPSTREAM, type DrillAlias } from "./drill-workspace.ts";
 import { judgeFreshness, type Evidence } from "./freshness.ts";
 import { fingerprintOf, type FileDigest, type Fingerprint } from "./tree-fingerprint.ts";
 import { parseFlags } from "@org/gate-kit";
@@ -151,15 +153,6 @@ function isViteConfig(relative: string): boolean {
 const SCAN_DIRS = ["apps", "features", "platform"];
 const EXTENSIONS = [".ts", ".tsx", ".js", ".mjs", ".vue"];
 const SKIP = new Set(["node_modules", "dist", ".git", "coverage"]);
-
-// 上游對應版本。vitest 與 vite-plus 內建的是同一個版本號，因為 vite-plus 就是
-// 打包上游的 vitest —— 這件事本身就是 D2 論證的一部分。
-const UPSTREAM = {
-  vite: "^8.2.1",
-  vue: "^3.5.41",
-  "@vitejs/plugin-vue": "^6.0.8",
-  vitest: "4.1.10",
-};
 
 function collectFiles(dir: string, found: string[] = []): string[] {
   if (!existsSync(dir)) return found;
@@ -657,90 +650,21 @@ function reconcile(reportPath: string, workdir: string): { ok: boolean; expected
 }
 
 /**
- * 產生演練自己的 workspace 設定：建置、測試、`package.json`。
- *
- * 從 `runFull` 抽出來的理由是**尺寸**（`max-lines-per-function`），不是分層：
- * C147 剛裁過那個門檻只往下走，所以加東西的那一支要自己縮回去。
+ * 三份設定的內容在 `drill-workspace.ts`（C185）—— 這裡只負責落到 workdir。
+ * 產生**不含 vite-plus** 的設定：這就是 D2 所謂「可替換的驅動層」。
  */
 function writeDrillWorkspace(
   workdir: string,
-  aliases: readonly { find: string; replacement: string }[],
+  aliases: readonly DrillAlias[],
   packages: readonly WorkspacePackage[],
   catalog: Record<string, string>,
 ): void {
-  // 2. 產生**不含 vite-plus** 的設定：這就是 D2 所謂「可替換的驅動層」
-  const aliasLiteral = JSON.stringify(aliases, null, 2);
-
-  // plugin 的 import 與註冊都由 DRILL_PLUGINS 推導，不是各寫一份。
-  // 兩邊分開寫的話，總有一天會有人只改到其中一邊，而少一個 plugin 的建置**不會報錯**。
-  const pluginImports = DRILL_PLUGINS.map((plugin) => `${plugin.importLine}\n`).join("");
-  const pluginCalls = DRILL_PLUGINS.map((plugin) => `${plugin.name}()`).join(", ");
-
-  writeFileSync(
-    join(workdir, "vite.config.mjs"),
-    `import { defineConfig } from "vite";\n` +
-      pluginImports +
-      `\n// 這份設定是退出演練自動產生的：上游 Vite、上游 plugin，零 vite-plus。\n` +
-      `export default defineConfig({\n` +
-      `  root: "app",\n` +
-      `  plugins: [${pluginCalls}],\n` +
-      `  resolve: { alias: ${aliasLiteral} },\n` +
-      `  build: { outDir: "../dist", emptyOutDir: true, sourcemap: "hidden" },\n` +
-      `});\n`,
-  );
-
-  // ⚠️ **plugin 兩份設定都要吃 —— C148 §二 的 B 類就是這一行漏掉的後果。**
-  // 第一版只有上面那份建置設定拿了 `DRILL_PLUGINS`，測試這份沒有，於是
-  // `platform/ui` 的三支 `.vue` 測試在演練裡是「0 test」，而 `#206` 把它
-  // 解釋成「演練刻意不裝 plugin-vue」——**帳目是對的，只有一個消費端讀了它**。
-  // 這正是 `plugins.ts` 檔頭寫著要防的那個失敗模式，發生在它自己身上。
-  writeFileSync(
-    join(workdir, "vitest.config.mjs"),
-    `import { defineConfig } from "vitest/config";\n` +
-      pluginImports +
-      `\nexport default defineConfig({\n` +
-      `  plugins: [${pluginCalls}],\n` +
-      `  resolve: { alias: ${aliasLiteral} },\n` +
-      `  test: { include: ["app/tests/**/*.test.ts", "packages/*/tests/**/*.test.ts"] },\n` +
-      `});\n`,
-  );
-
-  const dependency = (name: string): string => catalog[name] ?? "latest";
-
-  writeFileSync(
-    join(workdir, "package.json"),
-    `${JSON.stringify(
-      {
-        name: "exit-drill",
-        private: true,
-        type: "module",
-        // 由 workspace 的真實 dependencies 推導，不是寫死的清單 ——
-        // 寫死的清單不會通知你它過期了（見 runtimeDependencies 的說明）。
-        dependencies: runtimeDependencies(packages, catalog),
-        devDependencies: {
-          // ⚠️ 這裡是**上游的 vite**，不是 catalog 裡被 alias 成
-          // @voidzero-dev/vite-plus-core 的那個。整場演練的重點就在這一行。
-          vite: UPSTREAM.vite,
-          vitest: UPSTREAM.vitest,
-          // plugin 的相依同樣由 DRILL_PLUGINS 推導：登記了卻沒裝，建置會炸得很難懂。
-          // 上游有對應版本就用上游的（那是演練要證明的東西），否則退回 catalog。
-          ...Object.fromEntries(
-            DRILL_PLUGINS.map((plugin) => [
-              plugin.module,
-              (UPSTREAM as Record<string, string>)[plugin.module] ?? dependency(plugin.module),
-            ]),
-          ),
-          // 測試專用的純 JS 相依。演練的最後一步是 `vitest run`，而
-          // runtimeDependencies() 刻意只收 dependencies —— 那個判斷是對的
-          //（devDependencies 裡裝的正是被替換掉的工具鏈），但它漏了「測試
-          // 自己也有相依」這一類。帳目與理由在 dependencies.ts。
-          ...Object.fromEntries(DRILL_TEST_DEPENDENCIES.map((name) => [name, dependency(name)])),
-        },
-      },
-      null,
-      2,
-    )}\n`,
-  );
+  const files = drillWorkspaceFiles({
+    aliases,
+    dependencies: runtimeDependencies(packages, catalog),
+    catalog,
+  });
+  for (const [name, content] of Object.entries(files)) writeFileSync(join(workdir, name), content);
 }
 
 function runFull(): number {
@@ -758,7 +682,7 @@ function runFull(): number {
   rmSync(join(workdir, "app/vite.config.ts"), { force: true });
 
   const allPackages = listWorkspacePackages();
-  const aliases: { find: string; replacement: string }[] = [];
+  const aliases: DrillAlias[] = [];
 
   /**
    * ⚠️ 只複製**從 `apps/console` 走得到的**套件，不是全部 platform／features。
@@ -818,11 +742,6 @@ function runFull(): number {
     }
   }
 
-  // 長的排前面：alias 是「完全相符或子路徑」比對，取第一個命中的。
-  // @org/slice-kit 排在 @org/slice-kit/contract 前面的話，後者會被解析成
-  // .../slice-kit/src/index.ts/contract —— 錯得很安靜。
-  aliases.sort((a, b) => b.find.length - a.find.length);
-
   const catalog = catalogVersions();
   writeDrillWorkspace(workdir, aliases, packages, catalog);
 
@@ -830,9 +749,10 @@ function runFull(): number {
   // 用 --loglevel=error 而不是 --silent：--silent 連**錯誤訊息也吞掉**，
   // 於是安裝失敗時只會看到「✗ npm install」與 0 秒，完全無從查起（實測過）。
   const installed = run("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error"], workdir);
-  const steps: [string, boolean][] = [["npm install", installed.ok]];
+  const initialSteps: [string, boolean][] = [["npm install", installed.ok]];
   let counts: { tests: number; testFiles: number } | null = null;
   let expectedFailures = 0;
+  let testedOutput = "";
 
   if (installed.ok) {
     // @org/tsconfig 必須跟著過去，否則所有 `extends: "@org/tsconfig/*.json"` 解析失敗。
@@ -846,12 +766,12 @@ function runFull(): number {
     });
 
     const built = run("npx", ["vite", "build"], workdir).ok;
-    steps.push(["vite build", built]);
+    initialSteps.push(["vite build", built]);
 
     // 建置成功不等於產物是對的。見 compareArtifacts 的說明（實測踩過三次）。
     if (built) {
       const comparison = compareArtifacts(workdir);
-      steps.push(["產物與本 repo 同級", comparison.ok]);
+      initialSteps.push(["產物與本 repo 同級", comparison.ok]);
       console.log(`    ${comparison.ok ? "✓" : "✗"} 產物比對：${comparison.note}`);
     }
 
@@ -870,45 +790,34 @@ function runFull(): number {
     // 不解析的話每一筆都相對不出來，對帳會把全部失敗都當成「未登記」。
     // 失敗方向是安全的（紅），但訊息會變成一串沒人看得懂的絕對路徑。
     const reconciled = reconcile(reportPath, realpathSync(workdir));
-    steps.push(["vitest run（對過預期失敗帳）", reconciled.ok]);
+    initialSteps.push(["vitest run（對過預期失敗帳）", reconciled.ok]);
     expectedFailures = reconciled.expected;
     counts = parseTestCounts(tested.output);
-
-    // 撈不到就當成失敗的一步，而不是安靜地寫下 tests: 0。
-    // 一個「通過但測試數是 0」的證據比沒有證據更糟：它看起來很正常。
-    if (reconciled.ok && counts === null) {
-      console.error("\n✗ 對帳過了，卻撈不到測試數的摘要行 —— 可能是 reporter 格式變了。");
-      // 把實際看到的東西印出來。只說「撈不到」而不給輸出，下一個人得重跑一次
-      // 才能開始查 —— 而這一步要花幾分鐘。
-      console.error(`  實際擷取到 ${tested.output.length} 個字元，尾端 600 字元：`);
-      console.error(stripAnsi(tested.output).slice(-600));
-      steps.push(["撈取測試數", false]);
-    }
+    testedOutput = tested.output;
   }
 
-  const passed = steps.every(([, ok]) => ok);
-  const durationSeconds = Math.round((Date.now() - started) / 1000);
-
-  const evidence: Evidence = {
-    lastRun: new Date().toISOString().slice(0, 10),
-    result: passed ? "pass" : "fail",
-    replaced: { "vite-plus": catalog["vite-plus"] ?? "unknown" },
-    upstream: UPSTREAM,
-    exitSurface: EXIT_SURFACE,
-    durationSeconds,
-    tests: counts?.tests ?? 0,
-    testFiles: counts?.testFiles ?? 0,
+  // 「怎麼組」在 evidence.ts（C185）。⚠️ `fingerprint` 是**演練開始之前**算的，不是這一刻：
+  // 這一刻工作目錄已經被建置與測試動過，而指紋要描述的是「被量的那棵樹」。
+  const assembled = assembleEvidence({
+    steps: initialSteps,
+    counts,
     expectedFailures,
-    // ⚠️ 在**演練開始之前**算的（`fingerprint`），不是這一刻：這一刻工作目錄
-    // 已經被建置與測試動過，而指紋要描述的是「被量的那棵樹」。
-    treeHash: fingerprint.hash,
-    treeFiles: fingerprint.files,
-    note:
-      "以上游 Vite/Vitest 重建 apps/console 與全部 platform、features 的測試，" +
-      "設定檔由本演練重新產生，應用程式原始碼一字未改。" +
-      "expectedFailures 是登記在 EXPECTED_FAILURES 裡、因為演練替換掉它們要問的" +
-      "那個東西而必然失敗的條數（C148）—— 它們照跑，只是失敗被逐條對過帳。",
-  };
+    fingerprint,
+    catalog,
+    exitSurface: EXIT_SURFACE,
+    startedAt: started,
+    now: Date.now(),
+  });
+  const { evidence, steps } = assembled;
+  const passed = evidence.result === "pass";
+
+  if (assembled.missingCounts) {
+    console.error("\n✗ 對帳過了，卻撈不到測試數的摘要行 —— 可能是 reporter 格式變了。");
+    // 把實際看到的東西印出來。只說「撈不到」而不給輸出，下一個人得重跑一次
+    // 才能開始查 —— 而這一步要花幾分鐘。
+    console.error(`  實際擷取到 ${testedOutput.length} 個字元，尾端 600 字元：`);
+    console.error(stripAnsi(testedOutput).slice(-600));
+  }
 
   writeFileSync(EVIDENCE_PATH, `${JSON.stringify(evidence, null, 2)}\n`);
   rmSync(workdir, { recursive: true, force: true });
@@ -935,7 +844,7 @@ function runFull(): number {
   }
 
   console.log(
-    `\n${passed ? "✓" : "✗"} 退出演練${passed ? "通過" : "失敗"}（${durationSeconds} 秒）`,
+    `\n${passed ? "✓" : "✗"} 退出演練${passed ? "通過" : "失敗"}（${evidence.durationSeconds} 秒）`,
   );
   for (const [step, ok] of steps) console.log(`    ${ok ? "✓" : "✗"} ${step}`);
   console.log(`\n證據已寫入 tools/exit-drill/evidence.json —— 請一併提交。`);

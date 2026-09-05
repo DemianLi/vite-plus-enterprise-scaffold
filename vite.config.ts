@@ -99,7 +99,9 @@ export default defineConfig({
       // `threshold-check` 用的是「壓到地板一次量完」，理由見它的 `src/config.ts`。
       // ⚠️ 它高了 40 行而安靜了 15 支 commit，而**當時是人回頭查才發現的**；
       // C162（#226）之後這一格由 `vpr threshold-check` 守著。
-      "max-lines-per-function": ["error", { max: 199 }],
+      // ⚠️ **199 → 185（C185）**：`runFull` 的組證據與產設定抽成純函式後剩 184 行，
+      // 極端值換成 `theme-verify` 的 185 —— 這次是閘門自己報的，不是人回頭查的。
+      "max-lines-per-function": ["error", { max: 185 }],
       "max-depth": ["error", { max: 5 }],
       "max-params": ["error", { max: 6 }],
       complexity: ["error", { max: 39 }],

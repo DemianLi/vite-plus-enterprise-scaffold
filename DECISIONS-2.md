@@ -6569,3 +6569,142 @@ gate-kit 的 `sandbox({ git: true })` 已有四支測試在用；adoption 那條
 - **C168 §一**：§六 六顆變異各對應至少一條測試。**C154 §三**：§四。**C137 §一**：零閘門增減。
 - **C136 §八**：§三 的更正不改舊則。**C173 §五**：`C184` 字面與本則同一個 commit。
 - **C182**：整則補回，一字不改；**C141**：抓不到零引用的整則消失 —— 它守的是引用不是存在。
+
+### C185 — `--full` 的本機測試：組證據與產設定各抽一個純函式，改前五顆變異零紅；而季排程上「產物與本 repo 同級」那一步從來沒有比過（2026-09-06）
+
+⚠️ **量測基準：`48e1503`（#290 合併後的 `main`）。** 本則收掉 C180 §五 第二項的 `--full`
+那一格（C184 §五 第一項寫「照留」，留的理由是「等有人要在沙盒裡驗 `--full`」—— 本則就是）。
+`--full --root` 的拒絕**不動**：本機測試不是 spawn 這支 CLI 帶 `--full`，是把 `runFull` 裡
+「怎麼組證據」與「產哪三份設定」抽出來，從介面測。
+
+#### 一、事實：十四步、進真樹兩步、零測試十個函式
+
+`--full` 從演練到寫證據依序動磁碟十四步：第 0 步先取指紋（`git ls-files` ＋ 逐檔 hash，刻意在
+動任何東西之前）；第 1–7 步在 `os.tmpdir()`（`mkdtemp`、複製 `apps/console` 與每個可達套件並
+各刪一份 `vite.config.ts`、產三份設定、`npm install`、複製 `platform/tsconfig`、`vite build`）；
+第 8 步讀**真樹的** `apps/console/dist` 當比對基準；第 9–10 步 `vitest run --reporter=json`
+再對帳、撈測試數；**第 11 步 `writeFileSync(EVIDENCE_PATH)`** 與**第 13 步 `vp fmt` 同一個檔**
+是僅有的兩次真樹寫入，中間第 12 步 `rmSync(workdir)`。兩次寫入無條件發生：`passed === false`
+也寫（刻意，CI `always()` 上傳）、`npm install` 失敗也寫（`tests: 0`、`result: fail`）、
+`vp fmt` 失敗回 1 而未格式化的證據留在樹上。
+
+**零測試的範圍**：`runFull`、`writeDrillWorkspace`、`compareArtifacts`、`totalCssBytes`、
+`catalogVersions`、`listWorkspacePackages`、`reachableWorkspacePackages`、`cli.ts` 裡的
+`runtimeDependencies`、`run`、`reconcile` 包裝 —— 十個函式沒有任何測試碰到。有測試的是抽出去的
+六個模組。第 11 步「把這些湊成一份證據」整段在 `runFull` 裡：`steps.every` 換成 `some`、拿掉
+「撈不到測試數就補一步失敗」的守衛、vitest 那份設定漏掉 plugin、alias 排序反轉、`vite` 裝到
+catalog 那個 —— 五顆變異改前全零（§六）。這五件事每一件都有一段註解記著它發生過的樣子
+（C148 §二 B 類、`.../slice-kit/src/index.ts/contract`、「整場演練的重點就在這一行」），
+而註解不是測試。
+
+**⚠️ 季排程上第 8 步是空轉的。** `.github/workflows/exit-drill.yml` 在 `--full` 之前**沒有建置**
+`apps/console`，所以 CI 上 `compareArtifacts` 的 `reference === 0` 永遠成立，走「本 repo 尚無
+建置產物可比對」那條 `ok: true`，`steps` 照樣登記「✓ 產物與本 repo 同級」—— C124 的「頂著名字
+回綠」，而 `compareArtifacts` 檔頭寫著它存在的理由是三次「建置成功但產物是壞的、退出碼 0」。
+緩解的事實：`evidence.json` 最近五份（2026-08-30 起，#212／#251／#266／#275／#280）全是本機跑完
+開 PR 進來的，本機有 `dist`，所以 **`main` 上這份證據的比對是真的跑過的**；壞的是排程那條路。
+本則在 worktree 裡真跑一次 `--full` 重現了它（§六：worktree 沒有 `dist`，那一行印的正是那句話）。
+
+#### 二、裁決
+
+1. **seam 開在兩個純函式，不是 executor 注入、不是放行 `--full --root`。** `src/evidence.ts` 的
+   `assembleEvidence(outcome) → { evidence, steps, missingCounts }` 與 `src/drill-workspace.ts` 的
+   `drillWorkspaceFiles(input) → { 三個檔名: 內容 }`；`runFull` 只剩 spawn 序列與兩次寫入。
+   與 C183 同一個形狀（判斷進模組、CLI 讀與印）。executor 注入要靠旗標或環境變數才過得了
+   行程邊界，等於在產品碼放一個測試模式（C124 那一類）；放行 `--full --root` 每條測試分鐘級
+   還要外網。刪除測試：兩個函式刪掉，複雜度回到 `runFull` 一處，不是散掉。
+2. **「撈不到測試數就補一步失敗」搬進 `assembleEvidence`。** 它是「`tests: 0` 而 `pass`」唯一的
+   擋法，留在 `runFull` 就永遠零紅。規則改寫成「其餘每一步都過、`counts === null` → 補一列
+   `撈取測試數` 失敗」：與原本的 `reconciled.ok && counts === null` 在 `result` 上等價（其他
+   情況本來就是 fail），差別只在少印一列噪音。印輸出尾端 600 字元那段留在 CLI。
+3. **`drillWorkspaceFiles` 自己排 alias。** 排序是「產出的設定對不對」的一部分，留在 CLI 就測不到。
+   輸入陣列不就地改動。
+4. **`UPSTREAM` 搬到 `drill-workspace.ts`、由 `evidence.ts` 引用；`EXIT_SURFACE` 留在 `cli.ts` 當
+   參數傳入。** 前者是「演練裝什麼」，屬於產設定；後者靜態掃描也在用，搬走會把 `runStatic`
+   一起拖進來。
+5. **測試斷發生過的事，不做快照。** 兩份設定都含每個 `DRILL_PLUGINS` 的 import 與呼叫、兩份拿到
+   同一組、alias 長的在前且一個不掉、`devDependencies.vite` 是 `UPSTREAM.vite` 且**不等於**
+   catalog 那個、`DRILL_TEST_DEPENDENCIES` 每個都在；證據那邊：四步各紅一次都 fail、
+   `counts === null` 且全過 → 多一列且 fail、已有一步紅則不多列、指紋原樣、秒數與日期。
+   快照每次改 plugin 就過期然後被重生，等於沒守。
+6. **季排程的空轉只記不修（§一 第三段）。** 修法有兩條：workflow 在 `--full` 前建置一次，或把
+   `reference === 0` 改成失敗的一步。兩條都是改這道閘門在 CI 上的判定，不是本題；後者會讓每一次
+   沒有 `dist` 的本機執行紅。另開票，票面要帶「最近五份證據都是本機跑的所以目前那格是真的」。
+
+#### 三、更正
+
+- **C184 §一** 說 `--full` 「再 5 組」讀真樹：catalog、執行期相依、`apps/console/dist`、兩處
+  `cpSync`、`vp fmt` 的 `cwd`。數字不改，但**其中 `apps/console/dist` 那一組在季排程上讀到的
+  永遠是「不存在」** —— C184 把它列成 SELF 的候選（「`dist` 是真樹的建置產物」）而沒有問
+  「排程那棵真樹上有沒有」。C136 §八：不改舊則。
+
+#### 四、絆線
+
+無。本則加的是測試不是閘門（C137 §一）；「指紋在演練之前取」這條順序不變量純函式量不到，
+仍靠 `runFull` 的註解，寫在 `evidence.ts` 檔頭。
+
+#### 五、不裁
+
+- **`replaced["vite-plus"] ?? "unknown"`**：壞在 `replaced` 這欄不在 `result`，稽核看得出來，而
+  `catalog:` 缺項在 `runtimeDependencies` 已經會 throw。不加拒絕。
+- **CLI 落檔那一步**（`writeDrillWorkspace` 三個檔少寫一個）：seam 的另一邊，沙盒進不去。
+  §六 A8 零紅是這條界線的形狀，不是漏。
+- **`compareArtifacts`／`totalCssBytes`／`catalogVersions`／`listWorkspacePackages`／
+  `reachableWorkspacePackages`**：都讀真樹，各自要一個 `--root` 之下的 fixture 才測得到；
+  §一 第三段那張票先裁 `dist` 要不要在排程上存在，再看 `compareArtifacts` 值不值得。
+- **季排程第 8 步的修法**：§二 第 6 點。
+
+#### 六、實測（基準 `48e1503`，worktree `drill-evidence-seam`）
+
+改前，`tools/exit-drill` 102 條（⚠️ 第一趟量到 95：worktree 沒裝相依，`cli.test.ts` 整檔載不起來而
+`numFailedTests` 是 0 —— 對照組也是 0 才看出來；`vp install` 之後重量），每趟還原後 `git status` 乾淨：
+
+| 變異                                           | 紅        |
+| ---------------------------------------------- | --------- |
+| M1 `runFull` 的 `steps.every` → `some`         | **0**/102 |
+| M2 拿掉「對帳過了卻撈不到測試數」那條守衛      | **0**/102 |
+| M3 vitest 那份設定 `plugins: []`               | **0**/102 |
+| M4 alias 排序反轉（短的在前）                  | **0**/102 |
+| M5 `devDependencies.vite` 改裝 catalog 那個    | **0**/102 |
+| 對照 `--full --root` 的拒絕拿掉（C184 §六 A5） | 1/102     |
+
+改後（102 → 122 條）：
+
+| 變異                                | 紅                                       |
+| ----------------------------------- | ---------------------------------------- |
+| A1 同 M1（`evidence.ts`）           | **5**/122                                |
+| A2 同 M2（`missingCounts` 恆假）    | **1**/122                                |
+| A3 同 M3（`drill-workspace.ts`）    | **2**/122                                |
+| A4 同 M4                            | **2**/122                                |
+| A5 同 M5                            | **1**/122                                |
+| A6 alias 不排序                     | 2/122                                    |
+| A7 vite 那份設定 `plugins: []`      | 2/122                                    |
+| A8 CLI 落檔少寫 `vitest.config.mjs` | **0**/122 —— seam 的另一邊（§五 第二項） |
+| 對照 同上                           | 1/122                                    |
+
+- 真跑一次 `--full`（worktree，28 秒）：540 條／19 檔／5 條預期失敗與 `main` 的證據**逐位相同**，
+  只有秒數與指紋變（149 → 152 個檔：`cli.ts` 加兩個新模組）；第 8 步印的是「本 repo 尚無建置產物
+  可比對」而 `steps` 登記 ✓（§一 第三段）。跑完 `git checkout` 還原證據，本 PR 不重跑演練
+  （C184 §五 第三項同一個理由：drift 只 warn）。
+- `vpr ready`：第一趟紅在 oxfmt（`vp check --fix`）；第二趟 **READY_RC=1** 紅在 `threshold-check`
+  「`max-lines-per-function` 設在 199，實測最大值 185」—— `runFull` 199 → 184 行；降成 185 後第三趟
+  **READY_RC=0**（讀 log 尾）。
+- 逐檔 `it` 數（量法同 C172 §七）：**86 檔 1610 → 89 檔 1635**（C184 基準）—— 本則加兩個檔
+  `drill-workspace.test.ts` 11、`evidence.test.ts` 9；第三個 `tools/pii-check/tests/enumeration.test.ts`
+  5 條是 #290 的，其餘 86 檔逐位相同。
+
+#### 七、關係
+
+- **C180 §五 第二項**：`--full` 那一格收掉；四個旗標剩 `--csp`／`--sca`、`--print-probe`。
+- **C184 §五 第一項**：「等有人要在沙盒裡驗 `--full`」—— 是本則，但答案不是放行 `--full --root`；
+  **C184 §一**：§三 更正。**C184 §二 第 2 點**：拒絕照舊。
+- **C183**：同一個形狀的第二次（判斷表 → 純函式）；**C183 §五**：`JSON.parse` 那一項照留。
+- **C148 §二 B 類**：vitest 那份設定漏 plugin，第一次有反向測試。**C148 §五**：對帳那一半的純
+  函式早有測試，本則補的是它上面那層。
+- **C149**：指紋原樣寫入有測試；順序不變量沒有（§四）。
+- **C124**：「頂著名字回綠」—— 季排程第 8 步是一件新的實例，記在 §一。
+- **C127 §一／§三**：`dist` 那個 SELF 候選在排程上不存在，是基準點問題的另一種答案。
+- **C147 §二／C162**：`runFull` 從 199 行縮短，`max-lines-per-function` 依規必須跟著降，數字由
+  `threshold-check` 報（§六）—— 這是它守的那一格第一次因為抽測試 seam 而動。
+- **C168 §一**：§六 A1–A7 每顆至少一條測試。**C154 §三**：§四。**C137 §一**：零閘門增減。
+- **C136 §八**：§三 不改舊則。**C173 §五**：`C185` 字面與本則同一個 commit。
