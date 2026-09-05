@@ -3,6 +3,7 @@ import {
   REQUIRED_LEVEL,
   type AcceptanceStage,
   type Criterion,
+  type ScopedOverride,
 } from "./a11y.ts";
 import type { Coverage } from "./map.ts";
 
@@ -26,10 +27,11 @@ function cell(text: string): string {
 export interface A11yRenderInput {
   readonly criteria: readonly Criterion[];
   readonly rules: readonly string[];
+  readonly overrides: readonly ScopedOverride[];
 }
 
 export function renderAccessibility(input: A11yRenderInput): string {
-  const { criteria, rules } = input;
+  const { criteria, rules, overrides } = input;
   const lines: string[] = [];
 
   lines.push(
@@ -97,6 +99,26 @@ export function renderAccessibility(input: A11yRenderInput): string {
   );
 
   for (const rule of rules) lines.push(`- \`${rule}\``);
+
+  lines.push("", "## 哪些規則在哪些路徑被覆寫", "");
+
+  if (overrides.length === 0) {
+    lines.push("沒有範圍覆寫：上面那份清單在每一個 `.vue` 上都跑。");
+  } else {
+    lines.push("| 規則 | 範圍（files） | 設定 |");
+    lines.push("| --- | --- | --- |");
+    for (const override of overrides) {
+      lines.push(
+        `| \`${cell(override.rule)}\` | \`${cell(override.files.join(", "))}\` | \`${cell(override.setting)}\` |`,
+      );
+    }
+    lines.push("");
+    lines.push(
+      "理由寫在 `platform/eslint-config/src/a11y.js` 該區塊的註解裡，這裡不抄 —— 抄本會過期。",
+      "",
+      "⚠️ 範圍是 glob 字面，從 repo 根錨定，這份文件印的是設定寫的字串不是它實際命中的檔案數。",
+    );
+  }
 
   lines.push(
     "",

@@ -77,6 +77,16 @@
 - `vuejs-accessibility/role-has-required-aria-props`
 - `vuejs-accessibility/tabindex-no-positive`
 
+## 哪些規則在哪些路徑被覆寫
+
+| 規則                                         | 範圍（files）                         | 設定  |
+| -------------------------------------------- | ------------------------------------- | ----- |
+| `vuejs-accessibility/form-control-has-label` | `platform/ui/src/components/**/*.vue` | `off` |
+
+理由寫在 `platform/eslint-config/src/a11y.js` 該區塊的註解裡，這裡不抄 —— 抄本會過期。
+
+⚠️ 範圍是 glob 字面，從 repo 根錨定，這份文件印的是設定寫的字串不是它實際命中的檔案數。
+
 ## 為什麼沒有在 CI 裡跑 axe-core
 
 量過，結論是負面的（C69）：

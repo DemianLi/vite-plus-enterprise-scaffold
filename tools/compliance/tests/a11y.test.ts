@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import a11yConfig from "@org/eslint-config/a11y";
+
 import { GATES } from "../src/map.ts";
 import {
   ACCESSIBILITY_STANDARD,
   CRITERIA,
   preFilterRules,
+  scopedOverrides,
   verifyCriteria,
   type Criterion,
 } from "../src/a11y.ts";
@@ -102,8 +105,101 @@ describe("前置過濾器的規則清單是推導的，不是抄的", () => {
   });
 });
 
+describe("範圍覆寫：全域清單之後的區塊要進交付文件", () => {
+  const render = (config: readonly unknown[] = a11yConfig) =>
+    renderAccessibility({
+      criteria: CRITERIA,
+      rules: preFilterRules(config),
+      overrides: scopedOverrides(config),
+    });
+
+  const isScoped = (entry: unknown): entry is { files: string[]; rules: Record<string, unknown> } =>
+    typeof entry === "object" && entry !== null && "files" in entry && "rules" in entry;
+
+  /** 真設定裡 `platform/ui` 那個豁免區塊：三顆變異都從它長出來，找不到就不要量。 */
+  const exemption = (() => {
+    const found = a11yConfig
+      .slice(a11yConfig.findIndex((e) => typeof e === "object" && e !== null && "rules" in e) + 1)
+      .find(isScoped);
+    if (found === undefined) throw new Error("真設定裡沒有範圍覆寫區塊 —— 這組測試的前提沒了");
+    return found;
+  })();
+  const withExemptionReplaced = (block: unknown) =>
+    a11yConfig.map((e) => (e === exemption ? block : e));
+
+  it("★ 每一列覆寫的規則都在全域清單裡 —— 覆寫一條沒開的規則是死碼", () => {
+    const all = new Set(preFilterRules());
+    const overrides = scopedOverrides();
+    expect(overrides.length).toBeGreaterThan(0);
+    for (const o of overrides) {
+      expect(all.has(o.rule)).toBe(true);
+      expect(o.files.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("★ 交付文件印出每一列的規則名與 files glob 字面", () => {
+    const markdown = render();
+    for (const o of scopedOverrides()) {
+      expect(markdown).toContain(`\`${o.rule}\``);
+      for (const glob of o.files) expect(markdown).toContain(glob);
+    }
+  });
+
+  /**
+   * ⚠️ 下面三顆變異是 #297 改前閘門零紅的那三顆（加新區塊／擴 files／加第二條 off）。
+   * 用參數注入而不改真樹的 `a11y.js`：C186 §二 之後測試不准改寫真樹的交付文件，
+   * 而閘門那一頭的「產出變了 → baseline 紅」由 C186 的沙盒測試守。
+   */
+  it("🔴 M1：多一個 apps/** 的 off 區塊 → 交付文件變了", () => {
+    const mutated = render([
+      ...a11yConfig,
+      { files: ["apps/**/*.vue"], rules: { "vuejs-accessibility/no-autofocus": "off" } },
+    ]);
+    expect(mutated).not.toBe(render());
+    expect(mutated).toContain("apps/**/*.vue");
+    expect(mutated).toContain("no-autofocus");
+  });
+
+  it("🔴 M2：豁免的 files 擴成 **/*.vue → 交付文件變了", () => {
+    const mutated = render(withExemptionReplaced({ ...exemption, files: ["**/*.vue"] }));
+    expect(mutated).not.toBe(render());
+    expect(mutated).toContain("`**/*.vue`");
+  });
+
+  it("🔴 M3：豁免區塊多關一條 → 交付文件變了", () => {
+    const mutated = render(
+      withExemptionReplaced({
+        ...exemption,
+        rules: { ...exemption.rules, "vuejs-accessibility/label-has-for": "off" },
+      }),
+    );
+    expect(mutated).not.toBe(render());
+    expect(mutated).toContain("label-has-for` | `platform/ui/src/components/**/*.vue");
+  });
+
+  it("★ 對照：真設定 render 兩次逐位相同 —— 上面三顆的 not.toBe 才有意義", () => {
+    expect(render()).toBe(render());
+  });
+
+  it("🔴 第二個 rules 區塊沒有 files → 拒絕產出", () => {
+    expect(() => scopedOverrides([{ rules: { a: "error" } }, { rules: { a: "off" } }])).toThrow(
+      "沒有 files",
+    );
+  });
+
+  it("🔴 沒有任何覆寫 → 文件要明說，不是把那一節省掉", () => {
+    expect(
+      renderAccessibility({ criteria: CRITERIA, rules: preFilterRules(), overrides: [] }),
+    ).toContain("沒有範圍覆寫");
+  });
+});
+
 describe("產出的文件", () => {
-  const markdown = renderAccessibility({ criteria: CRITERIA, rules: preFilterRules() });
+  const markdown = renderAccessibility({
+    criteria: CRITERIA,
+    rules: preFilterRules(),
+    overrides: scopedOverrides(),
+  });
 
   it("★ 明說自己不是完整清單 —— 否則會被讀成「AA 只有四條」", () => {
     expect(markdown).toContain("不是 AA 的完整清單");
@@ -127,6 +223,8 @@ describe("產出的文件", () => {
   });
 
   it("🔴 規則清單是空的 → 產出的文件會宣稱「共 0 條」，那要看得出來", () => {
-    expect(renderAccessibility({ criteria: CRITERIA, rules: [] })).toContain("共 0 條");
+    expect(renderAccessibility({ criteria: CRITERIA, rules: [], overrides: [] })).toContain(
+      "共 0 條",
+    );
   });
 });
