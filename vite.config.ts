@@ -220,5 +220,24 @@ export default defineConfig({
     // D10 — Tier 1 的主要提速手段。vp 沒有 changed-since 過濾器，
     // affected 偵測若要做，見 tools/conformance/README.md 的 git diff 方案。
     cache: true,
+
+    tasks: {
+      // ⚠️ **它必須是 task 而不是 script，理由只有快取一件事**（C171 §九）。
+      //
+      // 上面那個 `cache: true` 同時打開 script 快取，而 `&&` 串起來的每一段會被
+      // 拆成各自快取的子任務。這一支報的是「距上一個 tag 幾支」——
+      // 它的輸入是 git 的 ref，**不是檔案**，自動資料追蹤看不到，於是第一趟之後
+      // 永遠 cache hit。實測：`vpr ready` 印「5 支」而真值是 **8**。
+      //
+      // ⚠️ 一個凍住的數字與一個正確的數字在輸出上一模一樣，而這支**沒有紅燈**
+      // 可以掉 —— 所以這一行是它能不能成立的前提，不是效能調校。
+      //
+      // ⚠️ 也實測過「讓 CLI 去讀 `.git` 底下的 ref 檔，把它們宣告成輸入」——
+      // **無效**：提交之後仍然 cache hit。追蹤不看 `.git`。
+      "release-distance": {
+        command: "node tools/release-distance/src/cli.ts",
+        cache: false,
+      },
+    },
   },
 });

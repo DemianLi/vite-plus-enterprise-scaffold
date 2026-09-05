@@ -461,7 +461,8 @@ export const UNGATED: readonly Ungated[] = [
     pkg: "release-distance",
     why:
       "**它不會紅，所以它不是閘門**（C169 §一／#267）。它報一行「距上一個 tag 幾支、幾天」，" +
-      "接在 `scripts.ready` 的最後一步，不在 `scripts.gate` 上、也不在兩個 workflow 裡。" +
+      "接在 `scripts.ready` 的最後一步（形式是根 `vite.config.ts` 的 task，理由是快取 —— C171 §九），" +
+      "不在 `scripts.gate` 上、也不在兩個 workflow 裡。" +
       "⚠️ **不設門檻是規格，不是「還沒設」**：C169 §四 實測可校準的區間有 **0** 個 —— " +
       "31 個 v1 tag 不在 `main` 的第一父鏈上（活在已刪的 `release/v1`）、跨併線那個窗口 " +
       "`rev-list --count` 回 63 而人工計數是 25、唯一同線的區間由 `v1.16.0` 自己判掉。" +
@@ -472,7 +473,8 @@ export const UNGATED: readonly Ungated[] = [
       "永遠印「量不到」。⚠️ 而一支不會失敗的東西進了閘門鏈，「閘門」這個詞在這棵樹上" +
       "就少掉一半意思。" +
       "⚠️ 它仍然受 C126 管：不認得的旗標非零。那條由 `gate-kit/tests/adoption.test.ts` 守，" +
-      "而那份名冊從 `scripts.gate ＋ scripts.ready` 推導 —— 接上 `ready` 的同時它就進了名冊。",
+      "而那份名冊在 C171 之前只讀兩個 script —— 這一支的路徑只出現在 `vite.config.ts` 裡，" +
+      "所以那份名冊多讀了第三處事實來源，否則它會在這一支加進來的那天安靜地少一支。",
   },
   {
     pkg: "codemods",
