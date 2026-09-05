@@ -64,6 +64,34 @@ describe("parseFlags —— 認得的旗標", () => {
  * 搬進 gate-kit 的意義：那段措辭現在是**所有**閘門共用的，而在這裡它是一個
  * 純函式的回傳值，測得起 —— 原本它只能靠 spawnSync 起行程去比 stderr。
  */
+/**
+ * `list` 是 C181 加的第三種 kind。C126 §七 把它放著沒做，理由是 main 與 release/v1
+ * 兩線併線時「逐字相同 → 零衝突」；兩線模型 2026-08-26 結束後那個理由不在了，
+ * 而兩支 CLI 各自的收集迴圈在 C180 §五 被記成「同一段程式碼寫兩次」。
+ */
+describe("parseFlags —— list 旗標", () => {
+  const SPEC = { spec: { kind: "list", noun: "規格檔路徑" } } as const;
+
+  it("沒給就是空陣列，不是 undefined", () => {
+    const parsed = parseFlags([], SPEC);
+    expect(parsed.ok && parsed.flags.spec).toEqual([]);
+  });
+
+  it("★ 給幾次收幾個，順序照給的順序 —— 這是它與 value 唯一的差別", () => {
+    const parsed = parseFlags(["--spec", "a.feature", "--spec", "b.feature"], SPEC);
+    expect(parsed.ok && parsed.flags.spec).toEqual(["a.feature", "b.feature"]);
+  });
+
+  it("🔴 缺值的兩種缺法與 value 走同一條：後面沒東西、後面是另一個旗標", () => {
+    const trailing = parseFlags(["--spec"], SPEC);
+    expect(trailing.ok).toBe(false);
+    expect(!trailing.ok && trailing.message).toContain("規格檔路徑");
+
+    const swallowed = parseFlags(["--spec", "a.feature", "--spec", "--root"], SPEC);
+    expect(swallowed.ok).toBe(false);
+  });
+});
+
 describe("🔴 parseFlags —— 不認得的旗標", () => {
   it("已移除的旗標 → 不得靜靜當成一次普通執行", () => {
     const parsed = parseFlags(["--masking"], PII_SPEC);

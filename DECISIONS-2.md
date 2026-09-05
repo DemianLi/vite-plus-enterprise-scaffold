@@ -6057,3 +6057,117 @@ C154 §三 兩軸：**交付軸** —— 無。**迭代軸** —— ① 對象�
 - **C118**：§五 第一項不順手做一半的理由；反過來，§三 是「五支全收」不是子集。
 - **C173 §五**：`C180` 字面先於本則那一趟紅。
 - **C136 §八**：C178 §五 記錯的兩處不回頭改。
+
+### C181 — `parseFlags` 加第三種 kind `list`：`promise-check`／`spec-report` 各自的收集迴圈是最後兩處手讀，而重複給旗標的路徑一個零餵養者、一個零測試（2026-09-05）
+
+⚠️ **量測基準：`3cd03db`（C180 合併後的 `main`）。** 本則收掉 **C180 §五** 第一項。
+量測期間 #284（`4dd3f1a`，只動 `CHANGELOG.md`）合進 `main`，本則接在它之上；基準不變。
+
+#### 一、事實：兩處迴圈同形，餵養者一個是零、一個只給過一次
+
+|          | `promise-check` `parseRepeated(argv, "--spec")`    | `spec-report` `readResults(root, specs, argv)` |
+| -------- | -------------------------------------------------- | ---------------------------------------------- |
+| 演算法   | `indexOf` 逐次前進，取 `argv[i + 1]`               | 逐字同形，多一步 `resolvePath(root, …)`        |
+| 缺值檢查 | 有，但 `parseFlags` 已對每一次出現檢查過 —— 到不了 | 同                                             |
+| 沒給時   | `length > 0 ? explicit : trackedSpecs(root)`       | 預設路徑先放，額外的 push 在後                 |
+
+兩支都是 C180 那種形：`parseFlags` 走一遍拒絕不認得的，迴圈再走一遍取值。差別只在這兩支的迴圈
+確實有 `parseFlags` 給不出的能力（多值），所以 C180 §五 把它們另裁。
+
+餵養者（全樹，排除 `DECISIONS*` 與鄰居 worktree）：
+
+- `--results`：**零**。從 C115（`723beb1`）出生到本則，沒有測試、workflow、script 用過它。
+- `--spec`：一處，`promise-check/tests/cli.test.ts` 給**一次**。重複給的路徑零測試。
+- `promise-check/tests/negative.test.ts` 走 `import { checkPromises }`，從 C118（`37c3547`）起就
+  不經過 CLI。
+
+#### 二、C126 §七 的兩句話，一句理由死了、一句事實錯了
+
+- **「改一個字就失去逐字相同 → 零衝突」** 指的是 `main` 與 `release/v1` 兩線併線時
+  `flags.ts` 逐字相同。兩線模型 2026-08-26 結束（C133），這個理由已經不存在。
+- **「縮減掉的正是反向測試餵多份改壞規格那條路」**：反向測試不走 `--spec`（§一）。多值的能力
+  是真的 —— 一份改壞的規格得跟一份好的一起餵，否則 `BREAKAGES` 孤兒檢查先紅 —— 但那條路在
+  測試裡從來不存在。`promise-check` 檔頭抄了同一句。兩處都不回頭改（C136 §八），本則記。
+
+#### 三、裁決
+
+1. **`parseFlags` 加 `kind: "list"`**，型別 `readonly string[]`，沒給是 `[]`，順序照給的順序；
+   缺值走 `value` 同一條（後面沒東西、後面是另一個旗標）。**不提供 `fallback`**：兩個呼叫端都是
+   「沒給就換一個來源」，空陣列直接接得上，fallback 沒有使用者（一個 adapter 是假想的 seam）。
+2. `promise-check` 刪 `parseRepeated`，`spec-report` 的 `readResults` 第三個參數從 `argv` 改成
+   `extra: readonly string[]`；兩支檔頭「`parseFlags` 只留最後一個」那段整段拿掉。
+3. **`value` 重複給仍是最後一個贏。** C180 D1 剛裁、剛加測試，而目前零證據有人被它咬到；改它是
+   三支以上 CLI 的行為改變，另裁（§五）。
+4. 兩支各加一條差分探針（C180 §二 D1 的形）：`promise-check` 給兩個不存在的 `--spec`，輸出要同時
+   提到兩個；`spec-report` 在 sandbox 給兩份各一半場景的 `--results`，合起來才是 3/4，只給第二份
+   是未執行（對照組）。
+5. `flags.test.ts` 加三條：空、多值保序、缺值兩種缺法。五條併三條 —— 兩條殺不到獨立的變異
+   （C168 §一）。
+
+#### 四、絆線升強版：argv 上的搜尋呼叫零次
+
+C180 §四 那條守「`process.argv` 恰好一次」，抓不到「抓一次 argv 再自己 `indexOf`」。本則加第二條：
+去註解後，`argv`／`args`／`ARGV`／`ARGS` 接 `indexOf`／`lastIndexOf`／`includes`／`startsWith`／
+`find`／`some` 的呼叫在每支 `cli.ts` **零次**（`\b` 讓 `process.argv.` 也算）。
+
+pattern 改了兩版，兩版都是對照組逼出來的：
+
+| 版        | pattern                          | 問題                                                                                                                                                                       |
+| --------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1         | 任何接收者 ＋ `"--` 字面         | 誤報兩處：`supply-chain` 掃 workflow 行的 `line.includes("--frozen-lockfile")`、`theme-verify` 判 CSS 自訂屬性的 `utility.startsWith("--")` —— 比對的字串來自檔案不是 argv |
+| 2         | 接收者限定四個別名 ＋ `"--` 字面 | 對 C180 前的 `promise-check` 回 **0**：`parseRepeated(argv, name)` 寫的是 `argv.indexOf(name)`，字面在參數裡                                                               |
+| 3（採用） | 接收者限定四個別名，不要求字面   | 對 C180 前的樹（`9a8c9a4`）回 **23 處／7 支**（compliance 3、supply-chain 9、exit-drill 4、ui-survey 2、csp-verify 1、spec-report 2、promise-check 2）；現在 17 支全 0     |
+
+對照組七句：`argv.indexOf("--spec")`、`ARGV.includes('--full')`、`argv.indexOf(name)` 各 1；
+USAGE 模板字串、註解裡的、`main(process.argv.slice(2))`、第 1 版誤報的那兩句各 0。
+
+C154 §三 兩軸：對象是 17 支 `cli.ts` 的程式碼（在測試外）；壞法是「重複給旗標時兩條路徑答案相反」
+（C180 §二），零紅零訊息。
+
+#### 五、不裁
+
+- **`value` 重複給改成拒絕。** 有了 `list` 之後 `--root a --root b` 幾乎必然是打錯，但改它要動
+  C180 那條測試與三支以上 CLI 的行為，而零證據。要裁時先找一個被咬到的案例。
+- **`list` 的去重／空字串。** `--spec a --spec a` 會跑兩次；沒有呼叫端在乎。
+
+#### 六、實測（基準 `3cd03db`，worktree `list-flag-kind`）
+
+改前（迴圈還在，`parseFlags` 沒有 `list`）—— 每趟還原後 `git status` 乾淨：
+
+| 變異                              | 紅                                                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| M1 `parseRepeated` 只留最後一個   | **0**（promise-check 1/36 是環境紅：新 worktree 沒有 `.vitest-results.json`，不變異也紅，`cli.test.ts:155`） |
+| M2 `parseRepeated` 只留第一個     | **0**（同上）                                                                                                |
+| M3 `readResults` 迴圈只留最後一個 | **0**（spec-report 0/39）                                                                                    |
+| M4 `readResults` 迴圈只留第一個   | **0**                                                                                                        |
+
+四顆零紅就是 §一「零餵養者／零測試」那一行的執行版。
+
+改後：
+
+| 變異                                               | 紅                                                                    |
+| -------------------------------------------------- | --------------------------------------------------------------------- |
+| A1 `list` 改只留最後一個                           | flags.test 1 ＋ spec-report 1 ＋ promise-check 1（三個 package 都紅） |
+| A2 `list` 改只留第一個                             | 同 A1                                                                 |
+| A3 `readResults` 只用 `extra.slice(-1)`            | spec-report 差分那條紅                                                |
+| A4 `promise-check` 只用 `spec.slice(-1)`           | promise-check 差分那條紅                                              |
+| A5 絆線 pattern 加回 `"--"` 字面要求               | 對照組 `argv.indexOf(name)` 那句紅                                    |
+| A6 `spec-report` 放回一句 `argv.indexOf("--root")` | 絆線紅                                                                |
+
+- `vpr ready`：一趟全綠（`READY_RC=0`，讀的是 log 尾不是通知摘要）。
+- 逐檔 `it` 數（量法同 C172 §七）：**84 檔 1574 → 84 檔 1582**（C180 基準）—— 只有四個檔變：
+  `gate-kit/tests/flags.test.ts` 12 → 15、`gate-kit/tests/adoption.test.ts` 20 → 22、
+  `spec-report/tests/cli.test.ts` 16 → 18、`promise-check/tests/cli.test.ts` 4 → 5。其餘 80 檔逐位相同。
+  ⚠️ rtk 的 `diff` 對這兩份計數檔回報 `Files are identical`（總數差 8），第九種的再一次。
+
+#### 七、關係
+
+- **C180 §五 第一項**：收掉。§四 是它預告的「強版」，而強版的形狀跟預告的不一樣（不是零例外，
+  是換一個量的東西）。
+- **C126 §七**：兩句話的處置在 §二；`flags.ts` 從 C126 起第一次改。
+- **C133**：兩線模型結束，是 §二 第一句的依據。
+- **C118**：C180 §五 引它不順手做，本則是那個「另裁」。
+- **C168 §一**：§三 第 5 點併條的判準；§六 M1–M4 改前零紅是 §一 的執行版。
+- **C154 §三**：§四 兩軸。**C137 §一**：零閘門增減。**C43**：反向測試一條沒動。
+- **C136 §八**：C126 §七 與 `promise-check` 舊檔頭那句不回頭改。
+- **C173 §五**：`C181` 字面先於本則那一趟 `vpr ready` 會紅 —— 所以本則跟程式碼同一個 commit。

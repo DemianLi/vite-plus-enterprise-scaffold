@@ -37,23 +37,6 @@ import { checkPromises } from "./check.ts";
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 
 /**
- * ⚠️ **`--spec` 可以重複，而 `parseFlags` 只留最後一個。**
- *
- * 所以這一支對 `parseFlags` 的用法是刻意分開的兩件事：它負責
- * **「不認得的旗標一律失敗」**（那是它存在的理由，C125），取值仍然走下面
- * 這個函式。⚠️ 不要為了統一而把 `--spec` 改成只吃一個 —— 那是拿一道防線
- * 去換一次能力縮減，而縮減掉的正是反向測試餵多份改壞規格的那條路。
- */
-function parseRepeated(argv: readonly string[], name: string): string[] {
-  const values: string[] = [];
-  for (let i = argv.indexOf(name); i >= 0; i = argv.indexOf(name, i + 1)) {
-    const value = argv[i + 1];
-    if (value !== undefined) values.push(value);
-  }
-  return values;
-}
-
-/**
  * 版控裡有哪些承諾規格。
  *
  * ⚠️ 事實來源是 `git ls-files`，不是 `readdirSync` —— C73 裁決過，C98 記著
@@ -71,21 +54,23 @@ function trackedSpecs(root: string): string[] {
   return result.stdout.split("\0").filter((path) => path.length > 0);
 }
 
-const argv = process.argv.slice(2);
-
-const flags = parseFlags(argv, {
+/**
+ * ⚠️ `--spec` 要能重複：一份改壞的規格必須跟一份好的一起餵，否則 `BREAKAGES`
+ * 的孤兒檢查會在接線那一關先紅（`tests/negative.test.ts` 檔頭）。它是 `list`
+ * kind（C181）—— 之前這裡自己掃 argv 收集，而那條路徑零測試。
+ */
+const PARSED = parseFlags(process.argv.slice(2), {
   root: { kind: "value", fallback: ROOT, noun: "目錄" },
-  spec: { kind: "value", noun: "規格檔路徑" },
+  spec: { kind: "list", noun: "規格檔路徑" },
 } as const);
 
-if (!flags.ok) {
-  process.stderr.write(`${flags.message}\n`);
+if (!PARSED.ok) {
+  process.stderr.write(`${PARSED.message}\n`);
   process.exit(1);
 }
 
-const root = resolve(flags.flags.root);
-const explicit = parseRepeated(argv, "--spec");
-const specs = explicit.length > 0 ? explicit : trackedSpecs(root);
+const root = resolve(PARSED.flags.root);
+const specs = PARSED.flags.spec.length > 0 ? PARSED.flags.spec : trackedSpecs(root);
 
 const { findings, runs } = checkPromises(root, specs);
 

@@ -86,6 +86,47 @@ describe("空的樹 —— 空不是錯誤", () => {
   });
 });
 
+/**
+ * `--results` 可以重複，而它從 C115 出生到 C181 之前**零餵養者**（沒有測試、
+ * 沒有 workflow 用過它）。C180 §二 D1 的形：重複給同一個旗標時，「最後一個贏」
+ * 與「全收」在單值上長得一樣，只有餵兩份、每份各有一半的場景才分得開。
+ */
+describe("--results 可以重複 —— 兩份各一半，合起來才是全綠", () => {
+  let root: string;
+
+  beforeAll(() => {
+    const suite = ALL_GREEN.testResults[0]!;
+    const isOutline = (entry: (typeof suite.assertionResults)[number]): boolean =>
+      entry.ancestorTitles[1]?.startsWith("場景大綱") ?? false;
+    const half = (keep: (entry: (typeof suite.assertionResults)[number]) => boolean): string =>
+      JSON.stringify({
+        testResults: [{ ...suite, assertionResults: suite.assertionResults.filter(keep) }],
+      });
+    const box = sandbox({
+      prefix: "spec-report-results-",
+      files: {
+        "features/order/specs/order.feature": FEATURE,
+        "a.json": half((entry) => !isOutline(entry)),
+        "b.json": half(isOutline),
+      },
+      git: true,
+      lifetime: "all",
+    });
+    root = box.root;
+  });
+
+  it("★ 兩份都被讀到（只留最後一個的話，第一份的場景會變成未執行）", () => {
+    const { out } = run(["--root", root, "--results", "a.json", "--results", "b.json"]);
+    expect(out).toContain("完成率 3/4");
+  });
+
+  it("對照：只給第二份，第一份的場景真的會變成未執行", () => {
+    const { status, out } = run(["--root", root, "--results", "b.json"]);
+    expect(status).toBe(1);
+    expect(out).not.toContain("完成率 3/4");
+  });
+});
+
 describe("有規格的樹", () => {
   let root: string;
   let resultsPath: string;
