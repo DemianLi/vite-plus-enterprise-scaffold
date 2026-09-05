@@ -635,15 +635,10 @@ describe("基準檔格式", () => {
 
 // ── 參數本身 ──────────────────────────────────────────────────────────
 
+// 「--baseline／--platform 後面沒接東西 → 紅」曾經各有一條。缺值的判定住在
+// `@org/gate-kit` 的 `parseFlags`，由 `gate-kit/tests/flags.test.ts` 守；把那個判定
+// 拿掉時這裡的兩條與那邊同紅，而這支 CLI 讀的是 `FLAGS.flags`，沒有第二條路（C178）。
 describe("參數本身", () => {
-  it("--baseline 後面沒接東西 → 紅", () => {
-    expect(run(["--baseline"]).red).toBe(true);
-  });
-
-  it("--platform 後面沒接東西 → 紅", () => {
-    expect(run(["--platform"]).red).toBe(true);
-  });
-
   it("★ 指到不存在的檔案 → 紅（我原本以為它會靜靜通過）", () => {
     // 寫這條時我預期的是「空基準 → 沒有移除 → 綠燈」，並準備在註解裡
     // 警告「路徑打錯會靜默通過」。**實際行為比那安全**：

@@ -56,11 +56,10 @@ describe("結束碼：除了旗標，什麼都不紅", () => {
     expect(result.output).toContain("1 支 commit");
   });
 
-  it("★ 不認得的旗標是唯一的非零 —— 那是呼叫錯了，不是對樹的判定（C126）", () => {
-    const bad = runCli(CLI, ["--nope"]);
-    expect(bad.status).not.toBe(0);
-    expect(bad.output).toContain("--nope");
-  });
+  // 「除了旗標」那一半 —— 不認得的旗標是唯一的非零（C126）—— 不在這裡守：
+  // `gate-kit/tests/adoption.test.ts` 對磁碟上每一支 `tools/*/src/cli.ts` 逐支問，
+  // 這支一直在名冊裡（C171 起經根 vite.config.ts，C178 起經磁碟）。同一個變異兩邊
+  // 同紅，這裡不留第二份。
 });
 
 describe("report：量不到與零不是同一件事", () => {

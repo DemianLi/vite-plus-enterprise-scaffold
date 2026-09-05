@@ -213,10 +213,9 @@ describe(
       expect(result.output).toContain("--update");
     });
 
-    it("--file 後面沒接東西 → 紅", () => {
-      const result = run(["--file"]);
-      expect(result.red).toBe(true);
-    });
+    // 「--file 後面沒接東西 → 紅」曾經有一條。它紅的來源是 `parseFlags`（由
+    // `gate-kit/tests/flags.test.ts` 守）；`cli.ts` 的 `parseFile` 裡還有第二道同樣的
+    // 檢查，但 `parseFlags` 先跑，那一道在正常路徑上到不了（C178 §五）。
   },
   CLI_TIMEOUT_MS,
 );

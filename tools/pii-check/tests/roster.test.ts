@@ -158,39 +158,17 @@ describe("CLI 端對端", () => {
   });
 });
 
-/**
- * 不認得的旗標必須紅 —— 這條是被一次真實事故逼出來的。
+/*
+ * 不認得的旗標必須紅 —— 這條是被一次真實事故逼出來的，**而它不再在這支檔裡守**。
  *
  * C52 拿掉 `--masking` 之後，`tier2-security.yml` 裡那個步驟被留了下來。
  * 當時這支 CLI 只找 `--root`、其餘無視，於是那一步安靜地把 ⑥ 又掃了一次、
  * 回傳 0 —— CI 上是一個叫「個資：畫面上必須隱碼」的綠燈，而 ⑨ 早就沒有
  * 任何東西在守。PR 就是這樣全綠合進來的。
  *
- * 修的是**類別**不是那一次：下一個被拿掉的旗標會用一模一樣的方式溜過去。
+ * 修的是**類別**不是那一次：C126 讓每一支 CLI 都走 `@org/gate-kit` 的 `parseFlags`，
+ * 而「每一支都拒絕、都說得出為什麼」由 `gate-kit/tests/adoption.test.ts` 對磁碟上
+ * 每一支 `tools/<某支>/src/cli.ts` 逐支問（C178）。這裡曾經有四條同題的斷言：
+ * 拿掉未知旗標的判定時它們與 adoption 那一列同紅，而「什麼旗標都紅」那個反向
+ * 由本檔其餘走 `--root` 的測試接住（C178 §六 實測）。事故留在這裡，斷言不留。
  */
-describe("🔴 不認得的旗標", () => {
-  it("`--masking`（已移除）→ 紅，不得靜靜當成一次普通掃描", () => {
-    const result = runCli(CLI, ["--masking"]);
-    expect(result.status, `仍然綠燈 —— 被拿掉的旗標又會在 CI 裡假裝成一道檢查`).toBe(1);
-    expect(result.stderr).toContain("--masking");
-  });
-
-  it("任何沒見過的旗標都一樣 → 紅", () => {
-    expect(runCli(CLI, ["--nope"]).status).toBe(1);
-  });
-
-  it("★ 訊息要說得出「為什麼這會紅」，不只是「不認得」", () => {
-    // 讀到這條訊息的人多半正在 CI 上看紅燈。少了原因，
-    // 最短的修法是把旗標加回 KNOWN_FLAGS —— 那正好是錯的方向。
-    expect(runCli(CLI, ["--masking"]).stderr).toContain("綠燈");
-  });
-
-  it("★ 對照組：認得的旗標照常運作", () => {
-    // 少了這條，一個「什麼旗標都紅」的實作也會讓上面三條全過。
-    const box = sandbox({ prefix: "pii-check-flag-" });
-    for (let at = 0; at <= MINIMUM_SCANNED; at += 1) {
-      box.write(`p${at}/tests/a.test.ts`, "// 乾淨\n");
-    }
-    expect(runCli(CLI, ["--root", box.root]).stderr).not.toContain("不認得的旗標");
-  });
-});
