@@ -21,6 +21,9 @@ export interface CspDirectives {
  *
  * 每一條放寬都必須在這裡留下註解說明為什麼，否則下一個人只會看到一串字串，
  * 無從判斷哪些是必要的、哪些是當年趕上線加的。
+ *
+ * 加減指令要同步改 `tests/policy.test.ts` 的具名清單 —— 減的方向沒有別的東西在守，
+ * 那份清單就是釘子。
  */
 export const BASE_DIRECTIVES: CspDirectives = {
   "default-src": ["'self'"],

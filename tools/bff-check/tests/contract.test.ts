@@ -264,8 +264,9 @@ describe("BFF 契約（D8 / R6）", () => {
 
     expect(csp, "文件回應沒有 CSP 標頭").not.toBeNull();
 
-    // 逐條比對，而不是整串字串相等：report-only 階段與 nonce 會讓字串不同，
-    // 但**指令的涵蓋範圍**不得縮水。政策的唯一定義在 @org/security-headers。
+    // 逐條比對，而不是整串字串相等：report-only 階段與 nonce 會讓字串不同。
+    // 這裡守的是「伺服器送出的與政策定義的一致」—— 期望與政策同源是刻意的，
+    // 政策本身不得縮水由 @org/security-headers 自己的測試守。
     for (const directive of Object.keys(BASE_DIRECTIVES)) {
       expect(csp ?? "", `CSP 缺少 ${directive}`).toContain(directive);
     }
