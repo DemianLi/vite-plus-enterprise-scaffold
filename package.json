@@ -14,7 +14,7 @@
     "bff-check": "vp run -F @org/bff-check test",
     "gate": "node tools/gate-roster/src/cli.ts && node tools/conformance/src/cli.ts && node tools/api-surface/src/cli.ts && node tools/vue-typecheck/src/cli.ts && node tools/theme-verify/src/cli.ts && node tools/exit-drill/src/cli.ts && node tools/supply-chain/src/cli.ts && node tools/compliance/src/cli.ts && node tools/pii-check/src/cli.ts && node tools/doc-facts/src/cli.ts && node tools/scope-check/src/cli.ts && node tools/threshold-check/src/cli.ts && node tools/promise-check/src/cli.ts && eslint . --max-warnings=0 && eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0",
     "exit-drill": "node tools/exit-drill/src/cli.ts --full",
-    "ready": "vp check && vp run -r test -- --reporter=default --reporter=json --outputFile=.vitest-results.json && vp run -r build && vpr gate && node tools/spec-report/src/cli.ts --check",
+    "ready": "vp check && vp run -r test -- --reporter=default --reporter=json --outputFile=.vitest-results.json && vp run -r build && vpr gate && node tools/spec-report/src/cli.ts --check && vp run release-distance",
     "api-surface": "node tools/api-surface/src/cli.ts",
     "supply-chain": "node tools/supply-chain/src/cli.ts",
     "capture-health": "node tools/supply-chain/src/cli.ts --capture-health",

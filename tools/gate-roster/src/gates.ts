@@ -458,6 +458,25 @@ export interface Ungated {
  */
 export const UNGATED: readonly Ungated[] = [
   {
+    pkg: "release-distance",
+    why:
+      "**它不會紅，所以它不是閘門**（C169 §一／#267）。它報一行「距上一個 tag 幾支、幾天」，" +
+      "接在 `scripts.ready` 的最後一步（形式是根 `vite.config.ts` 的 task，理由是快取 —— C171 §九），" +
+      "不在 `scripts.gate` 上、也不在兩個 workflow 裡。" +
+      "⚠️ **不設門檻是規格，不是「還沒設」**：C169 §四 實測可校準的區間有 **0** 個 —— " +
+      "31 個 v1 tag 不在 `main` 的第一父鏈上（活在已刪的 `release/v1`）、跨併線那個窗口 " +
+      "`rev-list --count` 回 63 而人工計數是 25、唯一同線的區間由 `v1.16.0` 自己判掉。" +
+      "訂 N 要先推翻 C169 §四，不是在實作裡加一個常數。" +
+      "⚠️ 放 `UNGATED` 而不是 `GATES`：`GATES` 的成員會被 `deriveGateScript` 與 " +
+      "`deriveTierCommands` 推進 `scripts.gate` 與兩個 workflow，而 CI 是淺 checkout" +
+      "（`actions/checkout` 預設 fetch-depth: 1，不帶 tag）—— 那會讓它在每一趟 CI 上" +
+      "永遠印「量不到」。⚠️ 而一支不會失敗的東西進了閘門鏈，「閘門」這個詞在這棵樹上" +
+      "就少掉一半意思。" +
+      "⚠️ 它仍然受 C126 管：不認得的旗標非零。那條由 `gate-kit/tests/adoption.test.ts` 守，" +
+      "而那份名冊在 C171 之前只讀兩個 script —— 這一支的路徑只出現在 `vite.config.ts` 裡，" +
+      "所以那份名冊多讀了第三處事實來源，否則它會在這一支加進來的那天安靜地少一支。",
+  },
+  {
     pkg: "codemods",
     why:
       "codemod 執行器與歷史遷移（D12）。它是**改東西的**，不是**檢查東西的** —— " +
