@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { repoRoot, runCli, sandbox } from "@org/gate-kit/testing";
@@ -213,6 +213,35 @@ describe(
       expect(result.output).toContain("--update");
     });
 
+    it("★ 手改 ACCESSIBILITY.md 會被抓到 —— 這條分支在 C186 之前零反向測試", () => {
+      const dir = makeSandbox();
+      const compliancePath = join(dir, "COMPLIANCE.md");
+      const a11yPath = join(dir, "ACCESSIBILITY.md");
+
+      let result = run(["--update", "--file", compliancePath]);
+      expect(result.red, result.output).toBe(false);
+      expect(existsSync(a11yPath)).toBe(true);
+
+      const before = readFileSync(a11yPath, "utf8");
+      expect(before).toContain("vuejs-accessibility/");
+
+      // 刪一行規則，形狀等於「上游升版拿掉一條、有人直接 --update 之後再手改回去」。
+      const lines = before.split("\n");
+      const a11yLineIndex = lines.findIndex((line) => line.includes("vuejs-accessibility/"));
+      expect(
+        a11yLineIndex,
+        "沙盒裡的 ACCESSIBILITY.md 應該包含 vuejs-accessibility/ 規則",
+      ).toBeGreaterThanOrEqual(0);
+
+      lines.splice(a11yLineIndex, 1);
+      const broken = lines.join("\n");
+      writeFileSync(a11yPath, broken);
+
+      result = run(["--file", compliancePath]);
+      expect(result.red, `應該紅，因為手改了 ACCESSIBILITY.md\n${result.output}`).toBe(true);
+      expect(result.output).toContain("ACCESSIBILITY.md 與 a11y.ts 不一致");
+    });
+
     // 「--file 後面沒接東西 → 紅」曾經有一條。它紅的來源是 `parseFlags`（由
     // `gate-kit/tests/flags.test.ts` 守）；`cli.ts` 的 `parseFile` 裡還有第二道同樣的
     // 檢查，但 `parseFlags` 先跑，那一道在正常路徑上到不了（C178 §五）。
@@ -229,6 +258,24 @@ describe(
 
       const result = run([]);
       expect(result.red, result.output).toBe(false);
+    });
+
+    it("跑 --update --file <沙盒> 時，repo 的 ACCESSIBILITY.md 不被動到", () => {
+      const repoA11yPath = join(ROOT, "tools/compliance/ACCESSIBILITY.md");
+      const before = readFileSync(repoA11yPath, "utf8");
+      const beforeMtime = statSync(repoA11yPath).mtimeMs;
+
+      const dir = makeSandbox();
+      const sandboxCompliancePath = join(dir, "COMPLIANCE.md");
+      const result = run(["--update", "--file", sandboxCompliancePath]);
+      expect(result.red, result.output).toBe(false);
+
+      const after = readFileSync(repoA11yPath, "utf8");
+      const afterMtime = statSync(repoA11yPath).mtimeMs;
+
+      // 內容相同 git status 看不見，mtime 才看得見「被重寫過」—— C186 §一 第 6 點就是這樣量到的。
+      expect(after).toBe(before);
+      expect(afterMtime).toBe(beforeMtime);
     });
 
     function generateAndBreak(): string {

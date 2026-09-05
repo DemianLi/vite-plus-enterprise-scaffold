@@ -47,6 +47,10 @@ import vueParser from "vue-eslint-parser";
  * 而「這道閘門在守什麼」會因此變成一個要去讀上游 changelog 才答得出來的問題。
  * 從 `rules` 推導的好處是**新規則會自動進來**，而下面那條反向測試會因為
  * fixture 沒有涵蓋它而變紅 —— 也就是升級時一定有人看過新規則。
+ *
+ * 規則清單縮水時（plugin 上游刪掉一條規則、或本地加 `.filter` 隱藏一條），
+ * 減的方向由 `tools/compliance/ACCESSIBILITY.md` 這份 baseline 文件守。
+ * `cli.ts --update` 是唯一產出出口，每次更新都會在版控的交付文件上留下 diff。
  */
 const ALL_RULES = Object.fromEntries(
   Object.keys(a11y.rules).map((name) => [`vuejs-accessibility/${name}`, "error"]),
