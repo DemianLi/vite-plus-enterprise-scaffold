@@ -130,20 +130,15 @@ describe("沙盒契約", () => {
     expect(output).toContain("action 未以 SHA 釘住");
   });
 
-  it("★ 副本裡有 platform/ui 的元件與代幣，而 theme-verify 指得到", () => {
-    const dir = sandbox();
-    const { status, output } = runThemeVerify(dir);
-
-    expect(status, output).toBe(0);
-    expect(componentCount(output), output).toBeGreaterThan(0);
-  });
-
   /**
-   * ⚠️ **這一條才是這支檔案存在的理由。** 上面那條在一支完全無視 `--root`、
-   * 只會量真樹的閘門底下也會全綠 —— 它證明的只有「跑得起來」。
+   * ⚠️ **這一條才是這支檔案存在的理由。** 這裡曾經有一條只驗「副本上跑得起來、
+   * 元件數 > 0」的測試 —— 在一支完全無視 `--root`、只會量真樹的閘門底下它也全綠，
+   * 而「> 0」是這條差分的推論（after ≥ 0 ⇒ before ≥ 1）。C177 刪了它，只把
+   * `status` 那一句搬到這裡：CLI 在副本上紅著卻照樣印出數字時，差分本身看不見。
    */
   it("★ 從副本刪掉一個元件，數字跟著少一個（敲掉那一步）", () => {
     const before = runThemeVerify(sandbox());
+    expect(before.status, before.output).toBe(0);
     const dir = sandbox();
     const components = join(dir, "platform/ui/src/components");
     const victim = readdirSync(components).find((file) => file.endsWith(".vue"));

@@ -5583,3 +5583,122 @@ M1 那一格是本則的證據：舊斷言對「一條都沒跑」全綠。今�
 - `it` 數 4 → 4（`grep -c '^\s*it('`）。
 - ⚠️ 新 worktree 第一趟 cli.test 紅的是 C165 §七 那條前提（`features/invoice` 沒有
   `.vitest-results.json`），檔案自己說那不是缺陷；跑一次完整指令產出結果檔即綠。
+
+### C177 — C168 §六 第 7 項的三件零散：兩件是閘門已守的 `toContain`，一件是差分的推論，而「四條」裡最深的那條不是 C168 說要留的那條（2026-09-05）
+
+⚠️ **量測基準 `14f7e18`。** 本則的行號與計數凍結在那一支。
+
+#### 一、問題，與一次行號漂移
+
+C168 §六 第 7 項列了三件「零散」：`promise-check/tests/sandbox.test.ts:128-134`
+（檔案自己在 :136-139 承認）、`sbom-negative.test.ts:194-198`（`gate-roster` variant
+已守）、「lockfile 拆兩份文件那四條只留 `--split-lockfile` adapter 那一條」。§二 表裡
+沒有它們的來源列，三件都要從檔案本身重盤。
+
+⚠️ **C168 的行號凍在 `390f585`，PR 2 把 `sbom-negative.test.ts` 縮了十行。** 所以：
+
+| C168 寫的               | 在 `390f585` 上是                                                   | 在 `14f7e18` 上 |
+| ----------------------- | ------------------------------------------------------------------- | --------------- |
+| `sandbox.test:128-134`  | 「副本裡有 platform/ui 的元件與代幣，而 theme-verify 指得到」       | :133-139        |
+| `sbom-negative:194-198` | 「🔴 `--verify-sbom` 那一步必須留著」`toContain("--verify-sbom …")` | :184-187        |
+
+**C170 §三 第 4 項寫的「`sbom-negative:197` 歸 §六 第 7 項」是漂移後的讀法**：C170 拿
+post-PR2 的 :197（污染絆線 `describe("repo 本身沒有被動到")`）去對 C168 pre-PR2 的
+:194-198。污染絆線 C170 自己判 D 類「不動」，本則不碰它；這一句寫在這裡，C170 不改
+（C136 §八）。
+
+#### 二、重盤：三件各是什麼
+
+**(b) `sbom-negative:184` 與 :179 的第一句 —— `gate-roster` 守得比它嚴。**
+`gate-roster/src/check.ts` ⑤ 把 `GATES` 的 command ∪ variants 與 tier2 workflow 的
+`run:` 行做**精確集合比對**，`--verify-sbom sbom.cdx.json` 與 `--split-lockfile .scan`
+都登記在 variants（`gates.ts:274,280`）。測試那兩句 `toContain` 更弱：把 `run:` 那行
+**註解掉**，字串還在檔案裡，`toContain` 照樣綠、`gate-roster` 紅（§六 b2）。判準同
+C170 §三 第 1 項的 A 類：只斷言指令在、`vpr gate` 就是守衛，deletion test 判消失。
+:179 的第二句 `scan-ref: .scan` 是 action 的 `with:` 參數，名冊的 `RUN_LINE` 看不到，
+只有它在守 —— **留**。
+
+**(a) `sandbox.test:133` —— 一半是推論、一半是唯一。** `componentCount > 0` 是 :145
+差分的推論（after ≥ 0 ⇒ before ≥ 1；抓不到那行時兩邊都 −1，差分照樣紅）。
+`status === 0` 全檔只有它在斷言：讓 theme-verify 在 `--root` 下印完數字後 `exit(1)`，
+只有它紅、差分綠（§六 a）。而 `--root <副本>` 的 theme-verify 沒有任何 spec 指名、
+`promise-check` 不 spawn 它 —— 那個 status 沒有消費者，但「CLI 在副本上紅著而測試
+不看」是 C43 那一族的洞。
+
+**(c) 「真的 `pnpm-lock.yaml` 是兩份文件」被四條釘著，而 C168 說要留的不是最深的那條。**
+
+| 條                  | 斷言                                                    | 只讓它紅的變異                             |
+| ------------------- | ------------------------------------------------------- | ------------------------------------------ |
+| `lockfile.test:165` | `splitDocuments` 恰好兩份、10 倍、`merged − whole < 10` | 無，但它是**唯一守守恆的**                 |
+| `lockfile.test:220` | `parseLockfile().documents === 2`                       | 無：都與 fixture :81 或 :165 同紅          |
+| `lockfile.test:230` | `packages.length > 400`                                 | 無：與 :165／:81 同紅                      |
+| `sbom-negative:128` | 走 CLI 讀回 doc1／doc2：`< 50`、`> 400`、`inBoth` 段    | **有**：CLI 把同一份寫進兩個目錄（§六 c3） |
+
+`inBoth` 那段（`first + second − LOCK_PACKAGES`）與 :165 的 `merged − whole` 是同一個
+算式讀兩次。sbom:128 唯一的那個變異是 **adapter 層**的（`cli.ts:1288` 寫檔），
+不是形狀的。C168 說「只留 `--split-lockfile` adapter 那一條」—— 讀成留 sbom:128
+會丟掉守恆；讀成「adapter 那條只驗 adapter 的事」才對得上變異表。與 C172／C174
+同形：C168 的處置方向要重盤。
+
+#### 三、裁決
+
+1. **刪 `sbom-negative:184-187`**；**`:179` 刪第一句**、留 `scan-ref: .scan`，標題改成
+   講 Trivy 掃哪裡。上方加一段：兩行 `run:` 在不在由 `gate-roster` variants 守、為什麼
+   `toContain` 比它弱、`scan-ref` 為什麼留。
+2. **刪 `sandbox.test:133`**；`expect(before.status, before.output).toBe(0)` 一句搬進
+   :145。`status` 那半 deletion test 判搬家，所以搬不刪；不多一條 `it`。:141 那段註解
+   重寫 —— 它講的「上面那條」已不存在。
+3. **`lockfile.test:220`、`:230` 刪**；describe 上方加一段說形狀由 `splitDocuments`
+   那組最後一條守、守恆抓得到什麼。
+4. **`sbom-negative:128` 換形狀**：只驗 `first !== second` 與 `parse(first) < parse(second)`
+   —— doc1、doc2 是不同的兩份、小的在前。刪 `< 50`／`> 400`／`inBoth` 段。標題跟著改。
+5. **`lockfile.test:165` 不動**。它是四條裡唯一守守恆的。
+6. **污染絆線 `sbom-negative:194`（改後 :190）不動** —— C170 D 類；本則 §一 只更正它被
+   誤歸到這裡。
+7. **不動門檻**：三個 package 在 `vite.config.ts` 都沒有逐檔覆寫；describe 回呼數只減
+   不增。
+
+淨變化 **−4 條 `it`**（sandbox −1、lockfile −2、sbom −1），兩條換形狀，零閘門增減。
+
+#### 四、順手撞到、本則不裁
+
+- `vp run -r test -- --reporter=json` 那一趟 doc-facts 紅（`C177` 字面先於本則）之後，
+  `tools/supply-chain/.vitest-results.json` 的 mtime 是新的、**內容是舊的**（lockfile
+  16 條而 log 說 14）。像是任務鏈某一支紅了之後 `vp run` 把快取的產物寫回去。逐檔
+  `it` 數本則改成對兩個 package 直接 `vitest run` 取得；成因未查、不開票。
+- rtk 的 `diff` 對兩個確實不同的檔又回報 `[ok] Files are identical`（第二次），`cmp`
+  抓到。已記在記憶。
+
+#### 五、與既有裁決的關係（C136 §八）
+
+| 既有                 | 本則做了什麼                                                                                       |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| **C168 §六 第 7 項** | **裁了三件**；(c) 的處置方向更正（留守恆那條，adapter 那條只驗 adapter）；§六 至此 1 與 7 之外全裁 |
+| **C168 §一**         | **遵守** —— 同一把判準（同時紅＋deletion test），閘門鏈不動                                        |
+| **C170 §三 第 1 項** | **引它** —— (b) 是它 A 類的第四、五處，行號在 PR 2 之前                                            |
+| **C170 §三 第 4 項** | **更正** —— 「`sbom-negative:197` 歸 §六 第 7 項」是行號漂移；D 類那條本則不動                     |
+| **C172／C174／C175** | **同系列第五則**；(c) 推翻 C168 半個處置，(a)(b) 證實                                              |
+| **C137 §一**         | **遵守** —— 零閘門增減；`status` 那句搬不刪的理由是 deletion test 不是可維護性                     |
+| **C43**              | **引它** —— (a) 留 `status` 的理由                                                                 |
+| **C154 §四**         | **不適用**（零新增機械檢查）                                                                       |
+| **C173 §五**         | **引它** —— 三支測試檔先寫 `C177` 字面、本則接上前 `decision-ids` 紅，接上即綠（第四個實例）       |
+
+#### 六、實測（基準 `14f7e18`，worktree `scattered-c168-seven`）
+
+改前（證明「同時紅」與「更弱」）：
+
+- **b1** 刪掉 workflow :403 那行 `run:` → sbom:184 紅、`gate-roster` 紅「workflow 少一道」。
+- **b2** 把同一行**註解掉** → sbom **15 條全綠**、`gate-roster` 紅。這就是「更弱」的證據。
+- **a** theme-verify 在 `--root` 下印完後 `exit(1)` → 只有 sandbox:133 紅（1 failed | 8）。
+- **c1** `splitDocuments` 只回第一份 → 五條同紅（lockfile :134／:143／:165、sbom :115／:128）。
+- **c2** `parseLockfile` 略過第二份的 `packages:` → 十條同紅，含 fixture :81、:165、:230、
+  sbom :84／:128；⚠️ **:220 綠**（`documents` 計數器沒壞）—— 它守的只有「計數器」，而那由 :81 守。
+- **c3** CLI 把最後一份寫進每個目錄 → **只有 sbom:128 紅**。
+
+改後（證明留下的接得住）：
+
+- **c3** → 只有換形狀後的 sbom:128 紅（1 failed | 27）。**c1** → 五條同紅（:165 與 sbom
+  新那條都在）。**c2** → 八條紅，:165 在。**a** → :145 紅（`before.status`）。
+- 逐檔 `it` 數（量法同 C172 §七，但見 §四 第一項）：**1563 → 1559**，83 支只有三支變：
+  sandbox 9 → 8、lockfile 16 → 14、sbom-negative 15 → 14。
+- ⚠️ after 那趟 `decision-ids` 紅過一次（`C177` 字面先於本則），C173 §五 三態表第一格。

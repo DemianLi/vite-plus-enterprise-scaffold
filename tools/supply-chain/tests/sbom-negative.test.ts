@@ -125,27 +125,23 @@ describe("--split-lockfile：C34 的修法本身要能被驗", () => {
     }
   });
 
-  it("🔴 第二份文件才是專案的相依 —— 只拆出第一份等於沒解決 C34", () => {
+  /**
+   * 這一條只驗 **CLI 這層自己會出錯的事**：兩個目錄拿到的是不同的兩份、而且照順序
+   * （doc1 是 pnpm 自己那一小份，doc2 是專案的相依樹）。拆出來的形狀 —— 恰好兩份、
+   * 第二份大一個量級、總數守恆 —— 由 `lockfile.test.ts` 對 `splitDocuments` 直接驗，
+   * 這裡曾經抄過一份（C177 刪）。
+   */
+  it("🔴 doc1 與 doc2 是不同的兩份，小的在前 —— 兩個目錄寫進同一份等於沒解決 C34", () => {
     const dir = makeSandbox();
     run(["--split-lockfile", dir]);
 
-    const first = parseLockfile(readFileSync(join(dir, "doc1/pnpm-lock.yaml"), "utf8")).packages
-      .length;
-    const second = parseLockfile(readFileSync(join(dir, "doc2/pnpm-lock.yaml"), "utf8")).packages
-      .length;
+    const first = readFileSync(join(dir, "doc1/pnpm-lock.yaml"), "utf8");
+    const second = readFileSync(join(dir, "doc2/pnpm-lock.yaml"), "utf8");
 
-    // doc1 是 pnpm 自己（R5，十幾個），doc2 是專案的相依樹（五百多個）。
-    // 這一條釘住的正是 C34 的症狀：只看到第一份時是 19 個。
-    expect(first).toBeLessThan(50);
-    expect(second).toBeGreaterThan(400);
-
-    // ⚠️ 拆開後的和**比去重後的總數多**，而不是相等 ——
-    // 有套件同時住在兩份文件裡（目前是 detect-libc，pnpm 自己與專案都用它）。
-    // 這正是 `--manifest` 把那一類標成 `both`、註明「分批鏡像時兩批都要進」的原因。
-    // 第一版寫成相等，於是這條測試紅了 —— 紅得對，它抓到的是我對 lockfile 的誤解。
-    const inBothDocuments = first + second - LOCK_PACKAGES;
-    expect(inBothDocuments).toBeGreaterThanOrEqual(0);
-    expect(inBothDocuments).toBeLessThan(first);
+    expect(first).not.toBe(second);
+    expect(parseLockfile(first).packages.length).toBeLessThan(
+      parseLockfile(second).packages.length,
+    );
   });
 
   it("--split-lockfile 後面沒接目錄 → 紅", () => {
@@ -176,14 +172,14 @@ describe("Tier 2 workflow 的設定沒有漂掉", () => {
     expect(workflow).toContain('exit-code: "1"');
   });
 
-  it("掃的是拆開後的目錄，不是原始 lockfile", () => {
-    expect(workflow).toContain("--split-lockfile .scan");
+  /**
+   * `--split-lockfile .scan` 與 `--verify-sbom sbom.cdx.json` 兩行 `run:` **在不在
+   * workflow 裡**，由 `gate-roster` 的 variants 守（`check.ts` ⑤，精確比對 `run:` 行）；
+   * 這裡曾經各抄一句 `toContain`，而那兩句連被註解掉的那一行都認（C177 刪）。
+   * `scan-ref` 是 action 的 `with:` 參數，名冊看不到，只有這一條在守。
+   */
+  it("Trivy 掃的是拆開後的目錄，不是原始 lockfile", () => {
     expect(workflow).toContain("scan-ref: .scan");
-  });
-
-  it("🔴 --verify-sbom 那一步必須留著 —— 它才是真正擋下這一類問題的東西", () => {
-    // TRIVY_INCLUDE_DEV_DEPS 只把 0 變成 20，問題還在但更難發現。
-    expect(workflow).toContain("--verify-sbom sbom.cdx.json");
   });
 
   it("每日排程還在 —— 沒有它，三個月沒人動的專案就三個月沒掃過", () => {

@@ -214,21 +214,19 @@ describe("splitId", () => {
   });
 });
 
+/**
+ * 真檔「是兩份、第二份大一個量級、只讀第一份會少掉幾百個」這些形狀，由上面
+ * `splitDocuments` 那組最後一條守（它比對的是總數守恆，抓得到「第二份少讀一半」）；
+ * 這裡曾經各釘一條 `documents === 2` 與 `> 400`，每個讓它們紅的變異也讓那一條或
+ * fixture 那組紅（C177 刪）。
+ */
 describe("對真實的 pnpm-lock.yaml", () => {
   const lock = parseLockfile(readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8"));
-
-  it("是兩份文件", () => {
-    expect(lock.documents).toBe(2);
-  });
 
   it("每一筆都有 sha512 integrity", () => {
     // 沒有 integrity 的條目（git 直連、tarball URL）就是「無法用 digest 綁定來源」的那一類。
     // 它們出現時 R4 的整套論證對它們不成立，必須看得見。
     const missing = lock.packages.filter((pkg) => pkg.integrity === "");
     expect(missing.map((pkg) => pkg.id)).toEqual([]);
-  });
-
-  it("套件數遠大於單一文件的量（防止只讀到第一份文件的迴歸）", () => {
-    expect(lock.packages.length).toBeGreaterThan(400);
   });
 });
