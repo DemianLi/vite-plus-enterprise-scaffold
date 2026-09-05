@@ -144,3 +144,34 @@ describe("其餘安全標頭", () => {
     expect(hsts).toContain("includeSubDomains");
   });
 });
+
+describe("指令清單不得縮水", () => {
+  it("★ 13 條指令一條不少 —— 刪任何一條，這裡的 diff 直接印出少了哪一條", () => {
+    // 政策是手寫的、減的方向零守、加一條要來這裡登記正是 review 會看到的動作。
+    // 與 UNSAFE_INLINE_ALLOWED_IN 的檔內註解同一個理由。
+    expect(Object.keys(BASE_DIRECTIVES).sort()).toEqual([
+      "base-uri",
+      "connect-src",
+      "default-src",
+      "font-src",
+      "form-action",
+      "frame-ancestors",
+      "img-src",
+      "manifest-src",
+      "object-src",
+      "script-src",
+      "style-src",
+      "style-src-attr",
+      "worker-src",
+    ]);
+  });
+
+  it("★ 不會退回 default-src 的三條各自在場", () => {
+    // 這三條沒有 fallback，刪掉不是「回到 default-src」而是「不設限」；
+    // form-action 是改前唯一沒具名的那條。
+    const directives = Object.keys(BASE_DIRECTIVES);
+    for (const noFallback of ["base-uri", "form-action", "frame-ancestors"]) {
+      expect(directives, `${noFallback} 不在 BASE_DIRECTIVES`).toContain(noFallback);
+    }
+  });
+});

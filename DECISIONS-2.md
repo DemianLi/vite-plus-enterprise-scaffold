@@ -6876,3 +6876,69 @@ catalog 那個 —— 五顆變異改前全零（§六）。這五件事每一�
 - **C154 §三**：對象在外（`platform/eslint-config` 的設定）、壞法安靜（文件照印 23 條）—— 兩軸都填，所以絆線要有。
 - **#282**：那張票改 `a11y.js:152` 那條 glob 的根錨定。本則刻意印字面不印命中數，讓它改完 `--update` 一次就跟上；不掛 blocking。
 - **C173 §五**：本則編號的字面與本則同一支 commit。
+
+### C188 — CSP 指令被刪兩邊都綠：期望與伺服器同源，而「不得縮水」那句寫在守不到它的測試上 —— 刪 `form-action`（沒有 fallback 的那一條）零紅（2026-09-06，#298）
+
+票 #298（#295 地圖，C168 附錄 C 第 3 條），基準 `bcc753f`（C187 合併後的 `main`），worktree `csp-expectation`。
+
+#### 一、事實
+
+1. **消費鏈三處，期望與伺服器同源。** `platform/security-headers/src/policy.ts:25-57` 的 `BASE_DIRECTIVES`（13 條）→ `platform/bff-mock/src/server.ts:302` 用 `buildSecurityHeaders` 送標頭 → `tools/bff-check/tests/contract.test.ts:269` 拿 `Object.keys(BASE_DIRECTIVES)` 當期望逐條 `toContain`。刪一條指令，mock 少送一條、測試少查一條，綠。`BFF_ORIGIN` 指向真 gateway 那條跑法也一樣：期望值仍是同一份 `BASE_DIRECTIVES`。
+2. **`contract.test.ts:268` 那句守不到自己。** 註解寫「指令的涵蓋範圍不得縮水」，而那條測試只在「伺服器送的少於期望」時紅；期望跟著政策縮，它永遠不紅。
+3. **`policy.test.ts` 具名的只有七條的值**：`frame-ancestors`／`base-uri`／`object-src`（第 65 行 `it.each`）、`connect-src`（第 73 行）、`style-src`／`style-src-attr`／`script-src`（`'unsafe-inline'` 那組）。其餘六條 —— `default-src`、`img-src`、`font-src`、`form-action`、`worker-src`、`manifest-src` —— 刪掉零紅。
+4. **刪 `form-action` 兩邊全綠，而它不是 `manifest-src` 那種等價刪法。** CSP 的 fetch 指令（`img-src`、`font-src`、`worker-src`、`manifest-src`…）缺席時退回 `default-src 'self'`，刪掉等價；`base-uri`、`form-action`、`frame-ancestors` **沒有 fallback**，刪掉的語意是「不設限」—— `form-action` 刪掉就是表單可以 POST 到任何來源。三條裡它是改前唯一沒具名的那條。實測刪它：`platform/security-headers` 39/39 綠、`tools/bff-check` 24/24 綠（含 `contract.test.ts` 15 條）。
+5. **樹上沒有任何交付文件列 CSP 指令。** `tools/compliance/COMPLIANCE.md`、`src/map.ts`、`HANDOFF.md`、README 都只引 `@org/security-headers` 為單一來源，沒有一份印出清單。
+6. **`bff-check` 在 `vpr ready` 鏈上有跑。** `vp run -r test` 的 log 有 `~/tools/bff-check$ vp test` 與 `tests/contract.test.ts (15 tests)`。第一段查證回報「不跑」，是錯的；本則不沿用。
+
+#### 二、裁決
+
+1. **期望值放進 `platform/security-headers/tests/policy.test.ts`，一條具名全清單：`expect(Object.keys(BASE_DIRECTIVES).sort()).toEqual([13 個名字])`。** 刪一條、加一條都恰好這一處紅，而 `toEqual` 的 diff 直接印出是哪一條。這是刻意的凍結：政策是這棵樹手寫的、減的方向零守，「加一條要來這裡登記」正是 review 會看到的動作 —— 與 `UNSAFE_INLINE_ALLOWED_IN` 存在的理由相同。
+2. **三條沒有 fallback 的指令各自在場，另一條測試。** 全清單那條紅的時候 diff 是一整份清單；這一條紅的時候訊息只有一個名字，而且把「為什麼這三條刪不得」的理由釘在測試上，不是留在讀 CSP 規格的人腦裡。
+3. **`bff-check` 的 `csp-on-document` 程式碼不動，只改註解。** 它的期望與政策同源是**對的**：那條 seam 的兩個 adapter（mock 與真 gateway）都該對同一份政策，它守的是傳輸那一半。拿掉「涵蓋範圍不得縮水」那句，改成「政策本身不得縮水由 `@org/security-headers` 自己的測試守」。
+4. **`policy.ts` 的 `BASE_DIRECTIVES` 檔頭補一句**：加減指令要同步改測試的具名清單，減的方向沒有別的東西在守。
+
+#### 三、不裁
+
+- **把凍結清單放進 `bff-check`**：刪一條指令會紅在錯的 seam，而 `BFF_ORIGIN` 真 gateway 那條跑法會把「你們的 gateway 沒送 X」與「政策少了 X」混成同一個紅。
+- **doc-facts 型（某份文件列指令、測試對文件）**：事實第 5 點 —— 沒有讀者的文件只是凍結清單換個地方放。
+- **改成 baseline 檔比對（C186 那種）**：C186 那條有 `ACCESSIBILITY.md` 這個交付文件在讀 baseline；這裡沒有。
+- **刪掉 `bff-check` 的同源比對**：它守的是傳輸那一半，C43。
+- **與 C186 §二 否決的凍結清單是不是同一件事**：不是。a11y 那份清單從外掛推導（升級自動進新規則，凍結會逼每次升級改測試），而且減的方向已有 baseline 比對在守；`BASE_DIRECTIVES` 手寫、減的方向零守，具名清單就是那個釘子。
+
+#### 四、實測
+
+改前（基準 `bcc753f`，真的改 `policy.ts`、量完還原）：
+
+| 變異                            | policy.test | bff-check |
+| ------------------------------- | ----------- | --------- |
+| 真設定（對照）                  | 39/39       | 24/24     |
+| 刪 `form-action`                | 39/39       | 24/24     |
+| 刪 `manifest-src`               | 39/39       | 24/24     |
+| 刪 `frame-ancestors`            | 38/39       | 24/24     |
+| `script-src` 加 `'unsafe-eval'` | 35/39       | 24/24     |
+| 加 `media-src`                  | 39/39       | 24/24     |
+
+改後：
+
+| 變異                            | policy.test | 紅的是哪幾條                                    | bff-check |
+| ------------------------------- | ----------- | ----------------------------------------------- | --------- |
+| 真設定（對照）                  | 41/41       | —                                               | 24/24     |
+| 刪 `form-action`                | 39/41       | 全清單 ＋ 三條無 fallback                       | 24/24     |
+| 刪 `manifest-src`               | 40/41       | 全清單                                          | 24/24     |
+| 刪 `frame-ancestors`            | 38/41       | 原本那條 `it.each` ＋ 全清單 ＋ 三條無 fallback | 24/24     |
+| `script-src` 加 `'unsafe-eval'` | 37/41       | 原本那四條，位置不變                            | 24/24     |
+| 加 `media-src`                  | 40/41       | 全清單                                          | 24/24     |
+
+`bff-check` 六列全綠是預期的：它的期望與政策同源，這一則沒有改它的判準。
+
+`vpr ready`：第二段實作者第一趟 oxfmt 紅、`vp check --fix` 後第二趟 `READY_RC=0`；監督者改完註解與本則之後再跑一趟，見 PR。
+
+#### 五、與既有裁決的關係
+
+- **C168 §一**：判準「刪一條要在恰好一處紅、那一處說得出少了哪條」—— 改後是 `policy.test` 的全清單一處，diff 印名字；附錄 C 第 3 條由此關閉。
+- **C43**：加的是反向測試，不減任何閘門。
+- **C174 §一**：`bff-check` 仍是 BFF seam 的唯一 test surface；政策內容不是那條 seam，它的 test surface 是 `security-headers` 自己的測試。
+- **C186 §二**：凍結清單的差別見 §三 最後一點。
+- **C154 §三**：對象在外（mock 與真 gateway 都讀同一份政策）、壞法安靜（刪一條兩邊一起少）—— 兩軸都填，絆線要有。
+- **D11**：單一事實來源不變，三個消費端仍讀同一份 `BASE_DIRECTIVES`；加的是它的釘子，不是第二份來源。
+- **C173 §五**：本則編號的字面與本則同一支 commit。
