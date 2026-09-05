@@ -11,11 +11,11 @@
     "vitest": "4.1.10"
   },
   "exitSurface": ["vite.config.ts", "apps/console/vite.config.ts"],
-  "durationSeconds": 27,
-  "tests": 541,
+  "durationSeconds": 30,
+  "tests": 540,
   "testFiles": 19,
   "expectedFailures": 5,
-  "treeHash": "89adabc10b84bb1c7ce4cd72d9c038c9d2a707bbc410d0c4e7e233247aed4391",
+  "treeHash": "b9e077dcfb7eace76a3bc856973aa200fe93c8bc27a6e1f19c5dff3d024e02ff",
   "treeFiles": 149,
   "note": "以上游 Vite/Vitest 重建 apps/console 與全部 platform、features 的測試，設定檔由本演練重新產生，應用程式原始碼一字未改。expectedFailures 是登記在 EXPECTED_FAILURES 裡、因為演練替換掉它們要問的那個東西而必然失敗的條數（C148）—— 它們照跑，只是失敗被逐條對過帳。"
 }
