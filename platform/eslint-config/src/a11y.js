@@ -1,6 +1,8 @@
 import a11y from "eslint-plugin-vuejs-accessibility";
 import vueParser from "vue-eslint-parser";
 
+import nestedWorktrees from "./worktrees.js";
+
 /**
  * 無障礙靜態閘門（HANDOFF 第 22 項）。
  *
@@ -57,6 +59,9 @@ const ALL_RULES = Object.fromEntries(
 );
 
 export default [
+  // 這道閘門問的是「**這個 checkout** 裡的每一個 .vue」，不是「這個目錄樹底下」——
+  // 理由、實測與它為什麼不算改門檻，全部寫在 `worktrees.js`（C190）。
+  nestedWorktrees,
   {
     /**
      * 建置產物與相依。
