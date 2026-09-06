@@ -240,6 +240,16 @@ buildSha: string
 
 ---
 
+## `@org/eslint-config/worktrees`
+
+### `default` — names-only
+
+```
+
+```
+
+---
+
 ## `@org/http-client`
 
 ### `ForbiddenError` — class

@@ -8,9 +8,16 @@
 // 任何快取指紋，affected 過濾會判定「無影響」，於是命中快取回綠燈，
 // 而專案此刻正是脆弱的。
 import base from "@org/eslint-config";
+import nestedWorktrees from "@org/eslint-config/worktrees";
 
 export default [
   ...base,
+  // 這道閘門問的是「**這個 checkout**」，不是「這個目錄樹底下」——
+  // ⚠️ 它今天在鄰居工作樹上是**綠的**，而那是「走進去了、只是那些檔沒有違規」，
+  // 不是「排除了」（C190 §四（1）：285 → 570 個檔，RC 仍 0）。理由與實測寫在
+  // `platform/eslint-config/src/worktrees.js`；刻意不從 `@org/eslint-config`
+  // 繼承，那會把這一列塞進 Tier 2 的身分裡（同上，§二 2）。
+  nestedWorktrees,
   {
     /**
      * `.semgrep/rules.ts` 是 SAST 規則的 fixture，裡面的程式碼是**故意寫壞的**
