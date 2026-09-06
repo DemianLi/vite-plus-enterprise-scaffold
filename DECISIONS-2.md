@@ -7265,3 +7265,61 @@ C182 §三 把走磁碟的工具分成「從子目錄走（進不去）」與「
 - **D2**：§五 第一、三個候選都要跑 `vp lint`。D2 的條文管的是**CI 安全閘門**不經 `vp`，而 threshold-check 已經是本機閘門跑 `vp lint` 的先例（`probe.ts` 檔頭寫了為什麼非它不可：C150 §六 —— 繞過 `vp` 拿到的是預設集）。
 - **AGENTS.md 規則二**：§三 2 是它最後那一句的直接適用。
 - ⚠️ **量測工具**：§四（4）兩條。`git worktree list` 那一條是**假的乾淨讀數**，而它決定了本則所有量測的前提。
+
+### C192 — `checkSliceTests` 零反向：`hasTestFile` 改成恆 true 時 conformance 自己 100 條全綠、對真樹 RC=0 分不出來 —— 五條反向各對一種壞法，`.spec.ts` 那條釘的是今天的射程（2026-09-06，#308）
+
+C172 §五 登記給「下一次審查」的一件。⚠️ **量測基準 `fbdc901`，worktree `slice-tests-negative`**；行號與計數凍結在那一支，改後的數字另標。
+
+#### 一、事實
+
+- `tools/conformance/src/scan.ts:29` `hasTestFile(dir)` 三條分支：`dir/tests` 不存在 → false；遞迴走子目錄；檔名 `endsWith(".test.ts")` → true，否則走完回 false。`rules/slice-shape.ts:65` `checkSliceTests` 只叫它一次，finding 是「測試／找不到任何 tests/**/*.test.ts」；`rules/slice.ts:53` 接在每片切片的規則鏈上。
+- `tools/conformance/tests/` 四支裡零處提到 `hasTestFile`／`checkSliceTests`（`git grep`）。`report.test.ts:31,55` 的「測試」是字串標籤，不是那條規則。
+- 真樹三片（`git ls-files features/*/tests`）：invoice 一支 `.test.ts`＋`specs/invoice.spec.ts`＋`support/*.ts`；order 兩支 `.test.ts`；shipment 一支。全部在 `tests/` 第一層，沒有 `.test.tsx`／`.test.js`。
+
+**改前變異表**（`tools/conformance` 的 vitest JSON `numTotalTests/numFailedTests`；CLI 對真樹的 RC 由監督者重量，第一段子代理把 M2 寫成 0）：
+
+| 變異                                          | vitest                                     | CLI 對真樹 |
+| --------------------------------------------- | ------------------------------------------ | ---------- |
+| 對照（不動）                                  | 100／0                                     | 0          |
+| M1 `hasTestFile` → `return true`              | 100／0                                     | 0          |
+| M2 `hasTestFile` → `return false`             | 100／14（副本對照組與其他規則的 ★ 一起紅） | **1**      |
+| M3 `endsWith(".test.ts")` → `endsWith(".ts")` | 100／0                                     | 0          |
+| M4 拿掉遞迴（只看第一層）                     | 100／0                                     | 0          |
+| M5 `checkSliceTests` → `[]`                   | 100／0                                     | 0          |
+
+M2 是量測台的對照：它證明「規則會紅」這件事看得見；M1／M3／M4／M5 四顆零紅證明沒有東西在守規則**還活著**。真樹每片都有測試，所以 CLI 對真樹分不出 M1 與對照 —— 這條規則在版控的樹上永遠綠，壞掉也綠。
+
+#### 二、裁決
+
+1. **補反向，不動規則**（C43；C137 §一）。`tools/conformance/tests/negative.test.ts` 加一個 describe，沿用同檔的 `makeSandbox()`／`runConformance()`（C189 的形狀），副本裡只動 `features/order`，`shipment` 留著當同一趟的綠對照。
+2. 五條各對一條分支：`tests/` 整個不在 → 紅、輸出含那句與 `order`；`tests/` 只剩一支非測試的 `helper.ts` → 紅（副檔名分支，M3 那種放寬在這裡綠）；**只有 `tests/specs/order.spec.ts` → 紅**；`.test.ts` 全搬進 `tests/nested/` → 綠（遞迴分支）；副本原樣 → 綠。
+3. **`.spec.ts` 那條釘的是今天的射程，不是裁射程。** C172 §五 明文「認不認 `.spec.ts`」是閘門規則的射程、沒有相依方、不開票。這條測試存在是為了讓射程改變的那一天看得見 —— 到時它要一起改，註解寫了。
+
+#### 三、不裁
+
+- `hasTestFile` 認 `.spec.ts`：C172 §五 那個理由今天仍成立（`slice-gen` 產的切片同時有兩種）。
+- 訊息「找不到任何 tests/**/*.test.ts」與行為一致，不動。
+- `.test.tsx`／`.test.js` 要不要釘：`TESTING.md` 沒有定義層 2 的副檔名射程，樹上零支，不釘 —— 釘了是自己發明一條射程。
+
+#### 四、實測（改後，`5d380ae` 之前的 `762be82`＋監督者改註解）
+
+| 變異 | vitest  | 紅的是哪幾條                       |
+| ---- | ------- | ---------------------------------- |
+| 對照 | 105／0  | —                                  |
+| M1   | 105／3  | 不在、只剩 helper、只有 `.spec.ts` |
+| M2   | 105／16 | 改前那 14 ＋ 遞迴那條 ＋ 副本原樣  |
+| M3   | 105／2  | 只剩 helper、只有 `.spec.ts`       |
+| M4   | 105／1  | 遞迴那條                           |
+| M5   | 105／3  | 同 M1                              |
+
+四顆零紅的變異各至少一條紅，而且紅的正是設計上對應的那條。`vpr ready` 一趟綠（`READY_RC=0`，監督者跑）；子代理報告說的 `ready.log`／`after-M*.json` 在它說的路徑上不存在，本表是監督者重量的。
+
+#### 五、與既有裁決的關係（C136 §八）
+
+| 既有              | 本則                                                                    |
+| ----------------- | ----------------------------------------------------------------------- |
+| **C172 §五**      | 做掉它登記的第二件；第一件（`.spec.ts` 射程）與第三件（`NODE_ENV`）不動 |
+| **C189**          | 同檔同形：沙盒五條＋真樹對照                                            |
+| **C43／C137 §一** | 遵守 —— 只加測試碼，規則零改動                                          |
+| **C154 §四**      | 對象在內（conformance 自己的規則），不填兩軸                            |
+| **C168 §一**      | 判準照用：M1～M5 改前零紅、改後各紅，是「同一顆變異」那一格             |

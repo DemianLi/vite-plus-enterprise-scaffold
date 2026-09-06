@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, unlinkSync, rmSync, renameSync } from "node:fs";
 import { join } from "node:path";
 
 import { repoRoot, runCli, sandbox } from "@org/gate-kit/testing";
@@ -590,5 +590,76 @@ describe("repo 本身沒有被動到", () => {
 
     const realStore = readFileSync(join(ROOT, "features/order/src/store.ts"), "utf8");
     expect(realStore).not.toContain('import { http } from "@org/http-client";');
+  });
+});
+
+describe("C172 §五：checkSliceTests 零反向 —— 沒有測試的切片要紅", () => {
+  /**
+   * 這條規則在此之前零反向：把 `hasTestFile` 改成恆 true，這支檔 100 條全綠，
+   * CLI 對真樹照樣 RC=0 —— 真樹每片都有測試，分不出規則死了沒有。
+   * 底下每一條各對一種壞法；三種壞法各由 `hasTestFile` 不同的分支擋。
+   */
+  it("features/order/tests 整個不在 → 紅；輸出含「找不到任何 tests/**/*.test.ts」與「order」", () => {
+    // `tests/` 不存在那條提早 return 的分支。
+    const root = makeSandbox();
+    rmSync(fileIn(root, "tests"), { recursive: true });
+
+    const result = runConformance(root);
+    expect(result.red).toBe(true);
+    expect(result.output).toContain("找不到任何 tests/**/*.test.ts");
+    expect(result.output).toContain("order");
+  });
+
+  it("features/order/tests 空（刪兩支 .test.ts，另寫一支 helper.ts）→ 紅；輸出含同一句", () => {
+    // 副檔名比對那條分支：留一支不是測試的 `.ts`，`endsWith(".ts")` 那種放寬會在這裡綠。
+    const root = makeSandbox();
+    unlinkSync(join(fileIn(root, "tests"), "masking.test.ts"));
+    unlinkSync(join(fileIn(root, "tests"), "order.test.ts"));
+    writeFileSync(join(fileIn(root, "tests"), "helper.ts"), "export const x = 1;\n");
+
+    const result = runConformance(root);
+    expect(result.red).toBe(true);
+    expect(result.output).toContain("找不到任何 tests/**/*.test.ts");
+  });
+
+  it("features/order/tests 只有 .spec.ts（沒 .test.ts）→ 紅（釘射程）；認不認 .spec.ts 是 C172 §五 不裁", () => {
+    // 釘的是今天的射程：`hasTestFile` 只認 `.test.ts`。認不認 `.spec.ts` 是 C172 §五 明文
+    // 不裁的事；這條存在是為了讓射程改變的那一天看得見，到時要一起改。
+    const root = makeSandbox();
+    mkdirSync(join(fileIn(root, "tests"), "specs"), { recursive: true });
+    writeFileSync(
+      join(fileIn(root, "tests/specs"), "order.spec.ts"),
+      "describe('order', () => { it('works', () => {}); });\n",
+    );
+    unlinkSync(join(fileIn(root, "tests"), "masking.test.ts"));
+    unlinkSync(join(fileIn(root, "tests"), "order.test.ts"));
+
+    const result = runConformance(root);
+    expect(result.red).toBe(true);
+    expect(result.output).toContain("找不到任何 tests/**/*.test.ts");
+  });
+
+  it("★ features/order/tests 的 .test.ts 只在子目錄（第一層空）→ 綠（遞迴分支）", () => {
+    // 遞迴那段：拿掉它，這裡會誤紅。
+    const root = makeSandbox();
+    mkdirSync(join(fileIn(root, "tests"), "nested"), { recursive: true });
+    renameSync(
+      join(fileIn(root, "tests"), "masking.test.ts"),
+      join(fileIn(root, "tests/nested"), "masking.test.ts"),
+    );
+    renameSync(
+      join(fileIn(root, "tests"), "order.test.ts"),
+      join(fileIn(root, "tests/nested"), "order.test.ts"),
+    );
+
+    const result = runConformance(root);
+    expect(result.red).toBe(false);
+  });
+
+  it("★ 副本原樣（order、shipment 各有測試）→ 綠（對照）", () => {
+    const root = makeSandbox();
+
+    const result = runConformance(root);
+    expect(result.red).toBe(false);
   });
 });
