@@ -34,6 +34,9 @@ const require = createRequire(import.meta.url);
  * ⚠️ 2026-09-02 實測是 **16 個**（原本這裡寫「九支」）—— 這裡刻意不再釘死支數，
  * 它會隨 `tools/` 增減而變，而沒有東西在守這個數字。
  * 沒有任何閘門在看檔案模式。`git checkout -- tools/` 還原得掉。
+ * ⚠️ **紅掉的那一趟還會留東西**：乾跑在 bail 時殺掉 worker，`vue-typecheck` 反向測試的
+ * `afterAll` 沒跑，`tools/vue-typecheck/tests/fixtures/.tmp-*` 就留下來（gitignore 掉的），而 C190 那條
+ * 「這個 checkout 裡每一個 `.vue` 都被掃到了」會因此紅。綠的一趟留 0 個。`rm -rf` 那些目錄。
  *
  * ── 怎麼讀那份清單 ──────────────────────────────────────────────────
  *
@@ -155,6 +158,24 @@ export default {
   coverageAnalysis: "perTest",
 
   /**
+   * ⚠️ 不給這一行，runner 讀的是根層 `vite.config.ts`（沒有 `test` 區塊），於是收進整棵樹
+   * 每一支 `.test.ts` —— 其中四支讀的是**磁碟上的真樹**，而 `inPlace` 插樁之後那已經不是
+   * 同一棵樹，乾跑在 3 秒內就紅（第一支紅的是 `api-surface`，不是 C168 §八 點名的那兩支；
+   * bail 之下先紅哪一支不固定）。名單與每一支紅的形狀寫在那個檔的檔頭（#307）。
+   */
+  vitest: { configFile: "vitest.stryker.config.ts" },
+
+  /**
+   * ⚠️ 預設是 `true`，意思是往**每一個**匹配到的檔（含 `tests/fixtures/` 底下的 `.vue`）插
+   * `// @ts-nocheck`，而那正好關掉 `vue-typecheck` 反向測試存在的理由（它斷言 fixture 會吐
+   * `TS2322`）。這裡沒有型別檢查器在跑（`tsconfigFile` 指向不存在的路徑、沒有 `checkers`），
+   * 那行註解一個用途都沒有 —— 關掉它，fixture 原封不動，那六條回綠。
+   * ⚠️ 上一版檔頭寫「`false` 試過：跑超過十分鐘沒跑完」；2026-09-07 實測乾跑 **49 秒**，
+   * 整趟乾跑（1,353 條）1 分 25 秒。那句話的量測條件已經不可考，不要再抄。
+   */
+  disableTypeChecks: false,
+
+  /**
    * ⚠️⚠️ **這一條是安全性的，不是效能的 —— 關掉它，這個工具會往版控裡寫東西。**
    *
    * 靜態 mutant（在模組載入時執行到的那些）沒有辦法歸屬到某一條測試，所以 Stryker
@@ -188,8 +209,9 @@ export default {
    * 付過兩次學費（覆蓋率量測、突變量測），而第二次湊出的是「很低的總分配一個
    * 100% 的覆蓋分」—— 兩個數字都不刺眼。**唯一抓得到它的對照是
    * 「`Found N of M file(s)` 的 N 對得上版控裡有幾支產品碼」**，不是任何一個分數。
-   * 凍結於 2026-09-05（C168 那支 PR）的 N 是 **129**：137 支符合下面前七條的
-   * −3（vue-typecheck）−1（config）−4（security-headers）。
+   * 凍結於 2026-09-07（#307）的 N 是 **139**：144 支符合下面七條的 −1（config）
+   * −4（security-headers）。（2026-09-05／C168 那天是 137 − 3 − 1 − 4 ＝ 129；
+   * 之後樹長了 7 支、`vue-typecheck` 的 3 支回到射程，見下。）
    *
    * ⚠️ 上一版寫的是「78 ＝ 86 − 8」，那是 `d67583e` 那天的數；到 `0645fba` 已經是
    * 136 − 8 ＝ 128 而沒有任何東西在守這一句 —— **這個數只在跑的那天對**，讀到時
@@ -207,21 +229,18 @@ export default {
     "tools/slice-gen/bin/**/*.ts",
     "apps/console/bff-routes.ts",
 
-    // ── 三個排除，而三個的理由不一樣 ──────────────────────────────
+    // ── 兩個排除，同一個理由 ──────────────────────────────────────
     //
     // ⚠️ **排除不等於「這幾支不重要」，也不等於「這幾支沒有問題」。**
-    // 它們有測試（#130 量到的行覆蓋率分別是 58.25%／66.66%／70.58%），
+    // 它們有測試（#130 量到的行覆蓋率是 66.66%／70.58%），
     // 只是這個工具照不到 —— **沒有數字不等於沒有問題。**
-
-    // 它自己的反向測試斷言 `vue-tsc` 會吐 `TS2322`，而 Stryker 為了讓自己的
-    // mutant 不製造型別錯誤，預設往原始碼插 `// @ts-nocheck` ——
-    // **型別檢查被關掉，正好關掉這支閘門存在的理由**，於是它在 dry run 就紅。
-    // 反方向（`disableTypeChecks: false`）試過：跑超過十分鐘沒跑完。
-    // ⚠️ 2026-09-05 實測（C168 §八）：**這個排除今天已經不夠** —— `disableTypeChecks`
-    // 預設 `true` 是全部檔案，`tests/fixtures/app/src/*.vue` 一樣被插 `@ts-nocheck`，
-    // 乾跑照樣紅在它的六條 🔴 上；同一趟還會紅在 `promise-check`（真樹裡被插樁的檔
-    // 複雜度過門檻）。兩件都沒在這裡修；跑之前先讀那一節。
-    "!tools/vue-typecheck/src/**/*.ts",
+    //
+    // ⚠️ 這裡到 2026-09-07 為止還有第三條 `!tools/vue-typecheck/src/**/*.ts`，理由是
+    // 預設的 `disableTypeChecks` 會往它的 fixture 插 `@ts-nocheck` 讓反向測試紅 ——
+    // 那是 `disableTypeChecks` 那一格的問題，不是射程的問題；上面關掉它之後，這三支
+    // 回到射程，乾跑照樣綠（#307）。C168 §八 說的「這個排除今天已經不夠」與「同一趟還會
+    // 紅在 `promise-check`」兩件，現在分別由 `disableTypeChecks: false` 與
+    // `vitest.stryker.config.ts` 接住。
 
     // 這兩支在射程裡，會把 `apps/console/tests/proxy-target.test.ts` 拉進
     // dry run，而那支需要 `process.chdir()`（`loadEnv` 的 envDir 就是工作目錄，
