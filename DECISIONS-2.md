@@ -4360,6 +4360,7 @@ Tier 的視角看不到這件事 —— 它只顯示兩個綠勾。
 > - §六 第 2 項「`--evidence` 不在 `scripts.gate`，那是洞」→ 見 C178 §一 表第二列與 §四（variant 不是洞）
 > - §六 第 6 項「走假閘門」→ 見 C176 §二（機制否決）
 > - §六 第 7 項「四條只留 adapter 那一條」→ 見 C177 §二（最深的那條不是 C168 說要留的那條）
+> - §五「不排除」／§八「兩件都沒在這裡修」→ 見 C194（讀真樹的是四支不是兩支、`disableTypeChecks` 關掉、`vue-typecheck` 回到射程，N 129 → 139）
 
 #### 一、問法與判準
 
@@ -7389,3 +7390,73 @@ A1 就是票面說的安靜：切片改了名，三個 package 與閘門鏈全�
 | **C173 §二**      | 「人抄的數字」的親戚，但這次抄對了也沒用 —— 形狀錯                                 |
 | **C137 §一**      | 遵守：零閘門增減；(a) 加測試，(b) 改斷言形狀                                       |
 | **C168 §一**      | 判準照用：A1 改前零紅、改後紅且說得出名字                                          |
+
+### C194 — `stryker.config.mjs` 照原設定乾跑 3 秒就紅，而第一支紅的不是 C168 §八 點名的那兩支：讀真樹的測試有四支、`disableTypeChecks` 那一格是獨立的一件；四支改由版控內的 `vitest.stryker.config.ts` 排除、那一格關掉，`vue-typecheck` 回到射程（2026-09-07，#307）
+
+C168 §五 裁「不排除」、§八 記下兩件沒修的紅。⚠️ **量測基準 `fbdc901`；最終驗證重接到 `291e2dc`（C193 之後）。clone 不是 worktree**（`inPlace` 會就地改寫，鄰居 worktree 共用 `.git`）；每一趟的 log 在票上列出。
+
+#### 一、事實
+
+**(a) 原設定的乾跑。** `pnpm exec stryker run --dryRunOnly`：`Found 136 of 451`，**3 秒**紅在 `tools/api-surface/tests/negative.test.ts`「對照組：沒動過的東西是綠的」—— `platform/` 的公開型別被插樁改寬（`Server<…>` → `Server<…> | undefined`、`"ForbiddenError"` → `"" | "ForbiddenError"`）。C168 §八 點名的是 `vue-typecheck` 與 `promise-check`；這一支是第三件，而 bail 之下先紅哪一支**不固定**（同一份設定另一趟先紅的是 `promise-check`）。
+
+**(b) 讀真樹的測試有幾支 —— 盤的兩個方向都錯。** 「import `node:child_process` 或 `runCli`」盤出 22 支；實證（從零排除開始，紅一支加一支，直到綠）是 **4 支**，而 4 支裡有 1 支不在那 22 支裡：
+
+| 排除                                         | 紅在哪                              | 為什麼                                                                                       |
+| -------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------- |
+| `tools/api-surface/tests/negative.test.ts`   | 沒動過的東西是綠的                  | 插樁讓推導型別變寬                                                                           |
+| `tools/promise-check/tests/negative.test.ts` | 真規格本身是綠的                    | 規格跑 `threshold-check`，插樁檔複雜度過門檻；**spawn 在產品碼裡，測試檔零 `child_process`** |
+| `tools/promise-check/tests/cli.test.ts`      | 版控裡的承諾全部成立時回傳 0        | 同上，CLI 那一面                                                                             |
+| `tools/gate-kit/tests/adoption.test.ts`      | `process.argv` 每支 cli.ts 只讀一次 | C180 的量法數原始碼字面；插樁把那個運算式複製進 mutant 開關                                  |
+
+逐支拿掉重跑：四趟各紅回自己那一條（`dry-drop-1..4.log`）。22 支裡其餘 19 支對插樁**無感** —— 子行程讀到插樁檔，而沒有 mutant 被啟動，行為就是原版。
+
+**(c) `disableTypeChecks`。** 四支排除後仍紅在 `vue-typecheck`「`<script setup>` 裡的型別錯誤：expected '' to contain 'TS2322'」—— 預設 `true` 往 fixture 的 `.vue` 插 `@ts-nocheck`。設 `false`：綠。⚠️ 檔頭原本寫「`false` 試過：跑超過十分鐘沒跑完」；實測 **49 秒**到紅、整趟綠的乾跑 **1 分 25 秒**。那句的量測條件不可考。Stryker 10 的 schema 只接 `boolean | string`，縮 glob 的路（C168 §八 提的）子代理試了兩種都照樣紅在 (a) —— 它接不住型別變寬。
+
+**(d) `!tools/vue-typecheck/src/**/*.ts` 那條排除的理由不成立了。** 它擋的是 `@ts-nocheck`；(c) 關掉之後把它拿回射程，乾跑照樣綠：`Found 139`。`git ls-files` 照七條 glob 重數 144 − 1（config）− 4（security-headers）＝ 139，對得上；C168 §五 那天是 137 − 3 − 1 − 4 ＝ 129。
+
+**(e) 副作用。** 紅掉的乾跑會在 `tools/vue-typecheck/tests/fixtures/` 留下 `.tmp-*` 沙盒（bail 殺掉 worker，`afterAll` 沒跑；這輪累積 45 個），而 C190 那條「這個 checkout 裡每一個 `.vue` 都被掃到了」會因此紅（125 vs 35）。綠的乾跑留 0 個。
+
+**(f) 版控設定與 scratchpad 設定問的是不是同一個問題。** 同一個檔 `tools/gate-kit/src/testing.ts` 各跑一趟真變異：
+
+| 設定                                                               | 跑的測試 | 殺  | 逾時 | 存活 | 分數  |
+| ------------------------------------------------------------------ | -------- | --- | ---- | ---- | ----- |
+| scratchpad（`tools/*/tests` 減 `promise-check/**`，C168 §八 那份） | 508      | 71  | 8    | 2    | 97.53 |
+| 版控（全樹減四支）                                                 | 424      | 70  | 9    | 2    | 97.53 |
+
+一顆在殺與逾時之間翻（時間相依），存活與分數相同。
+
+#### 二、裁決
+
+1. **`vitest.stryker.config.ts` 進版控**，`stryker.config.mjs` 以 `vitest.configFile` 指它；名單是 (b) 的四支，**每一條註明紅的形狀**。名單是實證的，檔頭寫明「盤不出來、只能跑出來」。
+2. **`disableTypeChecks: false`。** 這裡沒有型別檢查器（`tsconfigFile` 指向不存在的路徑、沒有 `checkers`），那行註解沒有用途。
+3. **`vue-typecheck` 回到射程**，兩條排除剩 `config`／`security-headers`（理由是 `proxy-target` 要 `process.chdir()`，沒動）。
+4. **絆線 `tools/gate-kit/tests/stryker-config.test.ts`**：名單每一條存在且是 `tests/**/*.test.ts`；`vitest.configFile` 指到存在的檔；`disableTypeChecks === false`。C154 §三 兩軸：對象在外（Stryker 不在閘門鏈）、壞法安靜（vitest 對不存在的 `exclude` 路徑不報錯；改回預設只在乾跑紅）。乾跑本身不進 `vpr ready`：1 分 25 秒且**就地改寫產品碼**。
+5. **C168 §八／C177／C178／C183／C185 用 scratchpad 設定量的數字不重量。** 依據是 (f)：同一個檔兩份設定同分；⚠️ 這是**一個檔**的實測，推到那五則是推導 —— 它們量的都在 `tools/gate-kit/src`，而兩份設定對那個目錄的差別只在 `promise-check` 的非 CLI 測試有沒有進來。
+6. C168 標題下的標註區塊加一條指到本則（§五「不排除」、§八「兩件都沒修」）；原文不改（C136 §八）。
+
+#### 三、不裁
+
+- **「一支新測試讀真樹而沒列進名單」沒有東西在守** —— 只有乾跑紅。判準本身不可盤（(b)），絆線守的是反方向。
+- (e) 的 `.tmp-*` 殘留：是沙盒 harness 在 bail 下的行為，不是本則的對象；`stryker.config.mjs` 檔頭「跑完看 `git diff --summary`」旁邊寫一句。
+- `.claude/worktrees/**` 不在 vitest 的 `exclude` 裡：C191 剛裁「不立共用邊界」，本則沿用預設不加。
+- C193 §三 要求的 console spawn 絆線進名單：**不進** —— 它 spawn 的是 `bff-mock` 而 `platform/bff-mock/src` 在射程裡，實測綠（子行程讀插樁檔而無 mutant 啟動）。那則的要求是在本則量出來之前寫的。
+
+#### 四、實測
+
+| 探針                                                  | 結果                                        |
+| ----------------------------------------------------- | ------------------------------------------- |
+| 名單一條改名 `adoption.test.ts` → `adoptionX.test.ts` | 只紅「每一支都在樹上」                      |
+| `disableTypeChecks: true`                             | 只紅「`disableTypeChecks` 關著」            |
+| `configFile` 指到 `vitest.nope.config.ts`             | 只紅「指到那份名單所在的檔」                |
+| 名單一條換成 `src/root.ts`                            | 只紅「每一條都是 vitest 會收的 `.test.ts`」 |
+| 對照（原樣）                                          | 5／0                                        |
+
+最終設定 `--dryRunOnly`（`291e2dc` 上）：`Found 139`，`Ran 1364 tests in 1 minute and 22 seconds`，RC 0，`.tmp-*` 0 個 —— C193 那條 spawn `bff-mock` 的絆線在裡面而且綠。`vpr ready` READY_RC=0（clone）。SCOPE.md 加一列登記 `vitest.stryker.config.ts`，oxfmt 重排整張根層表（37 列，只有一列是新的 —— C146 那種形狀）。
+
+#### 五、與既有裁決的關係
+
+- **C168 §五**：「不排除」的判斷不變（射程反而變大）；§八 兩件由本則接住。
+- **C154 §三**：絆線兩軸照填。
+- **C180**：`adoption.test.ts` 的量法（數 `process.argv` 字面）是它在插樁下紅的原因，量法本身沒錯。
+- **C190**：(e) 的紅是它的射程測試在做事，不是它的缺陷。
+- **C193 §三**：那一條要求被本則的實測推翻（見 §三）。
