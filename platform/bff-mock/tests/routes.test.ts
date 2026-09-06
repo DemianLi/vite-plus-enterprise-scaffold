@@ -197,8 +197,8 @@ describe("權限碼的注入", () => {
   it("★ 是追加，不是取代", async () => {
     // 取代的話，採用團隊加一片切片就得把示範切片的權限碼重列一次 ——
     // 而漏列的症狀是示範切片安靜地壞掉，沒有東西會說話。
-    // 底下兩個字面刻意留著：示範切片改權限碼名時 MOCK_PERMISSIONS 必須跟著改，
-    // 這裡紅是對的紅，與上面 /api/orders 那條釘 total 不同類（C174 §四）。
+    // 示範切片改權限碼名時，紅的是 apps/console/tests/bff-routes.test.ts
+    // 那條讀切片的絆線；這裡的字面守的是 mock 自己的預設（C174 §四）。
     await withMock({ extraPermissions: ["customer:read"] }, async (mock) => {
       const response = await fetch(`${mock.origin}/api/session`, { method: "POST" });
       const payload = (await response.json()) as { permissions: string[] };

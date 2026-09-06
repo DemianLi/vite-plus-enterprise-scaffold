@@ -81,7 +81,7 @@ export const routes = [
 /**
  * 追加到 mock session 的權限碼。
  *
- * `platform/bff-mock` 的預設只有兩片示範切片的**唯讀**權限，
- * 而 `features/order` 還宣告了取消。少了這一行，上面那條路由永遠 403。
+ * `platform/bff-mock` 的預設只有示範切片的**唯讀**權限，
+ * 而 `features/order` 還宣告了取消（非唯讀）。少了這一行，上面那條路由永遠 403。
  */
 export const extraPermissions = [CANCEL_PERMISSION];

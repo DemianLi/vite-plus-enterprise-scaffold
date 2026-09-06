@@ -48,9 +48,6 @@ const PACKAGE_DIR = resolve(HERE, "..");
 const ROOT = resolve(PACKAGE_DIR, "../..");
 const VITEST = resolve(ROOT, "node_modules/.bin/vitest");
 
-/** 契約測試共 15 條。全紅代表 proxy 把整台伺服器弄壞了，不是這條 break 生效。 */
-const CONTRACT_ITEM_COUNT = 15;
-
 interface Break {
   /** 對回應裡的每一條 Set-Cookie 動手。 */
   readonly setCookie?: (cookie: string) => string;
@@ -284,7 +281,8 @@ describe.skipIf(isChildRun)("契約測試的反向測試（D8 / R6）", () => {
     },
     {
       what: "不送安全標頭",
-      expected: ["security-headers"],
+      // CSP 也是安全標頭之一，拿掉全部時它那條契約一起紅，是對的紅。
+      expected: ["security-headers", "csp-on-document"],
       brk: { stripSecurityHeaders: true },
     },
   ];
@@ -295,19 +293,15 @@ describe.skipIf(isChildRun)("契約測試的反向測試（D8 / R6）", () => {
 
       expect(result.passed, "契約測試仍然全綠 —— 這條契約沒有牙齒").toBe(false);
 
-      for (const id of expected) {
-        expect(
-          result.failed,
-          `預期 [${id}] 變紅，實際紅的是：${result.failed.join(", ")}`,
-        ).toContain(id);
-      }
-
-      // 特異性：全部一起紅代表 proxy 把伺服器弄壞了，不是這條 break 生效。
-      // 少了這條，一個「回傳 500」的 proxy 可以讓每一條反向測試都通過。
+      // 特異性：紅的要**恰好**是這顆 break 該弄紅的那幾條。原本是「紅的條數
+      // 小於契約條數」，而那個上界手抄成 15、契約只有 13 條，斷言從寫下那天
+      // 就恆真；改成從契約取 13 也接不住 —— 全部回 500 的 proxy 實測只紅 12 條
+      // （same-origin 對 proxy 永遠綠），照樣通過。等號才擋得住「proxy 把整台
+      // 伺服器弄壞」與「一顆 break 順手弄壞了別條」兩種形狀。
       expect(
-        result.failed.length,
-        `${result.failed.length} 條同時變紅 —— 這不是精準命中`,
-      ).toBeLessThan(CONTRACT_ITEM_COUNT);
+        [...result.failed].sort(),
+        `預期紅的是 [${expected.join("、")}]，實際紅的是：${result.failed.join(", ")}`,
+      ).toEqual([...expected].sort());
     }, 60_000);
   }
 });

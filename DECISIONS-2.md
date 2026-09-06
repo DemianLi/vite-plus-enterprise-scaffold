@@ -7323,3 +7323,69 @@ M2 是量測台的對照：它證明「規則會紅」這件事看得見；M1／
 | **C43／C137 §一** | 遵守 —— 只加測試碼，規則零改動                                          |
 | **C154 §四**      | 對象在內（conformance 自己的規則），不填兩軸                            |
 | **C168 §一**      | 判準照用：M1～M5 改前零紅、改後各紅，是「同一顆變異」那一格             |
+
+### C193 — 示範切片的權限碼只靠字面釘著，第三片加進來那天 `invoice:read` 就缺了而零紅；契約特異性斷言的上界 15 從寫下那天就大於條數，恆真 —— 絆線改讀跑起來的 mock，斷言改成紅的集合恰等於預期（2026-09-06，#309）
+
+C174 §五 記下不裁的兩件。⚠️ **量測基準 `fbdc901`，worktree `mock-permissions-tripwire`**；行號與計數凍結在那一支，改後另標。
+
+#### 一、事實
+
+**(a) 權限碼。** `platform/bff-mock/src/server.ts:41` `MOCK_PERMISSIONS = ["order:read", "shipment:read"]`；`apps/console/bff-routes.ts:87` `extraPermissions = ["order:cancel"]`。切片宣告（`features/*/src/index.ts:16`）：order 兩個、shipment 一個、**invoice `["invoice:read"]`** —— invoice 是 `0645fba`（#260）加的第三片，兩邊都沒有它。mock 也沒有 `/api/invoice`（`server.ts:437,448` 只有 orders／shipment）。跑起來的 console 裡那片到不了，是 C39 的形狀；`bff-routes.ts:84` 那句「只有兩片示範切片」寫的是 N=2 那天的事實（記憶「N=1 的時候整批與逐份長得一樣」，這次是 2 變 3）。
+
+守它的只有 `platform/bff-mock/tests/routes.test.ts:206-208` 三個字面 `toContain`，註解說「示範切片改權限碼名時 `MOCK_PERMISSIONS` 必須跟著改」—— 靠人記得。
+
+| 改前變異                                        | bff-mock | console | bff-check | `vpr gate` |
+| ----------------------------------------------- | -------- | ------- | --------- | ---------- |
+| 對照                                            | 11／0    | 6／0    | 24／0     | 0          |
+| A1 `features/order` `order:read` → `order:view` | 11／0    | 6／0    | 24／0     | 0          |
+| A2 `MOCK_PERMISSIONS` 拿掉 `shipment:read`      | 11／1    | 6／0    | 24／0     | 0          |
+| A3 `extraPermissions = []`                      | 11／0    | 6／1    | 24／0     | 0          |
+
+A1 就是票面說的安靜：切片改了名，三個 package 與閘門鏈全綠，本機那條路由從此 403。（第一段子代理量的；A2／A3 是對照。）
+
+**(b) 契約特異性。** `tools/bff-check/tests/negative.test.ts:52` `CONTRACT_ITEM_COUNT = 15`，`:310` `expect(result.failed.length).toBeLessThan(15)`，意圖是「全紅代表 proxy 把整台伺服器弄壞了，不是這條 break 生效」。而 `failed` 是從輸出抓 `[id]` 的 Set，`contract.test.ts` 的 `contract()` 恰 **13** 次（`rtk proxy grep -c`），`CONTRACT_ITEMS` 13 條 —— `13 < 15` **恆真**。`git log -S` 找到它是 `33d93f1`（2026-08-16，#8）寫下的，那一天 `contract()` 12 次、條目 13 條：**15 從來沒對過**。
+
+而把上界改成從契約取（13）也接不住：監督者實測一顆「全部回 500 ＋ 拿掉安全標頭 ＋ 清掉 cookie」的 break，紅的是 **12** 條 —— `same-origin` 對 proxy 永遠綠 —— `12 < 13` 照樣通過。所以問題不是數字抄錯，是「小於全部」這個形狀對這個接縫量不到東西。
+
+#### 二、裁決
+
+**(a)** 絆線住 `apps/console/tests/bff-routes.test.ts`，**來源是跑起來的 mock**：spawn 根 `package.json` 那條 `bff` script 同一條路（`node platform/bff-mock/src/cli.ts`，`BFF_MOCK_ROUTES` 取自 script、`BFF_MOCK_PORT=0` 讓 OS 配埠），打 `POST /api/session`，`registerFeatures(features).permissions` 每一個都要在回的 `permissions` 裡，缺的時候訊息說出那個碼。為什麼不 import `startBffMock`：這個 app 刻意不相依 `@org/bff-mock`（`bff-routes.ts` 檔頭：正式環境的 app 不該知道 mock 存在）；為什麼不抄一份 `MOCK_PERMISSIONS`：抄字面的話兩邊一起改錯仍綠 —— 第二段子代理第一版就是抄了三個字面，監督者改掉。
+
+`invoice:read` 放 `MOCK_PERMISSIONS`：mock 的角色是「示範切片的唯讀權限」，invoice 是示範切片；`extraPermissions` 是 app 自己補的非唯讀權限（`order:cancel`）。`bff-routes.ts:84` 那句改掉數字。`routes.test.ts:206-208` 三個字面留（C174 §四：那是對的紅，守的是 mock 自己的預設），註解改指向新絆線。
+
+**(b)** 刪 `CONTRACT_ITEM_COUNT`，`:310` 改成 `expect(sorted(failed)).toEqual(sorted(expected))` —— 紅的要**恰好**是這顆 break 該弄紅的那幾條。實測九顆 break 有八顆本來就恰好；「不送安全標頭」多紅 `csp-on-document`，CSP 本來就是安全標頭之一，把它加進那顆的 `expected`。等號同時擋住「proxy 弄壞整台」（12 ≠ 1）與「一顆 break 順手弄壞別條」兩種形狀，兩者都是原斷言接不住的。
+
+兩件一則：同一個來源（C174 §五），同一支 PR，而且都是「靠字面／靠手抄」那一類。
+
+#### 三、不裁
+
+- **β**（`platform/bff-mock` 讀 `apps/console` 的 `extraPermissions`）：方向反了，platform 不能依賴 apps；第二個 app 出現時無解。
+- **mock 沒有 `/api/invoice` 路由**：不是權限的事，是示範資料的事；**#311** 另問（放 mock 還是 console 注入、誰守「切片打的路徑 mock 都接得住」）。本則只把權限那一半補上，invoice 那片在本機仍然是 404 而不是 403 —— 症狀變了，還沒好。
+- (a) 這條絆線是子行程型：Stryker 看不見它（`stryker.config.mjs` 檔頭），#307 那張票的排除名單要收它。
+
+#### 四、實測（改後 `d1d0421`＋格式修正）
+
+| 變異                                      | console | 紅的訊息                                            |
+| ----------------------------------------- | ------- | --------------------------------------------------- |
+| 對照                                      | 7／0    | —                                                   |
+| A1 `order:read` → `order:view`            | 7／1    | 「切片宣告了 order:view，而 mock session 沒有它」   |
+| A4 `MOCK_PERMISSIONS` 拿掉 `invoice:read` | 7／1    | 「切片宣告了 invoice:read，而 mock session 沒有它」 |
+
+| (b) 探針（量完拿掉）                                                      | bff-check | 紅的訊息                                                 |
+| ------------------------------------------------------------------------- | --------- | -------------------------------------------------------- |
+| 全部回 500 ＋ 拿掉標頭 ＋ 清 cookie，`expected: ["401-unauthenticated"]`  | 紅        | 「預期紅的是 [401-unauthenticated]，實際紅的是：…12 條」 |
+| `stripSecurityHeaders`，`expected: ["security-headers"]`（少寫 CSP 那條） | 紅        | 「實際紅的是：security-headers, csp-on-document」        |
+| 改後正式九顆                                                              | 24／0     | —                                                        |
+
+`vpr ready`：第一趟 oxfmt 紅（`vp check --fix`），第二趟綠。子代理第二段報告的 (b) 改後表寫「CONTRACT_ITEMS +1 → contract.test 新紅」—— 那是 README 同步那條，與特異性斷言無關；「全部回 500」它沒量，監督者量了才發現 13 也擋不住。
+
+#### 五、與既有裁決的關係（C136 §八）
+
+| 既有              | 本則                                                                               |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| **C174 §四／§五** | §四 的「字面是對的紅」照留；§五 兩件本則做掉                                       |
+| **C154 §三**      | (a) 對象在外（示範資料給採用團隊看腳手架怎麼跑）、壞法安靜（403 看起來像權限設定） |
+| **C39**           | invoice 到不了是同一個形狀，路由那半交 #311                                        |
+| **C173 §二**      | 「人抄的數字」的親戚，但這次抄對了也沒用 —— 形狀錯                                 |
+| **C137 §一**      | 遵守：零閘門增減；(a) 加測試，(b) 改斷言形狀                                       |
+| **C168 §一**      | 判準照用：A1 改前零紅、改後紅且說得出名字                                          |
