@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -125,4 +126,48 @@ describe("apps/console 的 dev 資料端點", () => {
     expect(denied.body.required).not.toBe("");
     expect(extraPermissions).toContain(denied.body.required);
   });
+
+  /**
+   * ★ 切片宣告的每一個權限碼，`vpr bff` 起來的 session 都拿得到。
+   *
+   * 來源刻意是**跑起來的 mock**，不是抄一份 `MOCK_PERMISSIONS`：這個 app 不能
+   * import `@org/bff-mock`（見 `bff-routes.ts` 檔頭），而抄字面的話兩邊一起改錯
+   * 仍然綠。所以走根 `package.json` 那條 `bff` script 同一條路啟動 CLI，
+   * 讀它回的 `/api/session`。缺的症狀是那片切片在本機永遠 403，沒有東西會說話 ——
+   * 第三片切片加進來那天（#260）`invoice:read` 就是這樣缺了一整天（#309）。
+   */
+  it("★ 切片宣告的每一個權限碼，vpr bff 起來的 session 都拿得到", async () => {
+    const child = spawn(process.execPath, ["platform/bff-mock/src/cli.ts"], {
+      cwd: ROOT,
+      env: { ...process.env, BFF_MOCK_ROUTES: wiredRoutesPath(), BFF_MOCK_PORT: "0" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    try {
+      const origin = await new Promise<string>((resolve, reject) => {
+        let output = "";
+        const onData = (chunk: Buffer) => {
+          output += chunk.toString();
+          const found = /\[bff-mock\] (http:\/\/127\.0\.0\.1:\d+)/.exec(output);
+          if (found?.[1] !== undefined) resolve(found[1]);
+        };
+        child.stdout.on("data", onData);
+        child.stderr.on("data", onData);
+        child.on("exit", (code) =>
+          reject(new Error(`mock 沒起來就結束了（exit ${String(code)}）\n${output}`)),
+        );
+      });
+
+      const response = await fetch(`${origin}/api/session`, { method: "POST" });
+      const session = (await response.json()) as { permissions: readonly string[] };
+      const granted = new Set(session.permissions);
+
+      for (const permission of registerFeatures(features).permissions) {
+        expect(granted.has(permission), `切片宣告了 ${permission}，而 mock session 沒有它`).toBe(
+          true,
+        );
+      }
+    } finally {
+      child.kill();
+    }
+  }, 20_000);
 });

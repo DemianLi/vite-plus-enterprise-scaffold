@@ -38,7 +38,7 @@ import {
  */
 
 /** 這個 mock 給的權限。刻意**不含** admin —— 契約要驗 403 與 401 確實分開。 */
-const MOCK_PERMISSIONS = ["order:read", "shipment:read"] as const;
+const MOCK_PERMISSIONS = ["order:read", "shipment:read", "invoice:read"] as const;
 
 interface Session {
   readonly user: string;
