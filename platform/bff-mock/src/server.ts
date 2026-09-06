@@ -177,6 +177,13 @@ const DEMO_ORDERS = [
  */
 const DEMO_SHIPMENTS = [{ id: "SHP-2001" }, { id: "SHP-2002" }, { id: "SHP-2003" }] as const;
 
+/**
+ * 第三片切片的示範資料。它在 #260 隨切片一起進樹，而這一條路由沒有 ——
+ * 規格餵的是 in-memory gateway，跑起來的應用停在 loading 沒有東西會紅（#311）。
+ * 形狀對應 `features/invoice/src/ports.ts` 的 `InvoiceItem`。
+ */
+const DEMO_INVOICES = [{ id: "INV-5001" }, { id: "INV-5002" }, { id: "INV-5003" }] as const;
+
 function csrfCookieValue(token: string): string {
   // 刻意**不加** HttpOnly：double-submit 的前提就是前端讀得到這支。
   // 偷到它沒有用 —— 真正的 session 仍是 HttpOnly。
@@ -447,6 +454,12 @@ export function createBffMock(options: BffMockOptions = {}) {
     // 應用裡永遠打不開 —— 而那正是 D15 在第二個切片上唯一看得見的證據。
     if (path === "/api/shipment" && method === "GET") {
       json(res, 200, { items: DEMO_SHIPMENTS, total: DEMO_SHIPMENTS.length });
+      return;
+    }
+
+    // 同上，也不是契約的一部分。`?page=` 與出貨那條一樣刻意不理 —— 三筆假資料分頁沒有意義。
+    if (path === "/api/invoice" && method === "GET") {
+      json(res, 200, { items: DEMO_INVOICES, total: DEMO_INVOICES.length });
       return;
     }
 

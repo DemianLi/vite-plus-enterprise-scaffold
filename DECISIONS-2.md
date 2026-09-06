@@ -7460,3 +7460,63 @@ C168 §五 裁「不排除」、§八 記下兩件沒修的紅。⚠️ **量測
 - **C180**：`adoption.test.ts` 的量法（數 `process.argv` 字面）是它在插樁下紅的原因，量法本身沒錯。
 - **C190**：(e) 的紅是它的射程測試在做事，不是它的缺陷。
 - **C193 §三**：那一條要求被本則的實測推翻（見 §三）。
+
+### C195 — 第三片切片的權限碼 C193 補了，路由沒有：`/api/invoice` 在跑起來的 mock 裡 404 而規格全綠；示範資料補在 `bff-mock`、與出貨那條同形，絆線從 `features` 名單解析每片打的路徑不抄字面（2026-09-07，#311）
+
+地圖 #306 的第五張。C193 補的是 `MOCK_PERMISSIONS`，而同一天的 mock 對 `GET /api/invoice` 回的仍是 404 —— 兩半各守一半。基準 `716ca0e`。
+
+#### 一、事實
+
+**(a) 重現。** 起 `platform/bff-mock/src/cli.ts`（`BFF_MOCK_ROUTES=apps/console/bff-routes.ts`）、`POST /api/session` 拿 cookie 後三片各打一次：
+
+| 路徑                | 改前 | 改後 | 角色       |
+| ------------------- | ---- | ---- | ---------- |
+| `GET /api/orders`   | 200  | 200  | 對照       |
+| `GET /api/shipment` | 200  | 200  | 對照       |
+| `GET /api/invoice`  | 404  | 200  | 本則的目標 |
+
+`features/invoice/src/api.ts:19` 打的是 `` `/invoice${search}` ``，`search` 只有 `?page=`；前綴 `/api` 來自 `apps/console/.env.example` 的 `VITE_API_BASE_PATH`。畫面的症狀是列表停在 loading；規格餵 `tests/support/in-memory-gateway.ts`（C114 交付的形狀），全綠。
+
+**(b) 誰補：兩個位置各自寫了自己的定位。** `platform/bff-mock/src/server.ts` 示範資料段：「**這不是契約的一部分**……少了它，腳手架的示範應用永遠停在 loading」，先例是 `/api/orders` 與 `/api/shipment`（唯讀、`?page=` 不理）。`apps/console/bff-routes.ts` 檔頭：「應用自己的 mock 資料端點」，先例是 `POST /api/orders/:id/cancel`（寫入端、帶權限碼、排在示範資料前面）。invoice 的 `src/` 零 POST／PUT／DELETE，列表與出貨那條同一個形狀 —— 落在前者。
+
+**(c) 誰守：三種形狀。** 對象是「每片切片打的路徑 mock 都接得住」，C154 §三 兩軸都有分：對象在外（mock 在 `platform/`、路徑在 `features/`、測試在 `apps/console`）、壞法安靜（404 → loading，沒有規格看得見）。
+
+1. **叫切片真的 gateway 打 spawn 起來的 mock** —— 最貼對象，而做不到不改設計：切片 package 只 export `./src/index.ts`（D7，一個 default），gateway 不在公開契約裡；資料端點在 mock 的 401 閘門之後，Node 的 `fetch` 不帶 cookie，`@org/http-client` 也沒有接縫塞它。要走這條得改 D7 的公開面加 stub `fetch`，超出票。
+2. **字面清單 `["/api/orders", "/api/shipment", "/api/invoice"]`** —— 子代理交的版本。與 C193 拒絕的形狀同一個：第四片加進來時這裡照樣綠。
+3. **從 `apps/console/src/features.ts` 的名單解析每片 `features/<name>/src/api.ts`，取 `http.get` 的路徑字面前綴**；前綴讀 `.env.example`。每片至少要解出一條，否則紅在「解析式失效了，不是切片沒在打」—— 沒有這一條，regex 對不上的那天絆線安靜地少守一片。
+
+**(d) 子代理的草稿另外兩處。** 替 invoice 發明了 `pageSize=10` 的分頁並為此抽一個 `serveDemoInvoices`（理由寫「保持 `createBffMock` 行數在門檻以下」）；出貨那條先例對 `?page=` 是**不理**的，三筆假資料分頁沒有意義，照先例改回一行，`vp check` 綠、行數門檻沒有紅。絆線的 doc 註解寫「沒有 body 檢查」而程式碼有。兩處都重寫。
+
+#### 二、裁決
+
+1. **`/api/invoice` 補在 `platform/bff-mock/src/server.ts` 示範資料段**，緊接 `/api/shipment`，同形：`{ items, total }`，`?page=` 不理。`DEMO_INVOICES` 三筆，形狀對 `features/invoice/src/ports.ts` 的 `InvoiceItem`（目前只有 `id`）。
+2. **絆線 `apps/console/tests/bff-routes.test.ts`「每一片切片的列表打的路徑，vpr bff 起來的 mock 都接得住」**，取 (c) 3 的形狀，spawn 走 C193 那條同一段。只取 `http.get`：寫入端點由 `bff-routes.ts` 注入，上面既有的幾條在守。
+3. **C39 §二 的形狀第三次出現**（mock 缺那片切片的資料端點，畫面停在 loading：訂單 C39 §二、出貨 C41 §三、本則發票），前兩次各補一條路由沒有絆線，這次有；C193 與本則是同一件事的兩半，各自的絆線各守一半，不合併。
+
+#### 三、不裁
+
+- **示範資料的形狀要不要對切片的型別檢查。** `bff-mock` 在 `platform/`，依 D7 不能 import `features/`；`InvoiceItem` 本身還是 `// TODO: 補上這個切片實際的欄位`。絆線只驗 `items` 是陣列 —— 形狀漂了本則接不住，而那是 #188／C165 那道縫的另一段，不在這張票。
+- **(c) 1 那條路要不要開**（切片 export gateway 或 http-client 開 cookie 接縫）。它牽 D7，留給有需要的票。
+
+#### 四、實測
+
+每一趟只改一處、跑完還原，對照組原樣 8／0（含 C193 那條）：
+
+| 探針                                                        | 結果                                                                   |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `server.ts` 的 `/api/invoice` 改成 `/api/invoice-OFF`       | 7／1，紅「invoice 打 /api/invoice，mock 回 404」                       |
+| `server.ts` 的 `/api/shipment` 改成 `/api/shipment-OFF`     | 7／1，紅「shipment 打 /api/shipment，mock 回 404」                     |
+| `features/invoice/src/api.ts` 改打 `/invoices`（mock 不動） | 7／1，紅「invoice 打 /api/invoices，mock 回 404」—— 讀的是切片不是字面 |
+| 同檔把 `http.get<…>(` 拆成 `const get = http.get; get<…>(`  | 7／1，紅「invoice 的 api.ts 裡找不到任何 http.get —— 解析式失效了」    |
+| 對照（原樣）                                                | 8／0                                                                   |
+
+絆線本身 129 ms（spawn 那一段與 C193 同量級）。改動：`server.ts` +13、測試 +81，刪 0。`vpr ready` READY_RC=0（worktree）。
+
+#### 五、與既有裁決的關係
+
+- **C193**：同一天、同一片切片、另一半。它的絆線讀跑起來的 `/api/session`，本則讀跑起來的 `/api/<path>`，來源刻意都是跑起來的 mock。
+- **C39 §二／C41 §三**：形狀的第一、二次，各自的處置是補路由並在程式碼裡寫明「不是契約」；本則是第三次，也是第一次有絆線。
+- **C114／C165／#188**：規格走 in-memory gateway 是 C114 交付的形狀、刻意的；invoice 的規格在 C165 那一趟接上完成率（§九 說明那個 80% 是範本場景）。本則不動規格那一邊 —— 絆線補的是規格看不見的那一段，不是把規格接上 mock。
+- **C168 §四**：spawn 的形狀沿用既有的那一段，沒有新設施。
+- **C154 §三**：兩軸見 (c)。
+- **D7**：(c) 1 走不通的原因；本則沒有動它。
