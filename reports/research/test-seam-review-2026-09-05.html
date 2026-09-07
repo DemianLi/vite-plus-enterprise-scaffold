@@ -1,0 +1,1484 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <title>Architecture review — project_vite_plus · 測試接縫</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    </script>
+    <style>
+      .seam {
+        stroke-dasharray: 4 4;
+      }
+      .leak {
+        stroke: #dc2626;
+      }
+      .deep {
+        background: linear-gradient(135deg, #0f172a, #1e293b);
+      }
+      .mod {
+        border: 1px solid #94a3b8;
+        background: #fff;
+        border-radius: 4px;
+      }
+      .mod-deep {
+        border: 3px solid #0f172a;
+        background: #0f172a;
+        color: #f8fafc;
+        border-radius: 4px;
+      }
+      .lbl {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .dup {
+        border-color: #dc2626;
+        background: #fef2f2;
+      }
+      table.t td,
+      table.t th {
+        padding: 4px 8px;
+        vertical-align: top;
+      }
+      table.t th {
+        text-align: left;
+      }
+      code {
+        font-size: 0.85em;
+      }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
+      <header class="space-y-3">
+        <h1 class="text-3xl font-serif">project_vite_plus · 測試接縫的深化機會</h1>
+        <p class="text-sm text-slate-600">
+          2026-09-05 · 基準 <code>0645fba</code> · 方向：找出重複守同一條 seam 的測試套件與測試碼
+        </p>
+        <div class="flex flex-wrap gap-4 text-xs text-slate-600 pt-2">
+          <span
+            ><span
+              class="inline-block w-4 h-3 border border-slate-400 bg-white align-middle"
+            ></span>
+            module</span
+          >
+          <span
+            ><span
+              class="inline-block w-4 h-0 border-t border-dashed border-slate-500 align-middle"
+            ></span>
+            seam</span
+          >
+          <span
+            ><span class="inline-block w-4 h-0 border-t-2 border-red-600 align-middle"></span>
+            同一變異兩邊同時紅（真重複）</span
+          >
+          <span
+            ><span
+              class="inline-block w-4 h-3 border-2 border-slate-900 bg-slate-900 align-middle"
+            ></span>
+            deep module</span
+          >
+        </div>
+        <div class="rounded-md border border-slate-300 bg-white p-4 text-sm space-y-2">
+          <p>
+            <strong>判準。</strong>兩組測試守的是不是同一條
+            seam，看「同一個變異會不會讓兩邊同時紅」。同時紅而且刪掉一邊複雜度<strong>消失</strong>＝真重複；只有一邊紅＝互補；刪掉一邊複雜度<strong>搬家</strong>＝留。
+          </p>
+          <p>
+            <strong>量法。</strong>84 支測試檔逐支讀，三個子代理分區走；「同時紅」是從
+            import／讀檔目標<strong>推導</strong>的，凡是樹上自己記過實測結果的地方引用它的記錄。沒有跑
+            Stryker。
+          </p>
+          <p>
+            <strong>不動的東西。</strong>C137
+            §一：不准拿成本或「過度設計」論證增減任何閘門。這份報告的每一張卡片動的都是<strong>測試碼</strong>，`vpr
+            gate` 那條鏈一支都不動。C43 起的原則「每一道閘門附一支反向測試」原樣保留。
+          </p>
+        </div>
+        <div class="rounded-md border-2 border-amber-500 bg-amber-50 p-4 text-sm space-y-2">
+          <p>
+            <strong>⚠️ 落地狀態（2026-09-07，<code>01583be</code>）。</strong>這份報告是
+            <code>DECISIONS-2.md</code> 的
+            <strong>C168</strong
+            >；每一張卡片之後各有一則裁決逐項重盤，數字與判斷多處更正，<strong>原文不改</strong>，下面每張卡片標籤列下方那條黃色狀態列就是標註。
+          </p>
+          <p>
+            七張卡片：<strong>五張落地</strong>（1、2、3、5、6，其中 2、3
+            的處置與報告寫的不同）、<strong>一張半落地</strong>（4：測試碼那半做了，規則射程那半刻意不裁）、<strong>一張被機制否決</strong>（7）。零散三件（C177）與附錄
+            C 七個缺口各有下落。附錄 A <code>maskName</code> 那列在 C168 §二 列了、§六
+            掉了，兩天後由 <strong>C196</strong>（#321）補裁。
+          </p>
+        </div>
+      </header>
+
+      <section id="candidates" class="space-y-10">
+        <!-- ============ 1 ============ -->
+        <article id="c1" class="rounded-lg border border-slate-200 bg-white p-6 space-y-5">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h2 class="text-xl font-serif">
+              1 · 把測試用的 CLI harness 收成 <code>gate-kit</code> 的一個 deep module
+            </h2>
+            <div class="flex gap-2">
+              <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-medium"
+                >Strong</span
+              >
+              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs"
+                >in-process</span
+              >
+            </div>
+          </div>
+          <div class="rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs leading-5">
+            <span
+              class="inline-block mr-2 px-1.5 py-0.5 rounded border text-[10px] font-semibold bg-emerald-100 text-emerald-900 border-emerald-300"
+              >落地狀態 · 落地</span
+            >C168 §八（#263／#265）—— 遷了 22 支不是 17（絆線三個 pattern 掃出來的數）；<code
+              >harness-tripwire</code
+            >
+            六條；Stryker 只 mutate <code>testing.ts</code> 逼出 3 顆存活，各補一條後存活 0。逐檔
+            <code>it</code> 數 57 支逐位相同。
+          </div>
+          <div class="font-mono text-xs text-slate-600 leading-5">
+            sandbox 建構 ×11：api-surface/negative:56 · api-surface/tracked:25 ·
+            compliance/negative:40 · conformance/negative:64 · conformance/rules:62 ·
+            doc-facts/derive:29,40 · gate-roster/roster:93 · scope-check/scope:42 ·
+            promise-check/sandbox:38 · supply-chain/sbom-negative:49 · vue-typecheck/negative:42（另
+            gate-kit/walk:10、pii-check/roster:154,205 inline）<br />
+            spawn 包裝 ×8：api-surface/negative:74 · compliance/negative:68 ·
+            conformance/negative:89 · promise-check/cli:84 · promise-check/sandbox:44 ·
+            spec-report/cli:13 · supply-chain/sbom-negative:60 · vue-typecheck/negative:61（另
+            pii-check/roster 八處逐字、adoption:61、threshold:314、doc-facts/facts:377,383,393
+            未抽）<br />
+            ROOT 手抄 ×17：三種寫法，而 <code>@org/gate-kit</code> 已導出
+            <code>repoRoot()</code>，只有 2 支測試在用<br />
+            <code>`${stdout ?? ""}${stderr ?? ""}`</code> ×14 檔 · slice-gen 的
+            <code>read()</code> 逐字三份（boundary-alignment:34 · contract-alignment:42,174）
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <div class="lbl text-slate-500 mb-2">
+                Before · 同一個 module 的 11 份 implementation
+              </div>
+              <div class="grid grid-cols-4 gap-1.5">
+                <div class="mod p-1.5 text-[10px]">
+                  <div class="font-semibold">api-surface</div>
+                  sandbox·run·ROOT
+                </div>
+                <div class="mod p-1.5 text-[10px]">
+                  <div class="font-semibold">compliance</div>
+                  makeSandbox·runCli·HERE
+                </div>
+                <div class="mod p-1.5 text-[10px]">
+                  <div class="font-semibold">conformance</div>
+                  makeSandbox·tree·runConformance
+                </div>
+                <div class="mod p-1.5 text-[10px]">
+                  <div class="font-semibold">doc-facts</div>
+                  sandbox·workspace·spawn×3
+                </div>
+                <div class="mod p-1.5 text-[10px]">
+                  <div class="font-semibold">gate-roster</div>
+                  write(layout)
+                </div>
+                <div class="mod p-1.5 text-[10px]">
+                  <div class="font-semibold">scope-check</div>
+                  repo(layout)
+                </div>
+                <div class="mod p-1.5 text-[10px]">
+                  <div class="font-semibold">promise-check</div>
+                  sandbox·run·runThemeVerify
+                </div>
+                <div class="mod p-1.5 text-[10px]">
+                  <div class="font-semibold">supply-chain</div>
+                  makeSandbox·run
+                </div>
+                <div class="mod p-1.5 text-[10px]">
+                  <div class="font-semibold">vue-typecheck</div>
+                  copy·check
+                </div>
+                <div class="mod p-1.5 text-[10px]">
+                  <div class="font-semibold">pii-check</div>
+                  inline ×8
+                </div>
+                <div class="mod p-1.5 text-[10px]">
+                  <div class="font-semibold">threshold-check</div>
+                  inline
+                </div>
+                <div class="mod p-1.5 text-[10px]">
+                  <div class="font-semibold">spec-report</div>
+                  run
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-2">
+                清理方式三派（afterEach 陣列／try-finally／單一變數）；「要 git init、要放
+                CODEOWNERS、要用 git ls-files」這種政策改一次得改十一處。
+              </p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <div class="lbl text-slate-500 mb-2">After · 一個 interface，N 個呼叫端</div>
+              <div class="mod-deep p-3">
+                <div class="lbl opacity-70">gate-kit / testing</div>
+                <div class="font-mono text-xs mt-1">
+                  sandbox(layout, {git?})<br />runGate(cli, args, {root?})<br />repoRoot() ← 已存在
+                </div>
+                <div class="text-[10px] opacity-60 mt-2">
+                  內部：mkdtemp · git init · cleanup 註冊 · stdout+stderr 合併 · exit code
+                </div>
+              </div>
+              <div class="border-t border-dashed border-slate-500 my-2"></div>
+              <div class="grid grid-cols-6 gap-1">
+                <div class="mod p-1 text-[9px] text-center">api-surface</div>
+                <div class="mod p-1 text-[9px] text-center">compliance</div>
+                <div class="mod p-1 text-[9px] text-center">conformance</div>
+                <div class="mod p-1 text-[9px] text-center">doc-facts</div>
+                <div class="mod p-1 text-[9px] text-center">…</div>
+                <div class="mod p-1 text-[9px] text-center">spec-report</div>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-2">
+                各工具的<strong>斷言</strong>一條不動 —— harness
+                決定「怎麼建樹、怎麼跑」，不決定「什麼算對」。
+              </p>
+            </div>
+          </div>
+
+          <dl class="text-sm space-y-1.5">
+            <div>
+              <dt class="inline font-semibold">Problem.</dt>
+              <dd class="inline">
+                這是 deletion test 判「搬家」的那一種：每一份都在做事，但同一個 module 有 11 到 17
+                份 implementation，沒有 locality。
+              </dd>
+            </div>
+            <div>
+              <dt class="inline font-semibold">Solution.</dt>
+              <dd class="inline">
+                在 <code>gate-kit</code> 加一個測試專用的
+                entry（<code>@org/gate-kit/testing</code>），把 sandbox
+                建構、spawn、輸出合併收進去；各測試改成呼叫它。
+              </dd>
+            </div>
+            <div>
+              <dt class="font-semibold">Wins.</dt>
+              <dd>
+                <ul class="list-disc ml-5 mt-1 space-y-0.5">
+                  <li>
+                    locality：清理政策改一次
+                    <span class="block mt-0.5 text-amber-900"
+                      >✅ C189（#303）—— <code>conformance</code> 加
+                      <code>checkCoverageGate</code>：切片的
+                      <code>vite.config.ts</code> 必須在、去註解後
+                      <code>enabled: true</code>、引用契約常數；五條反向。</span
+                    >
+                  </li>
+                  <li>leverage：一個 interface，17 支測試檔</li>
+                  <li>斷言零損失，C43 原則不動</li>
+                  <li>是卡片 2、3 的前置（它們需要同一個 runner）</li>
+                </ul>
+              </dd>
+            </div>
+          </dl>
+          <div class="rounded border border-amber-300 bg-amber-50 p-3 text-xs">
+            ⚠️ 兩條例外要留在原地：<code>gate-kit/tests/root.test.ts:11-18</code> 明文說明 symlink
+            那條測試必須住在<strong>消費端</strong>（pii-check）；<code
+              >vue-typecheck/negative:42</code
+            >
+            刻意不在 <code>os.tmpdir()</code> 建沙盒。harness 的 interface
+            要容得下這兩件事，不能吞掉它們。
+          </div>
+        </article>
+
+        <!-- ============ 2 ============ -->
+        <article id="c2" class="rounded-lg border border-slate-200 bg-white p-6 space-y-5">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h2 class="text-xl font-serif">2 · 旗標 interface 只守一次，名冊只推導一次</h2>
+            <div class="flex gap-2">
+              <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-medium"
+                >Strong</span
+              >
+              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs"
+                >in-process</span
+              >
+            </div>
+          </div>
+          <div class="rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs leading-5">
+            <span
+              class="inline-block mr-2 px-1.5 py-0.5 rounded border text-[10px] font-semibold bg-emerald-100 text-emerald-900 border-emerald-300"
+              >落地狀態 · 落地，處置與報告不同</span
+            >C178（#279）—— 刪十條逐工具旗標測試，adoption 名冊 +2 列。⚠️
+            三句各對一半：名冊改吃<strong>磁碟</strong>不吃 <code>GATES ∪ variants</code>；variant
+            <strong>不是洞</strong>（未知旗標的判定不隨 variant 變）；三個 parser
+            重盤後是一個，<strong>不動</strong>。三條「缺值 → 紅」守的是
+            <code>parseFlags</code> 後面到不了的第二道檢查（→ C180 拆掉）。
+          </div>
+          <div class="font-mono text-xs text-slate-600 leading-5">
+            守備者：gate-kit/tests/flags.test.ts:59-106（純函式）·
+            gate-kit/tests/adoption.test.ts:50-69（14 支 CLI it.each）<br />
+            真重複：pii-check/tests/roster.test.ts:184-216 ·
+            compliance/tests/negative.test.ts:230-233 ·
+            supply-chain/tests/sbom-negative.test.ts:119-121,161-163<br />
+            名冊的三個 parser：gate-roster/src/check.ts ③④ ·
+            gate-kit/tests/adoption.test.ts:37-44（regex）·
+            promise-check/src/check.ts:51-67（includes）
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-white p-3">
+              <div class="lbl text-slate-500 mb-1">Before</div>
+              <pre class="mermaid">
+flowchart LR
+  PF[parseFlags]
+  FT[flags.test.ts] --> PF
+  AD[adoption.test.ts<br/>自己的 regex 名冊] --> PF
+  PII[pii-check roster:184] -->|同一變異同時紅| PF
+  CMP[compliance negative:230] -->|同一變異同時紅| PF
+  SBOM[sbom-negative:119,161] -->|同一變異同時紅| PF
+  PKG[(package.json<br/>scripts.gate)]
+  AD -.regex.-> PKG
+  GR[gate-roster check.ts] -.集合比對.-> PKG
+  PC[promise-check check.ts] -.includes.-> PKG
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class PII,CMP,SBOM leak
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-3">
+              <div class="lbl text-slate-500 mb-1">After</div>
+              <pre class="mermaid">
+flowchart LR
+  PF[parseFlags]
+  FT[flags.test.ts<br/>純函式那一半] --> PF
+  GATES[[gate-roster GATES ∪ variants<br/>單一事實來源]]
+  AD[adoption.test.ts<br/>it.each 逐支 CLI + variant] --> PF
+  GATES --> AD
+  GATES --> PC[promise-check check.ts]
+  GATES --> GR[gate-roster check.ts]
+  classDef deep fill:#0f172a,stroke:#0f172a,color:#f8fafc;
+  class GATES deep
+              </pre>
+            </div>
+          </div>
+
+          <dl class="text-sm space-y-1.5">
+            <div>
+              <dt class="inline font-semibold">Problem.</dt>
+              <dd class="inline">
+                「不認得的旗標要紅」與「value 旗標缺值要紅」是 <code>parseFlags</code> 一個 module
+                的 interface，卻被四支工具的測試各再跑一次子行程；<code>pii-check</code>
+                那組沒有任何變異是只有它會紅的。同時 adoption 的名冊是自己 regex
+                抽的，看不見四支不在 <code>scripts.gate</code> 的
+                CLI（csp-verify、ui-survey、codemods、slice-gen）與四條 CI variant。
+              </dd>
+            </div>
+            <div>
+              <dt class="inline font-semibold">Solution.</dt>
+              <dd class="inline">
+                刪掉三支工具裡的旗標斷言；adoption 的名冊改吃 <code>gate-roster</code> 的
+                <code>GATES ∪ variants</code>（那已經是四份副本的單一事實來源），promise-check 的
+                <code>scripts.gate</code> 查詢也走同一個。
+              </dd>
+            </div>
+            <div>
+              <dt class="font-semibold">Wins.</dt>
+              <dd>
+                <ul class="list-disc ml-5 mt-1 space-y-0.5">
+                  <li>一個 seam，一組測試</li>
+                  <li>adoption 的兩個射程洞關掉</li>
+                  <li>三個 parser 剩一個</li>
+                  <li>少 5 個子行程</li>
+                </ul>
+              </dd>
+            </div>
+          </dl>
+          <div class="rounded border border-amber-300 bg-amber-50 p-3 text-xs">
+            ⚠️ <code>pii-check/roster.test.ts:174-183</code> 那段 C52 事故敘述是這條 seam
+            的<strong>為什麼</strong>；<code>flags.test.ts:52-58</code>
+            已有一份指過去的引用，刪測試時把敘述併過去，不要讓那段歷史跟著斷言消失。adoption
+            檔名寫「採用」而它量的是行為 —— 一支自己解析旗標、行為正確的 CLI
+            兩邊都綠；那是既有的洞，不是這張卡片造成的。
+          </div>
+        </article>
+
+        <!-- ============ 3 ============ -->
+        <article id="c3" class="rounded-lg border border-slate-200 bg-white p-6 space-y-5">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h2 class="text-xl font-serif">
+              3 · 「這個 repo 現在是綠的」：九處各一份，而腿④又跑一遍
+            </h2>
+            <div class="flex gap-2">
+              <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-medium"
+                >Worth exploring</span
+              >
+              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs"
+                >local-substitutable</span
+              >
+            </div>
+          </div>
+          <div class="rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs leading-5">
+            <span
+              class="inline-block mr-2 px-1.5 py-0.5 rounded border text-[10px] font-semibold bg-emerald-100 text-emerald-900 border-emerald-300"
+              >落地狀態 · 落地，處置與報告不同</span
+            >C170（#269）—— 重盤是十三處五種東西，純重複只有三條、刪。⚠️ <code>it.each</code>
+            <strong>否決</strong>（那是把 <code>vpr gate</code> 整條搬進
+            <code>vp test</code> 再跑一次）；<code>--evidence</code>
+            那條<strong>留</strong>，上不上鏈是閘門增減、不裁。
+          </div>
+          <div class="font-mono text-xs text-slate-600 leading-5">
+            只斷言 exit 0（與 vpr gate 同義）：conformance/negative:563（in-proc）·
+            gate-roster/roster:145（in-proc）· scope-check/scope:115（in-proc）·
+            pii-check/roster:144 · doc-facts/facts:377 ·
+            compliance/evidence:138（<strong>--evidence</strong>）· promise-check/cli:96 ·
+            spec-report/cli:44 · api-surface/negative:231<br />
+            另有獨有斷言、必須留：pii-check:103（零檔＝紅）,149（措辭）· doc-facts:383,393 ·
+            evidence:143,149 · conformance/output:105（檔案模式）·
+            promise-check/sandbox:170（建置半）
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <div class="lbl text-slate-500 mb-2">Before · vpr ready 的兩條腿</div>
+              <div class="space-y-1">
+                <div
+                  class="h-9 border-l-4 border-slate-400 bg-white px-2 flex items-center text-xs"
+                >
+                  ② vp run -r test
+                </div>
+                <div class="ml-4 grid grid-cols-3 gap-1">
+                  <div class="mod dup p-1 text-[9px]">conformance 真樹 ×2</div>
+                  <div class="mod dup p-1 text-[9px]">pii-check 真樹 ×3</div>
+                  <div class="mod dup p-1 text-[9px]">doc-facts 真樹 ×3</div>
+                  <div class="mod dup p-1 text-[9px]">gate-roster 真樹</div>
+                  <div class="mod dup p-1 text-[9px]">scope-check 真樹</div>
+                  <div class="mod dup p-1 text-[9px]">compliance --evidence ×3</div>
+                  <div class="mod dup p-1 text-[9px]">theme-verify 真樹</div>
+                  <div class="mod dup p-1 text-[9px]">promise-check 真樹</div>
+                  <div class="mod dup p-1 text-[9px]">spec-report --check</div>
+                </div>
+                <div
+                  class="h-9 border-l-4 border-slate-900 bg-white px-2 flex items-center text-xs"
+                >
+                  ④ vpr gate —— 同一批 CLI，同一棵樹，再一次
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-2">
+                只有
+                <code>gate-roster/roster:146-147</code>
+                留下辯護：「兩邊都要能看見同一件事變紅」。其餘八處沒有。
+              </p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <div class="lbl text-slate-500 mb-2">
+                After · 腿②守「每支對真樹綠」一次，其餘各守自己獨有的那句
+              </div>
+              <div class="space-y-1">
+                <div
+                  class="h-9 border-l-4 border-slate-400 bg-white px-2 flex items-center text-xs"
+                >
+                  ② vp run -r test
+                </div>
+                <div class="ml-4 mod-deep p-2 text-[10px]">
+                  <div class="lbl opacity-70">gate-kit / adoption</div>
+                  it.each(GATES ∪ variants) → 對真樹 exit 0（含 --evidence）
+                </div>
+                <div class="ml-4 grid grid-cols-3 gap-1">
+                  <div class="mod p-1 text-[9px]">pii-check:103 零檔＝紅</div>
+                  <div class="mod p-1 text-[9px]">doc-facts:383,393 措辭</div>
+                  <div class="mod p-1 text-[9px]">evidence:143,149 措辭</div>
+                  <div class="mod p-1 text-[9px]">output:105 檔案模式</div>
+                  <div class="mod p-1 text-[9px]">sandbox:170 建置半</div>
+                  <div class="mod p-1 text-[9px]">roster:141 fixture</div>
+                </div>
+                <div
+                  class="h-9 border-l-4 border-slate-900 bg-white px-2 flex items-center text-xs"
+                >
+                  ④ vpr gate —— 一支不動
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <dl class="text-sm space-y-1.5">
+            <div>
+              <dt class="inline font-semibold">Problem.</dt>
+              <dd class="inline">
+                「閘門 X 對真樹 exit 0」這條 seam 在腿②被九支測試各過一次、腿④再過一次；deletion
+                test 對 in-proc
+                那兩條（gate-roster、scope-check）<strong>兩個方向都答「消失」</strong>。而其中一條反過來是洞：<code
+                  >--evidence</code
+                >
+                不在 <code>scripts.gate</code>，本機唯一跑到它的是 <code>evidence:138</code>。
+              </dd>
+            </div>
+            <div>
+              <dt class="inline font-semibold">Solution.</dt>
+              <dd class="inline">
+                把「真樹綠」收成 adoption 裡的一條 <code>it.each</code>（名冊含 variant，所以
+                <code>--evidence</code> 本機也有人跑），刪掉九處光禿禿的
+                <code>status === 0</code>；帶獨有斷言的那些一條不動。
+              </dd>
+            </div>
+            <div>
+              <dt class="font-semibold">Wins.</dt>
+              <dd>
+                <ul class="list-disc ml-5 mt-1 space-y-0.5">
+                  <li>「兩條腿都看得見紅」的辯護只寫一次</li>
+                  <li>variant 本機零覆蓋的洞關掉</li>
+                  <li>少 ~8 個真樹子行程</li>
+                </ul>
+              </dd>
+            </div>
+          </dl>
+          <div class="rounded border border-amber-300 bg-amber-50 p-3 text-xs">
+            ⚠️ 與 C137 §一 的關係：這張卡片<strong>不動 <code>vpr gate</code></strong
+            >，動的是腿②的測試碼；「少幾個子行程」是副產品，不是論證。⚠️ Stryker
+            之下子行程型測試對變異不可見（<code>stryker.config.mjs</code> 檔頭，conformance 30%
+            假存活）—— 收成一條 it.each 之後這件事不變，但至少假存活的來源會集中在一個檔。
+          </div>
+        </article>
+
+        <!-- ============ 4 ============ -->
+        <article id="c4" class="rounded-lg border border-slate-200 bg-white p-6 space-y-5">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h2 class="text-xl font-serif">
+              4 · 切片範本的測試守的是 <code>defineFeature</code> 在 import 期就保證的事
+            </h2>
+            <div class="flex gap-2">
+              <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-medium"
+                >Worth exploring</span
+              >
+              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs"
+                >in-process</span
+              >
+            </div>
+          </div>
+          <div class="rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs leading-5">
+            <span
+              class="inline-block mr-2 px-1.5 py-0.5 rounded border text-[10px] font-semibold bg-amber-100 text-amber-900 border-amber-400"
+              >落地狀態 · 半落地</span
+            >C172（#271）—— 不可達的是十條不是整個 describe，七條獨一留；十條刪、describe 改名、掛
+            <code>import.meta.env.DEV</code> 絆線。⚠️ <code>hasTestFile</code> 認
+            <code>.spec.ts</code>
+            <strong>不裁、不開票</strong>（閘門規則的射程；沒有切片正在被它擋）；C192（#314）補了
+            <code>checkSliceTests</code> 五條反向測試，把「只認
+            <code>.test.ts</code>」釘成今天的射程。<br />附錄 A 的 <code>maskName</code> 列 C168 §六
+            <strong>沒帶上</strong>：C196（#321）補裁 —— 四條各是
+            <code>mask.test</code> 的嚴格子集（同紅 ×3、等價 ×1、只有 mask.test 紅 ×1），刪；其中
+            <code>:35</code> <code>not.toContain("佳")</code> 對 <code>"王曉明"</code> 恆真，從 #15
+            起沒守過任何東西。
+          </div>
+          <div class="font-mono text-xs text-slate-600 leading-5">
+            範本：tools/slice-gen/src/files.ts:907-950 ·
+            產物：features/invoice/tests/invoice.test.ts:11-36 · order.test.ts:11-42 ·
+            shipment.test.ts:11-36<br />
+            真正的守門人：platform/slice-kit/tests/define-feature.test.ts:38-91（六條 toThrow）·
+            第三層：apps/console/tests/composition-root.test.ts:18<br />
+            同一形狀：features/order/tests/masking.test.ts:22-42 逐字重測
+            platform/pii/tests/mask.test.ts:59-82（同一個字面值 "A○○ N○○○○○○○"）<br />
+            存在理由：tools/conformance/src/rules/slice-shape.ts:58 hasTestFile 只認
+            tests/**/*.test.ts
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <div class="lbl text-slate-500 mb-2">Before · 三層守一條 seam，其中一層不可達</div>
+              <div class="space-y-1">
+                <div class="mod-deep p-2 text-[10px]">
+                  <span class="lbl opacity-70">slice-kit</span><br />defineFeature() ——
+                  模組頂層呼叫，違規就 throw
+                </div>
+                <div class="text-center text-slate-400 text-xs">↓ import</div>
+                <div class="mod dup p-2 text-[10px]">
+                  <span class="lbl">features/*/tests/*.test.ts</span><br />路由 name 前綴 ·
+                  權限碼前綴 · i18n 頂層 key · 選單指向<br /><span class="text-red-700"
+                    >資料違規時 import 先炸，這四條執行不到；資料合規時 for 迴圈跑 0 次也綠</span
+                  >
+                </div>
+                <div class="text-center text-slate-400 text-xs">↓</div>
+                <div class="mod p-2 text-[10px]">
+                  <span class="lbl">apps/console composition-root</span
+                  ><br />registerFeatures(features) not.toThrow
+                </div>
+              </div>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <div class="lbl text-slate-500 mb-2">After · 切片的測試守切片自己的 seam</div>
+              <div class="space-y-1">
+                <div class="mod-deep p-2 text-[10px]">
+                  <span class="lbl opacity-70">slice-kit</span><br />defineFeature() ——
+                  唯一守命名空間的地方，define-feature.test.ts 六條
+                </div>
+                <div class="border-t border-dashed border-slate-500 my-1"></div>
+                <div class="mod p-2 text-[10px]">
+                  <span class="lbl">features/*/tests/</span><br />query key
+                  命名空間（本來就有，讀的是切片自己的 api.ts）<br />usecase 走
+                  <code>tests/specs/*.spec.ts</code>（規格接線，invoice 已有）
+                </div>
+                <div class="mod p-2 text-[10px]">
+                  <span class="lbl">conformance hasTestFile</span><br />認
+                  <code>tests/**/*.test.ts</code> <strong>或</strong>
+                  <code>tests/specs/*.spec.ts</code>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <dl class="text-sm space-y-1.5">
+            <div>
+              <dt class="inline font-semibold">Problem.</dt>
+              <dd class="inline">
+                範本產出的那個 describe 是 shallow
+                的：interface（四條斷言）看起來在守命名空間，implementation 什麼都守不到 —— 違規時
+                <code>defineFeature</code> 在 import 期先丟例外，斷言不可達；把
+                <code>defineFeature</code> 的驗證拿掉，這四條照樣綠。它存在是為了餵 conformance 一支
+                <code>.test.ts</code>。<code>masking.test.ts</code>
+                前半是同一種形狀：切片的測試在重測 platform 的函式。
+              </dd>
+            </div>
+            <div>
+              <dt class="inline font-semibold">Solution.</dt>
+              <dd class="inline">
+                範本只留 query key 那段（或改成一條「defineFeature
+                有被呼叫」的可達斷言）；conformance 的 <code>hasTestFile</code> 把
+                <code>.spec.ts</code> 算進去，讓規格接線本身就是那支測試。三片既有切片照範本更新。
+              </dd>
+            </div>
+            <div>
+              <dt class="font-semibold">Wins.</dt>
+              <dd>
+                <ul class="list-disc ml-5 mt-1 space-y-0.5">
+                  <li>切片的 test surface ＝ 切片的 interface</li>
+                  <li>範本改一次，之後每片切片都對</li>
+                  <li>「有測試」的定義與第二類設施對齊（C114）</li>
+                </ul>
+              </dd>
+            </div>
+          </dl>
+          <div class="rounded border border-amber-300 bg-amber-50 p-3 text-xs">
+            ⚠️ 這張卡片會動 <code>tools/conformance</code> 的一條規則（放寬
+            <code>hasTestFile</code>）與 <code>slice-gen</code> 範本。規則四（<code>specs/</code>
+            不得改）不受影響：<code>.feature</code> 一個字不動。但 conformance
+            規則的射程變了，要在裁決裡寫下「認 .spec.ts」的理由 —— TESTING.md §四 已經把
+            <code>.spec.ts</code> 定成第二類的接線檔，理由現成。
+          </div>
+        </article>
+
+        <!-- ============ 5 ============ -->
+        <article id="c5" class="rounded-lg border border-slate-200 bg-white p-6 space-y-5">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h2 class="text-xl font-serif">
+              5 · <code>bff-mock</code> 的伺服器契約：兩個 adapter 證明了 seam，但 mock 的測試又守了
+              seam 那一側
+            </h2>
+            <div class="flex gap-2">
+              <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-medium"
+                >Worth exploring</span
+              >
+              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs"
+                >ports &amp; adapters</span
+              >
+            </div>
+          </div>
+          <div class="rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs leading-5">
+            <span
+              class="inline-block mr-2 px-1.5 py-0.5 rounded border text-[10px] font-semibold bg-emerald-100 text-emerald-900 border-emerald-300"
+              >落地狀態 · 落地，範圍比報告小</span
+            >C174（#273）—— 十二條逐條對十五條，只有一條重複（#9 刪）；#2 只留狀態碼；#3、#7
+            換形狀（差分）；401 與 CSRF 正是注入接縫本身、留。body
+            形狀裁「不是契約」（示範資料）。−1 <code>it</code>。
+          </div>
+          <div class="font-mono text-xs text-slate-600 leading-5">
+            platform/bff-mock/tests/routes.test.ts:83-92（401）· :110-121（CSRF 403）·
+            :184-193（權限 403）<br />
+            tools/bff-check/tests/contract.test.ts:152-155 · :202-206 · :157-161 —— 同一個
+            startBffMock，同一份實作；contract.test.ts:23-34 另有 BFF_ORIGIN 對真 gateway
+            的第二種跑法
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-white p-3">
+              <div class="lbl text-slate-500 mb-1">Before</div>
+              <pre class="mermaid">
+flowchart TB
+  BC[bff-check contract.test<br/>401 · 403 · CSRF · cookie · 登出重放 · README 同步]
+  RT[bff-mock routes.test<br/>401 · 403 · CSRF<br/>＋ 注入 seam 特有：覆蓋不掉 · 500 · extraPermissions]
+  S{{BFF 契約 seam}}
+  M[adapter: bff-mock server.ts]
+  G[adapter: 組織 gateway<br/>BFF_ORIGIN]
+  BC --> S
+  RT -->|同一變異同時紅| S
+  S --> M
+  S --> G
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class RT leak
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-3">
+              <div class="lbl text-slate-500 mb-1">After</div>
+              <pre class="mermaid">
+flowchart TB
+  BC[bff-check contract.test<br/>契約的唯一 test surface]
+  RT[bff-mock routes.test<br/>只守注入 seam：覆蓋不掉 · 示範資料 · 500 · extraPermissions 追加 · 注入路由不得排在 401 前]
+  S{{BFF 契約 seam}}
+  M[adapter: bff-mock]
+  G[adapter: 組織 gateway]
+  BC --> S
+  S --> M
+  S --> G
+  RT --> M
+  classDef deep fill:#0f172a,stroke:#0f172a,color:#f8fafc;
+  class S deep
+              </pre>
+            </div>
+          </div>
+
+          <dl class="text-sm space-y-1.5">
+            <div>
+              <dt class="inline font-semibold">Problem.</dt>
+              <dd class="inline">
+                「一個 adapter 是假想的 seam，兩個才是真的」—— 這裡有兩個（mock、真 gateway），所以
+                <code>bff-check</code> 就是那條 seam 的 test surface。<code>bff-mock</code>
+                自己的測試再守一次 401／403／CSRF，是在 adapter 那一側重複 seam 的斷言。
+              </dd>
+            </div>
+            <div>
+              <dt class="inline font-semibold">Solution.</dt>
+              <dd class="inline">
+                <code>routes.test.ts</code> 收到只剩注入 seam 特有的性質（那些
+                <code>bff-check</code> 碰不到）；三條契約斷言刪掉，「注入的路由不得排在 401
+                前面」這一條改寫成順序斷言而不是 401 斷言。
+              </dd>
+            </div>
+            <div>
+              <dt class="font-semibold">Wins.</dt>
+              <dd>
+                <ul class="list-disc ml-5 mt-1 space-y-0.5">
+                  <li>契約改一次，一處紅</li>
+                  <li>adapter 測試只談 adapter</li>
+                </ul>
+              </dd>
+            </div>
+          </dl>
+          <div class="rounded border border-amber-300 bg-amber-50 p-3 text-xs">
+            ⚠️ 不對稱：<code>routes.test.ts:90</code> 多斷言了 body 內容
+            <code>{error:"unauthenticated"}</code>，<code>bff-check</code> 沒有。收之前要決定 body
+            形狀算不算契約；算的話搬去 <code>bff-check</code>，不算的話一起刪。
+          </div>
+        </article>
+
+        <!-- ============ 6 ============ -->
+        <article id="c6" class="rounded-lg border border-slate-200 bg-white p-6 space-y-5">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h2 class="text-xl font-serif">
+              6 · <code>platform/ui</code>：<code>index.ts</code>
+              匯出契約守了兩份，兩邊檔頭都沒提對方
+            </h2>
+            <div class="flex gap-2">
+              <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-medium"
+                >Strong</span
+              >
+              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs"
+                >in-process · 小</span
+              >
+            </div>
+          </div>
+          <div class="rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs leading-5">
+            <span
+              class="inline-block mr-2 px-1.5 py-0.5 rounded border text-[10px] font-semibold bg-emerald-100 text-emerald-900 border-emerald-300"
+              >落地狀態 · 落地</span
+            >C175（#276）—— 報告盤對了。styles.test 那條是 component-contract ①
+            的嚴格子集（檔名對調只有 ① 紅），刪；:331-337 留。−1 <code>it</code>。
+          </div>
+          <div class="font-mono text-xs text-slate-600 leading-5">
+            platform/ui/tests/styles.test.ts:315-329 ↔
+            platform/ui/tests/component-contract.test.ts:69-73（同一個 readdirSync，同一支
+            index.ts）<br />
+            對照 —— 同檔的另外兩組是搬家、留：sr-only（a11y:201 ↔
+            dropdown-menu:198，兩邊檔頭都承認）· 模板註解（a11y:387 廣 ↔ 三支深，alert-dialog:292
+            記著實測）
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <div class="lbl text-slate-500 mb-2">
+                Before · 兩個 interface，同一個 implementation
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="mod dup p-2 text-[10px]">
+                  <span class="lbl">styles.test 「公開契約」</span><br />index 含
+                  ./components/X.vue<br />index 含 export { default as X }
+                </div>
+                <div class="mod dup p-2 text-[10px]">
+                  <span class="lbl">component-contract ①</span><br />componentExports(INDEX) 含 X<br />exportedAs
+                  === X
+                </div>
+              </div>
+              <div class="mt-2 mod p-2 text-[10px] text-center">
+                src/index.ts ＋ readdirSync(src/components)
+              </div>
+              <p class="text-[11px] text-slate-500 mt-2">
+                刪掉任一行 export → 兩支同時紅。<code>component-contract</code> 多驗了 exportedAs
+                一致，是嚴格的超集。
+              </p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <div class="lbl text-slate-500 mb-2">After</div>
+              <div class="mod-deep p-2 text-[10px]">
+                <span class="lbl opacity-70">component-contract ①</span><br />唯一的匯出契約斷言
+              </div>
+              <div class="mt-2 mod p-2 text-[10px]">
+                <span class="lbl">styles.test 「公開契約」</span><br />只留 :331-337「不轉出 reka-ui
+                基元」—— 那條是獨有的
+              </div>
+            </div>
+          </div>
+
+          <dl class="text-sm space-y-1.5">
+            <div>
+              <dt class="inline font-semibold">Problem.</dt>
+              <dd class="inline">
+                同一條 seam 被兩個 describe
+                各守一次，而且是全樹唯一一組<strong>兩邊都沒有寫下對方存在</strong>的真重複（其餘
+                platform/ui 的重疊都在檔頭自陳）。
+              </dd>
+            </div>
+            <div>
+              <dt class="inline font-semibold">Solution.</dt>
+              <dd class="inline">刪 <code>styles.test.ts:315-329</code>，保留 :331-337。</dd>
+            </div>
+            <div>
+              <dt class="font-semibold">Wins.</dt>
+              <dd>
+                <ul class="list-disc ml-5 mt-1 space-y-0.5">
+                  <li>一個 seam，一條斷言</li>
+                  <li>十行，零風險</li>
+                </ul>
+              </dd>
+            </div>
+          </dl>
+        </article>
+
+        <!-- ============ 7 ============ -->
+        <article id="c7" class="rounded-lg border border-slate-200 bg-white p-6 space-y-5">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h2 class="text-xl font-serif">
+              7 · <code>threshold-check</code> 在一次 <code>vpr ready</code> 裡跑 8 次
+            </h2>
+            <div class="flex gap-2">
+              <span class="px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-xs font-medium"
+                >Speculative</span
+              >
+              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs"
+                >local-substitutable</span
+              >
+            </div>
+          </div>
+          <div class="rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs leading-5">
+            <span
+              class="inline-block mr-2 px-1.5 py-0.5 rounded border text-[10px] font-semibold bg-red-100 text-red-900 border-red-300"
+              >落地狀態 · 機制否決</span
+            >C176（#277）—— 假閘門進不了 <code>wire()</code>：承諾指名的閘門路徑由 promise-check
+            自己的規則綁死，樹在兩處拒絕過。⚠️ 「8 次」量錯了，實測 <strong>22</strong>。只改
+            <code>cli.test.ts:87</code> 註解、<code>:92</code> 斷言補強成真 n；不開票、不留待辦。
+          </div>
+          <div class="font-mono text-xs text-slate-600 leading-5">
+            腿④ gate 1 次 · threshold.test.ts:314 1 次（fixture）· promise-check/cli.test.ts:97 → 3
+            次（探針 + 兩個場景，該檔 :91-93 自記「實測整趟約 10 秒」）· 腿④ promise-check 再 3
+            次<br />
+            每次 5 趟 vp lint（gates.ts:358 自記「約三秒」）→ 推導：一次 vpr ready 約 40 趟全樹
+            lint、約 24 秒
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <div class="lbl text-slate-500 mb-2">Before · 同一個探針，四條路徑</div>
+              <div class="space-y-1 text-[10px]">
+                <div class="mod p-1.5">
+                  腿④ <code>vpr gate</code> → threshold-check（真樹）<span class="float-right"
+                    >×1</span
+                  >
+                </div>
+                <div class="mod p-1.5">
+                  腿② threshold.test.ts:314 → <code>--root</code> fixture<span class="float-right"
+                    >×1</span
+                  >
+                </div>
+                <div class="mod dup p-1.5">
+                  腿② promise-check/cli.test.ts:97 → promise-check CLI → 探針 + 2 場景<span
+                    class="float-right"
+                    >×3</span
+                  >
+                </div>
+                <div class="mod dup p-1.5">
+                  腿④ promise-check → 探針 + 2 場景<span class="float-right">×3</span>
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-2">
+                樹自己已經拒絕過第三份（<code>promise-check/tests/sandbox.test.ts:96-103</code>：「在這裡再抄一份，等於同一件事量兩次而且各多花三秒」）——
+                但 cli.test.ts:97 那條就是第三份的變體：它跑整支 promise-check 只為了驗 exit code 與
+                SPEC-REPORT 的措辭。
+              </p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <div class="lbl text-slate-500 mb-2">After · 可能的形狀（未設計）</div>
+              <div class="space-y-1 text-[10px]">
+                <div class="mod p-1.5">
+                  腿④ <code>vpr gate</code> → threshold-check<span class="float-right">×1</span>
+                </div>
+                <div class="mod p-1.5">
+                  腿② threshold.test.ts:314 → fixture<span class="float-right">×1</span>
+                </div>
+                <div class="mod-deep p-1.5">
+                  腿② promise-check/cli.test：對
+                  <code>--root</code> 沙盒裡一份<strong>假閘門</strong>跑（probe.test.ts:36-43
+                  已有那個 fixture 的形狀），不 spawn 真 threshold-check<span class="float-right"
+                    >×0</span
+                  >
+                </div>
+                <div class="mod p-1.5">
+                  腿④ promise-check → 探針 + 2 場景（承諾就是要在鏈上跑）<span class="float-right"
+                    >×3</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <dl class="text-sm space-y-1.5">
+            <div>
+              <dt class="inline font-semibold">Problem.</dt>
+              <dd class="inline">
+                promise-check 的 CLI 測試沒有 seam 可以替換被 spawn 的閘門，所以它守「promise-check
+                會跑規格」這件事的代價是把三支真閘門各跑一遍 —— 而腿④馬上會再跑一遍同一批。
+              </dd>
+            </div>
+            <div>
+              <dt class="inline font-semibold">Solution.</dt>
+              <dd class="inline">
+                未設計。方向是讓 promise-check 的「要 spawn 哪一支 CLI」成為一條
+                seam（規格裡指名的閘門路徑在 <code>--root</code> 副本裡可替換成假閘門），cli.test.ts
+                走假閘門，真閘門只在腿④跑。
+              </dd>
+            </div>
+            <div>
+              <dt class="font-semibold">Wins.</dt>
+              <dd>
+                <ul class="list-disc ml-5 mt-1 space-y-0.5">
+                  <li>腿②少 ~9 秒（推導，非量測）</li>
+                  <li>promise-check 的 test surface 變成它自己的 interface</li>
+                </ul>
+              </dd>
+            </div>
+          </dl>
+          <div class="rounded border border-amber-300 bg-amber-50 p-3 text-xs">
+            ⚠️ C137 §一：時間成本不是增減閘門的論證，這張卡片也沒有動任何閘門。⚠️ C165／#260 剛把
+            promise-check 的 cli.test
+            從恆綠救出來（<code>cli.test.ts:38</code>「第三次，而破法又換了」）——
+            那段歷史說明這支測試每次換形狀都出過事，Speculative 是因為這個，不是因為收益小。
+          </div>
+        </article>
+      </section>
+
+      <!-- ============ 逐項總表 ============ -->
+      <section class="space-y-4">
+        <h2 class="text-2xl font-serif">附錄 A · 查過的每一條 seam</h2>
+        <p class="text-sm text-slate-600">
+          寫下來是為了讓「互補、不動」的判定可以被複核 —— 沒有選法的清單不可複核。
+        </p>
+        <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table class="t text-xs w-full">
+            <thead class="bg-stone-100">
+              <tr>
+                <th>seam</th>
+                <th>兩邊</th>
+                <th>同一變異同時紅？</th>
+                <th>deletion test</th>
+                <th>處置</th>
+                <th class="bg-amber-100">落地（09-07）</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr class="bg-red-50">
+                <td>未知旗標／缺值 → 紅</td>
+                <td>
+                  gate-kit flags+adoption ↔ pii-check:184-216 · compliance:230 ·
+                  sbom-negative:119,161
+                </td>
+                <td>是</td>
+                <td>消失</td>
+                <td>卡片 2</td>
+                <td class="bg-amber-50">C178 #279 刪十條；名冊吃磁碟</td>
+              </tr>
+              <tr class="bg-red-50">
+                <td>CLI 測試 harness</td>
+                <td>11 sandbox · 8 spawn · 17 ROOT · 14 輸出合併 · slice-gen read()×3</td>
+                <td>不適用（fixture）</td>
+                <td>搬家（缺 locality）</td>
+                <td>卡片 1</td>
+                <td class="bg-amber-50">C168 §八 #263／#265，22 支</td>
+              </tr>
+              <tr class="bg-red-50">
+                <td>各閘門對真樹 exit 0</td>
+                <td>九支測試 ↔ vpr gate</td>
+                <td>否（對象不同）；但與腿④同一 seam 跑兩次</td>
+                <td>in-proc 兩條：兩方向皆消失</td>
+                <td>卡片 3</td>
+                <td class="bg-amber-50">C170 #269 刪三條；it.each 否決</td>
+              </tr>
+              <tr class="bg-red-50">
+                <td>defineFeature 命名空間</td>
+                <td>
+                  define-feature.test:38-91 ↔ invoice/order/shipment.test:11-36 ↔
+                  composition-root:18
+                </td>
+                <td>不會（切片層在 import 期已保證，斷言不可達）</td>
+                <td>消失</td>
+                <td>卡片 4</td>
+                <td class="bg-amber-50">C172 #271 刪十、留七、絆線</td>
+              </tr>
+              <tr class="bg-red-50">
+                <td>maskName</td>
+                <td>platform/pii mask.test:59-82 ↔ features/order masking.test:22-42</td>
+                <td>是</td>
+                <td>消失（mask.test 更廣）</td>
+                <td>卡片 4</td>
+                <td class="bg-amber-50"><strong>C196 #321</strong> 刪四條（§六 掉了這列）</td>
+              </tr>
+              <tr class="bg-red-50">
+                <td>BFF 401／403／CSRF</td>
+                <td>bff-mock routes.test ↔ bff-check contract.test</td>
+                <td>是</td>
+                <td>搬家（BFF_ORIGIN 第二種跑法）</td>
+                <td>卡片 5</td>
+                <td class="bg-amber-50">C174 #273 刪一、換形狀三</td>
+              </tr>
+              <tr class="bg-red-50">
+                <td>index.ts 匯出完整性</td>
+                <td>styles.test:315-329 ↔ component-contract:69-73</td>
+                <td>是</td>
+                <td>消失</td>
+                <td>卡片 6</td>
+                <td class="bg-amber-50">C175 #276 刪子集</td>
+              </tr>
+              <tr class="bg-red-50">
+                <td>threshold-check 探針</td>
+                <td>
+                  gate ×1 · threshold.test ×1 · promise-check 測試 ×3 · gate 內 promise-check ×3
+                </td>
+                <td>規則變異：四路徑全紅</td>
+                <td>樹自己拒絕過第三份</td>
+                <td>卡片 7</td>
+                <td class="bg-amber-50">C176 #277 機制否決；實測 22</td>
+              </tr>
+              <tr class="bg-amber-50">
+                <td>theme-verify 讀不讀副本</td>
+                <td>promise-check/sandbox:128-134 ↔ :140-151</td>
+                <td>否（:140 紅時 :128 綠，反向不存在）</td>
+                <td>消失 —— :136-139 自己承認</td>
+                <td>零散：刪 :128-134</td>
+                <td class="bg-amber-50">C177 #278 刪 :133，status 搬 :145</td>
+              </tr>
+              <tr class="bg-amber-50">
+                <td>lockfile 拆兩份文件</td>
+                <td>supply-chain lockfile.test:133-164,217-233 ↔ sbom-negative:94-100,124-160</td>
+                <td>是（四條）</td>
+                <td>斷言消失、--split-lockfile adapter 覆蓋搬家</td>
+                <td>零散：sbom-negative 只留 adapter 那一條</td>
+                <td class="bg-amber-50">C177 刪 :220／:230，:128 換形狀，:165 留</td>
+              </tr>
+              <tr class="bg-amber-50">
+                <td>tier2 workflow 的 --verify-sbom 步驟</td>
+                <td>sbom-negative:194-198 ↔ gate-roster roster.test:301-311 + gates.ts:280</td>
+                <td>是</td>
+                <td>消失（只限那一條；:176-193,199-203 不可刪）</td>
+                <td>零散：刪 :194-198</td>
+                <td class="bg-amber-50">C177 刪 :184-187；:194 是 C170 D 類、留</td>
+              </tr>
+              <tr class="bg-amber-50">
+                <td>composableFunctionName</td>
+                <td>define-feature.test:150 ↔ contract-alignment:239</td>
+                <td>是</td>
+                <td>搬家（後者守「產生器有沒有跟上」）</td>
+                <td>留</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr class="bg-amber-50">
+                <td>conformance 讀 --root</td>
+                <td>promise-check/sandbox:113-126 ↔ probe.test:26-34</td>
+                <td>是</td>
+                <td>搬家（probe:36-43 唯一的非零列）</td>
+                <td>留</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr class="bg-amber-50">
+                <td>sr-only span 形狀</td>
+                <td>ui a11y.test:201 ↔ dropdown-menu:198</td>
+                <td>是（兩邊檔頭載明）</td>
+                <td>搬家（各是別條的前置）</td>
+                <td>留</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr class="bg-amber-50">
+                <td>模板 HTML 註解</td>
+                <td>
+                  a11y:387（廣）↔ field-wiring:234 · alert-dialog:282 · dropdown-menu:453（深）
+                </td>
+                <td>部分（alert-dialog:292 實測）</td>
+                <td>搬家但缺角</td>
+                <td>留</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr class="bg-amber-50">
+                <td>gate-roster 真樹 vs fixture</td>
+                <td>roster.test:141 ↔ :145</td>
+                <td>是</td>
+                <td>搬家到腿④ —— :146-147 有辯護</td>
+                <td>卡片 3 涵蓋</td>
+                <td class="bg-amber-50">C170 E 類，不併、留</td>
+              </tr>
+              <tr>
+                <td>a11y 三支</td>
+                <td>eslint-config · ui · compliance</td>
+                <td>否（讀檔目標互不相交）</td>
+                <td>消失</td>
+                <td>互補，不動</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>PII 偵測 vs 遮罩</td>
+                <td>pii-check detect.test ↔ platform/pii</td>
+                <td>否（是耦合不是重複）</td>
+                <td>消失</td>
+                <td>互補，不動</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>CSP 政策 / 靜態違規 / 跑起來的標頭</td>
+                <td>policy.test ↔ static-csp.test ↔ bff-check:251-272</td>
+                <td>否</td>
+                <td>消失</td>
+                <td>互補，不動</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>apps/console 四支</td>
+                <td>各自 seam（script 接線／proxy／build 產物／聚合）</td>
+                <td>與 CSP 無關（grep 零命中）</td>
+                <td>—</td>
+                <td>互補，不動</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>切片契約四組</td>
+                <td>
+                  define-feature ↔ conformance rules ↔ contract-alignment ↔ boundary-alignment
+                </td>
+                <td>否（isValidComposableFile 三邊各走不同分支）</td>
+                <td>消失（缺角）</td>
+                <td>互補，不動</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>usecase queryInvoice</td>
+                <td>invoice.spec.ts:59-107 唯一</td>
+                <td>—</td>
+                <td>—</td>
+                <td>無重複</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>repoRoot()</td>
+                <td>gate-kit root.test:7 ↔ pii-check roster.test:37</td>
+                <td>否（symlink 變異只後者紅）</td>
+                <td>都不可刪 —— root.test:11-18 明文</td>
+                <td>互補，不動</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>--root 換的是被驗的設定</td>
+                <td>threshold.test:294 ↔ promise-check/sandbox:98</td>
+                <td>否</td>
+                <td>都不可刪 —— sandbox:92-97 明文</td>
+                <td>互補，不動</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>markdown 事實（doc-facts／threshold-check／promise-check）</td>
+                <td>事實來源完全不相交（後兩支不讀 .md）</td>
+                <td>不成立</td>
+                <td>—</td>
+                <td>嫌疑不成立</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>HANDOFF.md 的數字</td>
+                <td>doc-facts ↔ exit-drill counts</td>
+                <td>否（守不同數字，counts.ts:148 明文分界）</td>
+                <td>都不可刪</td>
+                <td>互補，不動</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>樹上有哪些 tools／有沒有登記</td>
+                <td>gate-roster ↔ scope-check ↔ pii-check roster</td>
+                <td>否 —— scope.test:162-170 專門斷言 tools 那層必須綠（C136 §四）</td>
+                <td>都不可刪</td>
+                <td>互補，已裁決</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>閘門鏈成員資格</td>
+                <td>gate-roster check ↔ adoption ↔ promise-check check</td>
+                <td>否（三個問句）</td>
+                <td>搬家；三個 parser</td>
+                <td>卡片 2 收 parser</td>
+                <td class="bg-amber-50">C178 §四 parser 不動（重盤後是一個）</td>
+              </tr>
+              <tr>
+                <td>exit-drill 五支</td>
+                <td>一對一對五個 src 模組</td>
+                <td>否</td>
+                <td>都不可刪</td>
+                <td>無重複</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>兩軌 lint</td>
+                <td>vp check（oxlint）↔ gate 的 eslint ×2</td>
+                <td>否（規則集刻意零重疊，vite.config.ts:1-10）</td>
+                <td>都不可刪</td>
+                <td>互補，已裁決</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>原始顏色判定</td>
+                <td>
+                  theme-verify palette.test ↔ contract-alignment:363（共用
+                  findPaletteUsage、輸入不同）
+                </td>
+                <td>否</td>
+                <td>消失</td>
+                <td>互補，:360-361 明文</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+              <tr>
+                <td>vitest project 重疊</td>
+                <td>根層 vite.config.ts 無 test 區塊；收集靠 pnpm-workspace × vp run -r</td>
+                <td>結構上不可能</td>
+                <td>—</td>
+                <td>不成立</td>
+                <td class="bg-amber-50">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-2xl font-serif">附錄 B · 一次 <code>vpr ready</code> 把同一個檢查跑幾遍</h2>
+        <p class="text-sm text-slate-600">
+          腿②與腿④的重複來自一個結構事實：<code>tools/*</code> 是 workspace 成員，測試在腿②跑、CLI
+          在腿④跑。<code>gates.ts</code> 只在
+          <code>bff-check</code> 那列點名過這件事。數字是從原始碼與檔頭註解推導的，不是計時。
+        </p>
+        <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table class="t text-xs w-full">
+            <thead class="bg-stone-100">
+              <tr>
+                <th>檢查</th>
+                <th>① check</th>
+                <th>② test</th>
+                <th>④ gate</th>
+                <th>合計</th>
+                <th>依據</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr>
+                <td>threshold-check CLI</td>
+                <td>–</td>
+                <td>4</td>
+                <td>4</td>
+                <td class="font-semibold">8</td>
+                <td>promise-check/cli.test.ts:91-93 · gates.ts:358</td>
+              </tr>
+              <tr>
+                <td>vp lint 全樹掃描</td>
+                <td>1</td>
+                <td>~20</td>
+                <td>~20</td>
+                <td class="font-semibold">~41</td>
+                <td>8 × 5 趟（推導）</td>
+              </tr>
+              <tr>
+                <td>每支 CLI 的「不認得旗標」</td>
+                <td>–</td>
+                <td>14</td>
+                <td>–</td>
+                <td>14</td>
+                <td>adoption it.each</td>
+              </tr>
+              <tr>
+                <td>pii-check 真樹</td>
+                <td>–</td>
+                <td>3</td>
+                <td>1</td>
+                <td>4</td>
+                <td>roster.test:103/144/149</td>
+              </tr>
+              <tr>
+                <td>doc-facts 真樹</td>
+                <td>–</td>
+                <td>3</td>
+                <td>1</td>
+                <td>4</td>
+                <td>facts.test:377/383/393</td>
+              </tr>
+              <tr>
+                <td>conformance 真樹</td>
+                <td>–</td>
+                <td>2</td>
+                <td>1</td>
+                <td>3</td>
+                <td>output:106 · negative:563</td>
+              </tr>
+              <tr>
+                <td>compliance --evidence 真樹</td>
+                <td>–</td>
+                <td>3</td>
+                <td>0</td>
+                <td>3</td>
+                <td>variant 不在 scripts.gate，只在 CI</td>
+              </tr>
+              <tr>
+                <td>
+                  theme-verify / gate-roster / scope-check / promise-check / spec-report --check
+                </td>
+                <td>–</td>
+                <td>1</td>
+                <td>1</td>
+                <td>各 2</td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>eslint（安全）／eslint（a11y）</td>
+                <td>–</td>
+                <td>–</td>
+                <td>1+1</td>
+                <td>2</td>
+                <td>package.json:12，同一 binary 兩份 config</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-2xl font-serif">附錄 C · 走的時候撞到的缺口（不是重複，超出這次的範圍）</h2>
+        <ul class="text-sm list-disc ml-5 space-y-1.5">
+          <li>
+            <strong>a11y 規則清單縮水時三支都綠</strong>：<code
+              >eslint-config/tests/a11y.test.ts:66-81</code
+            >
+            比對的兩個集合都從同一份設定推導；<code>compliance/tests/a11y.test.ts:96-102</code>
+            只驗前綴／排序／非空。加的方向有守，減的方向沒有。
+            <span class="block mt-0.5 text-amber-900"
+              >✅ C186（#300）—— 三支綠是真的、守它的是閘門的
+              baseline；真缺口是那條分支零反向測試、且測試一直在改寫真樹的交付文件。</span
+            >
+          </li>
+          <li>
+            <strong><code>form-control-has-label</code> 的範圍豁免沒進交付文件</strong>：<code
+              >compliance/src/a11y.ts:145-152</code
+            >
+            用 <code>.find()</code> 只取第一個帶 rules 的區塊，看不見
+            <code>a11y.js:148-149</code> 對 <code>platform/ui/src/components/**</code> 的 off。這是
+            <code>compliance/tests/a11y.test.ts:16-19</code> 點名要防的「樂觀方向的謊」。
+            <span class="block mt-0.5 text-amber-900"
+              >✅ C187（#301）——
+              讀設定那行只看第一個區塊；加豁免、擴豁免、多關一條三顆變異零紅，補齊。</span
+            >
+          </li>
+          <li>
+            <strong>CSP 指令被刪，具名三條以外兩邊都綠</strong>：<code>bff-check:269-271</code>
+            迴圈的期望值與伺服器同源。
+            <span class="block mt-0.5 text-amber-900"
+              >✅ C188（#302）—— 刪 <code>form-action</code> 零紅實證；期望不再與伺服器同源。</span
+            >
+          </li>
+          <li>
+            <strong>覆蓋率門檻的 <code>enabled: true</code> 沒有 locality</strong
+            >：三片＋範本各抄一份，刪掉任一片安靜失效（<code
+              >features/invoice/vite.config.ts:16-18</code
+            >
+            自記）。
+          </li>
+          <li>
+            <strong>兩支 <code>vite.config.ts</code> 的散文已過期</strong
+            >：<code>apps/console:72-77</code>、<code>features/order:8-13</code> 描述「根層 test
+            區塊整塊不繼承」，而根層今天沒有 test 區塊。doc-facts 看不到 .ts 註解。
+            <span class="block mt-0.5 text-amber-900"
+              >✅ C189 §二 第 4 項 —— 三處各改一句成「根層<strong>刻意不放</strong>
+              <code>test</code> 區塊；就算放了也整塊不繼承」；100%／13.20%
+              是有出處的量測記錄、不動。</span
+            >
+          </li>
+          <li>
+            <strong><code>stryker.config.mjs:174-180</code> 的 78 那個算式沒有機制在守</strong
+            >；<code>thresholds.break: null</code>，它從不紅。
+            <span class="block mt-0.5 text-amber-900"
+              >⚠️ 數字改了兩次（C168 §五 → 129；C194 #307 → 139），並寫明「只在跑的那天對」。<strong
+                >「沒有機制在守」與 <code>break: null</code> 兩件都沒變</strong
+              >，C194 §三 明文不裁。</span
+            >
+          </li>
+          <li>
+            <strong><code>tools/sast/</code> 是第 21 個目錄</strong>，只有 node_modules 與
+            .DS_Store，沒有 package.json，兩份名冊都看不見它，而
+            <code>roster.test:151</code> 把這件事寫成了規格。
+            <span class="block mt-0.5 text-amber-900"
+              >⚠️ 磁碟上已不存在（09-07 查）。它從未在版控，沒有任何 commit 或裁決處理它；<code
+                >scope-check</code
+              >
+              早就把它寫成反向測試的案例。</span
+            >
+          </li>
+        </ul>
+      </section>
+
+      <!-- ============ Top recommendation ============ -->
+      <section
+        id="top-recommendation"
+        class="rounded-lg border-2 border-slate-900 bg-white p-6 space-y-3"
+      >
+        <div class="lbl text-slate-500">Top recommendation</div>
+        <h2 class="text-2xl font-serif">
+          <a href="#c1" class="underline decoration-dotted"
+            >卡片 1 · 先把 harness 收成 gate-kit 的一個 deep module</a
+          >
+        </h2>
+        <p class="text-sm">
+          它是唯一一張零斷言損失、不碰任何閘門、不碰任何裁決的卡片；而卡片 2 與 3
+          都需要同一個「推導名冊 × 共用 runner」才做得乾淨，先做它，那兩張各自剩下的就是刪行。卡片 6
+          十行可以順手，卡片 4 是唯一真正改到規則射程的，留到有裁決再動。
+        </p>
+        <div class="rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm space-y-1">
+          <p>
+            <strong>事後對照（09-07）。</strong>卡片 1 確實先做了（#263／#265）。「卡片 2 與 3
+            之後各自剩下的就是刪行」<strong>對了一半</strong>：兩張都刪了行，但它們依賴的那句「推導名冊
+            × 共用 runner」沒有成立 —— 名冊改吃磁碟不吃 <code>GATES</code>（C178），<code
+              >it.each</code
+            >
+            被否決（C170）。卡片 6 順手了（C175）。卡片 4 「留到有裁決再動」——
+            裁決來了（C172），而它只動測試碼，規則射程那半刻意不裁。卡片 7
+            沒在這段推薦裡，結果是唯一被機制否決的一張（C176）。
+          </p>
+          <p>
+            報告沒推薦、也沒放進 §六
+            清單的那一列（<code>maskName</code>）是最後一個落地的：C196（#321）。
+          </p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
