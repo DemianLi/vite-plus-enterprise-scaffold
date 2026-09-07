@@ -13,33 +13,20 @@ import { maskName } from "@org/pii";
  * 「林○○」與「林佳蓉」可以同時出現在畫面上（例如列表遮了、明細沒遮）。
  *
  * 真正該斷言的是**完整值在整份 HTML 裡不存在**。
+ *
+ * ── `maskName()` 本身不在這裡驗（C196）──────────────────────────────
+ *
+ * 這裡曾經有一個 describe「隱碼函式本身」：中文留首字、西方姓名分段、不得含原字、
+ * 空字串，四條逐條是 `platform/pii/tests/mask.test.ts` 那組的嚴格子集 ——
+ * 同一個變異兩邊同時紅，而只讓那邊紅的變異存在（`keepHead` 的 `<=` → `<`）。
+ * 其中「不得含原字」那條抄過來時輸入換成了「王曉明」、期望仍是「佳」，
+ * 對任何實作恆真。切片的接縫只有下面那一條：**宣告為個資的欄位，渲染出來
+ * 看不到完整值**；函式對不對歸 `platform/pii`。
  */
 
 /** 刻意不用示範資料裡的名字：測試不該依賴另一個檔案的內容。 */
 const FULL_NAME = "王曉明";
 const LATIN_NAME = "Aya Nakamura";
-
-describe("隱碼函式本身", () => {
-  it("中文姓名留第一個字", () => {
-    expect(maskName(FULL_NAME)).toBe("王○○");
-  });
-
-  it("★ 西方姓名分段處理 —— 否則列表裡完全認不出是誰", () => {
-    // 整串只留第一個字母的話會變成 A○○○○○○○○○○○：
-    // 長度本身洩漏資訊，而且難用到大家會乾脆不呼叫這個函式。
-    expect(maskName(LATIN_NAME)).toBe("A○○ N○○○○○○○");
-  });
-
-  it("🔴 遮罩後不得包含原本的字", () => {
-    const masked = maskName(FULL_NAME);
-    expect(masked).not.toContain("佳");
-    expect(masked).not.toBe(FULL_NAME);
-  });
-
-  it("空字串不會炸", () => {
-    expect(maskName("")).toBe("");
-  });
-});
 
 /**
  * 用一個只做呈現的替身元件，而不是掛整個 `OrderList.vue`。
