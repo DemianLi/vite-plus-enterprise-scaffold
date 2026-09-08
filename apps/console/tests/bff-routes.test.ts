@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, onTestFinished } from "vitest";
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -57,6 +57,45 @@ function sliceListPaths(): readonly { readonly slice: string; readonly path: str
   });
 }
 
+/**
+ * 走根 `package.json` 那條 `bff` script 同一條路啟動 mock，回它印出來的 origin。
+ * 行程的關閉註冊給 `onTestFinished`，所以呼叫端不必自己 `finally`。
+ *
+ * ⚠️ 底下有兩個呼叫端，而在此之前它們各有一份**逐位元組相同**的 19 行
+ * implementation（`shasum` 兩段同值）。CLI 的輸出格式
+ * （`[bff-mock] http://127.0.0.1:<port>`）改一次要改兩處，漏一處的症狀是
+ * 「mock 沒起來就結束了」—— 指向錯的方向。
+ *
+ * ⚠️ 刻意留在這支檔裡，**不**往 `@org/gate-kit/testing` 收：`apps/*` 沒有、也不該有
+ * `tools/*` 相依（conformance 的 layering 規則）。
+ *
+ * harness 決定「怎麼起 mock」，不決定「什麼算對」—— 斷言一條都不在這裡。
+ */
+async function spawnMockOrigin(): Promise<string> {
+  const child = spawn(process.execPath, ["platform/bff-mock/src/cli.ts"], {
+    cwd: ROOT,
+    env: { ...process.env, BFF_MOCK_ROUTES: wiredRoutesPath(), BFF_MOCK_PORT: "0" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  onTestFinished(() => {
+    child.kill();
+  });
+
+  return await new Promise<string>((resolve, reject) => {
+    let output = "";
+    const onData = (chunk: Buffer) => {
+      output += chunk.toString();
+      const found = /\[bff-mock\] (http:\/\/127\.0\.0\.1:\d+)/.exec(output);
+      if (found?.[1] !== undefined) resolve(found[1]);
+    };
+    child.stdout.on("data", onData);
+    child.stderr.on("data", onData);
+    child.on("exit", (code) =>
+      reject(new Error(`mock 沒起來就結束了（exit ${String(code)}）\n${output}`)),
+    );
+  });
+}
+
 describe("apps/console 的 dev 資料端點", () => {
   it("★ 根 package.json 的 `bff` script 真的指向這個檔案", async () => {
     const wired = wiredRoutesPath();
@@ -73,13 +112,14 @@ describe("apps/console 的 dev 資料端點", () => {
     expect(loaded.routes.map((route) => route.path)).toEqual(routes.map((route) => route.path));
   });
 
-  it("每一條路由都有載入端要求的形狀（path 字串 ＋ handle 函式）", () => {
-    // 這個檔案刻意不 import @org/bff-mock 的型別（理由見它的檔頭），
-    // 所以形狀沒有編譯期檢查。CLI 會在啟動時擋，這裡讓它在測試就擋。
+  it("每一條路由的 path 都落在 /api/ 之下 —— CLI 不驗這一格", () => {
+    // 這個檔案刻意不 import @org/bff-mock 的型別（理由見它的檔頭），所以形狀
+    // 沒有編譯期檢查。形狀（path 字串 ＋ handle 函式）由 CLI 在啟動時擋
+    // （`platform/bff-mock/src/cli.ts:84-98`），而底下兩條絆線**真的會啟動它** ——
+    // 實測把 handle 換成非函式：兩條都紅，訊息點名檔案與第幾條路由。
+    // 所以這裡只留 CLI 不驗的那一格：前綴。
     for (const route of routes) {
-      expect(typeof route.path).toBe("string");
-      expect(route.path.startsWith("/api/")).toBe(true);
-      expect(typeof route.handle).toBe("function");
+      expect(route.path.startsWith("/api/"), `${route.path} 不在 /api/ 之下`).toBe(true);
     }
   });
 
@@ -159,37 +199,16 @@ describe("apps/console 的 dev 資料端點", () => {
    * 第三片切片加進來那天（#260）`invoice:read` 就是這樣缺了一整天（#309）。
    */
   it("★ 切片宣告的每一個權限碼，vpr bff 起來的 session 都拿得到", async () => {
-    const child = spawn(process.execPath, ["platform/bff-mock/src/cli.ts"], {
-      cwd: ROOT,
-      env: { ...process.env, BFF_MOCK_ROUTES: wiredRoutesPath(), BFF_MOCK_PORT: "0" },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    try {
-      const origin = await new Promise<string>((resolve, reject) => {
-        let output = "";
-        const onData = (chunk: Buffer) => {
-          output += chunk.toString();
-          const found = /\[bff-mock\] (http:\/\/127\.0\.0\.1:\d+)/.exec(output);
-          if (found?.[1] !== undefined) resolve(found[1]);
-        };
-        child.stdout.on("data", onData);
-        child.stderr.on("data", onData);
-        child.on("exit", (code) =>
-          reject(new Error(`mock 沒起來就結束了（exit ${String(code)}）\n${output}`)),
-        );
-      });
+    const origin = await spawnMockOrigin();
 
-      const response = await fetch(`${origin}/api/session`, { method: "POST" });
-      const session = (await response.json()) as { permissions: readonly string[] };
-      const granted = new Set(session.permissions);
+    const response = await fetch(`${origin}/api/session`, { method: "POST" });
+    const session = (await response.json()) as { permissions: readonly string[] };
+    const granted = new Set(session.permissions);
 
-      for (const permission of registerFeatures(features).permissions) {
-        expect(granted.has(permission), `切片宣告了 ${permission}，而 mock session 沒有它`).toBe(
-          true,
-        );
-      }
-    } finally {
-      child.kill();
+    for (const permission of registerFeatures(features).permissions) {
+      expect(granted.has(permission), `切片宣告了 ${permission}，而 mock session 沒有它`).toBe(
+        true,
+      );
     }
   }, 20_000);
 
@@ -214,41 +233,20 @@ describe("apps/console 的 dev 資料端點", () => {
       ).toBe(true);
     }
 
-    const child = spawn(process.execPath, ["platform/bff-mock/src/cli.ts"], {
-      cwd: ROOT,
-      env: { ...process.env, BFF_MOCK_ROUTES: wiredRoutesPath(), BFF_MOCK_PORT: "0" },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    try {
-      const origin = await new Promise<string>((resolve, reject) => {
-        let output = "";
-        const onData = (chunk: Buffer) => {
-          output += chunk.toString();
-          const found = /\[bff-mock\] (http:\/\/127\.0\.0\.1:\d+)/.exec(output);
-          if (found?.[1] !== undefined) resolve(found[1]);
-        };
-        child.stdout.on("data", onData);
-        child.stderr.on("data", onData);
-        child.on("exit", (code) =>
-          reject(new Error(`mock 沒起來就結束了（exit ${String(code)}）\n${output}`)),
-        );
-      });
+    const origin = await spawnMockOrigin();
 
-      // 資料端點在 401 閘門之後；Node 的 fetch 不帶 cookie，自己帶。
-      const login = await fetch(`${origin}/api/session`, { method: "POST" });
-      const cookie = (login.headers.getSetCookie() ?? []).map((c) => c.split(";")[0]).join("; ");
+    // 資料端點在 401 閘門之後；Node 的 fetch 不帶 cookie，自己帶。
+    const login = await fetch(`${origin}/api/session`, { method: "POST" });
+    const cookie = (login.headers.getSetCookie() ?? []).map((c) => c.split(";")[0]).join("; ");
 
-      for (const target of targets) {
-        const response = await fetch(`${origin}${target.path}`, { headers: { Cookie: cookie } });
-        expect(
-          response.status,
-          `${target.slice} 打 ${target.path}，mock 回 ${String(response.status)} —— 這片在本機停在 loading`,
-        ).toBe(200);
-        const body = (await response.json()) as { items?: unknown };
-        expect(Array.isArray(body.items), `${target.path} 回的不是列表`).toBe(true);
-      }
-    } finally {
-      child.kill();
+    for (const target of targets) {
+      const response = await fetch(`${origin}${target.path}`, { headers: { Cookie: cookie } });
+      expect(
+        response.status,
+        `${target.slice} 打 ${target.path}，mock 回 ${String(response.status)} —— 這片在本機停在 loading`,
+      ).toBe(200);
+      const body = (await response.json()) as { items?: unknown };
+      expect(Array.isArray(body.items), `${target.path} 回的不是列表`).toBe(true);
     }
   }, 20_000);
 });
