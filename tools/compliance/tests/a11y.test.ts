@@ -149,35 +149,63 @@ describe("範圍覆寫：全域清單之後的區塊要進交付文件", () => {
    * ⚠️ 下面三顆變異是 #297 改前閘門零紅的那三顆（加新區塊／擴 files／加第二條 off）。
    * 用參數注入而不改真樹的 `a11y.js`：C186 §二 之後測試不准改寫真樹的交付文件，
    * 而閘門那一頭的「產出變了 → baseline 紅」由 C186 的沙盒測試守。
+   *
+   * ⚠️ **三顆都不用 `not.toBe(render())` 判，而那不是寫法偏好。** 注入值一旦與真值
+   * 相同（有人真的把豁免擴成全樹的 .vue、真的多關一條），那顆變異就變成 no-op ——
+   * 測試會紅，而訊息是兩串**看起來一樣**的字串 `not to be`，指不出真設定改了什麼。
+   * 實測過：把 `a11y.js:160` 的 files 改成全樹的 .vue，M2 紅在
+   * `expected '# 無障礙…' not to be '# 無障礙…'`。所以每一顆先用一句具名的
+   * 前置斷言問「真設定是不是已經長成注入的樣子」，再對注入結果與真設定的產出
+   * 各驗一次 —— 紅的時候說得出是哪一邊變了。
    */
   it("🔴 M1：多一個 apps/** 的 off 區塊 → 交付文件變了", () => {
+    const files = "apps/**/*.vue";
+    expect(
+      render(),
+      `真設定已經有 ${files} 的覆寫 —— 注入值與真值相同，這顆變異量不到任何事`,
+    ).not.toContain(files);
+
     const mutated = render([
       ...a11yConfig,
-      { files: ["apps/**/*.vue"], rules: { "vuejs-accessibility/no-autofocus": "off" } },
+      { files: [files], rules: { "vuejs-accessibility/no-autofocus": "off" } },
     ]);
-    expect(mutated).not.toBe(render());
-    expect(mutated).toContain("apps/**/*.vue");
+    expect(mutated).toContain(files);
     expect(mutated).toContain("no-autofocus");
   });
 
   it("🔴 M2：豁免的 files 擴成 **/*.vue → 交付文件變了", () => {
-    const mutated = render(withExemptionReplaced({ ...exemption, files: ["**/*.vue"] }));
-    expect(mutated).not.toBe(render());
-    expect(mutated).toContain("`**/*.vue`");
+    const widened = "**/*.vue";
+    expect(
+      exemption.files,
+      `真設定的豁免 files 已經是 ${widened} —— 注入值與真值相同，這顆變異變成 no-op`,
+    ).not.toContain(widened);
+
+    const mutated = render(withExemptionReplaced({ ...exemption, files: [widened] }));
+    expect(mutated).toContain(`\`${widened}\``);
+    expect(render(), "真設定的產出本來就印著這個 glob —— 上面那條沒有量到注入").not.toContain(
+      `\`${widened}\``,
+    );
   });
 
   it("🔴 M3：豁免區塊多關一條 → 交付文件變了", () => {
+    const rule = "vuejs-accessibility/label-has-for";
+    // ⚠️ glob 取自真設定，不寫死：寫死的話「別人把豁免的 files 改寬了」也會讓
+    // 這一顆紅，而它要問的是「多關一條會不會進交付文件」。那一格的字面由
+    // 上面「交付文件印出每一列的規則名與 files glob 字面」那條守。
+    const row = `label-has-for\` | \`${exemption.files[0] ?? ""}`;
+    expect(
+      Object.keys(exemption.rules),
+      `真設定的豁免已經關了 ${rule} —— 注入值與真值相同，這顆變異變成 no-op`,
+    ).not.toContain(rule);
+
     const mutated = render(
-      withExemptionReplaced({
-        ...exemption,
-        rules: { ...exemption.rules, "vuejs-accessibility/label-has-for": "off" },
-      }),
+      withExemptionReplaced({ ...exemption, rules: { ...exemption.rules, [rule]: "off" } }),
     );
-    expect(mutated).not.toBe(render());
-    expect(mutated).toContain("label-has-for` | `platform/ui/src/components/**/*.vue");
+    expect(mutated).toContain(row);
+    expect(render(), "真設定的產出本來就有這一列 —— 上面那條沒有量到注入").not.toContain(row);
   });
 
-  it("★ 對照：真設定 render 兩次逐位相同 —— 上面三顆的 not.toBe 才有意義", () => {
+  it("★ 對照：真設定 render 兩次逐位相同 —— 上面三顆拿 render() 當真值才有意義", () => {
     expect(render()).toBe(render());
   });
 
