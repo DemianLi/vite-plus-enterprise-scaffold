@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { basename, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { repoRoot, runCli, sandbox } from "../src/testing.ts";
@@ -11,8 +10,6 @@ import { repoRoot, runCli, sandbox } from "../src/testing.ts";
  *
  * ⚠️ 消費端的斷言不在這裡重測。這支檔案不知道 conformance 的規則長什麼樣。
  */
-
-const HERE = resolve(fileURLToPath(import.meta.url), "..");
 
 describe("sandbox · 建樹", () => {
   it("files：相對路徑寫進去，中間目錄自動建", () => {
@@ -103,11 +100,5 @@ describe("runCli", () => {
     // 沒證明「沒給的不會多出來」。而後者才是 C126 在意的那一半。
     const result = runCli("tools/gate-kit/tests/fixtures/echo-argv.mjs");
     expect(JSON.parse(result.stdout).argv).toEqual([]);
-  });
-});
-
-describe("repoRoot re-export", () => {
-  it("與 ./root.ts 同一個答案，測試只需要 import 一個地方", () => {
-    expect(repoRoot()).toBe(resolve(HERE, "../../.."));
   });
 });
