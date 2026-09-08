@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { cpSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { repoRoot, runCli, sandbox } from "@org/gate-kit/testing";
@@ -1297,4 +1298,57 @@ describe("repo 沒有被動到", () => {
     runFixture((source) => source.replaceAll("InternalOnly", "ScratchShape"));
     expect(readFileSync(file, "utf8")).toBe(before);
   });
+});
+
+// ── checkIndexAgreement 的紅燈那條路 ──────────────────────────────────
+
+/**
+ * ★ `cli.ts:277-284`（headline／dirs／remediation／exit 1）**在此之前一條路都走不到**。
+ *
+ * 上面那批會紅的案例全部走 `--platform <tmpdir>`，而那條檢查刻意只在
+ * `PLATFORM === PLATFORM_DIR` 時問（`cli.ts:259`）—— 進不去。真樹那條
+ * （`:213-228`）進得去，但這棵樹是乾淨的，`problems` 恆空。
+ *
+ * 實測（基準 `2326bc8`）：把 `:277-284` 整段刪掉 → **這支檔 97/97 全綠**。
+ * `cli.ts:275-276` 那句「少一個方向要動 `checkIndexAgreement`，而那支函式是直接
+ * 被測的」成立 —— 但它守的是**少一個方向**，不是**這一段有沒有被接上**；
+ * 而 `:213-228` 只守綠燈那條路（`verifiedInIndex` 在那個 `if` 之外，
+ * 所以刪掉紅燈那段之後綠燈照樣宣稱驗過）。
+ *
+ * ── 為什麼要整棵樹的副本 ────────────────────────────────────────────
+ *
+ * 這支 CLI 的 `ROOT` 是從 `import.meta.url` 推的（`cli.ts:42`），沒有 `--root`。
+ * 要讓 `PLATFORM === PLATFORM_DIR` 而內容又是壞的，只能複製一份樹再跑**副本的**
+ * CLI。沙盒建在這個 package 底下（`within`），node 才解析得到 `@org/*` 的
+ * workspace symlink —— 與 `tools/vue-typecheck` 的 fixture 同一個理由。
+ */
+describe("checkIndexAgreement 接進 cli.ts 的那一段", () => {
+  it("🔴 版控裡有、磁碟上沒有的 platform 套件 → RC=1，headline 與補救都印得出來", () => {
+    const box = sandbox({
+      prefix: "api-surface-wiring-",
+      within: join(ROOT, "tools/api-surface"),
+      copy: ["platform", "tools/api-surface"],
+      git: true,
+    });
+
+    // 不寫死名字：改名之後寫死的那個會靜靜失效，而症狀是這條測試恆綠。
+    const victim = readdirSync(join(box.root, "platform"), { withFileTypes: true }).find((entry) =>
+      entry.isDirectory(),
+    )?.name;
+    expect(victim, "副本的 platform/ 底下一個目錄都沒有 —— 沙盒建壞了").toBeDefined();
+
+    // git add -A 之後才刪：版控裡有、磁碟上沒有，正是 vanished 那個方向。
+    rmSync(join(box.root, "platform", String(victim)), { recursive: true, force: true });
+
+    const result = spawnSync(process.execPath, [join(box.root, CLI)], {
+      cwd: box.root,
+      encoding: "utf8",
+    });
+    const output = `${result.stdout}${result.stderr}`;
+
+    expect(result.status, `應該紅卻是 ${String(result.status)}：\n${output}`).toBe(1);
+    expect(output).toContain("在版控裡、磁碟上卻沒有");
+    expect(output, "只印了 headline，沒印是哪一個").toContain(`platform/${String(victim)}`);
+    expect(output, "沒印補救步驟 —— 那正是這段程式碼存在的理由").toContain("兩條出路");
+  }, 120_000);
 });

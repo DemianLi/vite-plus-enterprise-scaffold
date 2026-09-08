@@ -401,8 +401,17 @@ describe("handoffItemCount：合併標題要展開", () => {
     expect(handoffItemCount("### 3. 小節\n內文 ## 9. 不在行首")).toBe(0);
   });
 
-  it("真的 HANDOFF.md 數得出來，而且不是 0", () => {
+  /**
+   * ⚠️ 這一條是**前提檢查**，不是又一條樣本：上面三條餵的是合成字串，
+   * 而它們代表得了真的 `HANDOFF.md`，靠的是那份檔案還是 `## N.` 這個形狀。
+   * 形狀變了的時候上面三條照樣全綠 —— 它們量的會是一個不存在的格式。
+   * 寫法同 `:385`（`DECISIONS.md` 那條前提）：訊息說出「這條測試失去意義」。
+   */
+  it("★ 真的 HANDOFF.md 還是 `## N.` 那個形狀 —— 上面三條樣本才代表得了它", () => {
     const source = readFileSync(join(ROOT, "HANDOFF.md"), "utf8");
-    expect(handoffItemCount(source)).toBeGreaterThan(5);
+    expect(
+      handoffItemCount(source),
+      "真的 HANDOFF.md 數不出項目 —— 標題形狀變了，上面三條樣本量的是一個不存在的格式",
+    ).toBeGreaterThan(5);
   });
 });
