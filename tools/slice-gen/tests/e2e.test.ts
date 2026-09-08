@@ -176,11 +176,36 @@ describe("產出的切片內容正確", () => {
 });
 
 /**
+ * 閘門輸出裡屬於某一段（`where` 分組標題）的違規列。
+ *
+ * 輸出的形狀由 `conformance/src/report.ts:43-55` 決定：`  <where>` 一行，
+ * 底下每一項是縮排四格的 `✗ [規則] 內容` ＋ `→ 怎麼修`。
+ */
+function findingsUnder(output: string, where: string): readonly string[] {
+  const lines = output.split("\n");
+  const start = lines.findIndex((line) => line.trim() === where);
+  if (start === -1) return [];
+
+  const found: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line.trim() !== "" && !line.startsWith("    ")) break;
+    if (line.trimStart().startsWith("✗ [")) found.push(line.trim());
+  }
+  return found;
+}
+
+/**
  * 真的把閘門叫起來，而不是重寫一份它的邏輯。
  *
  * 預期**恰好一項**違規：CODEOWNERS。那一項產生器產不出來 ——
  * 它刻意只寫新檔案，不改 CODEOWNERS 與 features.ts，因為自動塞進去等於
  * 繞過 code review，而那正是那兩個檔案存在的意義。
+ *
+ * ⚠️ **「恰好一項」數的是這一片的，不是整份輸出的總數。** `run()` 打的是
+ * 整棵真樹，所以拿 `toContain("1 項違規")` 當判準的話，真樹**任何一片**多一項
+ * 不相干的違規都會讓這裡紅 —— 而訊息說不出是哪一片（C189 §四 那次
+ * 「104 → 103」就是它）。真樹三片由 conformance 自己的 `checkCoverageGate`
+ * （C189）守，不由 slice-gen 的 e2e 兼職。
  */
 describe("產出的切片通過真的一致性檢查（除了必須由人指派的那一項）", () => {
   let conformance: Run;
@@ -194,8 +219,10 @@ describe("產出的切片通過真的一致性檢查（除了必須由人指派�
     expect(conformance.output).toContain(`features/${SLICE}`);
   });
 
-  it("違規恰好一項 —— 不是一堆問題裡剛好有它", () => {
-    expect(conformance.output).toContain("1 項違規");
+  it("**這一片**的違規恰好一項 —— 不是一堆問題裡剛好有它", () => {
+    const mine = findingsUnder(conformance.output, `features/${SLICE}`);
+    expect(mine, `解析式失效了，或者這一片的違規不只一項：\n${conformance.output}`).toHaveLength(1);
+    expect(mine[0]).toContain("擁有權");
   });
 
   it("沒有「設計系統採用」違規（C41 的規則，新切片必須一開始就在裡面）", () => {

@@ -215,13 +215,12 @@ describe("報表的 padding 不算差異，而內容的差異算", () => {
     expect(sameReport(a, b)).toBe(false);
   });
 
-  it("真的產出來的報表，補上 padding 之後對得起自己", () => {
-    const content = renderReport(resolve(instances, ALL_GREEN));
-    const padded = content
-      .split("\n")
-      .map((line) => (line.startsWith("|") ? line.replaceAll(" | ", "   |   ") : line))
-      .join("\n");
-    expect(sameReport(content, padded)).toBe(true);
-    expect(sameReport(content, padded.replace("75.0%", "76.0%"))).toBe(false);
-  });
+  /**
+   * ⚠️ 「**真的產出來的報表**補 padding 仍算同一份」那一條端對端刻意不在這裡 ——
+   * `tests/cli.test.ts:294`（`--check` 那半）與 `:315`（內容真的變了那半）已經
+   * 走過同一條路，而且是 spawn 真的 CLI、比真的檔案。這一組守的是
+   * `normalizeTables` 的**分支**（基本／冒號／圍籬），一條樣本對一條分支。
+   * 分工寫在 `cli.test.ts:267-269`：「逐格寬度對不對由 report.test 那組樣本
+   * 負責，這裡驗的是兩半都要在」。
+   */
 });
