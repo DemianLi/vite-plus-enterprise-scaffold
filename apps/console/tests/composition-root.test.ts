@@ -12,6 +12,11 @@ import { features } from "../src/features.ts";
  * 光是 import features.ts 就會觸發每個切片的 defineFeature 命名空間驗證；
  * 再跑一次 registerFeatures 則會抓出跨切片的撞名。
  * 換句話說，這是全系統唯一「所有切片同時在場」的地方。
+ *
+ * ⚠️ 「選單項目指到的路由存在」**刻意不在這裡**。`defineFeature` 逼路由 name 與選單
+ * routeName 都帶自己切片的前綴（`define-feature.ts:60`、`:98`），所以「在聯集裡」
+ * 與「在自己那片裡」是同一件事 —— 而逐片那三份還多守「這片有沒有被註冊進來」。
+ * 聚合層問不出逐片問不出來的事，就不在聚合層問（C197 §二）。
  */
 
 describe("apps/console composition root", () => {
@@ -62,13 +67,5 @@ describe("apps/console composition root", () => {
     // 少了這條，三個來源同時空掉時下面那條會拿空陣列比空陣列然後報綠。
     expect(derived.size, "反推不出任何命名空間 —— 這條斷言沒有東西可比對").toBeGreaterThan(0);
     expect([...derived].sort()).toEqual([...registered.names].sort());
-  });
-
-  it("每個切片的選單項目都指向實際存在的路由", () => {
-    const registered = registerFeatures(features);
-    const routeNames = new Set(registered.routes.map((route) => route.name));
-    for (const item of registered.menu) {
-      expect(routeNames.has(item.routeName)).toBe(true);
-    }
   });
 });

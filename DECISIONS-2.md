@@ -7631,3 +7631,150 @@ masking 7／0、mask 23／0：
 - 逐檔 `it` 數：`features/order` **11 → 7**（masking 7 → 3、order 4 不變）；`platform/pii` 23 不變。
 - `:35` 的恆真：`"王曉明".includes("佳")` 是 `false`，不需要跑測試。
 - `vpr ready` READY_RC=0（worktree，退出碼直接從命令取；log 裡 `features/order` 那一段是 7 passed）。
+
+### C197 — 「選單指到的路由存在」不是獨一，是五份：C172 §二 的讀數少跑了 `apps/console`，而聯集那一份被三片的逐片比對嚴格蘊含（2026-09-08）
+
+⚠️ **量測基準 `2326bc8`。** 本則的行號與計數凍結在那一支。
+
+⚠️ 本則是 **C172 的續集**。依 C138，**C172 的原文一個字都不動** —— 錯的讀數留在那裡，
+更正寫在這裡。
+
+#### 一、問題：一個「只有」少跑了一個 package
+
+C172 §二 那張七列的表，第五列「選單項目指向**實際存在**的路由」判「**可達、獨一**」，
+§二 末尾的實測寫：
+
+> invoice 選單 `routeName` 改成 `invoice/nope` → import 不炸，**只有**第五列那條紅。
+
+那一趟只跑了 `features/*`。同一個變異在 `apps/console` 也紅 ——
+`apps/console/tests/composition-root.test.ts:67-73` 用 `registerFeatures(features)`
+的**聯集**問同一個問題，而它在 C172 的量測基準 `a318dc4` 上就已經在同一個行號存在
+（`git show a318dc4:apps/console/tests/composition-root.test.ts` 的 `:67`）。
+
+「獨一」這個字在這棵樹上是有後果的：它是「這一列不可刪」的**唯一**理由。
+理由錯了而結論仍然對（見 §三 1），但這棵樹靠的正是數字對得上。
+
+#### 二、事實：五份 implementation，一份是聯集
+
+`rtk proxy grep -rn --include='*.ts' "實際存在的路由"`，五處：
+
+| 處                                               | 形狀                                          | 射程                  |
+| ------------------------------------------------ | --------------------------------------------- | --------------------- |
+| `features/invoice/tests/invoice.test.ts:16`      | 逐片：`feature.routes`                        | invoice               |
+| `features/order/tests/order.test.ts:16`          | 逐片                                          | order                 |
+| `features/shipment/tests/shipment.test.ts:16`    | 逐片                                          | shipment              |
+| `tools/slice-gen/src/files.ts:922`（範本）       | 逐片 —— 每產一片再複製一份                    | 未來每一片            |
+| `apps/console/tests/composition-root.test.ts:67` | **聯集**：`registerFeatures(features).routes` | 註冊進 console 的全部 |
+
+**聯集那一份問不出逐片問不出來的事**，理由在 `defineFeature`：
+
+- `define-feature.ts:60` —— 路由 `name` 必須以 `${切片名}/` 開頭；
+- `define-feature.ts:98` —— 選單 `routeName` 必須以 `${切片名}/` 開頭。
+
+所以對切片 S 的任一選單項目 `r`（前綴必為 `S/`）：`r ∈ 全部路由名的聯集`
+⟺ `r ∈ S 自己的路由名`。別片的路由名帶的是別片的前綴，接不住 `S/` 開頭的 `r`。
+兩邊**同時紅、同時綠**，不是「大致相同」。
+
+而逐片那三份**多守一件事**：它們不看 `apps/console/src/features.ts` 註冊了誰。
+一片在樹上而沒被註冊時，逐片仍然紅、聯集看不到。今天三片都註冊了
+（`features.ts:21` 的 `[invoice, order, shipment]`），所以差別是零；
+**這正是刪聯集那一份、不是刪逐片的理由。**
+
+#### 三、裁決
+
+1. **更正 C172 §二 第五列與那句實測** —— 那一列是「**可達、五份**（三片逐片 ＋ 範本 ＋
+   `apps/console` 聯集）」，不是「可達、獨一」；那句「只有第五列那條紅」少跑了
+   `apps/console`，正確讀數是**兩個 package 各一條紅**（§四）。
+   ⚠️ **C172 §四 1 的處置（刪那 10 條、留可達的 7 條）不受影響** —— 那 10 條的判準是
+   「不可達」，與本列無關；第五列不刪，結論一個字不改，改的是理由。
+
+2. **刪 `apps/console/tests/composition-root.test.ts:67-73`。** 切片的 seam 由切片自己守，
+   聚合層只守聚合。那支檔剩下的四條（`registerFeatures` 自己的職務：路由／權限／i18n
+   三個來源反推出的命名空間 ＝ `names`）一條不動。
+
+   ⚠️ **這個無損是條件式的，條件寫在這裡：**
+   - **三片各留著 `tests/*.test.ts:16` 那一條**；
+   - **`slice-gen` 範本（`files.ts:922`）留著它**，所以第四片產出來時自帶。
+
+   ⚠️ **沒有任何閘門在守這兩個條件。** `conformance` 的 `checkSliceTests`
+   （`scan.ts:29` 的 `hasTestFile`，C192 加的五條反向）只保證「每片有一支
+   `tests/**/*.test.ts`」，**不保證那支檔裡留著哪一條**。把三片的那一條一起刪掉，
+   本則之後全樹零紅 —— 而在刪聯集那一份之前，`composition-root:67` 會接住它。
+   **這是本則明知而接受的代價**，理由是 §二：聯集那一份接得住的，是「三片同時把
+   自己的那條刪掉」這個情境，而它接住的方式是把三個切片的責任集中到 `apps/` ——
+   與 D7「切片的契約住在切片內」相反。⚠️ 交回給人的不是這一項；本則不開票，
+   因為沒有相依方（C172 §五 的同一個判準：沒有相依方的洞開票會變成又一個
+   沒人主張的預設）。
+
+3. **不動 `defineFeature`、不動 `conformance` 任何一條規則的射程、零閘門增減**
+   （C137 §一）。`vpr gate` 那條鏈一支不碰。
+
+4. ⚠️ **不得拿 C172 §四 2 改的 describe 名（「defineFeature 不驗、只有這裡在守的」）
+   當排他宣告。** 那句話說的是「`defineFeature` 不驗這件事」，不是「全樹只有這裡在驗」——
+   本則正是它讀成後者時會得到的錯誤結論的反例。名字不改：它對逐片那一份仍然成立。
+
+#### 四、實測（基準 `2326bc8`，worktree `.wt-seam-round2`）
+
+一處變異：`features/invoice/src/index.ts:42` 的 `routeName: "invoice/list"` →
+`"invoice/nope"`。兩個 package 各自 `npx vitest run`（不讀 `.vitest-results.json`，
+C177 §四 那個坑）：
+
+| package            | 結果                     | 紅在                                                   |
+| ------------------ | ------------------------ | ------------------------------------------------------ |
+| `features/invoice` | 17 passed / **1 failed** | `tests/invoice.test.ts:19`（`:16` 那條 `it`）          |
+| `apps/console`     | 18 passed / **1 failed** | `tests/composition-root.test.ts:71`（`:67` 那條 `it`） |
+
+C172 §二 寫的是前者，漏的是後者。變異已還原（`index.ts.bak` 覆蓋回去，
+`git status` 乾淨）。
+
+對照組：`vpr ready` 在同一棵 worktree 上未改動時 **READY_RC=0**（退出碼以
+`RC=$?; …; exit $RC` 保住，不讀背景通知摘要 —— 記憶裡那個坑）。
+
+#### 五、順手撞到的兩件登記（本則不改程式碼）
+
+**1. C191 §二 那張「四種機制」的表，「問 git」那列少一格。**
+
+那列列了八個 `tools/*`（scope-check、api-surface、doc-facts、conformance、
+gate-roster、promise-check、exit-drill、pii-check）。第九處在 `platform/`：
+`platform/eslint-config/tests/a11y.test.ts:137-139` 的 `vueFilesInCheckout()`
+把 `pii-check/src/tracked.ts:87-88` 的聯集（`ls-files` ∪ `ls-files --others
+--exclude-standard`）逐字重建了一次。
+
+它不是漏網，是**刻意的**：`a11y.test.ts:132-133` 自己引了 `tracked.ts` 的檔頭理由
+（「跨工具相依要過 `conformance` 的邊界規則，而三支問 git 的問題不一樣」），
+`harness-tripwire` 對 `spawnSync("git"` 的放行也涵蓋它。登記在這裡的理由只有一個：
+**C191 §二 那張表是「今天有幾種機制在答同一個問題」的清單，而它少了一格，
+而且少的那一格不在 `tools/` 底下** —— 下一個拿那張表當全集的人會漏掉 `platform/`。
+⚠️ 依 C138 不回頭改 C191 一個字。⚠️ 本則**不**因此重開 C191 §三 1（不立共用邊界）：
+多一格同型的實例不是新論證。
+
+**2. C193 §三 (a) 預言了一件沒發生的事。**
+
+C193 §三 (a) 寫「#307 那張票的排除名單要收它（`bff-routes.test.ts`）」。
+C194 落地的 `vitest.stryker.config.ts:27-37` 只有四支，沒有它。
+
+**不是缺口。** 那份名單依該檔 `:12-13` 自陳是**實證的**：從零排除開始、紅一支加一支，
+四支各自在乾跑紅過。`bff-routes.test.ts` 的兩條 spawn 起的是 `bff-mock` 的 CLI，
+子行程讀到的是插樁檔而沒有 mutant 被啟動，行為就是原版（同檔 `:14-17` 那 19 支的情形）——
+乾跑不紅，所以名單裡沒有它是對的。
+
+登記的是**預言與落地不一致**這件事本身：C193 寫下那句時是推論，C194 用量測否掉了它，
+而兩則之間沒有一句話把它接起來。這一句就是。
+
+⚠️ 同一格上還有一件已知而無人守的：`vitest.stryker.config.ts:23` 自陳「沒有閘門守
+『一支新測試讀真樹而沒列在這裡』」，`tools/gate-kit/tests/stryker-config.test.ts:20-22`
+是同一句話的第二份字面 —— **兩份沒有東西在比對**。本則只登記，不裁：守它要跑乾跑
+（1 分 25 秒、就地改寫產品碼），而 C154 §三 兩軸已經把它判在 `vpr ready` 之外。
+
+#### 六、與既有裁決的關係（C136 §八）
+
+| 既有             | 本則做了什麼                                                                  |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **C172 §二**     | **更正一個量測讀數**：「可達、獨一」→「可達、五份」；C138，原文不動           |
+| **C172 §四 1**   | **不受影響** —— 刪那 10 條的判準是「不可達」，與第五列無關                    |
+| **C172 §四 2**   | **遵守而且加註**：describe 名不得讀成排他宣告（§三 4）                        |
+| **C138**         | **遵守** —— 更正寫續集，不回頭改原文                                          |
+| **C137 §一**     | **遵守** —— 零閘門增減；刪的是測試碼，論證是「一條 seam、一處守」不是行數     |
+| **C192**         | **引用** —— `checkSliceTests` 只保證測試檔存在，是 §三 2 那個條件無人守的依據 |
+| **C191 §二**     | **登記一格**（§五 1），不重開 §三 1                                           |
+| **C193 §三 (a)** | **收掉那句預言**（§五 2）                                                     |
