@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { cpSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { repoRoot, runCli, sandbox } from "@org/gate-kit/testing";
@@ -1319,17 +1319,33 @@ describe("repo 沒有被動到", () => {
  *
  * 這支 CLI 的 `ROOT` 是從 `import.meta.url` 推的（`cli.ts:42`），沒有 `--root`。
  * 要讓 `PLATFORM === PLATFORM_DIR` 而內容又是壞的，只能複製一份樹再跑**副本的**
- * CLI。沙盒建在這個 package 底下（`within`），node 才解析得到 `@org/*` 的
- * workspace symlink —— 與 `tools/vue-typecheck` 的 fixture 同一個理由。
+ * CLI。
+ *
+ * ⚠️ **副本建在系統暫存目錄，不建在 repo 內 —— 這一點是實測逼出來的。**
+ * 第一版用 `sandbox({ within: <這個 package> })`（`tools/vue-typecheck` 的 fixture
+ * 是同一個 pattern），而 `vp run -r test` 是**併行**的：副本存在的那幾秒裡，
+ * `threshold-check` 的符號連結農場走過這棵樹，量到「農場 378 個檔、真樹 300 個」
+ * 當場紅 —— 而它**間歇**（同一支上一趟是綠的）。`vue-typecheck` 的 fixture 沒有
+ * 這個問題是因為它**在版控裡**，兩邊都看得到它；一份跑到一半才存在的副本不是。
+ *
+ * 所以副本建在 `tmpdir()`，再把這個 package 的 `node_modules` 連過去 ——
+ * `@org/*` 是 pnpm workspace 的 symlink，少了它副本的 CLI 一行都跑不起來。
  */
 describe("checkIndexAgreement 接進 cli.ts 的那一段", () => {
   it("🔴 版控裡有、磁碟上沒有的 platform 套件 → RC=1，headline 與補救都印得出來", () => {
     const box = sandbox({
       prefix: "api-surface-wiring-",
-      within: join(ROOT, "tools/api-surface"),
       copy: ["platform", "tools/api-surface"],
       git: true,
     });
+
+    // 副本的 CLI 要 import `@org/*`，而那些是這個 package 的 node_modules 裡的
+    // workspace symlink。連過去，不複製 —— 複製一份 node_modules 是幾萬個檔。
+    symlinkSync(
+      join(ROOT, "tools/api-surface/node_modules"),
+      join(box.root, "tools/api-surface/node_modules"),
+      "dir",
+    );
 
     // 不寫死名字：改名之後寫死的那個會靜靜失效，而症狀是這條測試恆綠。
     const victim = readdirSync(join(box.root, "platform"), { withFileTypes: true }).find((entry) =>
