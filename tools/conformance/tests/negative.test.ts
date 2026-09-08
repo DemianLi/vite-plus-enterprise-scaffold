@@ -598,6 +598,11 @@ describe("C172 §五：checkSliceTests 零反向 —— 沒有測試的切片要
    * 這條規則在此之前零反向：把 `hasTestFile` 改成恆 true，這支檔 100 條全綠，
    * CLI 對真樹照樣 RC=0 —— 真樹每片都有測試，分不出規則死了沒有。
    * 底下每一條各對一種壞法；三種壞法各由 `hasTestFile` 不同的分支擋。
+   *
+   * ⚠️ 「副本原樣 → 綠」的對照組**不在這裡**，在 `:102`（「乾淨的副本本身是
+   * 綠的」）—— 那一條同樣是 `makeSandbox()` → `runConformance()`，而且多驗
+   * 「印得出 `2 個切片`」。實測少複製一片：`:102` 紅、只比 `red === false`
+   * 的那一份綠。一個對照組，一處。
    */
   it("features/order/tests 整個不在 → 紅；輸出含「找不到任何 tests/**/*.test.ts」與「order」", () => {
     // `tests/` 不存在那條提早 return 的分支。
@@ -651,13 +656,6 @@ describe("C172 §五：checkSliceTests 零反向 —— 沒有測試的切片要
       join(fileIn(root, "tests"), "order.test.ts"),
       join(fileIn(root, "tests/nested"), "order.test.ts"),
     );
-
-    const result = runConformance(root);
-    expect(result.red).toBe(false);
-  });
-
-  it("★ 副本原樣（order、shipment 各有測試）→ 綠（對照）", () => {
-    const root = makeSandbox();
 
     const result = runConformance(root);
     expect(result.red).toBe(false);
