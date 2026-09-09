@@ -203,7 +203,8 @@ export const GATES: readonly Gate[] = [
     command: "node tools/gate-roster/src/cli.ts",
     tiers: ["tier1"],
     why:
-      "四份名冊（scripts.gate、兩個 workflow、README 那張表）必須對得上。" +
+      "四份名冊（scripts.gate、兩個 workflow、README 那張表）必須對得上（C71）；" +
+      "接到 main 是 C132，而接上的當場抓到三個真漏洞。" +
       "在 Tier 1 而不是 Tier 2 的理由與 theme-verify 同一條：Tier 2 的三條規則" +
       "只為了「安全掃描的結果會隨時間失效」，而「名冊有沒有對齊」不會隨時間失效。",
   },
@@ -485,8 +486,11 @@ export const UNGATED: readonly Ungated[] = [
   {
     pkg: "slice-gen",
     why:
-      "切片產生器（`keywords: vite-plus-generator`）。同理：它產生檔案，不判定對錯。" +
-      "「它產出來的東西合不合契約」由 conformance 守，而且它的 e2e 測試會真的產一片再去跑 conformance。",
+      "切片產生器（`keywords: vite-plus-generator`）。它產生檔案，不判定對錯。" +
+      "「它產出來的東西合不合契約」由 conformance 守，而且它的 e2e 測試會真的產一片再去跑 conformance。" +
+      "⚠️ **判它的那一則是 C71**，而那一句是在講 `codemods` 時**順帶帶上它的**" +
+      "（原文：「`codemods` 與 `slice-gen` 在 `tools/` 底下但不是閘門」）——" +
+      "這一列的理由從來沒有被獨立做過一次。要翻案的話，先讀 C71 那一節再問這一支。",
   },
   {
     pkg: "gate-kit",

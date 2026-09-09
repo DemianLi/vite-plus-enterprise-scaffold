@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { repoRoot, sandbox } from "@org/gate-kit/testing";
 
 import {
+  CITES_RULING,
   ROSTER,
   checkRoster,
   deriveGateScript,
@@ -13,7 +14,7 @@ import {
   extractTierCommands,
   type Roster,
 } from "../src/check.ts";
-import { GATES, UNGATED, type Gate, type Tier } from "../src/gates.ts";
+import { GATES, UNGATED, type Gate, type Tier, type Ungated } from "../src/gates.ts";
 
 /**
  * 反向測試：每一種漂移都要真的變紅。
@@ -189,6 +190,11 @@ describe("閘門沒寫理由（C155）", () => {
     expect(kinds(write(healthy(roster)), roster)).toContain("閘門沒寫理由");
   });
 
+  // ⚠️ 空字串同時觸發「理由指不到裁決」（C211）—— 兩條規則管同一格。
+  // 所以底下那條隔離斷言的夾具**必須帶一個編號**：短、但指得到，
+  // 於是紅的只可能是長度那一條。C143 §七 第 4 條 記的就是這件事，
+  // 而它在 C211 加進來的那一刻**當場被這兩條 toEqual 抓到**。
+
   it("短到說不出一件事也會紅", () => {
     const roster = withWhy("因為要");
     expect(kinds(write(healthy(roster)), roster)).toContain("閘門沒寫理由");
@@ -198,12 +204,12 @@ describe("閘門沒寫理由（C155）", () => {
     // C143 §七 第 4 條記過：兩條規則管同一格的話，拿掉一條仍然紅，
     // 於是「紅的是這條規則」就證明不了。用 toEqual 而不是 toContain，
     // 是為了讓那件事在這裡真的被驗到（C144 記的是它沒被驗到的那一次）。
-    const roster = withWhy("");
+    const roster = withWhy("C155");
     expect(kinds(write(healthy(roster)), roster)).toEqual(["閘門沒寫理由"]);
   });
 
   it("寫得出一句話就不叫 —— 門檻與三個手足一字不差", () => {
-    const roster = withWhy("這道閘門存在的理由寫得夠長，長到說得出一件事。");
+    const roster = withWhy("這道閘門存在的理由寫得夠長，長到說得出一件事（C155）。");
     expect(kinds(write(healthy(roster)), roster)).toEqual([]);
   });
 
@@ -211,6 +217,72 @@ describe("閘門沒寫理由（C155）", () => {
     // 記錄一個事實，不是要求它：今天不痛是刻意的，它在下一列加進來那天才擋人。
     // ⚠️ 標題不寫列數：第一版寫「16 列」，第 17 列加進來時沒人動它（C170）。
     for (const gate of GATES) expect(gate.why.length, gate.id).toBeGreaterThan(20);
+  });
+});
+
+describe("理由指不到裁決（C211）", () => {
+  // ⚠️ 這一整個 describe 是**守這支工具自己**的夾具斷言 —— 依 C154 §三 第 3 條
+  // 它在 D16 迭代軸上**不計分**。規則本身的兩軸寫在 C211 §四。
+
+  // 夾具一律寫得夠長（> 20），所以紅的只可能是「指不到裁決」那一條，
+  // 不是 C155 的長度那一條 —— 兩條規則管同一格（C143 §七 第 4 條）。
+  const LONG = "這一列的理由寫得夠長，長到說得出一件事，長度門檻咬不到它。";
+
+  const withGateWhy = (why: string): Roster => ({
+    gates: [{ ...(GATES[0] as Gate), why }],
+    ungated: UNGATED,
+  });
+
+  const withUngatedWhy = (why: string): Roster => ({
+    gates: GATES,
+    ungated: [{ ...(UNGATED[0] as Ungated), why }],
+  });
+
+  it("🔴 GATES 的一列指不到任何裁決會紅", () => {
+    const roster = withGateWhy(LONG);
+    expect(kinds(write(healthy(roster)), roster)).toContain("理由指不到裁決");
+  });
+
+  it("⚠️ 紅的只有這一條 —— 「拿掉規則就變綠」在這裡才成立", () => {
+    // 夾具的唯一缺陷就是沒有編號：長度過關、其餘四個消費端都是健康的。
+    // 用 toEqual 而不是 toContain，理由同 C155 那一條（C144 記的是它沒被驗到的那次）。
+    const roster = withGateWhy(LONG);
+    expect(kinds(write(healthy(roster)), roster)).toEqual(["理由指不到裁決"]);
+  });
+
+  it("🔴 UNGATED 那一半也守 —— 第一個發現的實例就在那一側（`slice-gen`）", () => {
+    const roster = withUngatedWhy(LONG);
+    expect(kinds(write(healthy(roster)), roster)).toEqual(["理由指不到裁決"]);
+  });
+
+  it("帶一個編號就不叫 —— 三種前綴都認", () => {
+    for (const cite of ["C71", "D12", "R6"]) {
+      const roster = withGateWhy(`${LONG}（${cite}）`);
+      expect(kinds(write(healthy(roster)), roster), cite).toEqual([]);
+    }
+  });
+
+  it("⚠️ 查的是指得到，不是指得對 —— 這條規則的代價，寫下來免得被當成保證", () => {
+    // C211 §五：一個編號抄上去就過。這條斷言記錄那件事，不是要求它。
+    //
+    // ⚠️⚠️ 那個假編號**刻意用字串組出來，不寫成字面**：`decision-ids`（C141）
+    // 掃全樹的 `C<n>` 字面並要求每一個都指得到，寫成字面這一行自己就會讓那道
+    // 閘門紅。⚠️ 這棵樹記過同一件事：連對照組的名字都不能長成一個編號字面。
+    // **兩道閘門在這一格互相咬住，而它們都是對的。**
+    //
+    // ⚠️ 用 3 位數：`{1,3}` 的上界讓五位數反而不命中 —— 那個上界是為了擋
+    // sha512 那種字串餵出假命中，不是為了驗編號存在。
+    const fake = `C${String(9)}${String(9)}${String(9)}`;
+    const roster = withGateWhy(`${LONG}（${fake} 指不到任何一則，而這條規則不會叫）`);
+    expect(kinds(write(healthy(roster)), roster)).toEqual([]);
+  });
+
+  it("真的名冊每一列都通過 —— 而它上線那天咬到了兩列", () => {
+    // 記錄一個事實，不是要求它：`gate-roster` 與 `slice-gen` 兩列在 C211
+    // 之前指不到任何裁決，是這條規則第一天抓到的東西。
+    // ⚠️ 標題不寫列數（C170）。
+    for (const gate of GATES) expect(CITES_RULING.test(gate.why), gate.id).toBe(true);
+    for (const entry of UNGATED) expect(CITES_RULING.test(entry.why), entry.pkg).toBe(true);
   });
 });
 

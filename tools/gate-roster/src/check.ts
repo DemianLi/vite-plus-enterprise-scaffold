@@ -162,6 +162,16 @@ function normalize(text: string): string {
   return text.replaceAll("`", "");
 }
 
+/**
+ * 「這一列的理由指得到一則裁決」的字面判準（C211）。
+ *
+ * ⚠️ 具名 export 是為了讓測試**引用它**而不是抄一份：抄一份的話，改了規則的
+ * pattern 而測試不動，兩邊會安靜地分岔（同 C120 那條「glob 與數字都從契約取」）。
+ * 上界 `{1,3}` 是刻意的：沒有上界時 sha512 那種字串會餵出假的命中（C140 §…／
+ * `decision-ids` 踩過同一個坑）。
+ */
+export const CITES_RULING = /\b[CDR]\d{1,3}\b/;
+
 export function checkRoster(root: string, roster: Roster = ROSTER): Problem[] {
   const { gates, ungated } = roster;
   const problems: Problem[] = [];
@@ -229,6 +239,37 @@ export function checkRoster(root: string, roster: Roster = ROSTER): Problem[] {
       detail:
         `GATES 的 \`${gate.id}\` 沒有寫 why，或者短到說不出一件事。\n` +
         `      這一欄要答的是「為什麼有這道閘門、以及為什麼在那一層」。`,
+    });
+  }
+
+  // ── ②b 每一列要指得到「判它的那則裁決」（C211／#219）───────────────
+  //
+  // ⚠️ 查的是**有沒有指到**，不是指得對不對 —— 形狀同 `SCOPE.md` 的桶欄
+  // （C143／C144：機器查「填了沒有」，填得對不對全綠）。
+  //
+  // ⚠️⚠️ **為什麼查編號，不查「有沒有寫出 D16 兩軸那兩句」。** 後者要求每一列
+  // 各抄一份 C154 的內容，而那正是 C154 §七 說「會是反諷的」那件事：這份名冊
+  // 存在的全部理由就是「一份到處都有副本的清單，改動時只有人記得改其中幾處」。
+  // **指針不是副本** —— 兩軸的論證留在裁決裡，這一欄只負責指得到它。
+  // ⚠️ 代價寫在 C211 §五：一個編號抄上去就過，這條規則分辨不了填得對不對。
+  //
+  // ⚠️ 射程只到「新增一列」。在既有工具裡加一條規則不會新增名冊列，
+  // 所以 C154 §四 射程裡的那一半**這條規則看不到**（C211 §六，實例是 C204）。
+  const uncited: string[] = [
+    ...gates
+      .filter((gate) => !CITES_RULING.test(gate.why))
+      .map((gate) => `GATES 的 \`${gate.id}\``),
+    ...ungated
+      .filter((entry) => !CITES_RULING.test(entry.why))
+      .map((entry) => `UNGATED 的 \`${entry.pkg}\``),
+  ];
+  for (const where of uncited) {
+    problems.push({
+      kind: "理由指不到裁決",
+      detail:
+        `${where} 的 why 沒有指到任何一則裁決（C<n>／D<n>／R<n> 的字面）。\n` +
+        `      這一欄不必自己論證，它要**指得到**那個論證住在哪裡 ——\n` +
+        `      判它進來（或刻意不接）的那一則。找不到那一則，就是還沒有人裁過它。`,
     });
   }
 
