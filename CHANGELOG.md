@@ -52,6 +52,7 @@
 | **C203** | 突變帳本的「存活」有三種意思：抽樣 24 顆 9 顆假的，守衛常在閘門裡而 Stryker 只跑測試                                     |
 | **C204** | `USECASE_FORBIDDEN_IMPORTS` 零消費者：usecase 裡真的用 `vue` 而 `vpr ready` 全綠，`layering.ts` 加第三層                 |
 | **C205** | `features/order` 不是殘骸：四樣示範全樹只有它有，唯一的死欄位是零消費者的 `placedAt`                                     |
+| **C206** | `features/shipment` 移除：同一套逐項法、相反的答案 —— 它是 `invoice` 減掉架構                                            |
 
 ---
 

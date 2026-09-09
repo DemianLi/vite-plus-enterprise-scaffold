@@ -191,11 +191,11 @@ export type { Order, OrderListQuery, OrderListResponse } from "./api.ts";
 ```typescript
 import type { Feature } from "@org/slice-kit";
 
+import invoice from "@org/feature-invoice";
 import order from "@org/feature-order";
-import shipment from "@org/feature-shipment";
 
 /** ★ 全系統唯一知道有哪些切片的檔案（D7）。 */
-export const features: readonly Feature[] = [order, shipment];
+export const features: readonly Feature[] = [invoice, order];
 ```
 
 > 不需要改 `router/index.ts`、`store/index.ts`、`i18n/index.ts`、`permissions.ts`——
@@ -243,8 +243,8 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │   └── console/              主控台應用（唯一知道有哪些切片的地方：src/features.ts）
 │
 ├── features/                 垂直切片。一片 ＝ 一個 package，彼此之間禁止互相依賴
-│   ├── order/                訂單切片（示範用：api.ts / composables / views / store.ts）
-│   └── shipment/             出貨切片
+│   ├── invoice/              **架構**的範本：ports.ts / usecases / specs，由 slice-gen 產生
+│   └── order/                **能力**的示範：D14 篩選、個資遮蔽、貨幣格式化、非唯讀權限碼（C205）
 │
 ├── platform/                 技術底座。所有切片共用，改動等於同時改動所有團隊
 │   ├── slice-kit/            defineFeature() 切片契約，命名空間在執行期驗到底
@@ -575,7 +575,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 > 的內部骨架，MIT 宣告目前只在 [LICENSE](LICENSE) 與根 `package.json` 的
 > `"license": "MIT"` 兩處，兩者必須一致。正式對外前請把 `@org` 換成
 > **法務認可的法人全名**——這是組織的決定，不是這份 README 能代為認定的。
-> 底下 35 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
+> 底下 34 個 workspace 套件全部是 `private`、不發佈，因此刻意不逐一標註授權。
 
 上游相依的授權另計——`vite-plus` 為 MIT（Cloudflare 併購後），`lightningcss` 為 MPL-2.0，
 另有 22 個 `@yuku-*` 在 registry 上沒有 license 欄位。完整盤點見 `vpr sca-dossier`。
