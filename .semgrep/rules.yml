@@ -1,4 +1,9 @@
-# 手寫的 SAST 規則。與 Tier 1／Tier 2 既有檢查**零重疊**是刻意的。
+# 手寫的 SAST 規則。
+#
+# ⚠️ **這一段原本寫著「與 Tier 1／Tier 2 零重疊是刻意的」，實測推翻**
+# （C210／#241，2026-09-09）。真相是：兩條規則都與既有檢查重疊，而**兩條都不是
+# 多餘的** —— 各自買到的那一小塊寫在它自己那一條上面。⚠️ 不要把這一段讀成
+# 「所以可以刪」：實測是「說明書寫錯了」，不是「規則沒有用」。
 #
 # ── 為什麼還需要 SAST，明明已經有 oxlint 與 ESLint ──────────────────
 #
@@ -6,7 +11,9 @@
 # SAST 看得到的是**資料怎麼流**：使用者輸入從路由參數進來，經過兩個函式，
 # 最後流進 innerHTML —— 每一行單獨看都沒問題。
 #
-# 所以這裡只放 lint 做不到的那一類（taint），不重複 oxlint 已經擋掉的。
+# ⚠️ **那是下面第一條規則的理由**（它有 `mode: taint`）。**第二條沒有** ——
+# 它是單節點的 `pattern-either`，正好是這一段說「不放」的那一類。
+# 它留下來的理由不是資料流，見它自己那一條。
 #
 # ── ⚠️ 這不是那份要交給稽核的 SAST 報告 ────────────────────────────
 #
@@ -29,6 +36,16 @@ rules:
       - pattern: $ROUTE.params
       - pattern: useRoute().query
       - pattern: useRoute().params
+    # ⚠️ 六個 sink 裡**只有中間三個是這條規則獨有的**（C210／#241 實測，
+    # 2026-09-09 重驗）：`innerHTML`／`outerHTML`／`document.write` 被 Tier 2 的
+    # ESLint `no-unsanitized` 蓋掉，而且**更寬** —— 它不需要 taint，任何非字面值的
+    # 指派都紅。所以在那三格上這條規則不只是重疊，是**嚴格較弱**。
+    #
+    # 真正買到的是**開放重導向**那三格（`location.href`／`window.location.href`／
+    # `window.open`），ESLint 對它們零命中（兩向探針實測）。
+    # ⚠️ 而 `message` 與檔頭講的都是 DOM sink —— **買到的東西與說明書寫的不是
+    # 同一件**。留著前三格是為了讓 taint 的示範完整（`rules.ts` 的反向測試就用
+    # `innerHTML` 那一格），不是因為它們有獨有價值。
     pattern-sinks:
       - pattern: $EL.innerHTML = $X
       - pattern: $EL.outerHTML = $X
@@ -37,6 +54,21 @@ rules:
       - pattern: window.open($X, ...)
       - pattern: document.write($X)
 
+  # ⚠️⚠️ **這一條的三個 pattern 全部被 oxlint `no-implied-eval` 蓋掉**，而且 oxlint
+  # 那一側是**嚴格超集**：路徑更寬（全樹，只關掉 `.semgrep/**`）、語言更多
+  # （`.vue` 的 `<script setup>` 也掃）、一樣擋 PR（Tier 1，`vp check`）。
+  # C210／#241 三個 pattern 逐條實測，三條全中。
+  #
+  # **那它為什麼留著？抑制註解。** 兩向探針（2026-09-09 重驗）：
+  #
+  #     new Function("return 1")                                → oxlint RC=1，點名 no-implied-eval
+  #     ＋ // oxlint-disable-next-line typescript/no-implied-eval → oxlint RC=0，完全安靜
+  #
+  # semgrep 不認得 oxlint 的抑制註解，所以那一行寫下去的那天，只剩這一條在看。
+  # ⚠️ 而**全樹沒有任何閘門在管抑制註解**（`reportUnusedDisableDirectives`／
+  # `no-inline-config` 皆無）。今天的普查：`oxlint-disable` **0** 處、
+  # `nosemgrep` **0** 處、`eslint-disable-next-line` **3** 處。
+  # **今天不痛是巧合，不是設計** —— 同 `gates.ts` 對 plugin 那條規則寫過的話。
   - id: runtime-code-construction
     languages: [typescript, javascript]
     severity: ERROR
