@@ -134,7 +134,6 @@
 # ── 垂直切片：一片一個負責團隊 ─────────────────────────────────────────
 /features/order/            @org/team-fulfillment
 /features/invoice/          @org/team-fulfillment
-/features/shipment/         @org/team-logistics
 
 # ── 應用外殼 ─────────────────────────────────────────────────────────
 /apps/console/              @org/team-platform-ui

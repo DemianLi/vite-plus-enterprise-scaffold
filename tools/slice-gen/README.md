@@ -14,6 +14,10 @@ vp create slice -- --directory=../features/<name> --slice=<name> --title=<顯示
 vp create slice -- --directory=../features/shipment --slice=shipment --title=出貨管理 --team=@org/team-logistics
 ```
 
+> ⚠️ **這一行記的是那次已驗證的執行，不是樹上的位置。** 它產出的
+> `features/shipment` 已於 **C206** 移除 —— 逐項查過它沒有扛任何全樹唯一的東西
+> （`features/invoice` 是同一份範本的產出，還多帶了 `ports.ts`／`usecases/`／`specs/`）。
+
 一個必須照做的細節：
 
 | 細節                                    | 為什麼                                                                      |

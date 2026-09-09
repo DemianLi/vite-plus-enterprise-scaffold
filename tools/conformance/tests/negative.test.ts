@@ -43,7 +43,7 @@ const CLI = "tools/conformance/src/cli.ts";
  *
  * 為什麼一定要兩個：D4 第 1 層不用正則猜「什麼是切片」，它讀 `features/`
  * 的實際內容建立事實名單（見契約裡 `SLICE_PACKAGE_PREFIX` 的註解）。
- * sandbox 裡只放 order 的話，`@org/feature-shipment` 就不在名單上，
+ * sandbox 裡只放 order 的話，`@org/feature-invoice` 就不在名單上，
  * 「跨切片依賴」那條**永遠測不出來** —— 而測試會顯示綠燈。
  *
  * 第一版就是只複製一片，然後在註解裡寫下這個理由、又照樣斷言它會紅。
@@ -54,10 +54,10 @@ const CLI = "tools/conformance/src/cli.ts";
 function makeSandbox(): string {
   return sandbox({
     prefix: "conformance-negative-",
-    copy: ["features/order", "features/shipment"],
+    copy: ["features/order", "features/invoice"],
     files: {
       CODEOWNERS:
-        "/features/order/ @org/team-fulfillment\n/features/shipment/ @org/team-logistics\n",
+        "/features/order/ @org/team-fulfillment\n/features/invoice/ @org/team-fulfillment\n",
     },
   }).root;
 }
@@ -220,7 +220,7 @@ describe("D4 / D6 / D12：切片邊界與治理", () => {
     const pkg = JSON.parse(readFileSync(path, "utf8")) as {
       dependencies: Record<string, string>;
     };
-    pkg.dependencies["@org/feature-shipment"] = "workspace:*";
+    pkg.dependencies["@org/feature-invoice"] = "workspace:*";
     writeFileSync(path, `${JSON.stringify(pkg, null, 2)}\n`);
 
     const result = runConformance(root);

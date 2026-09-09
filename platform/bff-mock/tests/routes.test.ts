@@ -205,7 +205,7 @@ describe("權限碼的注入", () => {
 
       expect(payload.permissions).toContain("customer:read");
       expect(payload.permissions).toContain("order:read");
-      expect(payload.permissions).toContain("shipment:read");
+      expect(payload.permissions).toContain("invoice:read");
     });
   });
 

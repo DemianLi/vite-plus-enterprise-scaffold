@@ -8708,3 +8708,122 @@ Stryker 看得見的擊殺換成兩份它看不見的。報告自己因此把這
 | **C114**                 | **引用** —— §三 不改 `masking.test.ts` 掛載方式的理由                                                   |
 | **C168 §一／C203 §二 1** | **同一條紀律換尺度** —— 「重複」要逐項問「有沒有機制在用它」                                            |
 | **#318**                 | **拿掉一個實例，不解那件事** —— 示範資料對型別檢查的機制仍然沒有                                        |
+
+### C206 — `features/shipment` 移除：同一套逐項法、相反的答案 —— 它是 `features/invoice` 減掉架構，沒有扛任何全樹唯一的東西（2026-09-09）
+
+⚠️ **量測基準 `753d025`**（C205 合併後的 `main`），worktree `drop-shipment-slice`。
+⚠️ **C205 §三 明文「不拿 order 的結論套到 shipment 身上」** —— 本則是照同一套方法
+獨立量它，而不是套用。答案相反，正好證明那條規矩有用。
+
+#### 一、事實
+
+1. **逐項查「它扛什麼、別處有沒有」：**
+
+   | 東西                                   | shipment             | 別處有嗎                                |
+   | -------------------------------------- | -------------------- | --------------------------------------- |
+   | 設計系統元件（`UiButton`／`UiDialog`） | 有                   | **有** —— `order` 與 `invoice` 兩片都用 |
+   | store 的內容                           | `page`＋`selectedId` | **有** —— 與 `invoice` 逐項相同         |
+   | 資料形狀                               | `id` ＋ `// TODO`    | **有** —— 與 `invoice` 逐字相同         |
+   | 測試                                   | 三個 describe        | **有** —— 產生器模板的原樣產出          |
+   | 架構（`ports`／`usecases`／`specs`）   | **沒有**             | `invoice` 有                            |
+   | 能力示範                               | **沒有**             | `order` 有四樣（C205 §一 2、3）         |
+
+   **它是 `features/invoice` 減掉架構。**
+
+2. **它的出身寫在 `tools/slice-gen/README.md:14`：**
+   `vp create slice -- --directory=../features/shipment --slice=shipment …`
+   —— 它就是「跑一次產生器會得到什麼」的樣本，而那個角色 `invoice` 已經在扮，
+   還多帶了架構那一層。
+
+3. **引用掃描：只有兩處是真相依。**
+
+   | 位置                                       | 性質                                             | 處置              |
+   | ------------------------------------------ | ------------------------------------------------ | ----------------- |
+   | `conformance/tests/negative.test.ts:57`    | **複製真目錄**進沙盒（`:46` 說明要有第二片切片） | 換 `invoice`      |
+   | `bff-mock/tests/routes.test.ts:208`        | 斷言 mock 預設權限含 `shipment:read`             | 換 `invoice:read` |
+   | `doc-facts/tests/derive.test.ts:49`        | `workspace([...])` 合成字串                      | 不動              |
+   | `pii-check/tests/enumeration.test.ts:85`   | `box.write(...)` 合成字串                        | 不動              |
+   | `conformance/tests/rules.test.ts:109`      | 假的 `package.json` 物件                         | 不動              |
+   | `conformance/src/rules/dependencies.ts:14` | 檔頭的假想例子                                   | 不動              |
+   | `promise-check/src/breakage.ts:38`         | 檔頭在說「不要寫死 order／shipment」             | 不動              |
+
+   ⚠️ **合成字串不需要真目錄存在** —— 這一格是逐項確認過的，不是推論。
+
+4. **兩個寫死的數字被閘門抓到，而那正是刪除有沒有傳到位的證據。**
+   刪掉 `CODEOWNERS` 一列之後 `doc-facts` **RC=1**：
+
+   ```
+   [mismatch] HANDOFF.md 寫著 22，而 CODEOWNERS 的條目數是 21
+   [mismatch] README.md 寫著 35，而 workspace 內的 package 數是 34
+   ```
+
+   ⚠️ 兩處都是**人抄下來的數字**，而 `doc-facts` 存在的理由就是這個。改完 RC=0。
+
+5. **根 `README.md` 的目錄樹一直沒有列 `invoice`。** 它從 `0645fba`（2026-09-05）
+   進樹到今天四天，README 只列 `order/` 與 `shipment/` —— **沒有閘門在守目錄樹那一段**。
+   本則順手補上。
+
+6. ⚠️ **`git rm -r` 不夠 —— 目錄被 gitignore 掉的殘留檔撐著活下來。**
+   刪完之後 `features/shipment/` 磁碟上還在（剩 `.DS_Store`、`.vitest-results.json`、
+   `node_modules`），而 `conformance` **走磁碟不走版控**，於是它看到一片
+   「缺 `package.json`／`tsconfig.json`／`README.md`／`src/index.ts`」的切片，**RC=1**。
+   ⚠️ 這是「它判定要吃的資料，哪些不在版控裡」那一族的又一個實例 ——
+   `rm -rf` 之後才綠。
+
+7. ⚠️⚠️ **而本機全綠的那一版，CI 在 20 秒就掛了 —— `pnpm-lock.yaml` 沒跟著更新。**
+   `vpr ready` 讀的是**已經裝好的** `node_modules`，而 CI 走
+   `vp install --frozen-lockfile`：`ERR_PNPM_OUTDATED_LOCKFILE`，
+   「specifiers in the lockfile don't match specifiers in package.json:
+   \* 1 dependencies were removed: `@org/feature-shipment@workspace:*`」。
+   ⚠️ **動任何 `package.json` 的相依都要跑一次 `vp install` 並把 lockfile 一起提交** ——
+   本機的綠證明不了這一格，這是這棵樹記過的「`ready` 綠證明不了 CI 綠」的第六次。
+   跑完的 diff 是 **−52／0**，唯一被移除的 importer 是 `features/shipment`，
+   且 `git diff --summary` 為空（`pnpm install` 這次沒有翻動檔案模式）。
+
+#### 二、裁決
+
+1. **刪 `features/shipment`（13 支檔，外加 `rm -rf` 掉 gitignore 的殘留）**，連同 `apps/console` 的註冊與相依、
+   `bff-mock` 的 `shipment:read` 權限碼／`DEMO_SHIPMENTS`／`/api/shipment` 路由、
+   `CODEOWNERS` 那一列。
+
+2. **`conformance/tests/negative.test.ts` 的第二片切片換成 `features/invoice`。**
+   那組測試要有第二片切片才驗得了「切片不得相依切片」（該檔 `:46` 明說理由）——
+   換對象，不是刪測試。
+
+3. **`theme-verify/README.md` 那張表與「6 處」一個字不動。** 它們是 2026-08-17
+   那次乾跑的**歷史記錄**（「乾跑撞到 4 處真陽性、0 偽陽性」），不是現況清單 ——
+   照 C138 不回頭改。
+
+4. **`slice-gen/README.md` 的那行指令留著，加一句說明。** 它記的是**那次已驗證的執行**，
+   不是樹上的位置；產出的切片被本則移除這件事寫在旁邊。
+
+5. **樹上剩兩片，各扛一件事**：`invoice` ＝ 架構範本、`order` ＝ 能力示範。
+   根 `README.md` 的目錄樹照這個寫。
+
+#### 三、不裁
+
+- **不動 `features/order`。** C205 逐欄查過它扛四樣全樹唯一的示範。
+- **不把 `invoice` 的架構補進 `order`，也不把 `order` 的示範搬進 `invoice`。**
+  兩片各扛一件事是本則的結果，不是要繼續收斂的中間狀態；合併它們是新的決定。
+- **不替「切片數量」立任何檢查。** 兩片、三片、一片都合法 —— 這棵樹沒有理由規定它。
+- **不改 HANDOFF.md 裡關於 shipment 的歷史敘述**（`:1028` 的 C41 事件、`:1830`／`:1978`
+  的計數記錄）。只改被 `doc-facts` 抓到的那兩個**現況數字**。
+
+#### 四、實測
+
+| 步驟                                    | 結果                                       |
+| --------------------------------------- | ------------------------------------------ |
+| 刪除後 `doc-facts`                      | **RC=1**，點名 HANDOFF 22→21、README 35→34 |
+| 兩個數字改完                            | `doc-facts` **RC=0**                       |
+| `vpr ready`                             | READY_RC=0                                 |
+| 刪除後全樹掃 `shipment`（排除歷史記錄） | 只剩合成字串與檔頭的假想例子               |
+
+#### 五、與既有裁決的關係（C136 §八）
+
+| 既有           | 本則做了什麼                                                             |
+| -------------- | ------------------------------------------------------------------------ |
+| **C205**       | **同一套方法、相反的答案** —— 而 C205 §三 明文禁止套用結論，本則獨立量過 |
+| **C138**       | **遵守** —— `theme-verify` 的歷史記錄與 HANDOFF 的歷史敘述一個字不動     |
+| **C189 §二 3** | **換對象不刪測試** —— 沙盒的第二片切片改用 `invoice`                     |
+| **D7**         | **引用** —— `apps/console/src/features.ts` 是唯一知道有哪些切片的檔案    |
+| **D15**        | **不受影響** —— 設計系統的採用示範在 `order` 與 `invoice` 兩片都在       |
