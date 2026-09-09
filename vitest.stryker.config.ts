@@ -34,6 +34,9 @@ export const REAL_TREE_OBSERVERS = [
   // 數每支 `cli.ts` 讀 `process.argv` 恰好一次（C180）；插樁把那個運算式複製進 mutant 開關，
   // 讀到的是 N 次。
   "tools/gate-kit/tests/adoption.test.ts",
+  // 從磁碟解析每片 `features/*/src/api.ts` 的 `http.get` 路徑字面（C195／#317）；
+  // `api.ts` 在 mutate 射程內，插樁把那個字面包進 mutant 開關，解析式一個都命中不了。
+  "apps/console/tests/bff-routes.test.ts",
 ] as const;
 
 export default defineConfig({
