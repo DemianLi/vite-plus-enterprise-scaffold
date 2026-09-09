@@ -33,6 +33,31 @@
 > 伺服器是權威 → `composables/`；客戶端是權威 → `store.ts`；
 > 兩者都不是（例如「選取的那幾筆 Order 物件」）→ 哪裡都不放，用 `computed` 推導。
 
+## ⚠️ 這一片扛的四樣示範 —— 逐項查過，全樹只有這裡有
+
+**三片切片不是三份重複。** `features/invoice` 是**架構**的範本（`ports.ts` ／
+`src/usecases/` ／ `specs/`，由 `slice-gen` 產生）；這一片是**能力**的示範。
+下面四樣逐項實測過（C205 §一）：
+
+| 示範                               | 落點                                                               | 別處有嗎                                               |
+| ---------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------ |
+| **D14 判準「客戶端是權威」那一半** | `src/store.ts` 的 `status` 篩選驅動 `query`                        | 沒有 —— `invoice` 的 store 只有 `page` 與 `selectedId` |
+| **個資遮蔽在真畫面裡的樣子**       | `src/views/OrderList.vue:109,135` 的 `maskName()`                  | 沒有 —— `maskName` 全樹只在這支 `.vue` 裡被用          |
+| **貨幣格式化**                     | `OrderList.vue:110,137` 的 `Intl.NumberFormat`                     | 沒有                                                   |
+| **非唯讀的權限碼**                 | `order:write`／取消 —— `apps/console/bff-routes.ts:85` 的 403 路徑 | 沒有 —— 另外兩片都只有 `:read`                         |
+
+⚠️ **所以 `Order` 的欄位是示範用的詞彙，不是業務需求。** 採用團隊 fork 之後換掉它們是預期的動作。
+⚠️ 而 `placedAt` 已經拿掉了（C205 §二 1）：它宣告成必填、**全樹零消費者**，
+`bff-mock` 的 `DEMO_ORDERS` 也沒給它 —— 示範資料不滿足切片自己的型別，而沒有東西會紅（#318）。
+
+⚠️ **`tests/masking.test.ts` 是 `platform/pii` 那個設計決定的舉證，不要搬也不要刪。**
+`platform/pii/src/index.ts:21` 明文寫著「現在的形狀有一道會紅的閘門與**一支斷言渲染結果的
+元件測試**」，指的就是它。`platform/pii` 刻意零框架相依（沒有 `vite.config.ts`、沒有
+happy-dom、零 runtime deps），接不住這支測試。
+
+⚠️ 而它掛的是**自己定義的替身元件**，不是 `OrderList.vue`（檔頭自陳）。
+「`OrderList.vue` 有沒有繼續呼叫 `maskName()`」仍然靠 review，登記在 `HANDOFF.md:1290`。
+
 ## 命名空間
 
 `defineFeature` 會在 dev 模式驗證下列全部落在 `order` 命名空間下，違規當場拋錯：

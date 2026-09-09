@@ -13,7 +13,6 @@ export interface Order {
   readonly customerName: string;
   readonly totalCents: number;
   readonly status: "pending" | "shipped" | "cancelled";
-  readonly placedAt: string;
 }
 
 export interface OrderListQuery {
