@@ -27,13 +27,16 @@ import { collectSourceFiles } from "../scan.ts";
  * `REQUIRED_FILES` 驗完四個檔案就結束，api / store / routes / views 那套結構
  * 只存在於產生器的模板裡。誰手寫一個切片、或改了產生器，慣例就消失而閘門全綠。
  *
- * 兩條規則，一條是命名、一條才是真正有牙齒的：
+ * 四條規則，第 1 條是命名，第 2～4 條是同一把尺套在三層上：
  *
  *   1. `src/composables/` 底下的檔案必須叫 `useXxx.ts` 且匯出同名函式
- *   2. **`src/views/` 底下不得直接 import 資料層** —— 禁的是位置，不是相依
+ *   2. **`src/views/` 不得直接 import 資料層** —— 禁的是位置，不是相依
+ *   3. **`src/store.ts` 不得 value import 資料層** —— Pinia 存 id 不存 entity
+ *   4. **`src/usecases/` 不得 value import 前端框架** —— 純度就是這一層的全部價值
  *
- * 第 2 條為什麼是「禁 import」而不是「禁元件裡出現 useQuery」：
+ * 第 2～4 條為什麼是「禁 import」而不是「禁元件裡出現 useQuery」：
  * 前者是可精確判定的靜態事實，後者要語意分析。同一個取捨見 D4 第 3 層。
+ * 三條都放行 `import type`（借型別不算耦合），判定走 `isTypeOnlyImportAt`。
  */
 export function checkSliceLayering(slicePath: string, slice: string): Finding[] {
   return collect((fail) => {

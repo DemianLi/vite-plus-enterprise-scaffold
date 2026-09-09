@@ -356,9 +356,12 @@ Tier 2 的三條規則——不快取、不做 affected 過濾、必須有時間
 | 2   | oxlint `no-restricted-imports`            | 裸模組名跨切片 import、繞過 `@org/http-client` | Tier 1（編輯器即時） |
 | 3   | `tools/conformance` 精確路徑解析          | 相對路徑逃逸切片根目錄                         | Tier 2               |
 
-切片**之內**還有第四層（D14）：`src/views/` 不得直接 import `@tanstack/vue-query`、
-`@org/http-client` 或本切片的 `api.ts` —— 取數一律走 `src/composables/useXxx.ts`。
-禁的是**位置**不是相依，composable 本來就要用它們。理由與反向測試見 DECISIONS.md 的 D14。
+切片**之內**還有第四層（D14），同一把尺套在三處：`src/views/` 與 `src/store.ts` 不得
+直接 import `@tanstack/vue-query`、`@org/http-client` 或本切片的 `api.ts`（取數一律走
+`src/composables/useXxx.ts`），`src/usecases/` 不得 import 任何前端框架模組
+（清單是 `platform/slice-kit` 契約裡的 `USECASE_FORBIDDEN_IMPORTS`，不在這裡抄一份）。
+禁的是**位置**不是相依，composable 本來就要用它們；三處都放行
+`import type`。理由與反向測試見 DECISIONS.md 的 D14，第三處的接線見 C204。
 
 第 3 層之所以不用 lint 規則：`import/no-relative-parent-imports` 擋掉的是**所有** `../`，
 連 `src/views/X.vue` 匯入同 package 的 `../api.ts` 都擋，偽陽性高到大家會關掉它。

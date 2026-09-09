@@ -166,8 +166,9 @@ const DEMO_ORDERS = [
 ] as const;
 
 /**
- * 第三片切片的示範資料。它在 #260 隨切片一起進樹，而這一條路由沒有 ——
- * 規格餵的是 in-memory gateway，跑起來的應用停在 loading 沒有東西會紅（#311）。
+ * `features/invoice` 的示範資料。⚠️ 它在 #260 隨切片一起進樹，而**下面那條路由是後來
+ * 才補的**（C195／#317）—— 中間那一段時間規格全綠而跑起來的應用停在 loading，
+ * 沒有東西會紅（#311：規格餵的是 in-memory gateway，不經過這裡）。
  * 形狀對應 `features/invoice/src/ports.ts` 的 `InvoiceItem`。
  */
 const DEMO_INVOICES = [{ id: "INV-5001" }, { id: "INV-5002" }, { id: "INV-5003" }] as const;
@@ -438,7 +439,7 @@ export function createBffMock(options: BffMockOptions = {}) {
       return;
     }
 
-    // 同上，也不是契約的一部分。`?page=` 與出貨那條一樣刻意不理 —— 三筆假資料分頁沒有意義。
+    // 同上，也不是契約的一部分。`?page=` 刻意不理 —— 三筆假資料分頁沒有意義。
     if (path === "/api/invoice" && method === "GET") {
       json(res, 200, { items: DEMO_INVOICES, total: DEMO_INVOICES.length });
       return;

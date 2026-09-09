@@ -65,7 +65,9 @@ export function composableFunctionName(fileName: string): string {
 /**
  * **元件不得直接碰資料層。**
  *
- * 這是 D14 唯一真正有牙齒的一條，其餘都是命名規則。禁的兩樣東西合起來
+ * 這是 D14 三條有牙齒的規則裡的第一條（另兩條在 `STORE_FORBIDDEN_IMPORTS` 與
+ * `USECASE_FORBIDDEN_IMPORTS`，同一把尺、同樣放行 `import type`）；
+ * 只有 composable 的命名那條是純命名規則。禁的兩樣東西合起來
  * 恰好就是「在元件裡抓資料」：查詢的執行器，以及本切片的資料存取模組。
  *
  * 為什麼是禁「元件 import 它們」而不是禁「元件裡有 useQuery」：
