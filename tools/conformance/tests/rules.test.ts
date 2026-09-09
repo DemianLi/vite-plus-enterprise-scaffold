@@ -5,6 +5,8 @@ import { join } from "node:path";
 
 import { repoRoot, sandbox } from "@org/gate-kit/testing";
 
+import { USECASE_FORBIDDEN_IMPORTS } from "@org/slice-kit/contract";
+
 import type { Finding } from "../src/finding.ts";
 import { checkActionPinning } from "../src/rules/action-pinning.ts";
 import { checkCspIncompatibleImports } from "../src/rules/csp.ts";
@@ -354,6 +356,63 @@ describe("CSS 註解剝除器：引號狀態機", () => {
   it("★ 對照：沒有註解也沒有引號時，一個字都不動", () => {
     const css = "@import url(x.css);\n.a { color: red }\n";
     expect(stripCssComments(css)).toBe(css);
+  });
+});
+
+/**
+ * usecase 層的純度 —— **這一組就是「怎麼把一條寫在契約裡的邊界釘成會紅的東西」的示範**。
+ *
+ * ⚠️ `USECASE_FORBIDDEN_IMPORTS` 從 C114 起就在契約裡，而在 C204 之前**零消費者**：
+ * 唯一讀它的是 `slice-gen` 的 `contract-alignment.test.ts`，那支驗產生器的輸出，
+ * 不是樹上的切片 —— 與 C189 記過的形狀一字不差。
+ *
+ * 實測：在 `features/invoice` 的 usecase 裡 value import `vue` 並真的用到它，
+ * `vpr ready` **READY_RC=0**、`vpr gate` 15 道全綠、該 package 的測試也全綠。
+ *
+ * ⚠️ 清單從契約取、逐項跑（下面第四條），不抄字面 —— 抄一份的話升級契約時
+ * 新加的那一項會安靜地沒有人擋，而這裡照樣全綠。
+ */
+describe("usecase 層的純度：契約宣告了邊界，這一組讓它會紅", () => {
+  const USECASE_SLICE = "features/invoice";
+  const usecase = (root: string): Finding[] =>
+    checkSliceLayering(join(root, USECASE_SLICE), USECASE_SLICE);
+
+  it("🔴 usecase value import 了框架 → 紅，訊息點名檔案與那個 specifier", () => {
+    const root = tree({
+      "features/invoice/src/usecases/query-invoice.ts":
+        'import { ref } from "vue";\nexport const x = ref(0);\n',
+    });
+    const found = usecase(root);
+    expect(rules(found)).toEqual(["usecase 認得框架"]);
+    expect(found[0]?.detail).toContain("src/usecases/query-invoice.ts");
+    expect(found[0]?.detail).toContain('"vue"');
+  });
+
+  it("★ `import type` 不算耦合 → 綠（與 store 那一層同一把尺）", () => {
+    const root = tree({
+      "features/invoice/src/usecases/query-invoice.ts":
+        'import type { Ref } from "vue";\nexport type X = Ref<number>;\n',
+    });
+    expect(usecase(root)).toEqual([]);
+  });
+
+  it("★ 沒有 src/usecases/ 的切片不紅 —— 這一層是可選的，規則不得逼出它", () => {
+    const root = tree({ "features/invoice/src/index.ts": "export default {};\n" });
+    expect(usecase(root)).toEqual([]);
+  });
+
+  it("🔴 契約禁的**每一項**都真的擋得住 —— 只擋 vue 等於清單其餘幾項是裝飾", () => {
+    for (const banned of USECASE_FORBIDDEN_IMPORTS) {
+      const root = tree({
+        "features/invoice/src/usecases/query-invoice.ts": `import x from "${banned}";\nexport const y = x;\n`,
+      });
+      expect(rules(usecase(root)), `${banned} 沒有被擋下來`).toEqual(["usecase 認得框架"]);
+    }
+  });
+
+  it("★ 對照：真樹 features/invoice 的 usecase 是綠的 —— 規則嚴到連真的那份都過不了，上面幾條就沒有意義", () => {
+    const root = repoRoot();
+    expect(checkSliceLayering(join(root, USECASE_SLICE), USECASE_SLICE)).toEqual([]);
   });
 });
 

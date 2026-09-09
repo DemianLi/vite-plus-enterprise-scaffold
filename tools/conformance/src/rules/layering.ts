@@ -12,6 +12,8 @@ import {
   STORE_FILE,
   STORE_FORBIDDEN_IMPORTS,
   STORE_FORBIDDEN_LOCAL_MODULES,
+  USECASES_DIR,
+  USECASE_FORBIDDEN_IMPORTS,
   isTypeOnlyImportAt,
 } from "@org/slice-kit/contract";
 
@@ -112,6 +114,45 @@ export function checkSliceLayering(slicePath: string, slice: string): Finding[] 
             `${STORE_FILE} value import 了資料存取模組 "${specifier}"`,
             `只借型別的話請寫成 \`import type\`（那完全允許）。真的要取數請放到 ${COMPOSABLES_DIR}/`,
           );
+        }
+      }
+    }
+
+    // ── usecase 層的全部價值就是它不認得框架 ──────────────────────────────
+    //
+    // ⚠️ `USECASE_FORBIDDEN_IMPORTS` 從 C114 起就寫在契約裡，而在 C204 之前
+    // **整棵樹沒有任何東西在讀那個宣告** —— 唯一的消費者是 `slice-gen` 的
+    // `contract-alignment.test.ts`，那支驗的是**產生器的輸出**，不是樹上的切片。
+    // 同一支檔案對 views（`VIEW_FORBIDDEN_IMPORTS`）與 store
+    // （`STORE_FORBIDDEN_IMPORTS`）早就在做同一件事，唯獨少了後來才長出來的這一層。
+    //
+    // 實測：在 `features/invoice` 的 usecase 裡 value import `vue` 並真的用到它，
+    // `vpr ready` READY_RC=0、`vpr gate` 15 道全綠、該 package 的測試也全綠（C204 §一）。
+    //
+    // 判準與上面 store 那段**刻意一致**（借型別不算耦合）：三層用同一把尺，
+    // 讀規則的人不必記三種例外。
+    const usecasesDir = join(slicePath, USECASES_DIR);
+    if (existsSync(usecasesDir)) {
+      for (const file of collectSourceFiles(usecasesDir)) {
+        const source = readFileSync(file, "utf8");
+        const where = relative(slicePath, file);
+
+        for (const match of source.matchAll(IMPORT_SPECIFIER_PATTERN)) {
+          const specifier = match[1];
+          if (specifier === undefined || match.index === undefined) continue;
+          if (isTypeOnlyImportAt(source, match.index)) continue;
+
+          const forbidden = USECASE_FORBIDDEN_IMPORTS.find((banned) => specifier === banned);
+          if (forbidden !== undefined) {
+            fail(
+              slice,
+              "usecase 認得框架",
+              `${where} value import 了 "${forbidden}"`,
+              "業務規則這一層的價值就是它不認得框架 —— 驗收規格打得到它、" +
+                "換掉 Vue 它一個字都不用改。要用框架的東西請放到 " +
+                `${COMPOSABLES_DIR}/use<Xxx>.ts（TESTING.md 層 3）`,
+            );
+          }
         }
       }
     }
