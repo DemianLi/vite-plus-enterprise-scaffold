@@ -8512,3 +8512,106 @@ Stryker 看得見的擊殺換成兩份它看不見的。報告自己因此把這
 | **C137 §一**       | **遵守** —— §二 1 的理由是「量錯對象」，不是成本；零閘門增減                   |
 | **C172 §五**       | **判準用一次** —— 其餘 55 顆沒有相依方，只登記不開票                           |
 | **C144**           | **引用** —— §三 最後一項那顆等價變異是同一個形狀（條件成立時沒有東西會提醒你） |
+
+### C204 — `USECASE_FORBIDDEN_IMPORTS` 從 C114 起就在契約裡，而整棵樹沒有東西讀它：usecase 裡 value import `vue` 並真的用到它，`vpr ready` 全綠（2026-09-09）
+
+⚠️ **量測基準 `1987566`**（C203 合併後的 `main`），worktree `usecase-purity-tripwire`。
+
+#### 一、事實
+
+1. **契約宣告了那條邊界。** `platform/slice-kit/src/contract.ts:199` 的
+   `USECASE_FORBIDDEN_IMPORTS = ["vue", "pinia", "vue-router", "vue-i18n", "@tanstack/vue-query"]`，
+   檔頭寫著「usecase 層不得出現的 import —— 純度就是這一層的全部價值」。
+
+2. **而沒有任何東西在讀那個宣告。** 全樹 `git grep`（排除 `surface.json` 與散文）：
+   唯一的消費者是 `tools/slice-gen/tests/contract-alignment.test.ts:511`，
+   **那支驗的是產生器的輸出，不是樹上的切片** —— 與 **C189** 記過的形狀一字不差
+   （範本那份有守、樹上零守）。
+
+3. **同一支閘門對兩個鄰居早就在做同一件事。** `tools/conformance/src/rules/layering.ts`：
+
+   | 契約常數                    | `layering.ts` 讀幾次 |
+   | --------------------------- | -------------------: |
+   | `VIEW_FORBIDDEN_IMPORTS`    |                    2 |
+   | `STORE_FORBIDDEN_IMPORTS`   |                    3 |
+   | `USECASE_FORBIDDEN_IMPORTS` |                **0** |
+
+   `src/usecases/` 是 C114 才長出來的那一層，`layering.ts` 沒有跟著擴。
+
+4. **實測：全樹零紅。** 在 `features/invoice/src/usecases/query-invoice.ts` 頂端
+   `import { ref } from "vue"` **並且真的用到它**（`const hits = ref(0); hits.value += 1;`）：
+
+   | 量的東西            | 對照組（乾淨） | 帶著違規 |
+   | ------------------- | -------------- | -------- |
+   | `vpr ready`         | READY_RC=0     | **RC=0** |
+   | `vpr gate`（15 道） | RC=0           | **RC=0** |
+   | 該 package 的測試   | 21 passed      | **全綠** |
+
+   ⚠️ **第一次量錯了，而對照組接住它。** 頭一版只 `import { ref }` 沒有用它，
+   `vue-typecheck` 紅了 —— 那是 `TS6133 未使用的 import`，**與這條邊界無關**。
+   改成真的用到才是乾淨的量測，而那一版全綠。
+
+#### 二、裁決
+
+1. **`layering.ts` 加第三層：`src/usecases/` 底下不得 value import
+   `USECASE_FORBIDDEN_IMPORTS` 列的東西。** 判準與同檔 store 那段**逐字一致**
+   （借型別不算耦合，`isTypeOnlyImportAt`）—— 三層用同一把尺，讀規則的人不必記三種例外。
+   清單從契約取，不抄字面。
+
+2. **⚠️ 這一條**不放**切片自己的單元測試裡，而那是量出來的，不是偏好。**
+   先寫了一版放 `features/invoice/tests/invoice.test.ts`（掃 `src/usecases/` 的原始碼），
+   撞到兩件：
+
+   - **切片沒有 `@types/node`**（`features/invoice`、`features/order` 都沒有，
+     `tools/conformance` 有）。掃原始碼要 `node:fs`／`node:path`，等於替**每一片
+     產生的切片**加一個 `@types/node` 相依。⚠️ 那是一個訊號：**切片那一層本來就不該讀檔案系統。**
+   - **產生器的行數門檻當場紅。** 把同一段加進 `slice-gen` 的模板，`vp check` 報
+     `max-lines-per-function`：`buildSliceFiles` **904 行，上限 843**。
+     照 `VITE_CONFIG` 的先例把靜態字串提到函式外之後仍是 852 —— 還超 9 行。
+     ⚠️ **門檻不得調鬆（AGENTS.md 規則二）**，所以那條路要再搬一層才走得通。
+
+   兩件都指向同一個位置：這條規則屬於**閘門**，不屬於切片。
+
+3. **反向測試五條，掛在被守的對象上，放 `rules.test.ts`。**
+   value import → 紅且訊息點名檔案與 specifier；`import type` → 綠；沒有
+   `src/usecases/` 的切片 → 不紅（這一層是可選的，規則不得逼出它）；
+   **清單裡每一項逐個跑**（只擋 `vue` 等於其餘四項是裝飾）；
+   對照：真樹 `features/invoice` → 綠 ——
+   **規則嚴到連真的那份都過不了，前四條紅就沒有意義。**
+
+4. **不加端對端。** CLI 的回報格式與結束碼由同檔其餘規則的沙盒測試共用，
+   再加一份是 C168 §一 的真重複。
+
+#### 三、不裁
+
+- **不動 `USECASE_FORBIDDEN_IMPORTS` 的內容。** 本則讓既有的宣告生效，不改它守什麼。
+  ⚠️ 特別是**不加 `@org/http-client`** —— 契約檔頭明文寫過那不是遺漏
+  （usecase 拿 `ports.ts` 的介面，禁的是框架不是資料存取）。
+- **不替 `features/order`／`features/shipment` 造 `src/usecases/`。** 那一層是可選的，
+  §二 3 第三條就是為它寫的；逼出它是新的框架承諾，要自己的裁決。
+- **不重開「切片測試該不該讀磁碟」。** §二 2 只登記那兩個代價，沒有裁定切片永遠不得讀檔。
+- **不因為 `slice-gen` 的行數門檻擋路就動門檻。** 規則二；而且那一格本來就在做它該做的事。
+
+#### 四、實測
+
+| 步驟                                    | 結果                                   |
+| --------------------------------------- | -------------------------------------- |
+| 改前：usecase value import `vue` 並用到 | `vpr ready` **RC=0**、15 道閘門全綠    |
+| 改後：同一個違規 → `conformance`        | **RC=1**，訊息點名檔案與 `"vue"`       |
+| 對照：乾淨的真樹 → `conformance`        | RC=0                                   |
+| 五條反向測試（無變異）                  | 5 passed                               |
+| **短路版**（規則整段不執行）            | **2 條紅**，訊息「`vue` 沒有被擋下來」 |
+| `vpr ready`                             | READY_RC=0                             |
+
+⚠️ 第五列是這一組測試的資格證明：**真的跑過一次短路版**，不是推論它會紅。
+
+#### 五、與既有裁決的關係（C136 §八）
+
+| 既有         | 本則做了什麼                                                                                 |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| **C189**     | **同一個形狀第二次** —— 契約常數只有產生器在守、樹上的切片零守；處置也同（進 `conformance`） |
+| **C114**     | **補上它留的洞** —— `src/usecases/` 那一層與它的禁用清單是 C114 立的                         |
+| **C154 §三** | **兩軸都填** —— 對象在外（採用團隊的切片）、壞法安靜（全綠）→ 絆線要有                       |
+| **C137 §一** | **遵守** —— §二 2 的兩個代價是實測的機械事實，不是成本論證；門檻一格未動                     |
+| **C168 §一** | **遵守** —— §二 4 不加端對端，理由是與既有沙盒測試真重複                                     |
+| **C201**     | **引用** —— §二 2 那條路要同時改範本（存量與流量），而它卡在行數門檻上                       |
