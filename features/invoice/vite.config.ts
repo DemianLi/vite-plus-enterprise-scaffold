@@ -11,10 +11,10 @@ import { USECASE_COVERAGE_GLOB, USECASE_COVERAGE_MIN } from "@org/slice-kit/cont
  * `<script setup>`（template 一行都不進分母），一個套在整包上的數字會被
  * 那件事帶著走。
  *
- * ⚠️ 為什麼不放腳手架根層：`vp test` 的設定以 package 為根解析，而一個
- * package 只要有自己的 `vite.config.ts`，根層那份的 `test` 區塊就**整塊
- * 不繼承**。所以這支檔案**不能刪** —— 刪掉之後門檻不會報錯，它會安靜地
- * 不存在。
+ * ⚠️ 為什麼不放腳手架根層：根層**刻意不放** `test` 區塊。`vp test` 的設定以
+ * package 為根解析，就算根層放了，一個有自己 `vite.config.ts` 的 package 也
+ * **整塊不繼承**。所以這支檔案**不能刪** —— 刪掉之後門檻不會報錯，它會安靜
+ * 地不存在。
  *
  * ⚠️ `plugins` 這一行不是贅字：少了它 `.vue` 不會被轉譯，畫面那支會整支
  * 從覆蓋率報表裡消失（實測：行覆蓋率不降反升，而程式碼一個字都沒改）。
