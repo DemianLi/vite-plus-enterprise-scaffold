@@ -53,6 +53,7 @@
 | **C204** | `USECASE_FORBIDDEN_IMPORTS` 零消費者：usecase 裡真的用 `vue` 而 `vpr ready` 全綠，`layering.ts` 加第三層                 |
 | **C205** | `features/order` 不是殘骸：四樣示範全樹只有它有，唯一的死欄位是零消費者的 `placedAt`                                     |
 | **C206** | `features/shipment` 移除：同一套逐項法、相反的答案 —— 它是 `invoice` 減掉架構                                            |
+| **C207** | C204 補了一條規則而六處描述它的散文一處沒改：一處是產生器，而 C201 在九小時前剛裁完同一件事                              |
 
 ---
 

@@ -188,7 +188,7 @@ ${title}
 需要與其他切片互動時只有兩條合法路徑：往上到 \`apps/\` 層組裝，
 或往下把共用契約抽到 \`platform/\`。
 
-切片**之內**還有第四層（D14）：\`src/views/\` 與 \`src/store.ts\` 不得直接碰資料層。
+切片**之內**還有第四層（D14）：\`src/views/\` 與 \`src/store.ts\` 不得直接碰資料層，\`src/usecases/\` 不得碰前端框架（清單見契約的 \`USECASE_FORBIDDEN_IMPORTS\`）。三處都放行 \`import type\`。
 
 ## 設計系統（D15）
 
