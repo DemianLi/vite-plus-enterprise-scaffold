@@ -16,7 +16,7 @@ import {
 import { checkSliceLayering } from "../src/rules/layering.ts";
 import { checkOwnership } from "../src/rules/ownership.ts";
 import { checkFileMode, declaredBinTargets, judgeModes } from "../src/rules/file-mode.ts";
-import { checkPhantomDependencies } from "../src/rules/phantom-deps.ts";
+import { checkPhantomDependencies, stripCssComments } from "../src/rules/phantom-deps.ts";
 import { checkRelativeEscapes } from "../src/rules/relative-escape.ts";
 import { checkPackageName, checkSliceNaming } from "../src/rules/slice-shape.ts";
 
@@ -293,6 +293,70 @@ describe("要一棵目錄樹，但仍然不用起行程", () => {
  *     「有人調整了某條規則的修法說明」會變成測試紅。下面第四條因此只斷言非空，
  *     而非空**擋不住**「兩段裡少一段」。**這是裁決，不是遺漏。**
  */
+/**
+ * `stripCssComments` 的直接測試 —— 它是 `export` 的，而**在本則之前整棵樹零消費者**
+ * （`git grep` 只有定義處與同檔的呼叫），也就是說那個 `export` 買到的可測性一直沒有被用。
+ *
+ * ⚠️ **為什麼是這一支先補：它的 28 顆存活是實測「兩層守衛都沒有」的那一批**（C203 §一）。
+ * 同檔其餘的存活多半由 `negative.test.ts` 的子行程或閘門自己接住 —— 那些接得住，
+ * 只是突變帳本看不見。這個引號狀態機**沒有任何一層接得住**：測試不紅、`conformance`
+ * 閘門也不紅（閘門跑在乾淨的樹上，走不到那條路徑）。
+ *
+ * 每一條的輸入都對著檔頭那段警告：天真的 `/\/\*[^]*?\*\//g` 會把
+ * `@source "…/**\/*.{vue,ts}"` 裡那個「長得像空註解」的東西吃掉，連同它後面的
+ * `@import` 一起 —— 而兩邊都不報錯。
+ */
+describe("CSS 註解剝除器：引號狀態機", () => {
+  it("🔴 註解換成一個空白，不是刪掉 —— 否則兩個 token 會黏在一起", () => {
+    expect(stripCssComments("a/*x*/b")).toBe("a b");
+  });
+
+  it("🔴 雙引號裡長得像註解的東西不得被吃掉 —— 檔頭那個 @source 的坑", () => {
+    const css = '@source "../../../../**/*.{vue,ts}";\n@import "tailwindcss";\n';
+    const out = stripCssComments(css);
+    expect(out, "把 /**/ 當註解吃掉，就會連後面的 @import 一起刨走").toContain("@import");
+    expect(out).toBe(css);
+  });
+
+  it("🔴 單引號與雙引號都要開得起狀態 —— 只認一種等於另一種形同虛設", () => {
+    expect(stripCssComments("a'/*x*/'b")).toBe("a'/*x*/'b");
+    expect(stripCssComments('a"/*x*/"b')).toBe('a"/*x*/"b');
+  });
+
+  it("🔴 字串裡的跳脫引號不結束字串", () => {
+    // \" 之後仍在字串裡，所以那段註解樣子的東西要原樣留著。
+    expect(stripCssComments('"a\\"/*x*/"z')).toBe('"a\\"/*x*/"z');
+  });
+
+  it("🔴 異種引號不結束字串 —— 收尾要比對開頭那一個字元", () => {
+    expect(stripCssComments('"a\'b"/*x*/c')).toBe('"a\'b" c');
+  });
+
+  it("🔴 註解裡的引號不開啟字串 —— 否則後面整段會被當成字串", () => {
+    const out = stripCssComments('/* " */ @import "x";');
+    expect(out, "註解裡那個引號若開了狀態，後面的 @import 會被當字串內容").toContain("@import");
+    // 註解換成一個空白，加上原本 `*/` 後面那一個 —— 兩個。
+    expect(out).toBe('  @import "x";');
+  });
+
+  it("🔴 沒有閉合的註解吃到檔尾，不是原樣留著", () => {
+    expect(stripCssComments("a/*b")).toBe("a ");
+  });
+
+  it("🔴 `*` 與單獨的 `/` 都是合法 CSS，兩個字元要同時成立才是註解起點", () => {
+    // 全稱選擇器的 `*` 前面不是 `/`；`grid-area` 的 `/` 後面不是 `*`。
+    // 任何一邊放寬（`&&` → `||`、或把左邊當恆真），這一段就會被當成
+    // 一個沒有閉合的註解，從那裡吃到檔尾 —— 連後面的 `@import` 一起。
+    const css = '.a * { grid-area: 1 / 2 }\n@import "tailwindcss";\n';
+    expect(stripCssComments(css)).toBe(css);
+  });
+
+  it("★ 對照：沒有註解也沒有引號時，一個字都不動", () => {
+    const css = "@import url(x.css);\n.a { color: red }\n";
+    expect(stripCssComments(css)).toBe(css);
+  });
+});
+
 describe("版控檔案模式：判定沒有 IO，兩個方向都要紅", () => {
   const bin = (...paths: string[]): ReadonlySet<string> => new Set(paths);
 
