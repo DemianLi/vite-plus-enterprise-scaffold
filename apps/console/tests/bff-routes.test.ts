@@ -216,8 +216,8 @@ describe("apps/console 的 dev 資料端點", () => {
    * ★ 每一片切片的列表打的路徑，`vpr bff` 起來的 mock 都接得住。
    *
    * 規格餵的是 in-memory gateway，不碰 mock —— 所以規格全綠證明不了畫面看得見。
-   * 第三片切片進樹（#260）之後 `/api/invoice` 缺了一整輪，列表停在 loading，
-   * 沒有東西會紅（#311；`features/invoice/src/api.ts` 檔頭警告的正是這件事）。
+   * `features/invoice` 進樹（#260）之後 `/api/invoice` 缺了一整輪，列表停在 loading，
+   * 而沒有東西會紅 —— 規格餵的是 in-memory gateway，不經過 mock（#311）。
    *
    * 路徑刻意**不寫字面**：抄一份 `["/api/orders", …]` 的話，第四片加進來時這裡照樣綠 ——
    * 與上一條讀 `/api/session` 不抄 `MOCK_PERMISSIONS` 同一個理由。切片的 gateway 不在
