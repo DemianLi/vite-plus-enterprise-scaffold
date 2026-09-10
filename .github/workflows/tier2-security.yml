@@ -87,7 +87,7 @@ jobs:
       - name: Bootstrap Vite+
         working-directory: ${{ runner.temp }}
         run: |
-          npx --yes --package vite-plus@0.2.9 \
+          npx --yes --package vite-plus@0.3.1 \
             vp -C "$GITHUB_WORKSPACE" install --frozen-lockfile
 
       # ⚠️ 這裡沒有 cache restore，而且是刻意的。見檔頭第 1 條。

@@ -116,7 +116,7 @@ corepack enable && corepack prepare pnpm@11.21.0 --activate && pnpm install
 ```bash
 # 方式三：全新 clone、機器上既沒有 pnpm 也沒有 corepack 時的 bootstrap
 # 注意：必須在「專案目錄之外」執行，用 -C 指向專案
-npx --yes --package vite-plus@0.2.9 vp -C ./<repo-dir> install
+npx --yes --package vite-plus@0.3.1 vp -C ./<repo-dir> install
 ```
 
 > 內部 registry 環境下，這個 bootstrap 抓取是**第一個會斷的地方**：
@@ -449,7 +449,7 @@ D2 選了「可替換的驅動層」，而那張保單**是被實測過的**，�
 
 ## 供應鏈：拿去給資安與平台團隊的三份文件
 
-腳手架帶進來的東西比想像的多：**712 個套件，其中 144 個是平台限定的原生二進位，
+腳手架帶進來的東西比想像的多：**715 個套件，其中 146 個是平台限定的原生二進位，
 分屬 12 個家族**（不只 `vite-plus` —— TypeScript 7 自己就是原生執行檔，
 `lightningcss` 是 MPL-2.0）。
 
@@ -484,7 +484,7 @@ pnpm 那一步**（要設在機器層級），而**封閉環境無法就地升�
   內自帶一份 TypeScript 6.0.3。上游支援後即可移除。
 - `vp run` **沒有** changed-since 過濾器。affected 偵測若要做，得自己算 git diff。
   目前靠任務快取提速（實測 4/5 命中）。
-- 144 個原生二進位裡有 **43 個沒有 SLSA provenance**（含全部 20 個
+- 146 個原生二進位裡有 **43 個沒有 SLSA provenance**（含全部 20 個
   `@typescript/typescript-*`），只有 npm 的發佈簽章。這不是本腳手架能修的，
   但 SCA 例外申請書必須把它分開列 —— `vpr sca-dossier` 已經這麼做。
 - 22 個 `@yuku-*` 在 registry 上**沒有 license 欄位**。上層套件宣告 MIT、同一個 repo，

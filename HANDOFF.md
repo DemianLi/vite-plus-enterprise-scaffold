@@ -499,10 +499,10 @@ grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 | #   | 對象         | 事項                                                                          | 不做的後果                                                    | 東西會壞 | 標案觸發                                      |
 | --- | ------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------- | -------- | --------------------------------------------- |
 | 1   | 技術主管     | 核准 beta **版本流**、供應商登記 Cloudflare                                   | 元件不合規；修補 SLA 形同虛設                                 | ⬜       | 每案資安審查都會問「為什麼用 beta」           |
-| 2   | 資安         | 原生工具鏈的**政策性**例外（144 個二進位）                                    | 機關端 SCA 判 fail                                            | ⬜       | **每一案**                                    |
+| 2   | 資安         | 原生工具鏈的**政策性**例外（146 個二進位）                                    | 機關端 SCA 判 fail                                            | ⬜       | **每一案**                                    |
 | 3   | 資安         | 接受 43 個只有發佈簽章的佐證                                                  | 同上，且覆核時會被抓                                          | ⬜       | **每一案**                                    |
 | 4   | 法務         | MPL-2.0 ＋ 22 個**完全無授權聲明**的套件                                      | 授權政策掃描標記，可能驗收前才爆                              | ⬜       | **每一案**                                    |
-| 5   | 平台／IT     | 內部 registry 鏡像 **712 個**套件                                             | 機關端重建時抓不到套件                                        | ✅       | 原始碼交付／機關端重建                        |
+| 5   | 平台／IT     | 內部 registry 鏡像 **715 個**套件                                             | 機關端重建時抓不到套件                                        | ✅       | 原始碼交付／機關端重建                        |
 | 6   | 平台／IT     | registry 設在**機器層級**，不是專案                                           | 封閉環境下 `vp` 第一步就往公網連                              | ✅       | 同上（收件人是**機關端**，不是你們 CI）       |
 | 7   | 平台／IT     | 確認 `darwin-x64`／`win32-x64` 是否要支援                                     | 機關端那台裝不起來                                            | ✅       | 同上（問的是**機關端跑什麼平台**）            |
 | 8   | 架構         | 指派 D8 同源中間層由誰提供                                                    | 登入、CSRF、401／403 整條路徑沒有著落                         | ✅       | **每一案**（有登入就有）                      |
@@ -567,10 +567,10 @@ grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 
 **要決定的**
 
-- 核准 **144 個平台原生二進位、12 個家族**的例外。建議按**政策**核准
+- 核准 **146 個平台原生二進位、12 個家族**的例外。建議按**政策**核准
   （「原生編譯的工具鏈套件」），不是逐廠商 —— 因為 `@typescript`（TypeScript 7 自己）
   與 `lightningcss` **都不是 vite-plus 帶來的**，是整個前端工具鏈原生化的結果
-- 接受佐證**分兩級**：101 個有 SLSA provenance（可回推到來源 repo 的確切 commit），
+- 接受佐證**分兩級**：103 個有 SLSA provenance（可回推到來源 repo 的確切 commit），
   43 個只有 npm 發佈簽章（可驗發佈者，無法回推建置來源）
 
 **拿什麼去談**
@@ -582,8 +582,8 @@ grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 申請書全部由 `pnpm-lock.yaml` 推導，**不要手改**。內容含逐家族明細、佐證等級、
 授權分佈、容量，以及四項**由閘門實際斷言**（非宣稱）的補償控制：
 
-- 712 個套件全帶 sha512 integrity，CI 以 `--frozen-lockfile` 安裝
-- `allowBuilds` 內沒有任何原生套件 → 那 144 個在安裝時不執行任何腳本
+- 715 個套件全帶 sha512 integrity，CI 以 `--frozen-lockfile` 安裝
+- `allowBuilds` 內沒有任何原生套件 → 那 146 個在安裝時不執行任何腳本
 - lockfile 的 digest 與擷取當下一致，每次 gate 比對
 - 家族清單進版控，新家族出現時閘門擋下並要求人工分類
 
@@ -602,7 +602,7 @@ grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 #### ⚠️ MPL-2.0 的範圍比申請書上看到的大（2026-08-16 發現）
 
 `eslint-plugin-no-unsanitized@4.1.5`（Mozilla）也是 MPL-2.0，而**它不在
-`vpr sca-dossier` 的〈授權分佈〉裡** —— 那一節只涵蓋 144 個**原生二進位**，
+`vpr sca-dossier` 的〈授權分佈〉裡** —— 那一節只涵蓋 146 個**原生二進位**，
 一個純 JS 的直接相依對它是隱形的。
 
 這不是申請書寫錯，是它的取數範圍就是原生二進位（R2 的問題）。缺口由
@@ -657,7 +657,7 @@ package/yuku-parser.node  3.8 MB  ← 原生二進位
 **要做的**
 
 ```bash
-./node_modules/.bin/vpr mirror-manifest   # 712 筆，含 sha512，可直接餵給鏡像工具
+./node_modules/.bin/vpr mirror-manifest   # 715 筆，含 sha512，可直接餵給鏡像工具
 ./node_modules/.bin/vpr airgap            # 前置條件、平台矩陣、驗收方式
 ```
 
@@ -1634,10 +1634,10 @@ grep -n "uses:" .github/workflows/*.yml
 
 | 這個 repo 對 npm 相依做的             | 對 CI action 做的 |
 | ------------------------------------- | ----------------- |
-| 712 個套件全帶 sha512                 | 標籤              |
+| 715 個套件全帶 sha512                 | 標籤              |
 | `--frozen-lockfile` 安裝              | 標籤              |
 | tarball digest 進版控、每次 gate 比對 | 標籤              |
-| 144 個原生二進位逐一分佐證等級        | 標籤              |
+| 146 個原生二進位逐一分佐證等級        | 標籤              |
 
 而這些 action 跑在**產出 SBOM 與證據檔的那個 job 裡**，拿得到 repo 與 secrets。
 也就是說：整套供應鏈論證的**執行環境本身**，是唯一沒有被論證的一層。
@@ -2081,7 +2081,7 @@ vue-tsc 全綠** —— 兩個 TypeScript 同時在場的第一個實例。
 | ------------- | ----------------------------------- | -------------------------------------- |
 | 資安          | `vpr sca-dossier`                   | SCA 例外申請書（含補償控制與佐證分級） |
 | 法務          | `vpr sca-dossier`                   | 同上的〈授權分佈〉一節                 |
-| 平台／IT      | `vpr mirror-manifest`               | 712 筆鏡像清單，含 sha512              |
+| 平台／IT      | `vpr mirror-manifest`               | 715 筆鏡像清單，含 sha512              |
 | 平台／IT      | `vpr airgap`                        | 封閉網路前置條件、平台矩陣、驗收方式   |
 | 稽核          | `tools/exit-drill/evidence.json`    | 退出演練證據（進版控）                 |
 | 架構／gateway | `vpr bff-check`                     | D8 中間層的 13 條驗收條目              |

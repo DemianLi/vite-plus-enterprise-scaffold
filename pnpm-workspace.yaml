@@ -12,16 +12,21 @@ catalog:
   # --- 工具鏈（由 vite-plus 鎖定，勿手動改）---
   "@types/node": ^24
   typescript: ^7.0.2
-  vite: npm:@voidzero-dev/vite-plus-core@0.2.9
-  vite-plus: 0.2.9
+  vite: npm:@voidzero-dev/vite-plus-core@0.3.1
+  vite-plus: 0.3.1
   # ⚠️ 必須與 vite-plus 內部鎖定的版本**完全一致**。vite-plus 把 vitest 釘死在
-  # 精確版本（=4.1.10），此處若用 ^ 範圍或不同版本，node_modules 會出現兩份 vitest，
+  # 精確版本（=4.1.11），此處若用 ^ 範圍或不同版本，node_modules 會出現兩份 vitest，
   # 測試會以難以診斷的方式失敗（型別對不上、mock 失效）。升 vite-plus 時要同步改這行。
-  vitest: 4.1.10
+  # ⚠️⚠️ **vitest 的 CVE 只能靠升 vite-plus 修，不能用 `overrides`**（2026-09-10，
+  # CVE-2026-84373 實測）：vite-plus 在執行期把 `@vitest/coverage-v8` 拿去比對它**打包時
+  # 寫死的** `VITEST_VERSION` 常數，不看實際裝上去的 vitest —— override 蓋得掉安裝、
+  # 蓋不掉那個常數，有開覆蓋率的 package 一律紅。把 coverage-v8 退回舊版能讓它綠，
+  # 但那正是那道檢查要擋的混版：覆蓋率會安靜地變得不可靠。
+  vitest: 4.1.11
   # 覆蓋率的 provider（C120）。⚠️ **同一句話**：它是 vitest 的內部套件，版本要
   # 與上面那行逐位相同。用 ^ 範圍的話，node_modules 會出現一份與 runner 版本
   # 不同的 provider，而症狀不是報錯，是覆蓋率數字看起來像那麼一回事。
-  "@vitest/coverage-v8": 4.1.10
+  "@vitest/coverage-v8": 4.1.11
 
   # --- 應用層選型（D13）---
   vue: ^3.5.41
@@ -65,7 +70,7 @@ catalog:
   # ⚠️ **不是第二套 runner** —— 它是 Vitest 上的一層 API，跑在既有的 Vitest 裡。
   # 養第二套 runner 會再撞一次 C87 的跨套件排程相依。
   #
-  # ⚠️ peer 是 `vitest ^4.0.4`，與上面釘死的 4.1.10 相容（實測，C110）。
+  # ⚠️ peer 是 `vitest ^4.0.4`，與上面釘死的 4.1.11 相容（實測，C110）。
   # 升 vite-plus 而 vitest 跳出那個範圍時，這一行要一起看。
   "@amiceli/vitest-cucumber": ^7.0.0
 
@@ -94,7 +99,7 @@ catalog:
   # ⚠️ **兩支釘死在精確版本，不用 `^`。** 它的產出是一份「哪些程式碼被改壞了而
   # 測試沒說話」的清單，而**變異運算子的集合是隨版本改的** —— minor 升上去，
   # 清單會多出或少掉一批，而那與程式碼品質無關。#150 的基準是 10.0.0 量的。
-  # ⚠️ runner 的 peer 是 `vitest >=2.0.0`，涵蓋上面釘死的 4.1.10。
+  # ⚠️ runner 的 peer 是 `vitest >=2.0.0`，涵蓋上面釘死的 4.1.11。
   "@stryker-mutator/core": 10.0.0
   "@stryker-mutator/vitest-runner": 10.0.0
 

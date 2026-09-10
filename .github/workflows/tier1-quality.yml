@@ -77,7 +77,7 @@ jobs:
       - name: Bootstrap Vite+
         working-directory: ${{ runner.temp }}
         run: |
-          npx --yes --package vite-plus@0.2.9 \
+          npx --yes --package vite-plus@0.3.1 \
             vp -C "$GITHUB_WORKSPACE" install --frozen-lockfile
 
       # ── 任務快取 ─────────────────────────────────────────────────────

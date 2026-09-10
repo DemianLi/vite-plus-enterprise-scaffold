@@ -67,7 +67,7 @@ export default defineConfig({
       // ⚠️ 行數含空行與註解（oxlint 預設，無 skipComments 選項）。這條線的
       // 註解密度遠高於一般專案，函式內的註解會直接灌進 max-lines-per-function。
       //
-      // ⚠️ 認知複雜度那一格是空的，不是漏掉。oxlint 1.77 沒有這條規則
+      // ⚠️ 認知複雜度那一格是空的，不是漏掉。oxlint 1.81 仍然沒有這條規則
       // （`cognitive-complexity`、`sonarjs/*`、`oxc/cognitive-complexity`
       // 三種寫法都不存在，用 --print-config 逐一驗過）。唯一的來源是
       // eslint-plugin-sonarjs，而那要嘛新增一條相依到 Tier 2 安全閘門、
