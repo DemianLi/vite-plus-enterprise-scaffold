@@ -1,9 +1,17 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { workspacePackages } from "@org/doc-facts/derive";
 
-import { GATES, UNGATED, type Gate, type Tier, type Ungated } from "./gates.ts";
+import {
+  GATES,
+  UNGATED,
+  type Gate,
+  type Ship,
+  type Tier,
+  type Ungated,
+  type Variant,
+} from "./gates.ts";
 
 /**
  * 名冊的四個消費端各自對不對得上，**外加名冊自己的一列必填**（②，C155）——
@@ -71,6 +79,86 @@ export function deriveGateScript(gates: readonly Gate[]): string {
     .filter((gate) => gate.notInGateScript === undefined)
     .map((gate) => gate.command)
     .join(" && ");
+}
+
+/**
+ * `scripts.gate` 與 `scripts.ready` 自己（C217 §四）：交給 `<名字>:select`，
+ * 由選擇器決定跑 `<名字>:upstream` 還是 `<名字>:fork`。
+ *
+ * ⚠️⚠️ **`--no-cache` 那一層不能拿掉**（C218）。選擇器會再開一個 `vp` 行程，而一個
+ * **被快取追蹤**的行程裡，巢狀的 `vp` 只要必須真的執行（cache miss）就開不起子行程：
+ * `Failed to spawn process … Invalid argument (os error 22)`。實測四組、帶鹽值防重播：
+ * 直接從 `vpr` 跑 → 開不起；包一層 `vp run --no-cache` → 真的執行；`pnpm run` → 真的執行。
+ * ⚠️ 而它**被快取重播蓋住過一次**：內層第一趟是直接跑的、結果進了快取，之後的「巢狀」
+ * 全是 cache hit 重播 —— 不開行程就不會出錯，量測回報全綠。
+ */
+export function selectorScript(name: "gate" | "ready"): string {
+  return `vp run --no-cache ${name}:select`;
+}
+
+/** `<名字>:select`：選擇器本身。 */
+export function selectorCommand(name: "gate" | "ready"): string {
+  return `node tools/fork-select/src/cli.ts --script ${name}`;
+}
+
+/** `gate:fork` 應該長的樣子：下發、而且不帶 `notInGateScript` 的那幾道（C217 §四）。 */
+export function deriveForkGateScript(gates: readonly Gate[]): string {
+  return deriveGateScript(gates.filter((gate) => gate.ship.to === "fork"));
+}
+
+/**
+ * fork 的測試那一步要帶的篩選（C217 §五）。
+ *
+ * ⚠️⚠️ **正向那一半照抄 `pnpm-workspace.yaml` 的目錄樣式** —— 不寫 `@org/*`，也不只給
+ * 排除。那兩種實測都**安靜地跑全部**：根 package（`@org/monorepo`）也被選中，而它的
+ * `test` 是 `vp run -r test`，被排除的那幾支從遞迴那一趟回來了（task 60、package 31；
+ * C218）。`vite-plus` 自己的文件教的就是 `@my/*` 那一種。目錄樣式選不到根，而團隊
+ * 新加的 package 不管取什麼名字都選得到。
+ *
+ * ⚠️ `--fail-if-no-match` 不是裝飾：`--filter '*'` 實測選到零個 package 而回 0 ——
+ * 測試那一步什麼都沒跑，而它是綠的。
+ */
+export function deriveForkTestFilters(
+  patterns: readonly string[],
+  excludedNames: readonly string[],
+): string {
+  return [
+    ...patterns.map((pattern) => `--filter './${pattern}'`),
+    ...excludedNames.map((name) => `--filter '!${name}'`),
+    "--fail-if-no-match",
+  ].join(" ");
+}
+
+/** `pnpm-workspace.yaml` 的 `packages:` 底下那幾個樣式，照原順序。 */
+export function workspacePatterns(yaml: string): string[] {
+  const lines = yaml.split("\n");
+  const patterns: string[] = [];
+  for (const line of lines.slice(lines.findIndex((l) => /^packages:\s*$/.test(l)) + 1)) {
+    const match = /^\s+-\s+["']?([^"'\s#]+)["']?\s*$/.exec(line);
+    if (match?.[1] === undefined) break;
+    patterns.push(match[1]);
+  }
+  return patterns;
+}
+
+/** 每個 workflow 讀辨別子的那一步（C217 §三）：一個 workflow 只讀一次，其餘步驟判它的輸出。 */
+export const TREE_STEP_ID = "tree";
+export const UPSTREAM_ONLY_IF = "steps.tree.outputs.side == 'upstream'";
+export const FORK_ONLY_IF = "steps.tree.outputs.side == 'fork'";
+
+function shipOf(gate: Gate, variant?: Variant): Ship["to"] {
+  return (variant?.ship ?? gate.ship).to;
+}
+
+/** 某一層的每一行指令，在 fork 預設裡是哪一側。 */
+function commandSides(gates: readonly Gate[], tier: Tier): Map<string, Ship["to"]> {
+  const sides = new Map<string, Ship["to"]>();
+  for (const gate of gates) {
+    if (!gate.tiers.includes(tier)) continue;
+    sides.set(ciCommandOf(gate), shipOf(gate));
+    for (const variant of gate.variants ?? []) sides.set(variant.command, shipOf(gate, variant));
+  }
+  return sides;
 }
 
 /**
@@ -147,6 +235,51 @@ export function extractTierCommands(workflowSource: string): Set<string> {
   return found;
 }
 
+/** workflow 裡的一步：`if:` 與單行 `run:`（多行區塊記成 `|`）。 */
+export interface WorkflowStep {
+  readonly if: string;
+  readonly run: string;
+}
+
+// ⚠️ 開頭寫成 `[ -]*`、「是不是新的一步」交給程式碼看有沒有 `-`，而不是 `(\s*)(-\s+)?`：
+// 後者是量詞套量詞，`security/detect-unsafe-regex`（tier2 那道 ESLint）會擋。值的前後空白
+// 也在程式碼裡修，不讓 `(.*?)` 與 `[ \t]*` 在正則裡搶同一段字。
+const STEP_LINE = /^([ -]*)([\w-]+):(.*)$/;
+
+/**
+ * 第一個 `steps:` 底下的每一步。
+ *
+ * ⚠️ 只認**步驟那一層**的鍵：`with:`／`env:` 底下的鍵、`run: |` 區塊裡的內容都比
+ * 步驟鍵縮排更深，所以不會被當成 `if:`／`run:`。這支的用途只有 ⑤b，而那兩個 workflow
+ * 各只有一個 job。
+ */
+export function extractSteps(source: string): WorkflowStep[] {
+  const lines = source.split("\n");
+  const at = lines.findIndex((line) => /^\s*steps:\s*$/.test(line));
+  if (at < 0) return [];
+  const steps: { if: string; run: string }[] = [];
+  let itemIndent: number | undefined;
+  for (const line of lines.slice(at + 1)) {
+    const match = STEP_LINE.exec(line);
+    if (match === null) continue;
+    const [, lead = "", key = "", rest = ""] = match;
+    const dashAt = lead.indexOf("-");
+    if (dashAt >= 0) {
+      itemIndent ??= dashAt;
+      if (dashAt !== itemIndent) continue;
+      steps.push({ if: "", run: "" });
+    } else if (itemIndent === undefined || lead.length !== itemIndent + 2) {
+      continue;
+    }
+    const current = steps.at(-1);
+    if (current === undefined) continue;
+    const value = rest.trim();
+    if (key === "if") current.if = value;
+    if (key === "run") current.run = value.replace(TRAILING_COMMENT, "").trimEnd();
+  }
+  return steps;
+}
+
 function diffSets(
   expected: ReadonlySet<string>,
   actual: ReadonlySet<string>,
@@ -172,10 +305,46 @@ function normalize(text: string): string {
  */
 export const CITES_RULING = /\b[CDR]\d{1,3}\b/;
 
+type Read = (relative: string) => string;
+
+/** fork 的測試那一步應該長的樣子（C217 §五）：`ready:fork` 與 tier1 那一步共用這一段。 */
+function forkTestCommand(root: string, gates: readonly Gate[], read: Read): string {
+  const toolName = (pkg: string): string => {
+    const path = join(root, "tools", pkg, "package.json");
+    return existsSync(path)
+      ? ((JSON.parse(readFileSync(path, "utf8")) as { name?: string }).name ?? `@org/${pkg}`)
+      : `@org/${pkg}`;
+  };
+  const excluded = [
+    ...new Set(
+      gates.filter((gate) => gate.ship.to === "upstream-only").flatMap((gate) => gate.pkg ?? []),
+    ),
+  ].map(toolName);
+  return `vp run ${deriveForkTestFilters(workspacePatterns(read("pnpm-workspace.yaml")), excluded)} test`;
+}
+
 export function checkRoster(root: string, roster: Roster = ROSTER): Problem[] {
   const { gates, ungated } = roster;
+  const read: Read = (relative) => readFileSync(join(root, relative), "utf8");
+  const scripts =
+    (JSON.parse(read("package.json")) as { scripts?: Record<string, string> }).scripts ?? {};
+  const forkTest = forkTestCommand(root, gates, read);
+  // 順序就是訊息的順序，與拆開之前一字不差。
+  return [
+    ...checkRegistrations(root, gates, ungated),
+    ...checkReasons(gates, ungated),
+    ...checkScripts(scripts, gates, forkTest),
+    ...checkWorkflows(read, gates, forkTest),
+    ...checkReadme(read, gates),
+  ];
+}
+
+function checkRegistrations(
+  root: string,
+  gates: readonly Gate[],
+  ungated: readonly Ungated[],
+): Problem[] {
   const problems: Problem[] = [];
-  const read = (relative: string): string => readFileSync(join(root, relative), "utf8");
 
   // ── ① tools/ 底下的每一個套件都要登記過 ──────────────────────────
   //
@@ -217,6 +386,11 @@ export function checkRoster(root: string, roster: Roster = ROSTER): Problem[] {
       });
     }
   }
+  return problems;
+}
+
+function checkReasons(gates: readonly Gate[], ungated: readonly Ungated[]): Problem[] {
+  const problems: Problem[] = [];
 
   // ── ② 每一道閘門要寫得出為什麼它存在（C155）──────────────────────
   //
@@ -272,21 +446,60 @@ export function checkRoster(root: string, roster: Roster = ROSTER): Problem[] {
         `      判它進來（或刻意不接）的那一則。找不到那一則，就是還沒有人裁過它。`,
     });
   }
+  return problems;
+}
+
+function checkScripts(
+  scripts: Readonly<Record<string, string>>,
+  gates: readonly Gate[],
+  forkTest: string,
+): Problem[] {
+  const problems: Problem[] = [];
 
   // ── ③ package.json 的 scripts.gate ──────────────────────────────
-  const rootPackage = JSON.parse(read("package.json")) as {
-    scripts?: Record<string, string>;
-  };
-  const scripts = rootPackage.scripts ?? {};
+  // ⚠️ C217 §四 起 `gate`／`ready` 是選擇器，閘門鏈住在 `gate:upstream`／`gate:fork`。
+  // `gate:upstream` 就是這一格原本比對的 `scripts.gate`，逐字不變 —— 上游一支都不少（C217 §七）。
+  for (const name of ["gate", "ready"] as const) {
+    const expected: ReadonlyArray<readonly [string, string]> = [
+      [name, selectorScript(name)],
+      [`${name}:select`, selectorCommand(name)],
+    ];
+    for (const [key, value] of expected) {
+      if (scripts[key] === value) continue;
+      problems.push({
+        kind: "gate／ready 不是選擇器",
+        detail:
+          `package.json 的 ${key} 應該是 \`${value}\`，` +
+          `目前是 ${scripts[key] === undefined ? "（沒有）" : `\`${scripts[key]}\``}。\n` +
+          `      直接寫一條鏈的話兩棵樹跑同一條（C217 §四）；少了 --no-cache 那一層，` +
+          `\`vpr ${name}\` 開不起巢狀的 vp（C218）。`,
+      });
+    }
+  }
 
-  const expectedGateScript = deriveGateScript(gates);
-  if (scripts["gate"] !== expectedGateScript) {
+  const chains = [
+    ["gate:upstream", deriveGateScript(gates), "GATES 全部"],
+    ["gate:fork", deriveForkGateScript(gates), "GATES 裡 `ship.to` 是 fork 的"],
+  ] as const;
+  for (const [name, expected, from] of chains) {
+    if (scripts[name] !== expected) {
+      problems.push({
+        kind: `${name} 對不上`,
+        detail:
+          `package.json 的 ${name} 與${from}推導出來的不同。應該是：\n` +
+          `      ${expected}\n` +
+          `      目前是：\n      ${scripts[name] ?? "（沒有這個 script）"}`,
+      });
+    }
+  }
+
+  // fork 的測試那一步：排除清單從名冊推（C217 §五）。
+  if (!(scripts["ready:fork"] ?? "").includes(forkTest)) {
     problems.push({
-      kind: "scripts.gate 對不上",
+      kind: "fork 的測試篩選對不上",
       detail:
-        `package.json 的 gate 與 GATES 推導出來的不同。應該是：\n` +
-        `      ${expectedGateScript}\n` +
-        `      目前是：\n      ${scripts["gate"] ?? "（沒有這個 script）"}`,
+        `package.json 的 ready:fork 裡找不到這一段：\n      ${forkTest}\n` +
+        `      正向照抄 pnpm-workspace.yaml、排除名冊上游專用那幾支的 package（C217 §五）。`,
     });
   }
 
@@ -305,6 +518,11 @@ export function checkRoster(root: string, roster: Roster = ROSTER): Problem[] {
       });
     }
   }
+  return problems;
+}
+
+function checkWorkflows(read: Read, gates: readonly Gate[], forkTest: string): Problem[] {
+  const problems: Problem[] = [];
 
   // ── ⑤ 兩個 workflow ─────────────────────────────────────────────
   const workflows: ReadonlyArray<readonly [Tier, string]> = [
@@ -313,9 +531,10 @@ export function checkRoster(root: string, roster: Roster = ROSTER): Problem[] {
   ];
 
   for (const [tier, path] of workflows) {
+    const source = read(path);
     const { missing, extra } = diffSets(
       deriveTierCommands(gates, tier),
-      extractTierCommands(read(path)),
+      extractTierCommands(source),
     );
     for (const command of missing) {
       problems.push({ kind: "workflow 少一道", detail: `${path} 沒有跑 \`${command}\`` });
@@ -326,7 +545,61 @@ export function checkRoster(root: string, roster: Roster = ROSTER): Problem[] {
         detail: `${path} 跑了 \`${command}\`，但 GATES 沒把它排進 ${tier}`,
       });
     }
+
+    // ── ⑤b 每一步在 fork 裡跑不跑，要對得上名冊（C217 §三／§六）──────
+    //
+    // ⚠️ 辨別子那一步不在的話，`steps.tree.outputs.side` 是空字串，於是每一個
+    // 「== 'upstream'」都是假 —— 上游專用的步驟**在上游**安靜地全部被跳過，而 job 是綠的。
+    if (!new RegExp(`^\\s*id:\\s*${TREE_STEP_ID}\\s*$`, "m").test(source)) {
+      problems.push({
+        kind: "workflow 讀不到辨別子",
+        detail: `${path} 沒有 \`id: ${TREE_STEP_ID}\` 那一步 —— 下面每一個 \`${UPSTREAM_ONLY_IF}\` 都會是假。`,
+      });
+    }
+    const sides = commandSides(gates, tier);
+    for (const step of extractSteps(source)) {
+      const side = sides.get(step.run);
+      const upstreamOnly = step.if.includes(UPSTREAM_ONLY_IF);
+      if (side === "upstream-only" && !upstreamOnly) {
+        problems.push({
+          kind: "上游專用的步驟在 fork 也會跑",
+          detail: `${path} 的 \`${step.run}\` 是上游專用，它的 if: 要帶 \`${UPSTREAM_ONLY_IF}\``,
+        });
+      }
+      if (side === "fork" && (upstreamOnly || step.if.includes(FORK_ONLY_IF))) {
+        problems.push({
+          kind: "下發的步驟在另一棵樹被跳過",
+          detail: `${path} 的 \`${step.run}\` 下發，兩棵樹都要跑 —— 它的 if: 不得判辨別子`,
+        });
+      }
+      // 兩條測試步驟：上游那條在 fork 會跑到上游專用工具的測試，fork 那條在上游會少跑。
+      if (step.run.startsWith("./node_modules/.bin/vp run -r test") && !upstreamOnly) {
+        problems.push({
+          kind: "測試步驟的分流錯了",
+          detail: `${path} 的全量測試那一步要帶 \`${UPSTREAM_ONLY_IF}\` —— 否則 fork 會跑上游專用工具的測試（C217 §五）`,
+        });
+      }
+      if (step.run.includes(forkTest) && !step.if.includes(FORK_ONLY_IF)) {
+        problems.push({
+          kind: "測試步驟的分流錯了",
+          detail: `${path} 的 fork 測試那一步要帶 \`${FORK_ONLY_IF}\` —— 否則上游會安靜地少跑那幾支的測試`,
+        });
+      }
+    }
   }
+
+  // tier1 跑測試，所以 fork 那一條要真的在；它的篩選與 ready:fork 是同一段字串。
+  if (!read(".github/workflows/tier1-quality.yml").includes(forkTest)) {
+    problems.push({
+      kind: "fork 的測試篩選對不上",
+      detail: `.github/workflows/tier1-quality.yml 裡找不到這一段：\n      ${forkTest}`,
+    });
+  }
+  return problems;
+}
+
+function checkReadme(read: Read, gates: readonly Gate[]): Problem[] {
+  const problems: Problem[] = [];
 
   // ── ⑥ README 那張〈兩層檢查〉的表 ───────────────────────────────
   //

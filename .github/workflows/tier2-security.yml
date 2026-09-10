@@ -83,6 +83,25 @@ jobs:
         with:
           node-version: "24"
 
+      # ── 這棵樹是上游還是 fork（C217 §三）──────────────────────────────
+      #
+      # 一個 workflow 只讀一次辨別子，後面的步驟判 `steps.tree.outputs.side`。
+      # ⚠️ 少了這一步，每一個「== 'upstream'」都是假 —— 上游專用的步驟**在上游**
+      # 安靜地全部被跳過，而 job 是綠的。tier1／tier2 裡它在不在由 `gate-roster` ⑤b 守。
+      #
+      # ⚠️ 同一步守「上游不得有 fork 標記」（C217 §八）：上游誤放的話，本機只跑 fork
+      # 那幾道、這裡跳過所有上游專用步驟，兩邊都是綠的。只看**存在**，不看內容（C217 §十）。
+      - name: 這棵樹是上游還是 fork
+        id: tree
+        run: |
+          if [ -e .scaffold-fork ]; then side=fork; else side=upstream; fi
+          echo "side=$side" >> "$GITHUB_OUTPUT"
+          echo "▶ $side"
+          if [ "$side" = fork ] && [ "$GITHUB_REPOSITORY" = "DemianLi/vite-plus-enterprise-scaffold" ]; then
+            echo "::error::上游不得有 .scaffold-fork（C217 §三）—— 它會讓上游安靜地只跑 fork 那一條。"
+            exit 1
+          fi
+
       # 見 tier1-quality.yml 對這一步的說明（DECISIONS.md C8）。
       - name: Bootstrap Vite+
         working-directory: ${{ runner.temp }}
@@ -146,6 +165,7 @@ jobs:
       # 放在 Tier 2 而非只在 Tier 1：這是認證與 CSRF 的行為契約，
       # 不該因為「這次改動與它無關」而被 affected 過濾跳過。
       - name: 層 2 單元 · BFF 契約驗收
+        if: steps.tree.outputs.side == 'upstream'
         run: ./node_modules/.bin/vitest run --root tools/bff-check
 
       # ── D2 退出保單（R1／R9）──────────────────────────────────────
@@ -158,7 +178,7 @@ jobs:
         run: node tools/exit-drill/src/cli.ts
 
       - name: 五層答不出 · D2 退出面檢查（排程：連證據新鮮度一起驗）
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.tree.outputs.side == 'upstream'
         run: node tools/exit-drill/src/cli.ts --require-fresh
 
       # ── 供應鏈盤點（R2／R3／R4／R5／R8）──────────────────────────────
@@ -170,6 +190,7 @@ jobs:
       # 沒有它，那個家族會在沒有人分類、沒有申請例外的情況下進到建置環境，
       # 然後在資安覆核時才被發現 —— 而那時它已經是既成事實。
       - name: 五層答不出 · 供應鏈盤點與來源綁定
+        if: steps.tree.outputs.side == 'upstream'
         run: node tools/supply-chain/src/cli.ts
 
       # ── 法遵對照表（D16）──────────────────────────────────────────
@@ -180,6 +201,7 @@ jobs:
       # 放在 Tier 2 而不是 Tier 1：它產出的是拿去回答稽核的東西，
       # 不該因為「這次改動與它無關」而被 affected 過濾跳過。
       - name: 五層答不出 · 法遵對照表
+        if: steps.tree.outputs.side == 'upstream'
         run: node tools/compliance/src/cli.ts
 
       # ── §16 證據清單 ──────────────────────────────────────────────
@@ -190,6 +212,7 @@ jobs:
       # 加新工具時最容易漏的就是「把它的證據檔列進來」——
       # 漏掉的那份不會進保存排程，五年後要調閱才發現不在。
       - name: 五層答不出 · §16 證據清單
+        if: steps.tree.outputs.side == 'upstream'
         run: node tools/compliance/src/cli.ts --evidence
 
       # ── 個資的兩條現行義務（§11 II ⑥／⑨）──────────────────────────
@@ -209,6 +232,7 @@ jobs:
       #   修法是兩邊都補：這裡刪掉步驟，CLI 那邊改成**不認得的旗標就紅**。
       #   只刪步驟的話，下一個被拿掉的旗標會用一模一樣的方式溜過去。
       - name: 五層答不出 · 個資：測試環境不得用真個資
+        if: steps.tree.outputs.side == 'upstream'
         run: node tools/pii-check/src/cli.ts
 
       # ── 文件數字（A1）─────────────────────────────────────────────
@@ -225,6 +249,7 @@ jobs:
       #   「C24 當時是 467 個套件」陳述的是歷史，守它等於要求回頭改寫歷史，
       #   而一份被持續改寫的決策日誌就不再是決策日誌了。
       - name: 五層答不出 · 文件數字與事實來源一致
+        if: steps.tree.outputs.side == 'upstream'
         run: node tools/doc-facts/src/cli.ts
 
       # ── SCOPE.md vs. 版控裡真正存在的目錄（C73）────────────────────
@@ -252,12 +277,14 @@ jobs:
       # ⚠️ 它會 spawn 別的閘門，所以擺在那些閘門後面：那幾道自己先紅的話，
       # 這裡的紅燈只是回音。
       - name: 層 3 驗收 · 框架承諾檢查（⚠️ 五條承諾守到一條）
+        if: steps.tree.outputs.side == 'upstream'
         run: node tools/promise-check/src/cli.ts
 
       # ── 安全 lint（D5）─────────────────────────────────────────────
       # 只裝安全規則，與 oxlint 零重疊。存在的首要理由是 oxlint 沒有
       # vue/no-v-html —— Vue 專案最主要的 XSS 入口。
       - name: 五層答不出 · ESLint 安全規則
+        if: steps.tree.outputs.side == 'upstream'
         run: ./node_modules/.bin/eslint . --max-warnings=0
 
       # ── SAST（源碼檢測）────────────────────────────────────────────
@@ -290,6 +317,7 @@ jobs:
       # 先驗規則會不會命中，再拿規則去掃 repo。順序是刻意的：
       # 一組壞掉的規則掃出零個發現，看起來與「沒有問題」一模一樣。
       - name: "五層答不出 · SAST 規則的反向測試"
+        if: steps.tree.outputs.side == 'upstream'
         run: |
           # ⚠️ **這一行不能拿掉。** GitHub Actions 的預設 shell 是 `bash -e {0}`
           #   （log 裡逐字印著）—— 有 `-e`，**沒有 `pipefail`**。少了它，下面那個
@@ -326,6 +354,7 @@ jobs:
           fi
 
       - name: 五層答不出 · SAST 掃描
+        if: steps.tree.outputs.side == 'upstream'
         # ⚠️ 一定要排除 .semgrep/ —— rules.ts 是**故意寫壞的** fixture，
         #   不排除的話這一步永遠紅，而紅的原因是我們自己種的。
         run: |
@@ -335,7 +364,7 @@ jobs:
               --exclude .semgrep
 
       - name: 上傳 SAST 結果到 Code Scanning
-        if: always() && hashFiles('semgrep.sarif') != ''
+        if: always() && steps.tree.outputs.side == 'upstream' && hashFiles('semgrep.sarif') != ''
         uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
         with:
           sarif_file: semgrep.sarif
@@ -343,6 +372,7 @@ jobs:
 
       # ── 機密掃描 ──────────────────────────────────────────────────
       - name: 五層答不出 · Secret 掃描
+        if: steps.tree.outputs.side == 'upstream'
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -371,9 +401,11 @@ jobs:
       # 換掉 Trivy 時這兩件事都要重新驗，而且要保留下面那道 SBOM 完整性檢查 ——
       # 它才是真正擋下這類問題的東西（①只把 0 變成 20，問題還在，但更難發現）。
       - name: 拆出掃描器讀得懂的 lockfile
+        if: steps.tree.outputs.side == 'upstream'
         run: node tools/supply-chain/src/cli.ts --split-lockfile .scan
 
       - name: 產出 SBOM（CycloneDX）
+        if: steps.tree.outputs.side == 'upstream'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:
           TRIVY_INCLUDE_DEV_DEPS: "true"
@@ -388,7 +420,7 @@ jobs:
       # 拿到那份檔案的時候 —— 把上傳放在檢查後面，一失敗就沒有證據可看，
       # 只能靠猜。（第一次就是這樣：檢查紅了，artifact 沒上傳，無從診斷。）
       - name: 上傳 SBOM
-        if: always()
+        if: always() && steps.tree.outputs.side == 'upstream'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: sbom-cyclonedx
@@ -400,6 +432,7 @@ jobs:
       # 少了這道檢查，「掃描器看不到任何套件」會以綠燈的形式通過，
       # 而稽核收到的是一份看起來很正常的空 SBOM。
       - name: 五層答不出 · SBOM 完整性檢查
+        if: steps.tree.outputs.side == 'upstream'
         run: node tools/supply-chain/src/cli.ts --verify-sbom sbom.cdx.json
 
       # ── 相依性漏洞（D13 修補 SLA；實際射程見 C160）─────────────────
@@ -410,6 +443,7 @@ jobs:
       # 東西實作那個分級** —— 這一步沒有，Renovate 的 `vulnerabilityAlerts`
       # 也沒有（#244／C160）。
       - name: 五層答不出 · SCA 漏洞掃描
+        if: steps.tree.outputs.side == 'upstream'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:
           # 同上：少了這行，這道閘門掃 0 個套件、永遠回綠燈，
@@ -440,7 +474,7 @@ jobs:
         # 實際發生過（首次在 Actions 上執行時）：BFF 契約那步 exit 127，
         # 掃描步驟被跳過，然後這裡也紅 —— 兩條紅訊息，只有一個真的問題。
         # 加上 hashFiles 判斷：檔案有產出才上傳。
-        if: always() && hashFiles('trivy.sarif') != ''
+        if: always() && steps.tree.outputs.side == 'upstream' && hashFiles('trivy.sarif') != ''
         uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
         with:
           sarif_file: trivy.sarif

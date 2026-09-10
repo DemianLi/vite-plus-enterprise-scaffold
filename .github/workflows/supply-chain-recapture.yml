@@ -55,12 +55,33 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      # ── 這棵樹是上游還是 fork（C217 §三）──────────────────────────────
+      #
+      # 一個 workflow 只讀一次辨別子，後面的步驟判 `steps.tree.outputs.side`。
+      # ⚠️ 少了這一步，每一個「== 'upstream'」都是假 —— 上游專用的步驟**在上游**
+      # 安靜地全部被跳過，而 job 是綠的。tier1／tier2 裡它在不在由 `gate-roster` ⑤b 守。
+      #
+      # ⚠️ 同一步守「上游不得有 fork 標記」（C217 §八）：上游誤放的話，本機只跑 fork
+      # 那幾道、這裡跳過所有上游專用步驟，兩邊都是綠的。只看**存在**，不看內容（C217 §十）。
+      - name: 這棵樹是上游還是 fork
+        id: tree
+        run: |
+          if [ -e .scaffold-fork ]; then side=fork; else side=upstream; fi
+          echo "side=$side" >> "$GITHUB_OUTPUT"
+          echo "▶ $side"
+          if [ "$side" = fork ] && [ "$GITHUB_REPOSITORY" = "DemianLi/vite-plus-enterprise-scaffold" ]; then
+            echo "::error::上游不得有 .scaffold-fork（C217 §三）—— 它會讓上游安靜地只跑 fork 那一條。"
+            exit 1
+          fi
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        if: steps.tree.outputs.side == 'upstream'
         with:
           node-version: "24"
 
       # 見 tier1-quality.yml 對這一步的說明（DECISIONS.md C8）。
       - name: Bootstrap Vite+
+        if: steps.tree.outputs.side == 'upstream'
         working-directory: ${{ runner.temp }}
         run: |
           npx --yes --package vite-plus@0.3.1 \
@@ -69,9 +90,11 @@ jobs:
       # 144 個原生套件 × 2 次 registry 往返。幾分鐘。
       # 出現 integrity-changed 時這一步會紅，而且**應該**紅 —— 見 isSafeToRecapture。
       - name: 重新擷取（僅限升級造成的不同步）
+        if: steps.tree.outputs.side == 'upstream'
         run: node tools/supply-chain/src/cli.ts --recapture-safe
 
       - name: 提交
+        if: steps.tree.outputs.side == 'upstream'
         run: |
           if git diff --quiet -- tools/supply-chain/provenance.json; then
             echo "provenance.json 沒有變化 —— 不需要提交。"

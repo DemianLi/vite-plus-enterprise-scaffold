@@ -1,0 +1,24 @@
+{
+  "name": "@org/fork-select",
+  "version": "0.0.0",
+  "private": true,
+  "description": "看 `.scaffold-fork` 在不在，決定 `vpr gate`／`vpr ready` 跑上游那一條還是 fork 那一條（C217）",
+  "bin": {
+    "fork-select": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@org/gate-kit": "workspace:*"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}
