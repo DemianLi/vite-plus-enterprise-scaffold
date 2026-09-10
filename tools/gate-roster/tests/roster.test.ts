@@ -434,6 +434,13 @@ describe("名冊本身的約束", () => {
     }
   });
 
+  it("每道閘門在 fork 預設裡的去留都寫了理由（C215／C216）", () => {
+    // 與上面幾個手足同一條規矩、同一個門檻。⚠️ 落在測試而不是 `check.ts`：
+    // C155 §四 把 `Gate.why` 放進閘門的理由是「fork 團隊撞到的應該是閘門」，
+    // 而 `gate-roster` 自己不下發，那條理由不轉移（C216 §五）。
+    for (const gate of GATES) expect(gate.ship.why.length, gate.id).toBeGreaterThan(20);
+  });
+
   it("不進 scripts.gate 的閘門，理由要寫得出本機由什麼涵蓋", () => {
     for (const gate of GATES) {
       if (gate.notInGateScript === undefined) continue;

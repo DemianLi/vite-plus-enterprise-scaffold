@@ -91,6 +91,10 @@
  * 「加例外的第一天就會有人加第二個，然後例外再也拿不掉」（C41）——
  * 擋住那件事的不是不准加，是**加了就得說得出口**。
  *
+ * ⚠️ **第四個欄位 `ship`（C215／C216）不屬於上面那三種** —— 它不是 `main` 多出來的
+ * 形狀，是上游與下發裂成兩份之後才有的；而且它**不是純字串**，是字面聯集配一句
+ * 必填理由。那不違反上一段：擋住「只讓檢查閉嘴」的是那句理由，不是型別。
+ *
  * ── ⚠️ C154：加一列之前，提案要在 D16 兩軸上各報一格 ────────────────
  *
  * 新增任何機械檢查 —— **包含在既有工具裡加一條規則** —— 都要交出兩軸：
@@ -180,6 +184,31 @@ export interface Gate {
    * **別名仍然必須有** —— 少一個別名不會造成假綠燈，但會讓文件裡那行指令不存在。
    */
   readonly notInGateScript?: string;
+  /**
+   * 採用團隊 fork 之後拿到的預設裡，這道閘門**有沒有接線**（C215 §四）。
+   *
+   * ⚠️ 必填，兩個方向都要寫理由 —— 這一格沒有安全的預設：預設下發，上游加一道
+   * 閘門就讓每個 fork 開箱紅；預設不下發，新閘門安靜地永遠到不了團隊。
+   *
+   * ⚠️ 它與 `notInGateScript` **正交**，`spec-report` 就是那個交叉格（下發 ∧ 不進
+   * `scripts.gate`）。「下發」是接進 fork 的 `ready`／workflow，不等於進 gate 鏈。
+   *
+   * ⚠️ 它只管**接線**：C215 的 (c) 之下檔案全部下發，而各工具自己的測試由
+   * `vp run -r test` 跑到，不看這一欄（C216 §四）。
+   *
+   * 這一欄目前唯一的讀者是 `roster.test.ts` 那條非空斷言；消費它的接線是批次 ②，
+   * 刻意分兩步（C216）。
+   */
+  readonly ship: Ship;
+}
+
+/**
+ * fork 預設裡的去留（C215）。判別子用字面聯集不用布林 —— 同 C132：
+ * 那是一句必填的理由，不是一個開關。
+ */
+export interface Ship {
+  readonly to: "fork" | "upstream-only";
+  readonly why: string;
 }
 
 /** 同一支工具在 workflow 裡的另一次呼叫。 */
@@ -207,6 +236,13 @@ export const GATES: readonly Gate[] = [
       "接到 main 是 C132，而接上的當場抓到三個真漏洞。" +
       "在 Tier 1 而不是 Tier 2 的理由與 theme-verify 同一條：Tier 2 的三條規則" +
       "只為了「安全掃描的結果會隨時間失效」，而「名冊有沒有對齊」不會隨時間失效。",
+    ship: {
+      to: "upstream-only",
+      why:
+        "上游管理閘門集合的工具。清單的理由「不沿用治理文件就是綠燈」對它是反的：它第一條檢查是" +
+        "每支 `tools/*` 都要登記，團隊加一支自己的工具當場紅（C215 §三）。" +
+        "⚠️ 而下發與否的分法就記在這裡，所以它留在上游而且變重要了（C215 §四）。",
+    },
   },
   {
     id: "conformance",
@@ -215,6 +251,12 @@ export const GATES: readonly Gate[] = [
     command: "node tools/conformance/src/cli.ts",
     tiers: ["tier2"],
     why: "切片契約與邊界（D4 第 1、3 層 / D9）。",
+    ship: {
+      to: "fork",
+      why:
+        "C215 下發的一道：切片契約與邊界在 fork 之後仍然成立 —— 它守的是腳手架給的形狀，" +
+        "不是團隊怎麼寫，所以 C215 §一 的判準一管不到它。",
+    },
   },
   {
     id: "api-surface",
@@ -223,6 +265,10 @@ export const GATES: readonly Gate[] = [
     command: "node tools/api-surface/src/cli.ts",
     tiers: ["tier2"],
     why: "platform/ 的破壞性變更必須附 codemod（D12）—— 這一步讓那條規則有牙齒。",
+    ship: {
+      to: "fork",
+      why: "C215 下發的一道：`platform/` 的破壞性變更必附 codemod，那正是「升級無痛」的機制本身（D12）。",
+    },
   },
   {
     id: "vue-typecheck",
@@ -231,6 +277,10 @@ export const GATES: readonly Gate[] = [
     command: "node tools/vue-typecheck/src/cli.ts",
     tiers: ["tier1"],
     why: "vp check 的 tsgolint 不看 SFC，設計系統的元件原始碼會整片沒被型別檢查（C68）。",
+    ship: {
+      to: "fork",
+      why: "C215 下發的一道：它補的是 `vp check` 看不到 SFC 的盲區（C68），量型別對不對，不規定寫法。",
+    },
   },
   {
     id: "theme-verify",
@@ -239,6 +289,12 @@ export const GATES: readonly Gate[] = [
     command: "node tools/theme-verify/src/cli.ts",
     tiers: ["tier1"],
     why: "配色與形狀兩條軸實測可換（HANDOFF #24 / C62）。不會隨時間失效，所以在 Tier 1。",
+    ship: {
+      to: "fork",
+      why:
+        "C215 下發的一道：配色與形狀可換、顏色不准寫死 —— 「保留各團隊的風格」在設計系統" +
+        "那一層靠的就是它（C62）。",
+    },
   },
   {
     // ⚠️ id 不是 `exit-drill`：那個別名已經有意思了 ——「跑完整演練」
@@ -262,6 +318,12 @@ export const GATES: readonly Gate[] = [
           "與這次改動無關的紅燈，而那種紅燈會被習慣性忽略。",
       },
     ],
+    ship: {
+      to: "fork",
+      why:
+        "C215 下發的一道：D2 保單，驅動層必須換得掉。⚠️ 這一格只涵蓋 PR 上那一行；" +
+        "`--require-fresh` 那個 variant 在 fork 排程裡的去留沒有裁（C216 §四）。",
+    },
   },
   {
     id: "supply-chain",
@@ -284,6 +346,12 @@ export const GATES: readonly Gate[] = [
           "在另一個 job 裡。",
       },
     ],
+    ship: {
+      to: "upstream-only",
+      why:
+        "C215 §一 判準二：供應鏈風險是公司的事，而承諾五連同理由一起退掉 —— 公司有集中的" +
+        " SCA 平台（C215 §五）。⚠️ 退的是承諾不是閘門，上游照跑。",
+    },
   },
   {
     id: "compliance",
@@ -300,6 +368,12 @@ export const GATES: readonly Gate[] = [
           "分成兩步是為了 CI 上「哪一個紅了」一眼看得到。",
       },
     ],
+    ship: {
+      to: "upstream-only",
+      why:
+        "C215 §一 判準二：個資法條文覆蓋是法遵的決定，不是工程的（C215 §五 退掉承諾五）。" +
+        "⚠️ 退的是承諾不是閘門，上游照跑。",
+    },
   },
   {
     id: "pii",
@@ -310,6 +384,12 @@ export const GATES: readonly Gate[] = [
     why:
       "§11 II ⑥ 測試環境不得使用真實個資。抓得到有校驗碼的識別碼，抓不到姓名（C52）。" +
       "⚠️ 別名叫 `pii` 而套件叫 `pii-check` —— id 對別名、pkg 對目錄，兩者刻意分開。",
+    ship: {
+      to: "upstream-only",
+      why:
+        "C215 §一 判準二：§11 II ⑥ 測試環境不得用真實個資，是法遵的決定而不是工程的" +
+        "（C215 §五）。⚠️ 退的是承諾不是閘門，上游照跑。",
+    },
   },
   {
     id: "doc-facts",
@@ -324,6 +404,12 @@ export const GATES: readonly Gate[] = [
       "可不可信**。硬把它塞進某一條承諾表會重演 C70 那個錯（同一份證據掛在" +
       "兩條承諾上，而空著的那一條沒有人發現）。這一段原本在 `SCOPE.md` 的" +
       "`tools/` 表底下，隨那張表撤除搬到這裡（C136 §四）。",
+    ship: {
+      to: "upstream-only",
+      why:
+        "它守的是上游自己文件裡的數字。清單的理由「不沿用治理文件就是綠燈」對它是反的：" +
+        "README 被改寫、引用樣式對不上句子，它以 `unguarded`／`never-cited` 紅（C215 §三）。",
+    },
   },
   {
     id: "scope-check",
@@ -342,6 +428,12 @@ export const GATES: readonly Gate[] = [
       "⚠️ 它從 C133 到 C136 待在 `UNGATED` 裡：`SCOPE.md` 曾是已刪分支" +
       "`release/v1` 的快照，對這棵樹跑會滿江紅。**那個「暫時」由 #180 兌現**，" +
       "邊界定義在 C136，這一列是它上鏈的地方。",
+    ship: {
+      to: "upstream-only",
+      why:
+        "它管的是上游的 `SCOPE.md`。清單的理由「不沿用治理文件就是綠燈」對它是反的：" +
+        "`SCOPE.md` 不存在時 `readFileSync` 直接丟例外，節標題改掉也紅（C215 §三）。",
+    },
   },
   {
     id: "threshold-check",
@@ -367,6 +459,12 @@ export const GATES: readonly Gate[] = [
       "⚠️ 它有一條規格在證明它真的會紅（`specs/gate-thresholds.feature`／C163），" +
       "而那讓它成為這條線上第三支讀 `--root` 的閘門 —— `--root` 換的**只有被驗的那份設定**，" +
       "被 lint 的樹與 `vp` 的位置都留在真樹（C127 §一）。",
+    ship: {
+      to: "upstream-only",
+      why:
+        "C215 §一 判準一：腳手架不規定團隊怎麼寫。⚠️ 它不是「防作弊」，是 C147 §二 單向棘輪的" +
+        "「降」那一半（C215 §三 更正）；那組 `max` 值是這棵樹自己校準的，移到團隊那一半（C215 §十）。",
+    },
   },
   {
     id: "promise-check",
@@ -386,6 +484,13 @@ export const GATES: readonly Gate[] = [
       "（**團隊自己**的業務規格）。混在一起的話，框架承諾會被算進那份拿去對外" +
       "報進度的完成率報表 —— 這條分界有測試守著，不靠人記得。" +
       "這一段原本在 `SCOPE.md` 的 `tools/` 表底下（C136 §四）。",
+    ship: {
+      to: "upstream-only",
+      why:
+        "根層 `specs/` 是上游對團隊的承諾，驗證承諾是上游的責任（C215 §九）。接在 fork 上的話，" +
+        "`gate-thresholds.feature` 指名的 `threshold-check` 不在 fork 的 `scripts.gate` 裡，" +
+        "第一次 `vpr gate` 就以「閘門沒有接上」紅。",
+    },
   },
   {
     id: "spec-report",
@@ -403,6 +508,12 @@ export const GATES: readonly Gate[] = [
       "放進 scripts.gate 的話它讀到的是上一次的檔案，或者根本沒有檔案 —— " +
       "兩種都不是「這次的完成率」。所以它接在 `scripts.ready` 的最後一步，" +
       "而 CI 上它緊跟在「測試」與「建置」後面（那兩步的產物跨 workflow 拿不到）。",
+    ship: {
+      to: "fork",
+      why:
+        "規則三（「完成」的定義在驗收規格裡）的產出：抽掉它，規則三變成一句沒有產出的話" +
+        "（C215 §八）。⚠️ 下發的是 `ready` 的最後一步，不是 gate 鏈 —— 見 `notInGateScript`。",
+    },
   },
   {
     id: "bff-check",
@@ -419,6 +530,13 @@ export const GATES: readonly Gate[] = [
       "放進 scripts.gate 等於同一批測試在 `vpr ready` 裡跑兩次。" +
       "CI 上它是獨立一步，理由是 GitHub 一步一格顯示 —— 混在全 repo 測試裡，" +
       "「契約破了」與「某個切片的單元測試壞了」會長得一樣。",
+    ship: {
+      to: "upstream-only",
+      why:
+        "清單的理由是「只在 CI，不在 vpr gate」。前半成立：它在 tier2 是獨立一步。" +
+        "⚠️ 後半要補：它的測試由 `vp run -r test` 跑到，所以 fork 的 `ready` 照跑它 —— " +
+        "不下發的只有 tier2 那一步（C216 §三；C215 沒有逐條問過這一列的理由）。",
+    },
   },
   {
     id: "eslint",
@@ -427,6 +545,12 @@ export const GATES: readonly Gate[] = [
     ciCommand: "./node_modules/.bin/eslint . --max-warnings=0",
     tiers: ["tier2"],
     why: "只裝安全規則，與 oxlint 零重疊。存在的首要理由是 oxlint 沒有 vue/no-v-html（D5）。",
+    ship: {
+      to: "upstream-only",
+      why:
+        "C215 §一 判準二：它只裝安全與邊界規則，而資安是公司集中 SAST 的事（C215 §五）。" +
+        "⚠️ 被拿掉的是安全那一半；風格與複雜度那一半在 oxlint、跑在 `vp check` 裡，留下（C215 §十）。",
+    },
   },
   {
     id: "a11y",
@@ -438,6 +562,12 @@ export const GATES: readonly Gate[] = [
     why:
       "AA 的靜態可測部分（C60／C69）。在 Tier 1 是因為它量的是原始碼本身，" +
       "不會隨時間失效 —— 而且它刻意**只**是前置過濾器，驗收仍然是 Freego ＋ 人工。",
+    ship: {
+      to: "upstream-only",
+      why:
+        "C215 §一 判準一：腳手架不規定團隊怎麼寫。它本來就只是前置過濾器，驗收是 Freego ＋ 人工" +
+        "（C60）；承諾五連同它一起退掉（C215 §五）。",
+    },
   },
 ];
 
