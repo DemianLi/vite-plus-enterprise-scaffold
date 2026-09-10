@@ -217,6 +217,15 @@ export interface Variant {
   readonly command: string;
   /** 為什麼要多跑這一次。**必填**。 */
   readonly why: string;
+  /**
+   * 這一次呼叫在 fork 預設裡的去留。**沒寫就跟著主指令。**
+   *
+   * ⚠️ 只在它與主指令不同時寫：`exit-surface` 下發，而它的 `--require-fresh` 驗的是
+   * 上游演練的證據，fork 不重跑演練（C217 §六）。一個下發閘門的上游專用 variant，
+   * 是這個欄位存在的唯一理由；反過來（上游專用閘門的下發 variant）沒有意義，
+   * 因為 fork 裡那支工具本身就沒接線。
+   */
+  readonly ship?: Ship;
 }
 
 /**
@@ -316,13 +325,19 @@ export const GATES: readonly Gate[] = [
         why:
           "排程才跑：連證據檔的新鮮度一起驗。放在 PR 上會讓「證據過期」變成" +
           "與這次改動無關的紅燈，而那種紅燈會被習慣性忽略。",
+        ship: {
+          to: "upstream-only",
+          why:
+            "`evidence.json` 是上游演練的證據，fork 不重跑演練 —— 在 fork 的排程裡它遲早變成" +
+            "一個團隊沒做錯任何事的紅燈（C217 §六，答掉 C216 §四.2）。",
+        },
       },
     ],
     ship: {
       to: "fork",
       why:
-        "C215 下發的一道：D2 保單，驅動層必須換得掉。⚠️ 這一格只涵蓋 PR 上那一行；" +
-        "`--require-fresh` 那個 variant 在 fork 排程裡的去留沒有裁（C216 §四）。",
+        "C215 下發的一道：D2 保單，驅動層必須換得掉。⚠️ 這一格只涵蓋 PR 上那一行 —— " +
+        "`--require-fresh` 那個 variant 自己寫了上游專用（C217 §六）。",
     },
   },
   {
@@ -606,6 +621,16 @@ export const UNGATED: readonly Ungated[] = [
       "⚠️ 它仍然受 C126 管：不認得的旗標非零。那條由 `gate-kit/tests/adoption.test.ts` 守，" +
       "而那份名冊在 C171 之前只讀兩個 script —— 這一支的路徑只出現在 `vite.config.ts` 裡，" +
       "所以那份名冊多讀了第三處事實來源，否則它會在這一支加進來的那天安靜地少一支。",
+  },
+  {
+    pkg: "fork-select",
+    why:
+      "**選擇器，不是閘門**（C217 §四）：`vpr gate`／`vpr ready` 經過它，沒有 `.scaffold-fork` " +
+      "跑 `<名字>:upstream`，有就跑 `<名字>:fork`。它自己不判定樹的任何事，而它選錯的樣子" +
+      "（上游只跑了 fork 那 5 道）在其餘輸出裡看起來就是全綠 —— 所以它把判定印在第一行。" +
+      "⚠️ 放 `UNGATED` 而不是 `GATES`：`GATES` 的成員會被推進 `gate:upstream`，而 `gate` 本身" +
+      "就是它，進去就是自己叫自己。⚠️ 它**下發**：fork 每一次 `vpr ready` 都經過它，" +
+      "所以它不得住在上游專用的工具裡（C217 §四 第 3 條）。",
   },
   {
     pkg: "codemods",

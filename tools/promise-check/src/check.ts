@@ -47,8 +47,16 @@ import { parseSpec, type PromiseScenario } from "./spec.ts";
  * 所以執行之前先探一次：`probeRootSupport`。
  */
 
-/** 閘門鏈住在根 `package.json` 的這個 script 裡（`vpr gate` 跑的就是它）。 */
-const GATE_SCRIPT = "gate";
+/**
+ * 閘門鏈住在根 `package.json` 的這個 script 裡。
+ *
+ * ⚠️ **不是 `gate`**（C217 §四）：`gate` 是選擇器，沒有標記檔時交給這一條、有就交給
+ * `gate:fork`。這支是上游專用的（根層 `specs/` 是上游對團隊的承諾，C215 §九），
+ * 而在上游 `vpr gate` 交給的就是這一條 —— 所以「`vpr gate` 真的會執行它」（C118 §二）
+ * 這個判準沒變，變的只是字串住在哪裡。那個「交給」由選擇器自己的測試與 tier1 那一步
+ * 「上游不得有 fork 標記」保證。
+ */
+const GATE_SCRIPT = "gate:upstream";
 
 /** 一條承諾真的被執行過。綠燈訊息印的是這個數字 —— 不是「規格裡寫了幾條」。 */
 export interface PromiseRun {

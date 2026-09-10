@@ -7,11 +7,19 @@ import { repoRoot, sandbox } from "@org/gate-kit/testing";
 
 import {
   CITES_RULING,
+  FORK_ONLY_IF,
   ROSTER,
+  UPSTREAM_ONLY_IF,
   checkRoster,
+  deriveForkGateScript,
+  deriveForkTestFilters,
   deriveGateScript,
   deriveTierCommands,
+  extractSteps,
   extractTierCommands,
+  selectorCommand,
+  selectorScript,
+  workspacePatterns,
   type Roster,
 } from "../src/check.ts";
 import { GATES, UNGATED, type Gate, type Tier, type Ungated } from "../src/gates.ts";
@@ -43,6 +51,44 @@ interface Layout {
   tier2Commands: string[];
   tier1Labels: string[];
   tier2Labels: string[];
+  /** 每一行閘門指令的 `if:`。預設照名冊的 `ship` 推；測試改這裡來弄壞分流（C217）。 */
+  conditions: Map<string, string>;
+  /** 兩個 workflow 各有沒有讀辨別子那一步。 */
+  treeStep: Record<Tier, boolean>;
+  /** tier1 的兩條測試步驟。 */
+  testSteps: { run: string; if: string }[];
+}
+
+/** fixture 的 `pnpm-workspace.yaml` 只有這一個樣式（見 `write`）。 */
+const FIXTURE_PATTERNS = ["tools/*"];
+
+/** fork 的測試篩選 —— 與 `checkRoster` 走同一支 `deriveForkTestFilters`，不抄一份。 */
+function forkTest(roster: Roster): string {
+  const excluded = [
+    ...new Set(
+      roster.gates
+        .filter((gate) => gate.ship.to === "upstream-only")
+        .flatMap((gate) => gate.pkg ?? []),
+    ),
+  ].map((pkg) => `@org/${pkg}`);
+  return `vp run ${deriveForkTestFilters(FIXTURE_PATTERNS, excluded)} test`;
+}
+
+function conditionsOf(roster: Roster): Map<string, string> {
+  const conditions = new Map<string, string>();
+  for (const gate of roster.gates) {
+    const rows = [
+      { command: gate.ciCommand ?? gate.command, ship: gate.ship },
+      ...(gate.variants ?? []).map((variant) => ({
+        command: variant.command,
+        ship: variant.ship ?? gate.ship,
+      })),
+    ];
+    for (const row of rows) {
+      conditions.set(row.command, row.ship.to === "upstream-only" ? UPSTREAM_ONLY_IF : "");
+    }
+  }
+  return conditions;
 }
 
 /** 照這份名冊，一切都寫對的樣子。 */
@@ -50,7 +96,16 @@ function healthy(roster: Roster): Layout {
   const labels = (tier: Tier): string[] =>
     roster.gates.filter((gate) => gate.tiers.includes(tier)).map((gate) => gate.label);
 
-  const scripts: Record<string, string> = { gate: deriveGateScript(roster.gates) };
+  const test = forkTest(roster);
+  const scripts: Record<string, string> = {
+    gate: selectorScript("gate"),
+    "gate:select": selectorCommand("gate"),
+    "gate:upstream": deriveGateScript(roster.gates),
+    "gate:fork": deriveForkGateScript(roster.gates),
+    ready: selectorScript("ready"),
+    "ready:select": selectorCommand("ready"),
+    "ready:fork": `vp check && ${test} -- --reporter=default && vpr gate`,
+  };
   for (const gate of roster.gates) {
     if (gate.pkg !== undefined) scripts[gate.id] = gate.command;
   }
@@ -66,20 +121,36 @@ function healthy(roster: Roster): Layout {
     tier2Commands: [...deriveTierCommands(roster.gates, "tier2")],
     tier1Labels: labels("tier1"),
     tier2Labels: labels("tier2"),
+    conditions: conditionsOf(roster),
+    treeStep: { tier1: true, tier2: true },
+    testSteps: [
+      { run: "./node_modules/.bin/vp run -r test -- --reporter=default", if: UPSTREAM_ONLY_IF },
+      { run: `./node_modules/.bin/${test} -- --reporter=default`, if: FORK_ONLY_IF },
+    ],
   };
 }
 
-function workflow(commands: readonly string[], extraMultilineStep: boolean): string {
-  const steps = commands
-    .map((command) => `      - name: 某一道\n        run: ${command}\n`)
+function step(run: string, condition: string): string {
+  return `      - name: 某一道\n${condition === "" ? "" : `        if: ${condition}\n`}        run: ${run}\n`;
+}
+
+function workflow(layout: Layout, tier: Tier): string {
+  const tree = layout.treeStep[tier]
+    ? '      - name: 這棵樹是上游還是 fork\n        id: tree\n        run: |\n          echo "side=upstream" >> "$GITHUB_OUTPUT"\n'
+    : "";
+  const commands = tier === "tier1" ? layout.tier1Commands : layout.tier2Commands;
+  const gates = commands
+    .map((command) => step(command, layout.conditions.get(command) ?? ""))
     .join("");
+  const tests = tier === "tier1" ? layout.testSteps.map((s) => step(s.run, s.if)).join("") : "";
   // tier2 真的有 docker 步驟，而它們是 `run: |` 多行區塊。放一個進來，
   // 是為了釘住「多行區塊不會被誤認成沒登記的閘門」—— 少了這一條，
   // 有人把單行抽取改寬鬆一點，這道閘門就會開始對 SAST 那兩步亂叫。
-  const docker = extraMultilineStep
-    ? "      - name: SAST 掃描\n        run: |\n          docker run --rm semgrep scan --config .semgrep/rules.yml\n"
-    : "";
-  return `name: t\njobs:\n  j:\n    steps:\n${steps}${docker}`;
+  const docker =
+    tier === "tier2"
+      ? "      - name: SAST 掃描\n        run: |\n          docker run --rm semgrep scan --config .semgrep/rules.yml\n"
+      : "";
+  return `name: t\njobs:\n  j:\n    steps:\n${tree}${gates}${tests}${docker}`;
 }
 
 function write(layout: Layout): string {
@@ -98,14 +169,8 @@ function write(layout: Layout): string {
   }
 
   mkdirSync(join(root, ".github/workflows"), { recursive: true });
-  writeFileSync(
-    join(root, ".github/workflows/tier1-quality.yml"),
-    workflow(layout.tier1Commands, false),
-  );
-  writeFileSync(
-    join(root, ".github/workflows/tier2-security.yml"),
-    workflow(layout.tier2Commands, true),
-  );
+  writeFileSync(join(root, ".github/workflows/tier1-quality.yml"), workflow(layout, "tier1"));
+  writeFileSync(join(root, ".github/workflows/tier2-security.yml"), workflow(layout, "tier2"));
 
   writeFileSync(
     join(root, "README.md"),
@@ -287,19 +352,20 @@ describe("理由指不到裁決（C211）", () => {
 });
 
 describe("四個消費端各自漂移", () => {
-  it("scripts.gate 少一道會紅", () => {
+  // ⚠️ C217 起閘門鏈住在 `gate:upstream`（原本的 `scripts.gate`，逐字不變）。
+  it("gate:upstream 少一道會紅", () => {
     const root = broken((layout) => {
-      layout.scripts["gate"] = deriveGateScript(GATES.slice(1));
+      layout.scripts["gate:upstream"] = deriveGateScript(GATES.slice(1));
     });
-    expect(kinds(root)).toContain("scripts.gate 對不上");
+    expect(kinds(root)).toContain("gate:upstream 對不上");
   });
 
-  it("scripts.gate 順序換掉也會紅", () => {
+  it("gate:upstream 順序換掉也會紅", () => {
     // 順序是有意義的（便宜的排前面），所以比對是字串相等而不是集合相等。
     const root = broken((layout) => {
-      layout.scripts["gate"] = deriveGateScript([...GATES].reverse());
+      layout.scripts["gate:upstream"] = deriveGateScript([...GATES].reverse());
     });
-    expect(kinds(root)).toContain("scripts.gate 對不上");
+    expect(kinds(root)).toContain("gate:upstream 對不上");
   });
 
   it("少一個單獨跑的別名會紅", () => {
@@ -350,10 +416,142 @@ describe("四個消費端各自漂移", () => {
   });
 });
 
+describe("fork 預設的接線（C217）", () => {
+  // 每一條都用 toEqual：夾具只壞一件事，紅的就只能是那一條規則（C143 §七 第 4 條）。
+  const THRESHOLD = "node tools/threshold-check/src/cli.ts";
+  const CONFORMANCE = "node tools/conformance/src/cli.ts";
+
+  it("🔴 gate 直接寫成一條鏈 —— 兩棵樹就跑同一條", () => {
+    const root = broken((layout) => {
+      layout.scripts["gate"] = deriveGateScript(GATES);
+    });
+    expect(kinds(root)).toEqual(["gate／ready 不是選擇器"]);
+  });
+
+  it("⚠️⚠️ gate 直接呼叫選擇器、少了 --no-cache 那一層 —— `vpr gate` 開不起巢狀的 vp（C218）", () => {
+    // 這個形狀在一棵乾淨的 clone 裡每一趟都是 `os error 22`，而它是這一批第一版的寫法。
+    const root = broken((layout) => {
+      layout.scripts["gate"] = selectorCommand("gate");
+    });
+    expect(kinds(root)).toEqual(["gate／ready 不是選擇器"]);
+  });
+
+  it("🔴 gate:fork 少一道", () => {
+    const root = broken((layout) => {
+      layout.scripts["gate:fork"] = deriveForkGateScript(
+        GATES.filter((gate) => gate.id !== "theme-verify"),
+      );
+    });
+    expect(kinds(root)).toEqual(["gate:fork 對不上"]);
+  });
+
+  it("🔴 上游專用的閘門被塞進 gate:fork", () => {
+    const root = broken((layout) => {
+      layout.scripts["gate:fork"] = `${layout.scripts["gate:fork"]} && ${THRESHOLD}`;
+    });
+    expect(kinds(root)).toEqual(["gate:fork 對不上"]);
+  });
+
+  it("🔴 ready:fork 少排除一支 —— 那支的測試會在 fork 裡跑", () => {
+    const root = broken((layout) => {
+      layout.scripts["ready:fork"] = (layout.scripts["ready:fork"] ?? "").replace(
+        " --filter '!@org/gate-roster'",
+        "",
+      );
+    });
+    expect(kinds(root)).toEqual(["fork 的測試篩選對不上"]);
+  });
+
+  it("⚠️⚠️ 正向條件寫成 `@org/*` 也紅 —— 那個寫法實測會連根 package 一起選、安靜地跑全部", () => {
+    // `vite-plus` 自己的文件教的就是這一種。根 package 的 `test` 是 `vp run -r test`，
+    // 被排除的那幾支從遞迴那一趟回來（task 60、package 31；C218）。
+    const root = broken((layout) => {
+      layout.scripts["ready:fork"] = (layout.scripts["ready:fork"] ?? "").replace(
+        "--filter './tools/*'",
+        "--filter '@org/*'",
+      );
+    });
+    expect(kinds(root)).toEqual(["fork 的測試篩選對不上"]);
+  });
+
+  it("🔴 workflow 沒有辨別子那一步 —— 上游專用的步驟會在上游安靜地被跳過", () => {
+    const root = broken((layout) => {
+      layout.treeStep.tier2 = false;
+    });
+    expect(kinds(root)).toEqual(["workflow 讀不到辨別子"]);
+  });
+
+  it("🔴 上游專用的步驟沒帶條件", () => {
+    const root = broken((layout) => {
+      layout.conditions.set(THRESHOLD, "");
+    });
+    expect(kinds(root)).toEqual(["上游專用的步驟在 fork 也會跑"]);
+  });
+
+  it("🔴 下發的步驟帶了上游條件 —— fork 少一道，而且是綠的", () => {
+    const root = broken((layout) => {
+      layout.conditions.set(CONFORMANCE, UPSTREAM_ONLY_IF);
+    });
+    expect(kinds(root)).toEqual(["下發的步驟在另一棵樹被跳過"]);
+  });
+
+  it("🔴 下發閘門的上游專用 variant 沒帶條件（`--require-fresh`）", () => {
+    const root = broken((layout) => {
+      layout.conditions.set("node tools/exit-drill/src/cli.ts --require-fresh", "");
+    });
+    expect(kinds(root)).toEqual(["上游專用的步驟在 fork 也會跑"]);
+  });
+
+  it("🔴 全量測試那一步沒帶上游條件", () => {
+    const root = broken((layout) => {
+      const upstream = layout.testSteps[0];
+      if (upstream !== undefined) upstream.if = "";
+    });
+    expect(kinds(root)).toEqual(["測試步驟的分流錯了"]);
+  });
+
+  it("🔴 fork 測試那一步沒帶 fork 條件 —— 上游會安靜地少跑", () => {
+    const root = broken((layout) => {
+      const fork = layout.testSteps[1];
+      if (fork !== undefined) fork.if = "";
+    });
+    expect(kinds(root)).toEqual(["測試步驟的分流錯了"]);
+  });
+
+  it("🔴 tier1 沒有 fork 測試那一步", () => {
+    const root = broken((layout) => {
+      layout.testSteps = layout.testSteps.slice(0, 1);
+    });
+    expect(kinds(root)).toEqual(["fork 的測試篩選對不上"]);
+  });
+});
+
 describe("抽取層", () => {
   it("多行的 run: | 區塊不會被當成閘門", () => {
-    const source = workflow(["node tools/conformance/src/cli.ts"], true);
+    const source =
+      "steps:\n      - name: 某一道\n        run: node tools/conformance/src/cli.ts\n" +
+      "      - name: SAST 掃描\n        run: |\n          docker run --rm semgrep scan\n";
     expect(extractTierCommands(source)).toEqual(new Set(["node tools/conformance/src/cli.ts"]));
+  });
+
+  it("步驟的 if:／run: 只認步驟那一層的鍵", () => {
+    // `with:` 底下的鍵、`run: |` 區塊裡長得像鍵的行，都不是這一步的 if:／run:。
+    const source =
+      "    steps:\n" +
+      "      - name: 甲\n        if: steps.tree.outputs.side == 'upstream'\n        run: node a.ts  # 註解\n" +
+      "      - uses: x/y@v1\n        with:\n          run: 不是這一步的\n          if: 也不是\n" +
+      "      - name: 丙\n        run: |\n          if: 區塊裡的字\n";
+    expect(extractSteps(source)).toEqual([
+      { if: "steps.tree.outputs.side == 'upstream'", run: "node a.ts" },
+      { if: "", run: "" },
+      { if: "", run: "|" },
+    ]);
+  });
+
+  it("pnpm-workspace.yaml 的樣式照原順序，碰到清單以外的行就停", () => {
+    expect(
+      workspacePatterns("packages:\n  - apps/*\n  - 'tools/*'\n\ncatalogMode: prefer\n"),
+    ).toEqual(["apps/*", "tools/*"]);
   });
 
   it("非閘門的步驟（vp check、快取）不會被當成閘門", () => {
@@ -441,6 +639,20 @@ describe("名冊本身的約束", () => {
     for (const gate of GATES) expect(gate.ship.why.length, gate.id).toBeGreaterThan(20);
   });
 
+  it("variant 的 ship 只能比主指令更窄 —— 上游專用閘門的 variant 不得下發（C217）", () => {
+    // fork 裡那支工具本身就沒接線，它的某一次呼叫下發是沒有意義的話；
+    // 反過來（下發閘門的上游專用 variant）是 `--require-fresh` 那一種，合法。
+    for (const gate of GATES) {
+      for (const variant of gate.variants ?? []) {
+        if (variant.ship === undefined) continue;
+        expect(variant.ship.why.length, `${gate.id} → ${variant.command}`).toBeGreaterThan(20);
+        if (gate.ship.to === "upstream-only") {
+          expect(variant.ship.to, `${gate.id} → ${variant.command}`).toBe("upstream-only");
+        }
+      }
+    }
+  });
+
   it("不進 scripts.gate 的閘門，理由要寫得出本機由什麼涵蓋", () => {
     for (const gate of GATES) {
       if (gate.notInGateScript === undefined) continue;
@@ -472,12 +684,13 @@ describe("main 上多出來的三種形狀（C132）", () => {
     expect(kinds(root)).toContain("workflow 多一道");
   });
 
-  it("帶 notInGateScript 的閘門被塞進 scripts.gate 會紅", () => {
+  it("帶 notInGateScript 的閘門被塞進 gate:upstream 會紅", () => {
     // 反過來的方向：那個欄位說「本機不跑這個」，塞進去就是與它自己矛盾。
     const root = broken((layout) => {
-      layout.scripts["gate"] = `${layout.scripts["gate"]} && vp run -F @org/bff-check test`;
+      layout.scripts["gate:upstream"] =
+        `${layout.scripts["gate:upstream"]} && vp run -F @org/bff-check test`;
     });
-    expect(kinds(root)).toContain("scripts.gate 對不上");
+    expect(kinds(root)).toContain("gate:upstream 對不上");
   });
 
   it("沒有 cli.ts 的閘門（vitest 形狀）從 workflow 消失會紅", () => {

@@ -32,6 +32,25 @@ jobs:
           # vite-plus 要求 ^20.19.0 || ^22.18.0 || >=24.11.0
           node-version: "24"
 
+      # ── 這棵樹是上游還是 fork（C217 §三）──────────────────────────────
+      #
+      # 一個 workflow 只讀一次辨別子，後面的步驟判 `steps.tree.outputs.side`。
+      # ⚠️ 少了這一步，每一個「== 'upstream'」都是假 —— 上游專用的步驟**在上游**
+      # 安靜地全部被跳過，而 job 是綠的。tier1／tier2 裡它在不在由 `gate-roster` ⑤b 守。
+      #
+      # ⚠️ 同一步守「上游不得有 fork 標記」（C217 §八）：上游誤放的話，本機只跑 fork
+      # 那幾道、這裡跳過所有上游專用步驟，兩邊都是綠的。只看**存在**，不看內容（C217 §十）。
+      - name: 這棵樹是上游還是 fork
+        id: tree
+        run: |
+          if [ -e .scaffold-fork ]; then side=fork; else side=upstream; fi
+          echo "side=$side" >> "$GITHUB_OUTPUT"
+          echo "▶ $side"
+          if [ "$side" = fork ] && [ "$GITHUB_REPOSITORY" = "DemianLi/vite-plus-enterprise-scaffold" ]; then
+            echo "::error::上游不得有 .scaffold-fork（C217 §三）—— 它會讓上游安靜地只跑 fork 那一條。"
+            exit 1
+          fi
+
       # ── 測試邊界地圖 ────────────────────────────────────────────────
       # 放在最前面，理由是**它必須在任何一步失敗之前就已經印出來** ——
       # 半張表跟一張短表長得一模一樣。
@@ -115,6 +134,7 @@ jobs:
       # `tools/gate-roster/src/gates.ts` 的檔頭 —— 一道只守半個檔案的閘門，
       # 必須自己講明白守的是哪半個。
       - name: 五層答不出 · 閘門名冊一致
+        if: steps.tree.outputs.side == 'upstream'
         run: node tools/gate-roster/src/cli.ts
 
       # ── 清單與樹對不對得上（C73／C136）───────────────────────────────
@@ -133,6 +153,7 @@ jobs:
       # `release/v1` 的快照，對這棵樹跑會滿江紅，所以它待在名冊的 UNGATED 裡。
       # 那個「暫時」由 #180 兌現，邊界定義在 C136。
       - name: 五層答不出 · SCOPE.md 與版控內容一致
+        if: steps.tree.outputs.side == 'upstream'
         run: node tools/scope-check/src/cli.ts
 
       # ── 檢查 ─────────────────────────────────────────────────────────
@@ -154,6 +175,7 @@ jobs:
       # ⚠️ 這一步會跑四趟 `vp lint`（約三秒），而它**沒有碰 `vite.config.ts`** ——
       # 量測在一個符號連結農場裡進行，理由見 tools/threshold-check/src/probe.ts 的檔頭。
       - name: 五層答不出 · 複雜度門檻沒有過期
+        if: steps.tree.outputs.side == 'upstream'
         run: node tools/threshold-check/src/cli.ts
 
       # ── 上一步看不到的那一半（HANDOFF #26 / C68）──────────────────────
@@ -174,8 +196,16 @@ jobs:
       - name: 層 1 約束 · .vue 型別檢查
         run: node tools/vue-typecheck/src/cli.ts
 
+      # ⚠️ 兩條測試步驟，由辨別子分流（C217 §五）：上游那條在 fork 會跑到上游專用工具的
+      # 測試（`gate-roster` 讀真樹的那一條，團隊一加 `tools/*` 就紅）；fork 那條在上游會
+      # 安靜地少跑那幾支。fork 那條的篩選與 `ready:fork` 逐字相同，由 `gate-roster` 守。
       - name: 層 2 單元 · 測試
+        if: steps.tree.outputs.side == 'upstream'
         run: ./node_modules/.bin/vp run -r test -- --reporter=default --reporter=json --outputFile=.vitest-results.json
+
+      - name: 層 2 單元 · 測試（fork：排除上游專用工具）
+        if: steps.tree.outputs.side == 'fork'
+        run: ./node_modules/.bin/vp run --filter './apps/*' --filter './features/*' --filter './platform/*' --filter './tools/*' --filter '!@org/gate-roster' --filter '!@org/supply-chain' --filter '!@org/compliance' --filter '!@org/pii-check' --filter '!@org/doc-facts' --filter '!@org/scope-check' --filter '!@org/threshold-check' --filter '!@org/promise-check' --filter '!@org/bff-check' --fail-if-no-match test -- --reporter=default --reporter=json --outputFile=.vitest-results.json
 
       - name: 建置
         run: ./node_modules/.bin/vp run -r build
@@ -226,6 +256,7 @@ jobs:
       #（platform/eslint-config/tests/a11y.test.ts）在比對「repo 裡有幾個
       # .vue」與「閘門掃到幾個」。那條測試跑在上面的「測試」步驟裡。
       - name: 層 1 約束 · 無障礙靜態檢查
+        if: steps.tree.outputs.side == 'upstream'
         run: ./node_modules/.bin/eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0
 
       - name: Save Vite task cache

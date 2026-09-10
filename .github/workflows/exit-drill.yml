@@ -59,12 +59,33 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      # ── 這棵樹是上游還是 fork（C217 §三）──────────────────────────────
+      #
+      # 一個 workflow 只讀一次辨別子，後面的步驟判 `steps.tree.outputs.side`。
+      # ⚠️ 少了這一步，每一個「== 'upstream'」都是假 —— 上游專用的步驟**在上游**
+      # 安靜地全部被跳過，而 job 是綠的。tier1／tier2 裡它在不在由 `gate-roster` ⑤b 守。
+      #
+      # ⚠️ 同一步守「上游不得有 fork 標記」（C217 §八）：上游誤放的話，本機只跑 fork
+      # 那幾道、這裡跳過所有上游專用步驟，兩邊都是綠的。只看**存在**，不看內容（C217 §十）。
+      - name: 這棵樹是上游還是 fork
+        id: tree
+        run: |
+          if [ -e .scaffold-fork ]; then side=fork; else side=upstream; fi
+          echo "side=$side" >> "$GITHUB_OUTPUT"
+          echo "▶ $side"
+          if [ "$side" = fork ] && [ "$GITHUB_REPOSITORY" = "DemianLi/vite-plus-enterprise-scaffold" ]; then
+            echo "::error::上游不得有 .scaffold-fork（C217 §三）—— 它會讓上游安靜地只跑 fork 那一條。"
+            exit 1
+          fi
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        if: steps.tree.outputs.side == 'upstream'
         with:
           node-version: "24"
 
       # 見 tier1-quality.yml 對這一步的說明（DECISIONS.md C8）。
       - name: Bootstrap Vite+
+        if: steps.tree.outputs.side == 'upstream'
         working-directory: ${{ runner.temp }}
         run: |
           npx --yes --package vite-plus@0.3.1 \
@@ -73,6 +94,7 @@ jobs:
       # 演練本身在 os.tmpdir() 裡用 npm 裝上游 vite/vitest ——
       # 在專案目錄內跑 npm 會被 devEngines 以 EBADDEVENGINES 擋下（C8）。
       - name: 執行完整退出演練
+        if: steps.tree.outputs.side == 'upstream'
         run: node tools/exit-drill/src/cli.ts --full
 
       # 證據要進版控才算控制措施。這裡上傳成 artifact，並在摘要裡貼出來，
@@ -81,7 +103,7 @@ jobs:
       # ⚠️ 刻意**不讓 CI 直接 push**：一個能寫 main 的 workflow token，
       # 本身就是一條需要向資安解釋的攻擊路徑，而這裡省下的只是一次 PR。
       - name: 上傳演練證據
-        if: always()
+        if: always() && steps.tree.outputs.side == 'upstream'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: exit-drill-evidence
@@ -92,7 +114,7 @@ jobs:
           retention-days: 90
 
       - name: 摘要
-        if: always()
+        if: always() && steps.tree.outputs.side == 'upstream'
         run: |
           {
             echo '## D2 退出演練結果'
