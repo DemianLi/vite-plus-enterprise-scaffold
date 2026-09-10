@@ -10625,8 +10625,15 @@ tier2 排程裡的 `exit-surface --require-fresh`，**上游專用**。
 | 放上 `.scaffold-fork`            | fork → `gate:fork` | 5 段，**`rc=0`**，沒有 `gate-roster`               |
 | 拿掉                             | 回到上游           | —                                                  |
 
-**CI 那一半：**（PR 的 CI 跑完之後補在這裡）。基準是 #352 那一趟 PR：tier1 20 步全成功、tier2 33 步成功 ＋
-1 步跳過（只在排程跑的 `--require-fresh`）。上游這一趟**不得多出任何一步 skipped**。
+**CI 那一半，逐步驟對齊 #352 那一趟 PR**（同為 `pull_request` 觸發、全綠）：
+
+| workflow | #352（基準）            | 本 PR（`97f2bef`）      | 差異                                                                              |
+| -------- | ----------------------- | ----------------------- | --------------------------------------------------------------------------------- |
+| tier1    | 20 success              | 21 success ＋ 1 skipped | 新增兩步：辨別子（success）、fork 專用的測試步驟（skipped —— 在上游本來就該跳過） |
+| tier2    | 33 success ＋ 1 skipped | 34 success ＋ 1 skipped | 新增一步：辨別子（success）；那 1 步 skipped 仍是只在排程跑的 `--require-fresh`   |
+
+**基準的每一步都在、結論逐一相同，沒有任何一步變成 skipped**（逐名比對，problems 0）。
+⚠️ 基準不用 `main` 最近一趟：tier2 在 `main` 上只有排程觸發，而最近那一趟是修 CVE 之前的紅燈（`c77e497`）。
 
 #### 四、fork 演練（乾淨 clone，`pnpm install --offline`）
 
