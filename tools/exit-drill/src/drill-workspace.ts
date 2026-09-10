@@ -17,7 +17,7 @@ export const UPSTREAM = {
   vite: "^8.2.1",
   vue: "^3.5.41",
   "@vitejs/plugin-vue": "^6.0.8",
-  vitest: "4.1.10",
+  vitest: "4.1.11",
 };
 
 export interface DrillAlias {
