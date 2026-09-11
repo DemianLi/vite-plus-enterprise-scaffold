@@ -15,7 +15,7 @@
 # 本 repo 2026-08-15 實測：**當時的 22 條全部 Unknown owner**（見 DECISIONS 的 C40）。
 #
 # ⚠️ 這個 22 是**那一天那個 commit 的凍結量測**，不是現在的條目數
-#    （現在是 20；`doc-facts` 守的是 HANDOFF 裡那個數字）。兩者用同一個
+#    （現在是 22；`doc-facts` 守的是 HANDOFF 裡那個數字）。兩者用同一個
 #    量詞「條」，所以很容易被讀成互相矛盾 —— 採用演練的人就停下來數了一次。
 #    **不要把它更新成 20**：那會毀掉一次歷史實測，而 `doc-facts` 有一條斷言
 #    專門釘住它不得被守（理由：那是 GitHub 的判定，repo 裡推導不出來）。
@@ -124,6 +124,7 @@
 
 /pnpm-workspace.yaml        @org/platform-maintainers
 /vite.config.ts             @org/platform-maintainers
+/vite.scaffold.ts           @org/platform-maintainers
 /eslint.config.js           @org/platform-maintainers @org/security
 /.npmrc                     @org/platform-maintainers @org/security
 

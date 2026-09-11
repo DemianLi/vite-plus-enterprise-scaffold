@@ -7,9 +7,11 @@ import { describe, expect, it } from "vitest";
 
 import { judge, measure } from "../src/check.ts";
 import {
+  CONFIG_FILES,
   codeOf,
   collectSlots,
   floorSource,
+  pairPass,
   pairSlots,
   type Pair,
   type Slot,
@@ -125,11 +127,17 @@ describe("floorSource", () => {
    *
    * 這支工具刻意不維護一份「哪些格子算門檻」的清單（見 `config.ts` 檔頭），
    * 代價是新增一條有數字選項的規則會靜靜地被算進來、或靜靜地漏掉。
-   * 這條測試把今天的格數釘死：`vite.config.ts` 的門檻增減時它會紅，
+   * 這條測試把今天的格數釘死：兩份設定的門檻增減時它會紅，
    * **由人判斷那一格算不算門檻，然後改這個數字**。
+   *
+   * C219 之前是 11 格、一份檔；拆成業務碼（根層，只數不量）與腳手架自己的碼
+   * （`vite.scaffold.ts`，被量的那一份）之後，腳手架那一半多出產品碼與測試碼各一組。
    */
-  it("今天這棵樹有 11 格門檻", () => {
-    expect(floorSource(readFileSync(join(repoRoot(), "vite.config.ts"), "utf8")).count).toBe(11);
+  it("今天這棵樹有 21 格門檻：根層 10 格只數不量，腳手架 11 格被量", () => {
+    const counts = CONFIG_FILES.map(
+      (file) => floorSource(readFileSync(join(repoRoot(), file), "utf8")).count,
+    );
+    expect(counts).toEqual([10, 11]);
   });
 });
 
@@ -232,6 +240,33 @@ const PAIRS: Pair[] = [
   { slot: slot("max-depth", 3, "overrides[0]"), floor: 1 },
 ];
 
+describe("pairPass（一份設定一趟，C219）", () => {
+  const depth = (scope: string, value: number): Slot => ({
+    scope,
+    rule: "max-depth",
+    option: "max",
+    value,
+    where: scope,
+  });
+
+  it("另一份設定的格子原封不動 ⇒ 跳過，只配這一趟壓到的那幾格", () => {
+    const real = [depth("base", 5), depth("overrides[0]", 3), depth("overrides[1]", 5)];
+    const probe = [depth("base", 5), depth("overrides[0]", 3), depth("overrides[1]", 0)];
+    const pairing = pairPass(real, probe, 1);
+    expect(pairing.ok && pairing.pairs.map((pair) => [pair.slot.scope, pair.floor])).toEqual([
+      ["overrides[1]", 0],
+    ]);
+  });
+
+  it("⚠️ 改寫的格數與變了的格數對不上 ⇒ 紅 —— 一格地板值剛好等於真值時，它會被當成另一份的跳過", () => {
+    const real = [depth("base", 0), depth("overrides[0]", 3)];
+    const probe = [depth("base", 0), depth("overrides[0]", 1)];
+    const pairing = pairPass(real, probe, 2);
+    expect(pairing.ok).toBe(false);
+    expect(!pairing.ok && pairing.why).toContain("只有 1 格變了");
+  });
+});
+
 describe("measure ＋ judge", () => {
   it("實測 max 低於門檻 ⇒ 過期，而紅燈訊息帶著該降到的數字", () => {
     const rows = measure(PAIRS, [
@@ -302,12 +337,19 @@ describe("--root 換的是被驗的那份設定", () => {
    */
   it("★ 指向一份門檻被抬高的設定 → 紅，而紅燈點名的是那一份裡的數字", () => {
     const root = repoRoot();
-    const source = readFileSync(join(root, "vite.config.ts"), "utf8");
-    // 第一個 max-depth 是根層那一格（5）。⚠️ 非全域替換，覆寫的只有它。
+    // ⚠️ 抬的是 `vite.scaffold.ts`：根層那份只數不量（C219 §四），抬它這道閘門不會說話。
+    const source = readFileSync(join(root, "vite.scaffold.ts"), "utf8");
+    // 第一個 max-depth 是腳手架產品碼那一格（5）。⚠️ 非全域替換，覆寫的只有它。
     const raised = source.replace(/("max-depth":\s*\[\s*"error",\s*\{\s*max:\s*)\d+/u, "$1500");
     expect(raised, "設定的寫法變了 —— 這裡什麼都沒改壞，而它會「通過」").not.toBe(source);
 
-    const dir = sandbox({ prefix: "threshold-root-", files: { "vite.config.ts": raised } }).root;
+    // ⚠️ 另一份照抄真樹的：`--root` 換的是**兩份**，少一份就紅在「底下沒有」，
+    // 而那不是這條要證明的東西（C219）。
+    const config = readFileSync(join(root, "vite.config.ts"), "utf8");
+    const dir = sandbox({
+      prefix: "threshold-root-",
+      files: { "vite.config.ts": config, "vite.scaffold.ts": raised },
+    }).root;
     const result = runCli("tools/threshold-check/src/cli.ts", ["--root", dir]);
     const output = result.output;
 

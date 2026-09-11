@@ -153,6 +153,11 @@
         "kind": "names-only"
       }
     },
+    "@org/eslint-config/scaffold": {
+      "default": {
+        "kind": "names-only"
+      }
+    },
     "@org/eslint-config/worktrees": {
       "default": {
         "kind": "names-only"

@@ -127,8 +127,14 @@ export const SANDBOX_LAYERS = ["platform", "apps", ".github"] as const;
  *
  * `vite.config.ts` 是 C163 補的 —— `tools/threshold-check` 被驗的對象就是這個
  * 檔案裡那幾格門檻的數字，副本裡沒有它，那道閘門在副本上只會說「這裡沒有設定檔」。
+ * `vite.scaffold.ts` 是 C219 補的，理由同一條：門檻分成兩份之後，被驗的對象是兩份，
+ * 而根層那份 import 它 —— 副本少了它，`vp lint` 連設定都載不起來。
+ *
+ * ⚠️ 這張清單與 `tools/threshold-check/src/config.ts` 的 `CONFIG_FILES` 是**同一件事的
+ * 兩份寫法**，刻意不 import：這裡是接線，import 被驗對象的內部等於讓它自己決定被怎麼驗
+ * （同 `THRESHOLD` 那條註解）。漂開的症狀是 `--root` 指到的副本少一份 → 「底下沒有 …」。
  */
-export const SANDBOX_FILES = ["vite.config.ts"] as const;
+export const SANDBOX_FILES = ["vite.config.ts", "vite.scaffold.ts"] as const;
 
 /**
  * 把版控裡 `dir` 底下的檔案複製過去。
@@ -229,16 +235,19 @@ function insertAfter(path: string, anchor: string, line: string): void {
 const THRESHOLD = /(:\s*\[\s*"(?:error|warn)"\s*,\s*\{\s*\w+\s*:\s*)(\d+)(\s*\}\s*\])/u;
 
 /**
- * 把副本裡第一格門檻抬到沒有人碰得到的高度。
+ * 把副本裡腳手架那一份的第一格門檻抬到沒有人碰得到的高度。
  *
  * ⚠️ **抬，不是降。** 降下去只會讓那道閘門報「被超過」，而那條紅燈說的是
  * 另一件事（去看 `vp check`）。承諾要問的是**過期**：門檻留在舊高度，
  * 而實測最大值早就掉下來了。
  *
+ * ⚠️ **抬的是 `vite.scaffold.ts`，不是 `vite.config.ts`**（C219）：根層那份是給 fork 的
+ * 起始值、只數不量，抬它那道閘門不會說話 —— 這條承諾會以「沒有牙齒」紅。
+ *
  * ⚠️ 找不到就丟錯，不是安靜跳過 —— 那代表這條承諾其實什麼都沒破壞，而它會「通過」。
  */
 function raiseFirstThreshold(sandbox: Sandbox): void {
-  const path = join(sandbox.dir, "vite.config.ts");
+  const path = join(sandbox.dir, "vite.scaffold.ts");
   const source = readFileSync(path, "utf8");
   const match = THRESHOLD.exec(source);
   if (match === null) {

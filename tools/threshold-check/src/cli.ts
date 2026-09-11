@@ -5,7 +5,7 @@ import { formatReport } from "@org/conformance/report";
 import { parseFlags, repoRoot } from "@org/gate-kit";
 
 import { judge, measure } from "./check.ts";
-import { pairSlots } from "./config.ts";
+import { MEASURED_FILE, pairPass } from "./config.ts";
 import { probe, ProbeError } from "./probe.ts";
 
 /**
@@ -13,7 +13,7 @@ import { probe, ProbeError } from "./probe.ts";
  *
  * 用法：
  *   node tools/threshold-check/src/cli.ts             有一格對不上時回傳非零
- *   node tools/threshold-check/src/cli.ts --root <p>  換一份被驗的 vite.config.ts
+ *   node tools/threshold-check/src/cli.ts --root <p>  換被驗的那兩份設定（vite.config.ts、vite.scaffold.ts）
  *
  * 判定寫在 `src/check.ts` 的檔頭，量法寫在 `src/probe.ts` 的檔頭。
  *
@@ -41,7 +41,7 @@ const TARGET = FLAGS.flags.root === undefined ? ROOT : resolve(FLAGS.flags.root)
 /**
  * 一個**一定會被 lint 到**的檔案。用來證明檔案清單真的是檔案清單。
  *
- * ⚠️ 刻意不挑 `vite.config.ts` —— 那正是農場裡唯一被換掉的那一個。
+ * ⚠️ 刻意不挑那兩份設定 —— 它們正是農場裡被換掉的那兩個。
  */
 const ANCHOR = "tools/gate-roster/src/cli.ts";
 
@@ -54,9 +54,11 @@ const ANCHOR = "tools/gate-roster/src/cli.ts";
  * 而「什麼都沒量到」也是零違規。
  */
 function fixtures(outcome: ReturnType<typeof probe>): string | undefined {
-  if (outcome.rewritten !== outcome.realSlots.length) {
+  const counted = outcome.rewritten + outcome.unmeasured;
+  if (counted !== outcome.realSlots.length) {
     return (
-      `原始碼裡改寫了 ${outcome.rewritten} 格門檻，而 --print-config 讀出 ${outcome.realSlots.length} 格。\n` +
+      `原始碼裡數到 ${counted} 格門檻（量的 ${outcome.rewritten}、只數不量的 ${outcome.unmeasured}），` +
+      `而 --print-config 讀出 ${outcome.realSlots.length} 格。\n` +
       `  → 兩者對不上代表萃取樣式漏了某一種寫法。修 src/config.ts 的 RULE_LINE，\n` +
       `    不要放著 —— 漏掉的那一格從此不會被任何東西量。`
     );
@@ -107,7 +109,7 @@ try {
     console.error(`\n✗ 門檻檢查的量測台自己壞了\n\n  ${broken}\n`);
     process.exitCode = 1;
   } else {
-    const pairing = pairSlots(outcome.realSlots, outcome.probeSlots);
+    const pairing = pairPass(outcome.realSlots, outcome.probeSlots, outcome.rewritten);
     if (!pairing.ok) {
       console.error(`\n✗ 門檻檢查的量測台自己壞了\n\n  ${pairing.why}\n`);
       process.exitCode = 1;
@@ -116,7 +118,7 @@ try {
       const findings = judge(rows);
 
       if (findings.length === 0) {
-        console.log(`✓ 複雜度門檻與實測最大值一致（${rows.length} 格）`);
+        console.log(`✓ 複雜度門檻與實測最大值一致（${rows.length} 格，${MEASURED_FILE}）`);
         for (const row of rows) {
           console.log(
             `  ${String(row.pair.slot.value).padStart(4)} = 實測 max  ${row.pair.slot.rule}／${row.pair.slot.option}` +
@@ -129,6 +131,9 @@ try {
           "  ⚠️ 射程由 vp lint --print-config 決定，不是一份手抄清單 —— 今天是 " +
             rows.length +
             " 格。",
+        );
+        console.log(
+          `  ⚠️ 根層 vite.config.ts 那 ${outcome.unmeasured} 格只數不量：它們是給 fork 的起始值，不入棘輪（C219 §四）。`,
         );
       } else {
         // ⚠️ 不是 process.exit(1)：macOS 上管線的 stderr 是非同步的，

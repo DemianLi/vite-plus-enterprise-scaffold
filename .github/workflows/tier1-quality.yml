@@ -172,7 +172,8 @@ jobs:
       # ⚠️ 它**必須排在上一步之後**：兩步問的是同一組數字的兩個方向，
       # 上一步紅的時候這一步報的是回音（訊息會叫你去看 `vp check`，不是動門檻）。
       #
-      # ⚠️ 這一步會跑四趟 `vp lint`（約三秒），而它**沒有碰 `vite.config.ts`** ——
+      # ⚠️ 這一步會跑四趟 `vp lint`（約三秒），而它**沒有碰被驗的那兩份設定**
+      # （`vite.config.ts`、`vite.scaffold.ts`，C219）——
       # 量測在一個符號連結農場裡進行，理由見 tools/threshold-check/src/probe.ts 的檔頭。
       - name: 五層答不出 · 複雜度門檻沒有過期
         if: steps.tree.outputs.side == 'upstream'

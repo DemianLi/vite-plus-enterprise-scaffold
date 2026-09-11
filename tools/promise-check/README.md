@@ -27,8 +27,8 @@ node tools/promise-check/src/cli.ts
 
 讀 `specs/*.feature`，對每一個場景：
 
-1. 把版控裡的兩片切片、`platform`、`apps`、`.github` 與根層的 `vite.config.ts`
-   **複製**到暫存目錄
+1. 把版控裡的兩片切片、`platform`、`apps`、`.github` 與根層的 `vite.config.ts`、
+   `vite.scaffold.ts` **複製**到暫存目錄
 2. 照「假設」那一句把副本弄壞
 3. 跑「當」那一句指名的閘門
 4. 比對「那麼」說的結果與訊息片段
@@ -41,13 +41,14 @@ node tools/promise-check/src/cli.ts
 是被指名的閘門在那裡**噴 ENOENT 或安靜地掃到 0 個檔**，而 0 個檔在每一條
 「必須紅」上長成〈承諾沒有牙齒〉、在對照組上長成綠燈。
 
-| 層               | 誰在副本上讀它                                                   |
-| ---------------- | ---------------------------------------------------------------- |
-| `features`       | `conformance` 的切片契約（只放固定的兩片，理由見 `breakage.ts`） |
-| `platform`       | `theme-verify` 的元件與代幣；`conformance` 的 CSP 與幽靈依賴     |
-| `apps`           | 同上                                                             |
-| `.github`        | `conformance` 的 `checkActionPinning`                            |
-| `vite.config.ts` | `threshold-check` 被驗的對象 —— 那幾格門檻的數字（C163）         |
+| 層                 | 誰在副本上讀它                                                           |
+| ------------------ | ------------------------------------------------------------------------ |
+| `features`         | `conformance` 的切片契約（只放固定的兩片，理由見 `breakage.ts`）         |
+| `platform`         | `theme-verify` 的元件與代幣；`conformance` 的 CSP 與幽靈依賴             |
+| `apps`             | 同上                                                                     |
+| `.github`          | `conformance` 的 `checkActionPinning`                                    |
+| `vite.config.ts`   | `threshold-check` 被驗的對象 —— 那幾格門檻的數字（C163）                 |
+| `vite.scaffold.ts` | 同上，而且被量的是這一份；根層那份 import 它，少了它設定載不起來（C219） |
 
 ⚠️ **`tools/` 刻意不在裡面** —— 閘門自己的素材（`theme-verify` 的 `fixtures/`）
 不隨 `--root` 走。⚠️ **複製走 `git ls-files`**，所以切分支留下的殘骸不會被
