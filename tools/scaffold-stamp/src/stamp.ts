@@ -107,6 +107,22 @@ export function trackedFiles(root: string): string[] {
   return result.stdout.split("\0").filter((path) => path.length > 0);
 }
 
+/**
+ * 受保護路徑底下、還沒 `git add` 的檔（不含被忽略的）。
+ *
+ * ⚠️ 章的清單取自版控，所以「先重算、後 add」的新檔不會進章 —— commit 之後它變成版控檔，
+ * 閘門就紅在「章裡沒有這個檔」。這支工具自己的 8 支檔就是這樣第一次紅的（C220 §三（五））。
+ */
+export function untrackedProtected(root: string): string[] {
+  const result = spawnSync("git", ["ls-files", "--others", "--exclude-standard", "-z"], {
+    cwd: root,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (result.status !== 0) throw new Error(`git ls-files 在 ${root} 失敗：${result.stderr}`);
+  return result.stdout.split("\0").filter((path) => path.length > 0 && isProtected(path));
+}
+
 export function currentStamp(root: string, tracked: readonly string[]): Stamp {
   const files = new Map<string, string>();
   for (const path of tracked) {

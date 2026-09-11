@@ -16,6 +16,7 @@ import {
   isProtected,
   parseStamp,
   trackedFiles,
+  untrackedProtected,
   type Problem,
 } from "./stamp.ts";
 
@@ -57,6 +58,14 @@ if (FLAGS.flags.update) {
   console.log(
     `✓ 章已重算（${current.files.size} 個檔、${current.scripts.size} 條 script）—— 與這次的改動進同一個 PR`,
   );
+  const untracked = untrackedProtected(root);
+  if (untracked.length > 0) {
+    console.log(
+      `⚠️ 另有 ${untracked.length} 個還沒 git add 的檔不在章裡（章的清單取自版控）：\n` +
+        untracked.map((path) => `    ${path}`).join("\n") +
+        "\n  它們 commit 之後閘門會紅在「章裡沒有這個檔」—— 先 git add，再重算一次。",
+    );
+  }
   process.exit(0);
 }
 

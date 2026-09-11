@@ -61,6 +61,16 @@ describe("CLI", { timeout: 60_000 }, () => {
     expect(result.output).toContain("✓ 腳手架的章相符（上游：4 個檔、3 條 script；生效設定");
   });
 
+  it("⚠️ 還沒 git add 的新檔：--update 照樣寫章，但要點名它們", () => {
+    // 這支工具自己的 8 支檔就是這樣第一次紅的：先重算、後 add，commit 之後閘門紅（C220 §三（五））。
+    const box = tree();
+    box.write("tools/y/src/new.ts", "export {};\n");
+    const result = runCli(CLI, ["--update", "--root", box.root]);
+    expect(result.status, result.output).toBe(0);
+    expect(result.output).toContain("還沒 git add 的檔不在章裡");
+    expect(result.output).toContain("tools/y/src/new.ts");
+  });
+
   it("🔴 fork 不得蓋章", () => {
     const result = runCli(CLI, ["--update", "--root", asFork(tree()).root]);
     expect(result.status).not.toBe(0);
