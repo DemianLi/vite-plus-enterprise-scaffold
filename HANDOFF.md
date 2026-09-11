@@ -17,7 +17,7 @@ grep -n "@org/" CODEOWNERS
 
 ⚠️ **在換掉之前，D12 的擁有權治理是一份文字檔，完全沒有生效。**
 
-`CODEOWNERS` 裡的 22 條條目全部是佔位符（`@org/team-fulfillment`、
+`CODEOWNERS` 裡的 23 條條目全部是佔位符（`@org/team-fulfillment`、
 `@org/platform-maintainers` 之類）。GitHub 對不存在的團隊**不會報錯** ——
 它只是不指派任何審查者。症狀是：`platform/` 的破壞性變更 PR 開下去，
 沒有人被通知，而分支保護那一格顯示「已滿足」。
@@ -41,6 +41,32 @@ touch .scaffold-fork && git add .scaffold-fork
 ⚠️ **沒放的話，你們跑的是上游那一條**，會被那批決定不交給你們的閘門擋住。
 
 ⚠️ 只看**存在**，內容隨你們寫（C217 §十）。上游永遠沒有這個檔，所以合併上游時它不會衝突。
+
+#### 腳手架的那一半不要改 —— 章在守（C220）
+
+`tools/`、`platform/`、`vite.scaffold.ts`、上游那四支 workflow，以及 `package.json` 裡
+`gate`／`ready` 那一族與跑 `tools/` 的別名，是腳手架的。上游每一支 commit 都重算一次它們的
+**章**（`.scaffold-stamp`）；fork 的 `vpr gate` 與 tier1 那一步驗它：改了、刪了、在 `tools/`
+底下多一個檔，都紅（`vpr scaffold-stamp`）。oxlint 的**生效設定**也一起驗 —— 在根層
+`vite.config.ts` 蓋掉 `vite.scaffold.ts` 的規則（例如把 `no-eval` 關掉），同樣紅。
+
+要改腳手架，向上游提；升級時合併上游，章跟著進來。⚠️ **fork 不得蓋章**（`--update` 在 fork
+會拒絕）；手改 `.scaffold-stamp` 工具擋不住，守它的是 `CODEOWNERS` 與讀 diff 的人。
+
+⚠️ 根層 `vite.config.ts` 加一條腳手架**沒提過**的新規則時，把它 scope 到你們自己的檔
+（寫進一條 override 的 `files`）。寫在頂層 `rules` 裡，它會一路落到 `tools/`、`platform/`
+上 —— 那是你們改不了的碼，而 `AGENTS.md` 規則二不准你們為了綠燈調鬆它（C220 §六）。
+
+#### 團隊自己的工具
+
+放在 `tools/` **以外**的目錄（例如 `team-tools/`），三件事一起做：
+
+1. `pnpm-workspace.yaml` 的 `packages` 加一行 `team-tools/*`；
+2. `package.json` 的 `ready:fork` **後面接**一段 `&& vp run --filter './team-tools/*' test` ——
+   上游那一串要原樣留在前面（章對這一條只驗「包含」，不驗逐字相等）；
+3. CI 另開一支你們自己的 workflow 跑它 —— 上游那四支在章裡，不要改。
+
+⚠️ 只做第 1 件，那些測試在 fork 的 `vpr ready` 與 CI 裡**一條都不會跑**，而兩邊都是綠的。
 
 ---
 
@@ -526,7 +552,7 @@ grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 | 12  | repo 管理者  | 自動核准要不要開（標籤已建）**安全決定**                                      | 開錯會讓 CODEOWNERS 整套失效                                  | ⬜       | 15 做完之後才有意義                           |
 | 13  | 平台（上線） | CSP 由 report-only 切成 enforce                                               | 弱點掃描報告**必開一條**；report-only 等於沒有                | ⬜       | **有弱點掃描／滲透測試的案**                  |
 | 14  | 架構／設計   | ~~樣式策略選型~~ ~~設計系統要不要獨立 owner~~ **全部已決策（D15／C62）**      | ~~沒有收件人~~ 收件人＝platform-maintainers（見 C62 五）      | ⬜       | 已結案；剩下的落在 24 與 25                   |
-| 15  | repo 管理者  | **把 `@org/*` 換成真的團隊** —— 現在 22 條條目全是 `@org/*` 佔位符            | D12 的擁有權治理目前是一份文字檔，完全沒生效                  | ⬜       | **採用的第一步**，每 fork 一次做一次          |
+| 15  | repo 管理者  | **把 `@org/*` 換成真的團隊** —— 現在 23 條條目全是 `@org/*` 佔位符            | D12 的擁有權治理目前是一份文字檔，完全沒生效                  | ⬜       | **採用的第一步**，每 fork 一次做一次          |
 | 16  | 平台（實作） | ~~補幽靈依賴檢查~~ **已實作（2026-08-16）**。剩：`tools/*` 與 `tests/` 不掃   | ~~機關端重建時才爆~~ 已守住 `src/` 那一半                     | ⬜       | 已不由標案觸發；剩下的是內部取捨              |
 | 17  | 平台（實作） | ~~`api-surface` 看不見**型別形狀**~~ **已重做（2026-08-16）**。剩：純資料常數 | ~~升套件只拿到型別錯誤~~ 已守住成員、建構子、props            | ⬜       | 已做掉；剩下的是內部取捨                      |
 | 18  | 平台（實作） | ~~守備範圍仍不完整~~ **已擴到 13 個事實（2026-08-16）**。剩：不可推導的那類   | ~~沒登記的數字會過期~~ 補登記的當下又抓到 2 處過期            | ⬜       | 內部工作，不由標案觸發                        |
@@ -969,7 +995,7 @@ element-plus 只要 +21 套件、0 原生二進位、0 授權旗標，CSP 也已
 
 ## 15. repo 管理者 — 把 `@org/*` 換成真的團隊（採用的第一步）
 
-**`CODEOWNERS` 裡的 22 條條目全部是佔位符。在替換之前，這份檔案一條都沒有生效。**
+**`CODEOWNERS` 裡的 23 條條目全部是佔位符。在替換之前，這份檔案一條都沒有生效。**
 
 GitHub 對每一條都會判 `Unknown owner`：PR 不會自動指派審查者，
 保護分支的「需要 owner 核准」也沒有東西可要求。**D12 的擁有權治理目前

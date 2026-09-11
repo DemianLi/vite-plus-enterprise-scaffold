@@ -47,6 +47,11 @@ release. Add a tool name to select part of the graph. For example, run
    自己調鬆的門檻，量到的只是它自己。**如果你判斷某個門檻確實訂錯了，
    停下來告訴人，不要自己改。**
 
+   ⚠️ 這一條管**兩半**。腳手架那一半（`tools/`、`platform/`、`vite.scaffold.ts`、
+   上游的 workflow、`gate`／`ready` 那幾條 script，以及 oxlint 的生效設定）在 fork 裡
+   有章在守：改了 `vpr gate` 會紅（`vpr scaffold-stamp`，C220）。根層 `vite.config.ts`
+   裡業務碼那一半是團隊的 —— **團隊的人可以改，你不行**；那一半沒有機制在守，靠的是你。
+
 3. **「完成」的定義在驗收規格裡，不在 diff 裡。**
    一個功能做完了沒有，看它的規格場景綠了幾條 —— 不看寫了多少行、
    也不看單元測試的覆蓋率。⚠️ 規格是人寫給你讀的需求；通過率是你交回給人的

@@ -156,6 +156,19 @@ jobs:
         if: steps.tree.outputs.side == 'upstream'
         run: node tools/scope-check/src/cli.ts
 
+      # ── 腳手架的章（C220，實作 C215 §六）──────────────────────────────
+      #
+      # 兩棵樹都跑，訊息不同：上游驗「章與樹相等」（改了腳手架的檔就重算章，與改動
+      # 進同一個 PR），fork 驗「章裡每一行原樣存在」＋ oxlint 的生效設定沒有蓋掉
+      # `vite.scaffold.ts`。
+      #
+      # ⚠️ 它必須在 Bootstrap 之後：生效設定那一格要 `vp lint --print-config`。
+      # ⚠️ 在 Tier 1 不在 Tier 2：那一格綁死驅動層，而 Tier 2 的 D2 保單不准（見 tier2 檔頭）。
+      # ⚠️ **這一支 workflow 自己就在章裡**（Q36）—— 在 fork 把這一步拿掉，這一步不會
+      # 跑、也就不會說話；但 `vpr gate` 的 fork 那一條照樣會跑它。
+      - name: 五層答不出 · 腳手架的章
+        run: node tools/scaffold-stamp/src/cli.ts
+
       # ── 檢查 ─────────────────────────────────────────────────────────
       - name: 層 1 約束 · 格式、lint、型別（oxfmt + oxlint + tsgolint）
         run: ./node_modules/.bin/vp check

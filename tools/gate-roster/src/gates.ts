@@ -50,6 +50,9 @@
  *   · **對 fork 了 v1 在做自己案子的團隊** —— `why` **就是**那個判斷。
  *     他們加 `tools/their-thing` 撞到「工具沒登記」、被逼著寫一句理由，
  *     那正是 `SCOPE.md` 開頭承諾的「這道閘門要的是**有人判斷過**」。
+ *     ⚠️ **C215 之後這一段對 fork 不再成立**：這道閘門不下發（C216），而 C220 起 fork 的
+ *     `tools/` 是關閉的 —— 團隊自己的工具放在 `tools/` 以外，加進 `tools/` 紅的是
+ *     `scaffold-stamp`「章裡沒有這個檔」。
  *
  * ── 這份名冊涵蓋什麼、刻意不涵蓋什麼 ────────────────────────────────
  *
@@ -251,6 +254,27 @@ export const GATES: readonly Gate[] = [
         "上游管理閘門集合的工具。清單的理由「不沿用治理文件就是綠燈」對它是反的：它第一條檢查是" +
         "每支 `tools/*` 都要登記，團隊加一支自己的工具當場紅（C215 §三）。" +
         "⚠️ 而下發與否的分法就記在這裡，所以它留在上游而且變重要了（C215 §四）。",
+    },
+  },
+  {
+    id: "scaffold-stamp",
+    label: "腳手架的章",
+    pkg: "scaffold-stamp",
+    command: "node tools/scaffold-stamp/src/cli.ts",
+    tiers: ["tier1"],
+    why:
+      "fork 之後不是團隊的那一半（`tools/`、`platform/`、`vite.scaffold.ts`、上游的 workflow、" +
+      "腳手架的 script）與 oxlint 的生效設定，在樹上還是不是原樣（C220，實作 C215 §六）。" +
+      "上游驗「章與樹相等」、fork 驗「章裡每一行原樣存在」—— 同一條規則的兩個訊息。" +
+      "⚠️ 在 Tier 1：它量的是樹本身，不會隨時間失效；而且生效設定那一格走 `vp lint --print-config`、" +
+      "綁死驅動層，放 Tier 2 違反 D2 保單（tier2-security.yml 檔頭）。" +
+      "⚠️ 排在名冊之後、其餘閘門之前：一趟 print-config 加讀幾百個檔，比型別檢查便宜一個量級，" +
+      "而「你改了腳手架的檔」該在其餘閘門之前先講。",
+    ship: {
+      to: "fork",
+      why:
+        "C215 §六 新增的那一道，本來就是為 fork 做的：守團隊不准改的那一半，AGENTS.md 規則二" +
+        "因此第一次指得到一個機械邊界（C215 §八、C220 Q38）。⚠️ fork 不得蓋章，`--update` 在 fork 拒絕。",
     },
   },
   {
@@ -628,7 +652,7 @@ export const UNGATED: readonly Ungated[] = [
     why:
       "**選擇器，不是閘門**（C217 §四）：`vpr gate`／`vpr ready` 經過它，沒有 `.scaffold-fork` " +
       "跑 `<名字>:upstream`，有就跑 `<名字>:fork`。它自己不判定樹的任何事，而它選錯的樣子" +
-      "（上游只跑了 fork 那 5 道）在其餘輸出裡看起來就是全綠 —— 所以它把判定印在第一行。" +
+      "（上游只跑了 fork 那 6 道）在其餘輸出裡看起來就是全綠 —— 所以它把判定印在第一行。" +
       "⚠️ 放 `UNGATED` 而不是 `GATES`：`GATES` 的成員會被推進 `gate:upstream`，而 `gate` 本身" +
       "就是它，進去就是自己叫自己。⚠️ 它**下發**：fork 每一次 `vpr ready` 都經過它，" +
       "所以它不得住在上游專用的工具裡（C217 §四 第 3 條）。",
