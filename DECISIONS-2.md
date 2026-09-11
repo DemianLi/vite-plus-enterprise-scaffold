@@ -10944,3 +10944,7 @@ tier2 排程裡的 `exit-surface --require-fresh`，**上游專用**。
 ⚠️ R1 在基準之前紅過兩次，兩次都是這一批自己造的：`cli.ts` 以 100644 進版控，而 `pnpm install` 會把 bin 目標 chmod +x，乾淨 clone 裡 `conformance` 的模式規則紅；以及 §三（五）那 8 支沒進章的檔。
 
 ⚠️ 上游那一條第一次紅在 Tier 2 的 `no-unsanitized/method`：讀 `vite.scaffold.ts` 的 `import()` 參數不是字面值。修法是改成字面路徑、讀這支工具那棵樹的那一份，**不是調鬆規則**（規則二）。代價寫在 `cli.ts`：`--root` 指向另一棵樹時，比對的基準是工具那棵樹的 `vite.scaffold.ts` —— 兩份不同時，章那一格已經先紅了。
+
+**那個修正在基準之後，而它改的正是 fork 每一趟都走的那一段，所以在最終 commit（`426566b`）上重跑了兩趟**：R1 **rc 0**（章相符，fork：360 個檔、33 條 script）；R5 **rc 1**，一處，同一句「腳手架的規則被蓋掉了：no-eval」。
+
+上游那一條：本機 `vpr ready` **READY_RC 0**（`426566b`；前三趟分別紅在 README 的 workspace 套件數 35 → 36、§三（五）、上面那格 `no-unsanitized/method`）。
