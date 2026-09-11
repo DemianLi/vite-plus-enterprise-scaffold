@@ -2,7 +2,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
 
 import { FORK_MARKER, sideOf } from "@org/fork-select";
 import { parseFlags, repoRoot } from "@org/gate-kit";
@@ -96,7 +95,10 @@ function printConfig(): unknown {
 
 async function effectiveProblems(): Promise<Problem[]> {
   try {
-    const scaffold = (await import(pathToFileURL(join(root, "vite.scaffold.ts")).href)) as {
+    // ⚠️ 字面路徑：Tier 2 的 `no-unsanitized/method` 不准非字面的 `import()`，而規則二不准
+    // 為了綠燈調鬆它。讀的是這支工具那棵樹的 `vite.scaffold.ts` —— 被驗的那棵樹若是另一份
+    // （`--root`），它的內容由上面的章逐位元組比對過，所以兩者不同時那一格已經紅了。
+    const scaffold = (await import("../../../vite.scaffold.ts")) as {
       scaffoldLint: ScaffoldHalf["lint"];
       scaffoldOverrides: ScaffoldHalf["overrides"];
     };

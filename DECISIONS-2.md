@@ -10928,6 +10928,19 @@ tier2 排程裡的 `exit-surface --require-fresh`，**上游專用**。
 | **D2**              | **遵守** —— 綁 `vp` 的那一格在 Tier 1                                                                |
 | **D16／C154／C155** | **遵守** —— 三條逐條報備；一條兩軸皆零而丟                                                           |
 
-#### 八、fork 演練
+#### 八、fork 演練（乾淨 clone，`--no-tags`，`pnpm install --offline`，基準 `74504f5`）
 
-（待補：乾淨 clone，`--no-tags`，`pnpm install --offline`。）
+| 趟            | 做法                                                                                  | 結果                                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **R1**        | 放 `.scaffold-fork` 並 commit，跑 `vpr ready`                                         | **rc 0**，選擇器判定 fork；章相符（fork：360 個檔、33 條 script，生效設定一致）                                    |
+| **R2**        | 團隊在 `tools/x` 加自己的工具（C218 §四 R2 那一支），跑 `vpr gate`                    | **rc 1**，一處：「章裡沒有這個檔：`tools/x/package.json`」—— C218 R2 那個綠反過來了（Q33）                         |
+| **R3**        | 同一支改放 `team-tools/x`：`packages` 加一行、`ready:fork` 往後接一段，跑 `vpr ready` | **rc 0**，而 `team-tools/x` 的測試**真的跑了**（1 passed）—— 新目錄可用，不是被安靜略過                            |
+| **R4**        | 另開「上游」改 `tools/conformance/src/cli.ts` 一行並重算章，合併進 R3 的 fork         | **rc 0，衝突 0** —— 合併一支重算過的上游 commit，章就對得上（Q32）                                                 |
+| **R4 對照組** | 「上游」再改一行但**沒有**重算章，合併                                                | **rc 1**：「腳手架的檔被改了：`tools/conformance/src/cli.ts`」。**它證明 R4 的綠是章換來的，不是閘門什麼都沒量到** |
+| **R5**        | 回到 R4，團隊在根層 spread 之後寫 `"no-eval": "off"`，跑 `vpr gate`                   | **rc 1**，一處：「腳手架的規則被蓋掉了：no-eval」—— **檔案比對零紅**，`vite.scaffold.ts` 一個位元組都沒動（Q35）   |
+
+⚠️ R3 只演練得到 HANDOFF 那三件事的前兩件 —— 第三件（團隊自己的 workflow）在本機跑不出來，§六 那一格仍然沒有機制在守。
+
+⚠️ R1 在基準之前紅過兩次，兩次都是這一批自己造的：`cli.ts` 以 100644 進版控，而 `pnpm install` 會把 bin 目標 chmod +x，乾淨 clone 裡 `conformance` 的模式規則紅；以及 §三（五）那 8 支沒進章的檔。
+
+⚠️ 上游那一條第一次紅在 Tier 2 的 `no-unsanitized/method`：讀 `vite.scaffold.ts` 的 `import()` 參數不是字面值。修法是改成字面路徑、讀這支工具那棵樹的那一份，**不是調鬆規則**（規則二）。代價寫在 `cli.ts`：`--root` 指向另一棵樹時，比對的基準是工具那棵樹的 `vite.scaffold.ts` —— 兩份不同時，章那一格已經先紅了。
