@@ -240,6 +240,16 @@ buildSha: string
 
 ---
 
+## `@org/eslint-config/scaffold`
+
+### `default` — names-only
+
+```
+
+```
+
+---
+
 ## `@org/eslint-config/worktrees`
 
 ### `default` — names-only

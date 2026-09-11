@@ -160,7 +160,7 @@ export const DOCUMENTS_CITING_EVIDENCE: readonly string[] = [
  * 文件裡宣稱的演練測試數。
  *
  * **取捨**：沒寫「上游」的演練成績會被漏掉（召回率的損失），換來零誤報。
- * 這與 `vite.config.ts:55` 對 `import/no-relative-parent-imports` 做的取捨相同 ——
+ * 這與 `vite.scaffold.ts` 的 `features/*` override 對 `import/no-relative-parent-imports` 做的取捨相同 ——
  * 一道會亂叫的閘門，三個月後會被某個趕著出貨的人加上 skip，然後永遠不會拿掉。
  * 真正的保險是下面那支「三份文件確實各自都有引用」的測試：漏光了它會紅。
  */

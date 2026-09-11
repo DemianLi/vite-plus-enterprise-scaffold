@@ -286,7 +286,8 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 ├── HANDOFF.md                採用指南 ＋ 只有組織能決定的事項，附「拿什麼去談」
 ├── SCOPE.md                  這棵樹上有什麼 —— 每一項都有人寫過一句它是什麼
 ├── UI-SURVEY.md              UI 技術選型的三方比較
-└── vite.config.ts            驅動層設定（退出面刻意收斂在兩個設定檔）
+├── vite.config.ts            驅動層設定（退出面刻意收斂在兩個設定檔）—— 團隊的一半
+└── vite.scaffold.ts          腳手架那一半的 lint 設定；fork 之後不改，升級時跟著上游進來（C219）
 ```
 
 依賴方向**只准單向**：`apps → features → platform`。

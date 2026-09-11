@@ -3,7 +3,7 @@
  *
  * ── 為什麼事實來源是 `vp lint --print-config`，不是 `vite.config.ts` 的文字 ──
  *
- * 門檻寫在根層 `vite.config.ts` 的 `lint.rules` 與 `lint.overrides` 裡，而
+ * 門檻寫在根層兩份設定裡（`CONFIG_FILES`，C219）的 `lint.rules` 與 `lint.overrides`，而
  * **「哪些格子算門檻」不該由這支工具自己列一份清單** —— 那會造出第二份名冊，
  * 而這棵樹一再栽在「同一件事有兩份寫法然後它們漂開」上（gate-kit/flags.ts 的
  * 檔頭列了三次）。C147 §四 的草圖寫「八個門檻」，票面實測是十一格 ——
@@ -17,6 +17,25 @@
  * 11 個三元組逐字釘住的夾具：萃取結果一變，測試先紅，由人判斷那一格算不算門檻。
  * **這是刻意的：靜默的少涵蓋才是這支工具存在要防的東西。**
  */
+
+/**
+ * 被驗的設定：根層的 `vite.config.ts`（業務碼的門檻，團隊的）與 `vite.scaffold.ts`
+ * （腳手架自己的碼的門檻）。兩份都讀、都放進農場，**只有 `MEASURED_FILE` 被量**。
+ *
+ * ⚠️ C219 之前只有第一份。只讀它的話，腳手架那一半的門檻在原始碼裡一格都數不到，
+ * 而 `--print-config` 照樣讀得出來 —— 計數對不上，量測台報自己壞了（C219 §三 實測）。
+ */
+export const CONFIG_FILES = ["vite.config.ts", "vite.scaffold.ts"] as const;
+
+/**
+ * 被量的那一份。根層那份的門檻是**給 fork 的起始值，不入棘輪**（C219 §四）：
+ * 量它的話，這道閘門會叫上游把它降到示範碼的最大值，而那組數字就是每個 fork 第一天
+ * 拿到的預設 —— 腳手架因此規定了團隊怎麼寫程式（C215 §一 判準一）。
+ *
+ * ⚠️ 根層那份仍然要**數**：萃取樣式漏了某一種寫法時，只有「兩份合計 = `--print-config`」
+ * 那條夾具接得住，而那條少了根層那一份就對不起來。
+ */
+export const MEASURED_FILE = "vite.scaffold.ts";
 
 /** 一格門檻：某個範圍裡、某條規則的、某個數字選項。 */
 export interface Slot {
@@ -210,4 +229,37 @@ export function pairSlots(real: readonly Slot[], probe: readonly Slot[]): Pairin
   }
 
   return { ok: true, pairs };
+}
+
+/**
+ * 一趟探針的配對：只配**這一趟壓到地板的那一份設定**裡的格子（C219）。
+ *
+ * 另一份設定原封不動放在農場裡，所以它的格子在兩邊讀數相同 —— 那就是分辨的依據。
+ * 地板值一律低於門檻（`pairSlots` 驗），所以被壓到的格子讀數必然變了。
+ *
+ * ⚠️ **變了幾格要等於這一份改寫了幾格。** 一格地板值不低於門檻時，它可能剛好
+ * 等於真值、被當成「另一份的」跳過 —— 那一格就從此沒有人量。對不上一律紅。
+ */
+export function pairPass(
+  real: readonly Slot[],
+  probe: readonly Slot[],
+  rewritten: number,
+): Pairing {
+  if (real.length !== probe.length) return pairSlots(real, probe);
+
+  const touched = real.flatMap((slot, at) => {
+    const other = probe[at];
+    return other === undefined || other.value === slot.value ? [] : [{ slot, other }];
+  });
+  if (touched.length !== rewritten) {
+    return {
+      ok: false,
+      why: `這一份原始碼改寫了 ${rewritten} 格，而 --print-config 只有 ${touched.length} 格變了 —— 有一格沒被量到`,
+    };
+  }
+
+  return pairSlots(
+    touched.map((entry) => entry.slot),
+    touched.map((entry) => entry.other),
+  );
 }
