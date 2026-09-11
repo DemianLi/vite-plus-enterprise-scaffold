@@ -1,20 +1,18 @@
 {
-  "name": "@org/fork-select",
+  "name": "@org/scaffold-stamp",
   "version": "0.0.0",
   "private": true,
-  "description": "看 `.scaffold-fork` 在不在，決定 `vpr gate`／`vpr ready` 跑上游那一條還是 fork 那一條（C217）",
+  "description": "腳手架的章：fork 之後不准改的那一半，在 fork 的樹上還是不是原樣（C220，實作 C215 §六）",
   "bin": {
-    "fork-select": "./src/cli.ts"
+    "scaffold-stamp": "./src/cli.ts"
   },
   "type": "module",
-  "exports": {
-    ".": "./src/select.ts"
-  },
   "scripts": {
     "test": "vp test",
     "check": "vp check"
   },
   "dependencies": {
+    "@org/fork-select": "workspace:*",
     "@org/gate-kit": "workspace:*"
   },
   "devDependencies": {

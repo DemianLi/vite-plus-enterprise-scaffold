@@ -261,6 +261,7 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 ├── tools/                    建置與治理腳本。多數是會失敗的閘門，例外都在下面標明
 │   ├── gate-kit/             閘門底下那一層（不是閘門）：repo 根、走目錄、旗標解析
 │   ├── gate-roster/          閘門名冊的單一事實來源，以及四個消費端的一致性檢查
+│   ├── scaffold-stamp/       腳手架的章：fork 之後不准改的那一半還是不是原樣（含 oxlint 生效設定）
 │   ├── conformance/          切片邊界一致性檢查（宣告依賴＋相對路徑逃逸）
 │   ├── api-surface/          platform/* 的型別形狀與基準比對，改名或改形狀即失敗
 │   ├── vue-typecheck/        .vue 的型別檢查（vp check 的 tsgolint 不看 SFC）
@@ -299,7 +300,7 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 
 |                       | 內容                                                                                                                                                                                                     | 指令                                       | 何時跑                    |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------- |
-| **Tier 1 — 品質**     | 閘門名冊一致 + SCOPE.md 與版控內容一致 + oxlint + oxfmt + 型別檢查 + .vue 型別檢查 + 驗收規格完成率 + 無障礙靜態檢查 + 設計系統接縫 + 複雜度門檻沒有過期                                                 | `vp check`、`vpr a11y`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
+| **Tier 1 — 品質**     | 閘門名冊一致 + SCOPE.md 與版控內容一致 + 腳手架的章 + oxlint + oxfmt + 型別檢查 + .vue 型別檢查 + 驗收規格完成率 + 無障礙靜態檢查 + 設計系統接縫 + 複雜度門檻沒有過期                                    | `vp check`、`vpr a11y`、`vpr theme-verify` | 本機、pre-commit、每次 PR |
 | **Tier 2 — 安全閘門** | 一致性檢查 + platform API 表面檢查 + D2 退出面檢查 + 供應鏈盤點 + 法遵對照表 + 測試環境個資檢查 + 文件數字與事實來源一致 + 框架承諾檢查 + BFF 契約驗收 + ESLint 安全規則 + SAST + 機密掃描 + SBOM 與 SCA | `vpr gate`                                 | 每次 PR **＋ 每日排程**   |
 
 > **這張表的閘門部分是被守著的。** `tools/gate-roster` 會比對它與 `scripts.gate`、

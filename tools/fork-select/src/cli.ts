@@ -29,7 +29,7 @@ import { FORK_MARKER, SELECTABLE, isSelectable, sideOf, targetScript } from "./s
  * workflow 裡的一步讀（C217 §四 最後一段）。
  *
  * ⚠️ 開頭那一行判定會印出來：「跑了哪一條」是這支唯一的產出，而它選錯的樣子
- * （上游只跑了 5 道）在其餘的輸出裡看起來就是全綠。
+ * （上游只跑了 6 道）在其餘的輸出裡看起來就是全綠。
  */
 const FLAGS = parseFlags(process.argv.slice(2), {
   script: { kind: "value", noun: "script 名" },
