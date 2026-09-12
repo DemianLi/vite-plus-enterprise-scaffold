@@ -5,11 +5,12 @@ import { repoRoot } from "@org/gate-kit";
 import { runCli, sandbox } from "@org/gate-kit/testing";
 import { describe, expect, it } from "vitest";
 
-import { judge, measure } from "../src/check.ts";
+import { judge, measure, resolveUnmeasurable } from "../src/check.ts";
 import {
   CONFIG_FILES,
   codeOf,
   collectSlots,
+  floorOne,
   floorSource,
   pairPass,
   pairSlots,
@@ -325,6 +326,68 @@ describe("measure ＋ judge", () => {
   });
 });
 
+describe("floorOne（C223）", () => {
+  it("只壓指定那一格到 0，同一條規則的其他格原封不動", () => {
+    const source = [
+      '"max-depth": ["error", { max: 5 }],',
+      '"max-depth": ["error", { max: 3 }],',
+      'complexity: ["error", { max: 15 }],',
+    ].join("\n");
+    const { text, count } = floorOne(source, "max-depth", 1);
+    expect(count).toBe(1);
+    expect(text).toBe(
+      [
+        '"max-depth": ["error", { max: 5 }],',
+        '"max-depth": ["error", { max: 0 }],',
+        'complexity: ["error", { max: 15 }],',
+      ].join("\n"),
+    );
+  });
+
+  it("找不到那一格 ⇒ 計數 0，呼叫端據此紅", () => {
+    expect(floorOne('"max-depth": ["error", { max: 5 }],', "max-depth", 1).count).toBe(0);
+  });
+});
+
+describe("resolveUnmeasurable（C223）", () => {
+  const ranked: Pair = { slot: slot("vue/max-props", 3, "overrides[1]"), floor: 2 };
+
+  it("★ 排名地板上量不到、補量有讀數 ⇒ 過期，而且只認 allowed = 0", () => {
+    const rows = resolveUnmeasurable(measure([ranked], []), () => [
+      { code: "vue(max-props)", reported: 2, allowed: 0 },
+      { code: "vue(max-props)", reported: 5, allowed: 5 },
+    ]);
+    expect(rows.map((r) => [r.verdict, r.observed, r.rechecked])).toEqual([["stale", 2, true]]);
+    const findings = judge(rows);
+    expect(findings[0]?.fix).toContain("降成 2");
+    expect(findings[0]?.detail).toContain("排名地板 2 看不見它");
+  });
+
+  it("補量仍然零讀數 ⇒ 真的量不到，而訊息說得出它補量過", () => {
+    const rows = resolveUnmeasurable(measure([ranked], []), () => []);
+    expect(rows[0]?.verdict).toBe("unmeasurable");
+    expect(judge(rows)[0]?.detail).toContain("壓到 0；排名地板是 2");
+  });
+
+  it("地板 0 的「量不到」、以及其他判定，都不補量", () => {
+    let calls = 0;
+    resolveUnmeasurable(
+      measure(
+        [
+          { slot: slot("max-depth", 5), floor: 0 },
+          { slot: slot("max-depth", 3, "overrides[0]"), floor: 1 },
+        ],
+        [{ code: "eslint(max-depth)", reported: 3, allowed: 1 }],
+      ),
+      () => {
+        calls += 1;
+        return [];
+      },
+    );
+    expect(calls).toBe(0);
+  });
+});
+
 describe("--root 換的是被驗的那份設定", () => {
   /**
    * ⚠️ **載重的是「500」這三個字，不是「紅了」。**
@@ -358,5 +421,44 @@ describe("--root 換的是被驗的那份設定", () => {
     expect(output, "紅燈裡的數字是真樹的，不是那一份的 —— --root 只被拿去看目錄在不在").toContain(
       "設在 500",
     );
+  }, 60_000);
+
+  /**
+   * ⚠️ **排名地板的盲區（C223）。** 同一條規則的第 n 格拿到地板值 n；真最大值掉到 ≤ n 時
+   * 那一格在探針裡一條都不報 —— 與「範圍裡什麼都沒有」同讀數，而後者的修法叫人拿掉這一格。
+   *
+   * 在產品碼那一格前面插一格指向不存在目錄的 `vue/max-props`，把測試碼那格擠到地板 2，
+   * 再把它的門檻抬到 3。真最大值是 2（兩支 fixture `.vue`）：正確答案是「過期，降成 2」。
+   * 插進去的那一格是對照組 —— 它**真的**量不到，補量之後仍然要報「量不到」。
+   *
+   * ⚠️ 設定只放在沙盒裡，不進被 lint 的樹：放一支 fixture 進 `tools/**` 會改掉那 11 格的母體。
+   */
+  it("★ 被排名地板吃掉的過期，要報成過期，不是量不到", () => {
+    const root = repoRoot();
+    const source = readFileSync(join(root, "vite.scaffold.ts"), "utf8");
+    const shifted = source
+      .replace(
+        'files: ["tools/**", "platform/**"],',
+        'files: ["no-such-dir/**"],\n    rules: { "vue/max-props": ["error", { maxProps: 5 }] },\n  },\n  {\n    files: ["tools/**", "platform/**"],',
+      )
+      .replace(
+        '"vue/max-props": ["error", { maxProps: 2 }]',
+        '"vue/max-props": ["error", { maxProps: 3 }]',
+      );
+    expect(floorSource(shifted).count, "插進去的那一格沒有命中 —— 這裡什麼都沒改壞").toBe(12);
+    expect(shifted).toContain("maxProps: 3");
+
+    const config = readFileSync(join(root, "vite.config.ts"), "utf8");
+    const dir = sandbox({
+      prefix: "threshold-floor-",
+      files: { "vite.config.ts": config, "vite.scaffold.ts": shifted },
+    }).root;
+    const result = runCli("tools/threshold-check/src/cli.ts", ["--root", dir]);
+    const output = result.output;
+
+    expect(result.status, output).not.toBe(0);
+    expect(output).toContain("設在 3，而這個範圍裡的實測最大值是 2");
+    expect(output).toContain("降成 2");
+    expect(output.split("[門檻量不到]").length - 1, "只有插進去的那一格真的量不到").toBe(1);
   }, 60_000);
 });
