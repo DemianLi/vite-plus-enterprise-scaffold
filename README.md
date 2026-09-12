@@ -277,7 +277,7 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │   ├── compliance/           控制項與證據的對應表
 │   ├── pii-check/            個資外洩路徑檢查
 │   ├── doc-facts/            文件裡的數字 vs. repo 內部事實來源
-│   ├── scope-check/          SCOPE.md 列的東西 vs. 版控裡真正存在的目錄（刻意不進閘門，見 C133）
+│   ├── scope-check/          SCOPE.md 列的東西 vs. 版控裡真正存在的目錄（Tier 1 閘門，見 C136）
 │   ├── spec-report/          驗收規格的完成率報表
 │   ├── promise-check/        specs/ 的承諾：照規格弄壞一份副本，跑指名的閘門，比對結果
 │   └── ui-survey/            UI-SURVEY.md 的資料來源（決策期工具，刻意不進閘門，見 C45）
