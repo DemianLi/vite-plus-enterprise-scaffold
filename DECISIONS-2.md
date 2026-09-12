@@ -11793,14 +11793,14 @@ CSS 裡另有一段 `/*! tailwindcss … MIT License */` —— 第三方授權�
 
 #### 六、分批
 
-| 批               | 內容                                                                                                                                                                                  |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **⓪ 示範切片**   | 一片最小的 React 切片在 `prototype/react-slice` 分支上跑到 `vpr ready` 綠：量 §四 的 1–3 與 §五 最後一列，列出每一支會紅的工具與它紅的原因。**產出是量測與下一則裁決，不合進 `main`** |
-| ① 相依與工具鏈   | catalog 換成 React 那一套；讓 `.tsx` 走得通：`api-surface` 的解析器、`slice-gen` 範本、`theme-verify` 掃描、`conformance` 的清單、`exit-drill` 的 `DRILL_PLUGINS`                     |
-| ② `platform/ui`  | shadcn CLI 產出 27 個元件的 React 版；主題改成 React context；`@source` 改掃 `tsx`；`api-surface` 的公開面重新立基準                                                                  |
-| ③ 合約、切片、殼 | `slice-kit` 的 `routes` 改型別、禁用清單換套件名；兩片示範切片與 `apps/console` 改寫；`masking.test.ts` 重寫；CSP 理由重寫（§四 1）                                                   |
-| ④ lint 與 a11y   | `eslint-config` 換 react-hooks／jsx-a11y；`vue-typecheck` 退出名冊、`gate:fork` 與 CI；`compliance` 的對照表                                                                          |
-| ⑤ Vue 退場       | 刪 `.vue`、Vue 相依與 catalog 段落；`README`、`HANDOFF`、`TESTING` 改寫 —— **然後才打 tag**                                                                                           |
+| 批               | 內容                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **⓪ 示範切片**   | 一片最小的 React 切片在 `prototype/react-slice` 分支上跑到 `vpr ready` 綠：量 §四 的 1–3 與 §五 最後一列，列出每一支會紅的工具與它紅的原因。⚠️ **第一件量的是 `@vitejs/plugin-react` 裝不裝得起來**：`vite` 被 alias 成 `@voidzero-dev/vite-plus-core`，`overrides.vite` 與 `peerDependencyRules.allowAny` 就是為了讓外掛的 peer 範圍過得去而設的 —— `plugin-vue` 今天過得去，`plugin-react` 沒驗過；解析不過，批次 ① 就是另一件事。**產出是量測與下一則裁決，不合進 `main`** |
+| ① 相依與工具鏈   | catalog 換成 React 那一套；讓 `.tsx` 走得通：`api-surface` 的解析器、`slice-gen` 範本、`theme-verify` 掃描、`conformance` 的清單、`exit-drill` 的 `DRILL_PLUGINS`                                                                                                                                                                                                                                                                                                             |
+| ② `platform/ui`  | shadcn CLI 產出 27 個元件的 React 版；主題改成 React context；`@source` 改掃 `tsx`；`api-surface` 的公開面重新立基準                                                                                                                                                                                                                                                                                                                                                          |
+| ③ 合約、切片、殼 | `slice-kit` 的 `routes` 改型別、禁用清單換套件名；兩片示範切片與 `apps/console` 改寫；`masking.test.ts` 重寫；CSP 理由重寫（§四 1）                                                                                                                                                                                                                                                                                                                                           |
+| ④ lint 與 a11y   | `eslint-config` 換 react-hooks／jsx-a11y；`vue-typecheck` 退場 —— 名冊、`gate:upstream`／`gate:fork`、tier1 workflow、README〈兩層檢查〉那張表**與目錄樹**（C230 接上的第四個消費端）要同一支 PR 一起改，漏一處 `gate-roster` 會紅；`compliance` 的對照表                                                                                                                                                                                                                     |
+| ⑤ Vue 退場       | 刪 `.vue`、Vue 相依與 catalog 段落；`README`、`HANDOFF`、`TESTING` 改寫 —— **然後才打 tag**                                                                                                                                                                                                                                                                                                                                                                                   |
 
 ⚠️ **與 C231 的順序**：C231 批次 ②「上游清 `platform/` 的痕跡」要排在本則 ② 之後 —— `platform/ui` 的 27 支會整批重寫，先清等於白做。C231 的白名單從相依圖推，換框架後自己跟著走，不用改。
 
@@ -11815,6 +11815,7 @@ CSS 裡另有一段 `/*! tailwindcss … MIT License */` —— 第三方授權�
 - **供應鏈基線要重擷取**，Radix 那一批套件的授權要過一次；`ui-survey` 是只收 Vue 元件庫的市調工具，要不要加 React 候選，批次 ① 定。
 - `tools/` 裡 3 支 `.vue` fixture（`api-surface` 1、`vue-typecheck` 2）隨各自的工具處理。
 - `platform/eslint-config/tests/fixtures/a11y-violations.vue` 隨批次 ④ 換成 `.tsx` 的違規樣本 —— 那是 a11y 閘門的對照組，不能只刪不補。
+- **根層 `specs/` 的承諾與框架無關**：掃 `vue`／`typecheck`／`reka`／`shadcn`／`react` 零命中（對照組：同一批檔案裡「承諾／閘門」命中 2 支）。所以 `vue-typecheck` 退場不必動 `specs/` —— 要是有命中，那一句得由人改，不是 agent（AGENTS.md 規則四）。
 
 #### 九、與既有裁決的關係
 
