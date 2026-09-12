@@ -12425,7 +12425,7 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 6. **`@internationalized/date` 的 catalog 註解**補一句：「這不是一筆新的供應鏈範圍」只到 ⑤ —— React 版在執行期用它，刪 reka-ui 之後它是 `platform/ui` 自己的直接相依（Q68 的代價），「跟著 reka-ui 的範圍」那句也失去對象。
 7. **測試**：`date-picker-react.test.ts`（23 條，含時區兩組：`Asia/Taipei`、`America/Los_Angeles`，各有一條 ★ 證明時區真的換了）；`field-wiring-react.test.ts` 補 `UiDatePicker` 一組；`react-parity.test.ts` 的 `BEHAVIOR_TESTS` 登記它。
    - ⚠️ 時區要兩個方向：UTC 午夜在台北是當天、在洛杉磯是前一天。只量一個的話，進出其中一個方向的錯（M3 讀 UTC、M4 寫 UTC）會綠。
-8. **基準**：`api-surface` 222 → 223 個 export（+1，相容）；`HANDOFF.md` 那一句同步。
+8. **基準**：`api-surface` 222 → 223 個 export（+1，相容）；`HANDOFF.md` 那一句同步；套件總數 734 → 737 由 `doc-facts` 點名的七處同步。
 
 #### 三、量測
 
@@ -12465,7 +12465,7 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 
 - **對照**：未改的樹 platform/ui 1037 條全綠（C237 時 999 條）。
 - **a11y 的 `.tsx` 軌**：第一版 1 則（`no-autofocus`，見 §二 4）→ 改寫法後 0 則，不需要新的覆寫。⚠️ 經 `rtk` 包裝跑這一軌時印的 RC 是 0、而摘要寫著 1 則錯 —— 量真值要 `rtk proxy`。
-- **閘門逐支跑**：紅過的是 `api-surface`（新 export → `--update`）、`supply-chain`（相依名冊對不上擷取 → `--capture-health`）、章（新檔）。其餘綠。
+- **閘門逐支跑**：紅過的是 `api-surface`（新 export → `--update`）、`supply-chain`（相依名冊對不上擷取 → `--capture-health`）、章（新檔）、`doc-facts`（套件總數 734 → 737，`HANDOFF.md` 五處、`README.md`、`UI-SURVEY.md` 各一處 —— 第一趟 `vpr ready` 才紅，逐支跑那一輪漏了它）。其餘綠。
 - **`vp check`**：0 錯、13 warning（`main` 同為 13；第一次多出的那一則是時區測試裡 `?.` 接型別斷言再呼叫方法，已改）。
 
 #### 四、交給 ⑤ 的，以及還沒量的
