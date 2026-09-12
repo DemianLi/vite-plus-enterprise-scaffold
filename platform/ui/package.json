@@ -18,6 +18,7 @@
     "@internationalized/date": "catalog:",
     "clsx": "catalog:",
     "react": "catalog:",
+    "react-day-picker": "catalog:",
     "react-dom": "catalog:",
     "reka-ui": "catalog:",
     "tailwind-merge": "catalog:",

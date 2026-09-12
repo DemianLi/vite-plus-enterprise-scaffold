@@ -410,6 +410,7 @@ const BEHAVIOR_TESTS: Readonly<Record<string, string>> = {
   UiAlertDialog: "alert-dialog-react.test.ts",
   UiSelect: "select-react.test.ts",
   UiDropdownMenu: "dropdown-menu-react.test.ts",
+  UiDatePicker: "date-picker-react.test.ts",
 };
 
 describe("二、SSR 產出兩版逐一相同", () => {

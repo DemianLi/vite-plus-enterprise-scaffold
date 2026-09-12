@@ -331,6 +331,7 @@ describe("公開契約", () => {
     // 但「哪些基元可以用」仍然不交給各團隊。
     const react = readFileSync(join(PACKAGE_ROOT, "src/react.ts"), "utf8");
     expect(react).not.toContain('from "@base-ui/react');
+    expect(react).not.toContain('from "react-day-picker');
     expect(react).not.toContain("export * from");
   });
 });

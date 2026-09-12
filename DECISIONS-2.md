@@ -12374,3 +12374,130 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 | **C101**             | React 版形狀：明列的 prop 落在觸發鈕上；多一種壞法（`for` 指到隱藏 input）                                   |
 | **AGENTS.md 規則二** | **遵守** —— theme-verify 的登記表交人裁（Q69）                                                               |
 | **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                               |
+
+### C238 — 第 ② 批之四：React 版 DatePicker —— 八格逐格找落點、`locale` 一張小表、一週起始日照 CLDR；三支套件進供應鏈（2026-09-13，Q70–Q73）
+
+> C232 §六 ② 的第四支 PR，② 的最後一支。C237 §四 交來 DatePicker：形狀（Q67 按鈕 ＋ 日曆）與值型別（Q68 `CalendarDate`）已裁；要做的是三支套件進供應鏈、`segment` 槽怎麼處理寫明、`locale` 字串怎麼對到日曆。先量，量出四個要人裁的形狀問題，問完才寫元件。
+
+#### 一、四題由人裁
+
+| #       | 問題                                                                                                                               | 裁決                                                                 |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Q70** | `UiDatePickerSlot` 八格是照 Vue 版的分段輸入欄切的（`field` 容器、`segment` 年月日、`trigger` 容器裡的小鈕），React 版只有一顆按鈕 | **八格照舊，逐格找落點**；落不下的那半格（聚焦 variant）寫明、加絆線 |
+| **Q71** | `locale` 在 Vue 版是字串（reka 查表，不合法丟例外），react-day-picker 要語系物件                                                   | **字串照舊，內建小表**（`zh-TW`、`en-US`），表外丟例外               |
+| **Q72** | 沒選日期時按鈕顯示什麼（Vue 版的分段欄自己有年月日佔位）                                                                           | **必填 `placeholder`**，同 `UiSelect`                                |
+| **Q73** | 選了日期要不要自動收起（reka 的 `closeOnSelect` 預設 false；shadcn 的範例會收）                                                    | **選了就收**，焦點回按鈕                                             |
+
+- **Q70 為什麼要問**：兩道測試把 React 版的預設表釘死 —— 契約 ③ 用檔名找槽型別，`.vue` 與 `.tsx` 對到同一個 `UiDatePickerSlot`，八格必須俱全；`react-parity.test.ts` 一 要它與 `.vue` 逐字相同。另一個選項（React 版另訂鍵集、拿掉 `segment`）是在這兩道各開一個例外，屬於 AGENTS.md 規則二說的「調鬆門檻」；改槽型別本身則會被 `api-surface` 判成破壞性。三個選項連代價一起給，含「先不做」。
+- **Q71 的量測**：照字串查全部語系要把約 95 個 date-fns 語系一起打包，`cdn.min.js` 加總 1.6MB；`zh-TW` 一支約 9KB。另一個選項（改收語系物件）會把 react-day-picker 的型別放進公開 API。⚠️ 型別刻意是 `string` 不是 union：union 多一個成員就是函式型別的文字變了，`api-surface` 判破壞性（C237 的 `UiButton` `ref` 是同一把尺）—— 那樣「之後加語系」就不是新增了。
+- **Q72／Q73** 是 React 版與 Vue 版答案不同的兩處，都寫進元件檔頭與測試名。
+
+#### 二、做了什麼
+
+1. **元件**：`UiDatePicker.tsx`（Base UI `Popover` ＋ react-day-picker `DayPicker`，年月用下拉），由 `react.ts` 轉出（連前三批共 27 支）。預設表逐字照 `.vue`，**翻譯表零列**（見 3 的最後一條）。
+2. **八格的落點**（Q70）：
+
+| 槽                                             | Vue 版（reka）                 | React 版                           | 註                                                                                     |
+| ---------------------------------------------- | ------------------------------ | ---------------------------------- | -------------------------------------------------------------------------------------- |
+| `field`                                        | 分段欄的容器 `<div>`           | 整顆按鈕                           | Vue 版那三條 `aria-invalid:*` 從落地起是死的（`UiField.vue`），**這裡第一次生效**      |
+| `segment`                                      | 年／月／日各一格               | 按鈕裡的日期文字                   | `focus:*` 永遠不觸發（`<span>` 不能聚焦）                                              |
+| `trigger`                                      | 容器裡的日曆小鈕               | 按鈕裡的日曆圖示                   | `focus-visible:*` 永遠不觸發；`hover:` 只在滑到圖示上時生效                            |
+| `content`／`nav`／`heading`／`headCell`／`day` | 面板／上下月／標題／星期／日格 | 同左；`heading` 落在年月下拉那一列 | 下拉本身的結構 class 寫在元件裡、不進槽（槽型別改不動，同 `UiSelect` 的 `List` `p-1`） |
+
+- 那兩個半格死的 variant 由 `date-picker-react.test.ts` 的 ★ 守：元素變得能聚焦、或預設表不再有那些 variant，都紅（M24）。
+- 契約只守「元件讀了自己那一格」，不守讀到哪個元素上 —— 另加一條「面板裡五格各自落在說好的元素上」（M26–M29）。
+
+3. **React 版自己寫的四段**（Vue 版全是 reka 的，所以沒有 Vue 的行為測試可以翻譯，逐段量）：
+   - **值的轉換**：react-day-picker 只懂 `Date`。進去取本地午夜、出來讀本地年月日；刻意不設它的 `timeZone`。用 `setFullYear` 而不是 `new Date(y, m, d)`：後者把 0–99 年讀成 1900 年代（M2）。
+   - **`locale` 小表**：`Object.hasOwn` 而不是 `in` —— `"toString"` 會從原型鏈拿到一個函式（M9）。
+   - **一週起始日**：date-fns 的 zhTW 寫星期一，reka 照 CLDR 算出星期日 —— 兩版在台灣的月曆會差一欄。照 reka 的算法（`getWeekStartsOn`：拿一個已知的星期一問 `getDayOfWeek`）自己算、傳 `weekStartsOn`。量：`zh-TW` 0、`en-US` 0；對照 `en-GB` 1、`fr-FR` 1。
+   - **日格的狀態屬性**：react-day-picker 把 `data-selected`／`data-disabled` 放在 `<td>`、外側日叫 `data-outside`，而預設表的 `day` 是寫給按鈕的、名字是 reka 的。自訂的 `DayButton` 照 reka 的名字蓋在按鈕上 —— 所以不必進翻譯表，各案寫好的覆寫兩版通用。取代預設那一支要把它的焦點 effect 一起帶走，否則方向鍵移不動焦點（M8）。
+4. **我自己決定的**（揭露）：
+   - 沒有 Vue 版的 `invalid`：那是因為 `DatePickerRoot` 不渲染元素、屬性落不下去；這裡是單一按鈕，`id`／`aria-label`／`aria-describedby`／`aria-invalid` 明列、交給按鈕，同 `UiSelect`。
+   - 日期文字排進 `aria-describedby` 最前面：包在 `UiField` 裡時按鈕的名字是標籤，選好的日期只剩描述這條路會被念到。
+   - 年份下拉是今年前後各 100 年，並延伸到涵蓋目前的值。react-day-picker 的預設是「100 年前到今年年底」—— 出生日期的範圍，選不到明年。
+   - 打開時焦點落在選中的那天、沒選時是今天（WAI-ARIA APG 的日期選擇對話框），由 Base UI 的 `initialFocus` 指過去。第一版用 react-day-picker 的 `autoFocus`，a11y 那一軌的 `jsx-a11y/no-autofocus` 擋下 —— 改寫法，不動規則。
+   - 面板的 `aria-label` 用 `placeholder`；對齊照 reka 預設置中。
+5. **供應鏈**：catalog 加 `react-day-picker ^10.0.1`（`date-fns`、`@date-fns/tz` 是它的傳遞相依，`platform/ui` 不直接 import）。
+   - `inventory.json` 734 → 737；`dependency-health.json` 40 → 41 筆（只多直接相依那一支）。三支都是 MIT，最後穩定版 2026-05-15／05-29／05-21，一年內的穩定版 13／4／1 —— `health.ts` 的線是「一年內零版」，都在線內。原生二進位 146 不變，`provenance.json` 不動。
+   - `base-ui-no-style.test.ts` 多一組閉包：react-day-picker、`date-fns`、`@date-fns/tz` 三支逐檔掃 `createElement('style')`，0 處（寫之前在 scratchpad 先量過一次，reka 對照 2 處）。理由與 Base UI 那一組相同：面板在 CSP 下渲染，哪一版開始注入，症狀是安靜的。
+   - `styles.test.ts` 的「React 入口不轉出基元」加 react-day-picker。
+6. **`@internationalized/date` 的 catalog 註解**補一句：「這不是一筆新的供應鏈範圍」只到 ⑤ —— React 版在執行期用它，刪 reka-ui 之後它是 `platform/ui` 自己的直接相依（Q68 的代價），「跟著 reka-ui 的範圍」那句也失去對象。
+7. **測試**：`date-picker-react.test.ts`（23 條，含時區兩組：`Asia/Taipei`、`America/Los_Angeles`，各有一條 ★ 證明時區真的換了）；`field-wiring-react.test.ts` 補 `UiDatePicker` 一組；`react-parity.test.ts` 的 `BEHAVIOR_TESTS` 登記它。
+   - ⚠️ 時區要兩個方向：UTC 午夜在台北是當天、在洛杉磯是前一天。只量一個的話，進出其中一個方向的錯（M3 讀 UTC、M4 寫 UTC）會綠。
+8. **基準**：`api-surface` 222 → 223 個 export（+1，相容）；`HANDOFF.md` 那一句同步。
+
+#### 三、量測
+
+- **探針**（寫測試之前，happy-dom）：打開時焦點落在選中的那天（沒選時是今天）；選一天回報 `"2026-08-20"`、面板收起、焦點回按鈕；年份下拉 201 個選項；`en-US` 顯示 `08/19/2026`；`ja-JP` 丟 `RangeError`。也是這一輪看到週一開頭，才去讀 reka 的 `getWeekStartsOn`。
+- **變異**：每顆改一處，各自有檢查紅；未改的對照全綠。
+
+| #       | 改法                                                               | 紅                    |
+| ------- | ------------------------------------------------------------------ | --------------------- |
+| M1      | 選了之後不收（拿掉 `setOpen(false)`）                              | 1                     |
+| M2      | 本地午夜改回 `new Date(y, m − 1, d)`                               | 1                     |
+| M3      | 出：讀 UTC 的年月日                                                | 2                     |
+| M4      | 進：`setUTCHours`                                                  | 3                     |
+| M5      | 拿掉 `weekStartsOn`（退回 date-fns 的星期一）                      | 1                     |
+| M6      | 日格按鈕不蓋 `data-outside-view`                                   | 1                     |
+| M7      | 日格按鈕不蓋 `data-selected`                                       | 1                     |
+| M8      | 自訂 `DayButton` 不帶焦點 effect                                   | 1                     |
+| M9      | `Object.hasOwn` 換成 `in`                                          | 1                     |
+| M10     | 表外的 `locale` 不丟例外                                           | 1                     |
+| M11     | 年份範圍改成前後 50 年                                             | 1                     |
+| M12     | 範圍不延伸到值                                                     | 2                     |
+| M13     | `aria-describedby` 不排日期文字                                    | 2                     |
+| M14     | 按鈕不接 `id`                                                      | 1                     |
+| M15     | 按鈕不接 `aria-invalid`                                            | 1                     |
+| M16     | 拿掉 `data-placeholder`                                            | 1                     |
+| M17     | `initialFocus` 不找選中的那天                                      | 3                     |
+| M18     | `initialFocus` 不找今天                                            | 1                     |
+| M19     | `BEHAVIOR_TESTS` 拿掉 `UiDatePicker`                               | 1                     |
+| M20     | `.tsx` 一格代幣改成 `border-input`（只翻一份）                     | 1                     |
+| M21     | 月份不補零                                                         | 2                     |
+| M22     | 顯示格式寫死 `zh-TW`                                               | 1                     |
+| M23     | `react.ts` 轉出 react-day-picker 的 `DayPicker`                    | 1（`styles.test.ts`） |
+| M24     | 日期文字那格加 `tabIndex={0}`                                      | 1（★）                |
+| M25     | 年月下拉改回標題文字（`captionLayout="label"`）                    | 4                     |
+| M26–M29 | `day_button`／`weekday`／`dropdowns`／`button_previous` 各拿掉一格 | 各 1                  |
+
+零紅的：無。M3、M4 各自只在一個時區紅 —— 那正是時區量兩個的理由（§二 7）。
+
+- **對照**：未改的樹 platform/ui 1037 條全綠（C237 時 999 條）。
+- **a11y 的 `.tsx` 軌**：第一版 1 則（`no-autofocus`，見 §二 4）→ 改寫法後 0 則，不需要新的覆寫。⚠️ 經 `rtk` 包裝跑這一軌時印的 RC 是 0、而摘要寫著 1 則錯 —— 量真值要 `rtk proxy`。
+- **閘門逐支跑**：紅過的是 `api-surface`（新 export → `--update`）、`supply-chain`（相依名冊對不上擷取 → `--capture-health`）、章（新檔）。其餘綠。
+- **`vp check`**：0 錯、13 warning（`main` 同為 13；第一次多出的那一則是時區測試裡 `?.` 接型別斷言再呼叫方法，已改）。
+
+#### 四、交給 ⑤ 的，以及還沒量的
+
+- **⑤**：刪 Vue 時槽型別本來就要改（`api-surface` 那天本來就判破壞性），`segment`／`trigger` 那兩個半格死的 variant 可以一起收，★ 會提醒；`@internationalized/date` 的 catalog 那段要重寫（§二 6）；`BEHAVIOR_TESTS` 隨 `react-parity.test.ts` 搬家（C237 §四 已記）。
+- **真瀏覽器沒量**：年月下拉是透明的原生 `<select>` 疊在文字上（shadcn 同一個做法），焦點環走 `has-focus-visible:`；happy-dom 量不到畫面。
+- **語系只有兩個**：加一個是在表裡加一列（新增，不破壞）。
+- **順手看到、沒動的**：`tools/compliance/COMPLIANCE.md` 的「外部直接相依（24 個）」與 `tools/supply-chain/src/cli.ts` 註解的「24 個套件」早已過期（本批之前就是 40 筆，現在 41）。散文裡的計數，不是本批的範圍。
+
+#### 五、C154 §三
+
+| 新增的檢查                                | 交付軸                               | 迭代軸（① 對象在外、② 壞法安靜）                                | 級別                    |
+| ----------------------------------------- | ------------------------------------ | --------------------------------------------------------------- | ----------------------- |
+| 值的進出與時區（`date-picker-react`）     | 生日不差一天                         | ① 對象在內；② 只在某些時區差一天、開發者的機器上永遠正常        | 探針（M2–M4）           |
+| 一週起始日、`locale` 小表                 | 月曆與台灣的習慣一致、錯的語系不安靜 | ① 對象在外（date-fns 的語系資料）；② 差一欄、畫面看起來正常     | 探針（M5、M9、M10）     |
+| 日格狀態屬性、焦點（`date-picker-react`） | 選中的那天看得出來、鍵盤用得了       | ① 對象在外（react-day-picker 的 DOM）；② 樣式安靜失效、焦點不動 | 探針（M6–M8、M17、M18） |
+| `UiField` 接線（`field-wiring-react`）    | 標籤接得上、紅框會亮                 | ① 對象在內；② 同 C101                                           | 探針（M13–M15）         |
+| react-day-picker 閉包不注入 `<style>`     | CSP 下面板照樣有樣式                 | ① 對象在外；② 同 C233                                           | 絆線                    |
+| 半格死的 variant ★                        | —                                    | ① 對象在內；② 例外過期沒人發現                                  | 自我防護（不計分）      |
+
+#### 六、實測
+
+- 本機 `vpr ready`：**READY**
+
+#### 七、與既有裁決的關係
+
+| 裁決                 | 關係                                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------------- |
+| **C232**             | §六 ② 的最後一支；② 到此做完                                                                            |
+| **C233**             | Base UI 照舊；react-day-picker 的閉包比照 C233 §三 的量法進絆線                                         |
+| **C236**             | Q62（Popover ＋ react-day-picker）照做；供應鏈三支在 C236 當時量的健康度仍在線內                        |
+| **C237**             | §四 交來的四項：三支套件 → §二 5；`segment` 槽 → Q70；`locale` → Q71；`@internationalized/date` → §二 6 |
+| **C101**             | React 版形狀同 `UiSelect`：明列的 prop 落在按鈕上                                                       |
+| **AGENTS.md 規則二** | **遵守** —— 放寬兩道測試的那個選項交人裁（Q70）；`no-autofocus` 改寫法、不改規則                        |
+| **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                          |
