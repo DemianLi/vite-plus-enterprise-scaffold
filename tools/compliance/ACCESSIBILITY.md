@@ -122,9 +122,11 @@
 
 ## 哪些規則在哪些路徑被覆寫
 
-| 規則                                         | 範圍（files）                         | 設定  |
-| -------------------------------------------- | ------------------------------------- | ----- |
-| `vuejs-accessibility/form-control-has-label` | `platform/ui/src/components/**/*.vue` | `off` |
+| 規則                                         | 範圍（files）                                                                        | 設定  |
+| -------------------------------------------- | ------------------------------------------------------------------------------------ | ----- |
+| `jsx-a11y/control-has-associated-label`      | `platform/ui/src/components/**/*.tsx`                                                | `off` |
+| `jsx-a11y/prefer-tag-over-role`              | `platform/ui/src/components/UiAlert.tsx, platform/ui/src/components/UiSeparator.tsx` | `off` |
+| `vuejs-accessibility/form-control-has-label` | `platform/ui/src/components/**/*.vue`                                                | `off` |
 
 理由寫在 `platform/eslint-config/src/a11y.js` 該區塊的註解裡，這裡不抄 —— 抄本會過期。
 

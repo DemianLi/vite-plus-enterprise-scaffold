@@ -66,6 +66,28 @@ function block(source: string, head: string, close: string): string {
   return source.slice(from, end);
 }
 
+/**
+ * 同 `block()`，但終點是**配對的**那一個括號（C236）。`head` 以 `open` 結尾。
+ *
+ * ⚠️ React 的兩段用「第一個收尾字串」切會切錯而不是切不到：`UiField` 的 props 裡有
+ * `children: (control: { … }) => ReactNode`，第一個 `})` 落在它裡面；JSX 裡的箭頭函式
+ * `onClick={() => go(n)}` 也可以含 `);`。切錯的那一段照樣是字串，後面的條文拿它去比，
+ * **讀起來是綠的** —— 比丟例外難發現得多。
+ */
+function balancedBlock(source: string, head: string, open: string, close: string): string {
+  const start = source.indexOf(head);
+  if (start < 0) throw new Error(`找不到區塊起點：${head}`);
+  const from = start + head.length;
+  let depth = 1;
+  for (let at = from; at < source.length; at += 1) {
+    const char = source.charAt(at);
+    if (char === open) depth += 1;
+    if (char === close) depth -= 1;
+    if (depth === 0) return source.slice(from, at);
+  }
+  throw new Error(`找不到區塊終點：${head} … ${close}`);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 條文 ① 每個元件檔都必須被 index.ts 匯出
 // ─────────────────────────────────────────────────────────────────────────────
@@ -267,6 +289,32 @@ export function defaultSlotValues(componentSource: string): ReadonlyMap<string, 
 }
 
 /**
+ * 預設表（沒讀 `theme.` 的那幾張）的**原文**，空白壓成一格、尾逗號拿掉（C236）。
+ *
+ * 遷移期間（C232 §六 ②–⑤）同一支元件有 `.vue` 與 `.tsx` 兩份，兩份的預設表應該逐字相同。
+ * 各元件檔頭都寫著「代幣對照是人工核對的，沒有閘門在守」—— 兩版逐字比對擋不住兩份一起翻錯，
+ * 但擋得住**只翻了其中一份**，而移植最可能出的就是這一種錯。
+ *
+ * 比原文而不是比值，因為多行的那幾格是 `cn("…", "…")`，`defaultSlotValues` 只認單一字串。
+ */
+export function defaultTableBodies(componentSource: string): ReadonlyMap<string, string> {
+  const bodies = new Map<string, string>();
+  const pattern = /const (\w+): Readonly<Record<\w+, string>> = \{([^}]*)\}/g;
+  for (const match of stripComments(componentSource).matchAll(pattern)) {
+    const body = match[2] as string;
+    if (body.includes("theme.")) continue;
+    const normalized = body
+      .replace(/\s+/g, " ")
+      .replace(/,\s*\)/g, ")")
+      .replace(/\(\s+/g, "(")
+      .replace(/\s+\)/g, ")")
+      .trim();
+    bodies.set(match[1] as string, normalized.replace(/,$/, ""));
+  }
+  return bodies;
+}
+
+/**
  * 元件真的從覆寫表讀了哪些元件名（`theme.UiButton?.` 的那個名字）。
  *
  * ⚠️ 這一條要擋的是**宣告了槽卻沒接上**：`UiThemeOverride` 加一格、
@@ -316,9 +364,14 @@ export function templateBlock(componentSource: string): string {
  * ⚠️ 找不到就丟，**不像 `templateBlock` 回傳空字串**。Vue 那邊沒有 template 的
  * 元件是合法的（純 render 函式）；`.tsx` 元件沒有這一段，只代表慣例漂了 ——
  * 回傳空字串會讓 ⑤ 對它恆真。
+ *
+ * 終點取配對的 `)`（C236，理由見 `balancedBlock`）。⚠️ 格式化器會把放得進一行的 JSX
+ * 收成 `return <div … />;`（`UiSkeleton`），那一形沒有括號，取到該行的 `;` 為止。
  */
 export function jsxBlock(componentSource: string): string {
-  return block(stripComments(componentSource), "return (", ");");
+  const clean = stripComments(componentSource);
+  if (clean.includes("return (")) return balancedBlock(clean, "return (", "(", ")");
+  return block(clean, "return <", ";\n");
 }
 
 /**
@@ -387,9 +440,11 @@ export type ComponentKind = "vue" | "react";
  * 理由同 ④：`api-surface` 記的是簽章的文字，具名介面只會印出名字。
  * 找不到就丟，不回傳 null：Vue 那邊「沒有 props」是合法的，這邊沒有這一段
  * 只代表慣例漂了，而回傳 null 會讓 ④ 與「預設值在 union 裡」一起跳過。
+ *
+ * 終點取配對的 `}`（C236）：型別字面值裡可以再有一層 `{ … }`，見 `balancedBlock`。
  */
 export function reactPropsBlock(componentSource: string): string {
-  return block(stripComments(componentSource), "}: {", "})");
+  return balancedBlock(stripComments(componentSource), "}: {", "{", "}");
 }
 
 /** 解構參數裡的字串預設值：`({ variant = "secondary", … }: {` 那一段。 */

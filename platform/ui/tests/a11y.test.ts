@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { compile } from "tailwindcss";
 
-import { defaultSlotValues, stripComments } from "./contract.ts";
+import { defaultSlotValues, jsxBlock, stripComments } from "./contract.ts";
 
 /**
  * 無障礙的驗收（C82）。
@@ -145,6 +145,19 @@ describe("骨架對輔具隱藏", () => {
     expect(template, "UiSkeleton 模板沒有 aria-hidden —— 載入期間輔具完全靜默").toContain(
       'aria-hidden="true"',
     );
+  });
+});
+
+describe("骨架對輔具隱藏（React）", () => {
+  // 同上一組，讀的是 `return (` 那段 JSX（C236）。具名的理由與保險同上。
+  const skeleton = REACT_COMPONENTS.find(({ name }) => name === "UiSkeleton.tsx");
+
+  it("★ UiSkeleton.tsx 還在（具名條文的保險）", () => {
+    expect(skeleton, "找不到 UiSkeleton.tsx —— 具名條文會零執行然後全綠").toBeDefined();
+  });
+
+  it('JSX 上有 aria-hidden="true"', () => {
+    expect(jsxBlock(skeleton?.source ?? "")).toContain('aria-hidden="true"');
   });
 });
 
@@ -389,6 +402,9 @@ const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = {
  *
  * ⚠️ 別跟 SSR 的 fragment 標記搞混：產物裡的 `<!--[-->` 與 `<!---->` 是 Vue
  * 自己插的，不是作者寫的。這一條讀的是**原始碼**，碰不到它們。
+ *
+ * ⚠️ **React 那一半刻意沒有這一條（C236）**：JSX 的 `{/* … *\/}` 在 SSR 與用戶端都不輸出，
+ * 寫在 JSX 裡的論證進不了任何產物 —— 這條要擋的東西在 `.tsx` 上不存在，不是漏掃。
  */
 describe("模板不留 HTML 註解", () => {
   for (const { name, source } of COMPONENTS) {
