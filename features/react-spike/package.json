@@ -6,6 +6,7 @@
     "build": "vp build"
   },
   "dependencies": {
+    "@base-ui/react": "^1.8.0",
     "radix-ui": "^1.6.7",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
