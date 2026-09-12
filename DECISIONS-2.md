@@ -11829,3 +11829,92 @@ CSS 裡另有一段 `/*! tailwindcss … MIT License */` —— 第三方授權�
 | **C231**                         | **白名單不用改**；它的批次 ② 排在本則 ② 之後                                                    |
 | **AGENTS.md 規則三**             | **遷移的基準線** —— 驗收規格那條鏈沒有框架碼                                                    |
 | **C136 §八**                     | **遵守** —— 舊裁決一個字都不改                                                                  |
+
+### C233 — 示範切片量完：React 工具鏈在 vite-plus 底下走得通；Radix 的捲動鎖定被這棵樹的 CSP 安靜擋掉、hash 放行量過不可行，改用 Base UI（2026-09-12，Q53）
+
+> C232 批次 ⓪ 的產出。示範切片在分支 `prototype/react-slice`（`92bc2bc`），**不合進 `main`**。本則只裁決、零程式碼。
+
+#### 一、Q53 由人裁
+
+| #       | 問題                                                                                     | 裁決             |
+| ------- | ---------------------------------------------------------------------------------------- | ---------------- |
+| **Q53** | Radix 的捲動鎖定被 CSP 擋掉：改用 Base UI／放寬 `style-src`／per-request nonce／自己補丁 | **改用 Base UI** |
+
+⚠️ 放寬 `style-src` 正是 AGENTS.md 規則二「改設定來換綠燈」的形狀，所以這一題交給人裁，不由 agent 決定。人選了不放寬。
+
+#### 二、C232 §四、§五 要量的，都量了
+
+| 項目                                    | 量法                                         | 結果                                                                                                                                   |
+| --------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `@vitejs/plugin-react` 在 vite alias 下 | 在 `features/react-spike` 安裝               | ✅ RC 0、零 peer 錯誤。它的 peer 要 `vite ^8`，由既有的 `peerDependencyRules` 放行                                                     |
+| 建置 `.tsx`                             | `vp build`                                   | ✅ RC 0                                                                                                                                |
+| 型別檢查由誰接手                        | `main.tsx` 放一行型別錯誤                    | ✅ `vp check` 紅（TS2322，指到 `main.tsx`）—— **`vue-typecheck` 退場不必另找接手的**                                                   |
+| 主要那份 ESLint 看不看得到 `.tsx`       | 放 `document.body.innerHTML = location.hash` | ✅ 紅（`no-unsanitized/property`）                                                                                                     |
+| a11y 那份 ESLint                        | 同一支檔                                     | ❌ 「File ignored because no matching configuration」—— **看不見**                                                                     |
+| `conformance`                           | 讀 `SOURCE_EXTENSIONS`                       | 含 `.tsx`，看得到                                                                                                                      |
+| shadcn 的樣式形狀（C68）                | 抓 registry JSON                             | `new-york-v4` 的 Button、Dialog 語意 class 0 個；nova 系列（`radix-nova`、`base-nova`）Dialog 標題 1 個 `cn-font-heading`，Button 0 個 |
+| Radix／Base UI 在 CSP 下                | 瀏覽器實測，見 §三                           | Radix ❌、Base UI ✅                                                                                                                   |
+
+#### 三、CSP：在瀏覽器裡實測
+
+量法：示範切片的正式產物，由 `@org/security-headers` 的 `buildSecurityHeaders({ reportOnly: false })` 服務 —— 與 `tools/csp-verify` 同一個形狀（它把目錄寫死成 `apps/console/dist`，所以另起一支 scratch 伺服器）。頁面拉長到可以捲動，並排兩個 Dialog，依序打開。
+
+|                     | Radix Dialog                                                                    | Base UI Dialog                                                                 |
+| ------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| console 的 CSP 違規 | 多 1 條，`style-src 'self'`                                                     | 0 條（打開前後都只有前一趟留下的那一條）                                       |
+| 捲動鎖定            | body 標了 `data-scroll-locked`，`overflow` 仍是 `visible` —— **沒鎖住、零報錯** | body `overflow: hidden`、html `scrollbar-gutter: stable`；按 Escape 關掉後還原 |
+| `<style>` 元素      | 1 個、沒有 nonce、`sheet` 是空的                                                | 0 個                                                                           |
+
+- **注入的來源**：`react-style-singleton`（經 `react-remove-scroll-bar`）。它向 `__webpack_nonce__` 要 nonce，而 Vite 底下沒有這個變數，所以**永遠不帶 nonce**。
+- ⚠️ **hash 放行不可行，而且是量到的**：同一頁裡 Radix Dialog 兩次打開，瀏覽器回報的 sha256 不同（`YR2K…`、`rJOW…`）—— 注入的內容帶執行期算出來的 padding 與捲軸寬度。
+- **關不掉**：安裝的 Radix Dialog、Select、Popover、Menu 都用 `RemoveScroll`，沒有一個轉發 `removeScrollBar`（0 處）；DropdownMenu 走 Menu。
+- **Base UI 為什麼過得去**：捲動鎖定在 `@base-ui/utils` 的 `useScrollLock.js`，只寫 `element.style`（CSSOM，CSP 不擋）。`@base-ui/react` 1.8.0 與 `@base-ui/utils` 0.4.0 全套件 `createElement('style')` 0 支 —— 對照：同一個 pattern 在 `react-style-singleton` 抓到 4 支。
+- 這與 reka 的 Splitter（C232 §四 2）是同一個形狀，**射程大得多**：Splitter 是一個元件，這是所有會鎖捲動的彈出層。
+
+#### 四、閘門：真紅／綠且看得到／綠但看不見
+
+量法：把 `gate:upstream` 拆開逐支跑 —— 用 `&&` 串起來的話紅在第一格就停，看不到後面。
+
+| 閘門                                                                                                          | 結果           | 讀法                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `conformance`                                                                                                 | 紅 15 條       | 看得到 `.tsx`；15 條全是切片結構（缺 README、`src/index.ts`、測試、覆蓋率區塊，版本沒走 catalog，沒用 `@org/ui`）—— 是示範切片沒照規矩長，**不是 React 的問題** |
+| `supply-chain`                                                                                                | 紅             | D15「這個決策強制帶出的四件事」第 2 條準時到：相依變了，基線要在公網那一側重擷取 —— **是確認，不是新問題**                                                      |
+| `doc-facts`                                                                                                   | 紅             | README 的 workspace package 數 36 → 37 —— 多的就是示範切片這個 package，**不是遷移的發現**                                                                      |
+| `eslint`（上游）                                                                                              | 綠，看得到     | §二 的探針                                                                                                                                                      |
+| `a11y`（上游）                                                                                                | **綠，看不見** | `.tsx` 整支被略過；`jsx-a11y` 還沒裝                                                                                                                            |
+| `vue-typecheck`、`theme-verify`、`api-surface`、`exit-drill`                                                  | **綠，看不見** | 它們只讀 `.vue`（C232 §二）                                                                                                                                     |
+| `gate-roster`、`scaffold-stamp`、`compliance`、`pii-check`、`scope-check`、`threshold-check`、`promise-check` | 綠             | **沒有逐支判讀它們看不看得到 `.tsx`**（§五）                                                                                                                    |
+
+`vpr ready` 的測試那一步紅在 `supply-chain` 的 `sbom-negative.test.ts`，與上表 `supply-chain` 那一列同一個成因。
+
+#### 五、還沒量的 —— 不要當成量過
+
+- **shadcn CLI 沒有實際跑過**：`init`／`add` 在這個 monorepo 裡寫到哪、`components.json` 放哪，都沒量；只讀了 registry 的 JSON。
+- **Tailwind 沒裝進示範切片**；shadcn `init` 會多引 `tw-animate-css` 與 `shadcn/tailwind.css` 兩份 CSS，沒量。
+- **沒有測試**：`@testing-library/react`、覆蓋率門檻的接線都沒跑。
+- **Base UI 只在瀏覽器驗了 Dialog**；Select、Popover、Menu 讀碼是同一個 `useScrollLock`，沒逐一點過。
+- §四 最後一列那 7 支，沒有逐支判讀。
+
+#### 六、對 C232 的影響（依 C136 §八，不改它的原文）
+
+- **§五「UI 基元」那一列**：`radix-ui` → **`@base-ui/react` 1.8.0，由 shadcn CLI 的 Base UI 那一套產出**。
+- **§四 2（Splitter）**：答案是「Radix 會注入，而且不只 Splitter」。改用 Base UI 之後，`CSP_INCOMPATIBLE_MODULES` 在批次 ① 換成 Base UI 的內容 —— 以今天的量測是空的，但「空」要由一支會紅的檢查守著，不能靠這一次的量測。
+- **§四 3（C68）**：`new-york-v4` 是 0，而 Base UI 對應的 nova 系列有 1 個語意 class（`cn-font-heading`）—— **C68 那個洞以「一個字型 token」的大小回來**。批次 ② 決定：收 preset 並讓 `theme-verify` 看得到它，或把那一處改寫成 utility。
+- **§五 最後一列（型別檢查）**：由 `vp check` 接手，已驗。
+- **§六 批次 ④ 的 `jsx-a11y` 提前到 ①**：批次 ② 起 `main` 上就有 React 畫面，而 §四 量到 a11y 閘門看不見 `.tsx` —— 照原排法，中間兩批的 React 畫面零靜態 a11y 檢查，而 `compliance` 把這道閘門對到法遵條號。
+- **§六 ⓪**：完成。
+
+#### 七、C154 §三
+
+本則零程式碼，不新增、不拿掉任何機械檢查。
+
+#### 八、與既有裁決的關係
+
+| 裁決                                  | 關係                                            |
+| ------------------------------------- | ----------------------------------------------- |
+| **C232**                              | **批次 ⓪ 的產出**；§五 一列、§六 一格以本則為準 |
+| **C68**                               | **洞以一個語意 class 的大小回來**，批次 ② 處理  |
+| **D11**                               | **不放寬** —— 嚴格 CSP 照舊                     |
+| **`assertStaticCspCompatible`（R6）** | **nonce 那條路與它衝突**，Q53 沒選那條          |
+| **AGENTS.md 規則二**                  | **遵守** —— 放寬 CSP 交人裁，人選了不放寬       |
+| **C136 §八**                          | **遵守** —— 舊裁決一個字都不改                  |
