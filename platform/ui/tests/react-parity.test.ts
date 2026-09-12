@@ -78,6 +78,9 @@ const VARIANT_TRANSLATIONS: Readonly<Record<string, readonly (readonly [string, 
     ["disabled:", "data-disabled:"],
   ],
   UiTabs: [["data-[state=active]:", "data-active:"]],
+  // 面板與觸發器等寬的那個變數，兩個基元庫在執行期各寫各的名字（C237，見 `UiSelect.tsx`）。
+  UiSelect: [["min-w-(--reka-select-trigger-width)", "min-w-(--anchor-width)"]],
+  UiDropdownMenu: [["data-[state=open]:", "data-popup-open:"]],
 };
 
 function translate(body: string, pairs: readonly (readonly [string, string])[]): string {
@@ -370,6 +373,45 @@ const PAGINATION_CASES: readonly Case[] = [
   react: () => createElement(UiPagination, { page, total, perPage: 10 }),
 }));
 
+/**
+ * 上面 `CASES` 渲染到的元件。其餘的不在這裡比，理由有兩種，行為改在 `BEHAVIOR_TESTS` 那支檔裡量：
+ *
+ * - 經過基元的（勾選類、Tabs）：兩個基元庫的 DOM 本來就不同，見檔頭。
+ * - 彈出層（C237）：內容在 portal 裡，reka 的 `Teleport` 在 SSR 下不渲染（`<!--v-if-->`），
+ *   React 的 portal 在 SSR 下也不渲染 —— 兩邊都是空的，放進來會是一組「空對空」的綠。
+ */
+const SSR_COMPARED: ReadonlySet<string> = new Set([
+  "UiAlert",
+  "UiBadge",
+  "UiField",
+  "UiInput",
+  "UiLabel",
+  "UiPagination",
+  "UiSeparator",
+  "UiSkeleton",
+  "UiTable",
+  "UiTableBody",
+  "UiTableCell",
+  "UiTableHead",
+  "UiTableHeadCell",
+  "UiTableRow",
+  "UiTextarea",
+]);
+
+const BEHAVIOR_TESTS: Readonly<Record<string, string>> = {
+  UiButton: "button-react.test.ts",
+  UiCheckbox: "choice-react.test.ts",
+  UiRadioGroup: "choice-react.test.ts",
+  UiRadioItem: "choice-react.test.ts",
+  UiSwitch: "choice-react.test.ts",
+  UiTabs: "choice-react.test.ts",
+  UiTabsPanel: "choice-react.test.ts",
+  UiDialog: "dialog-react.test.ts",
+  UiAlertDialog: "alert-dialog-react.test.ts",
+  UiSelect: "select-react.test.ts",
+  UiDropdownMenu: "dropdown-menu-react.test.ts",
+};
+
 describe("二、SSR 產出兩版逐一相同", () => {
   it("★ 分頁的差分格真的有那麼多組 —— 否則下面是在少數幾組上綠", () => {
     expect(PAGINATION_CASES.length).toBe(211);
@@ -386,6 +428,23 @@ describe("二、SSR 產出兩版逐一相同", () => {
       expect(react).toEqual(vue);
     },
   );
+
+  it("★ 每一支 .tsx 不是在這裡比過 SSR，就是有一支行為測試 —— 兩邊都沒有的元件沒有人在比", () => {
+    const self = readFileSync(import.meta.filename, "utf8");
+    for (const file of REACT_FILES) {
+      const name = file.replace(/\.tsx$/, "");
+      const behavior = BEHAVIOR_TESTS[name];
+      expect(
+        SSR_COMPARED.has(name) !== (behavior !== undefined),
+        `${name} 要恰好在 SSR_COMPARED 或 BEHAVIOR_TESTS 其中一邊`,
+      ).toBe(true);
+      const source =
+        behavior === undefined ? self : readFileSync(join(import.meta.dirname, behavior), "utf8");
+      expect(source, `${behavior ?? "本檔"} 沒有 import ${name}`).toContain(
+        `import { ${name} } from "../src/components/${file}";`,
+      );
+    }
+  });
 
   it("★ 每一個 React 多出來的 class 都真的在 —— 沒被用到的例外是過期的例外", () => {
     for (const entry of CASES.filter((item) => item.reactOnlyClasses !== undefined)) {

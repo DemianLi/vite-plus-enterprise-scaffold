@@ -12255,3 +12255,122 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 | **Q58**              | 照舊（Q66 重新確認）                                                                                                                                                                                     |
 | **AGENTS.md 規則二** | **遵守** —— 三條 a11y 的出口都交人裁                                                                                                                                                                     |
 | **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                                                                                                                           |
+
+### C237 — 第 ② 批之三：四支彈出層元件 —— reka 的 ⭐ 在 Base UI 上逐條重量，四處答案不同照實寫；DatePicker 形狀裁定、拆到 ②d（2026-09-13，Q67–Q69）
+
+> C232 §六 ② 的第三支 PR。C236 §四 交來五支：Dialog、AlertDialog、Select、DropdownMenu、DatePicker。這一支做前四支 —— 零新套件；**DatePicker 拆到 ②d**，理由同 C236 拆 ②b：它帶三支套件進供應鏈（react-day-picker、`date-fns`、`@date-fns/tz`），而且 C236 Q62 是解讀、動手前要先問（這次問了，Q67／Q68）。拆法是揭露、不是問。
+
+#### 一、三題由人裁
+
+| #       | 問題                                                                                                            | 裁決                                                                         |
+| ------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Q67** | React 版 `UiDatePicker` 的形狀：Base UI 與 react-day-picker 都沒有分段輸入欄；shadcn 那一頁的基本範例是一顆按鈕 | **按鈕 ＋ 日曆**（年月用下拉切換，同那一頁「出生日期」範例）                 |
+| **Q68** | 值的型別：`CalendarDate` 在 React 版要執行期用到 `@internationalized/date`，⑤ 刪 reka 後它變成真的直接相依      | **照舊 `CalendarDate`**                                                      |
+| **Q69** | theme-verify 判 UiSelect 的 `--anchor-width` 懸空（Base UI 執行期以 inline style 寫入）                         | **登記進 `RUNTIME_PROVIDED`**，同 `--reka-select-trigger-width` 那一列的判準 |
+
+- **Q67／Q68 是 C236 Q62 那句「解讀」的收尾**：人答以網址那次沒回答「能不能打字」與「值的型別在 React 版的代價」，這次連代價一起問。Q67 的代價寫在選項裡、人已看過：**不能打字**，而 `UiDatePickerSlot` 的 `segment` 那一格在 React 版沒有對象 —— 那是 ②d 要處理的（翻譯表列不了「一格不存在」，要寫明）。
+- **Q69 不是調鬆**：那張表每一筆都要寫「誰、什麼時候設它」，判準（「我們無法宣告，而且宣告了反而是錯的」）寫在 `css.ts` 那一段，這一筆正是同一件事換一個基元庫。仍然交人，因為改的是閘門的資料（AGENTS.md 規則二）。
+
+#### 二、做了什麼
+
+1. **四支元件**：`UiDialog`、`UiAlertDialog`、`UiSelect`、`UiDropdownMenu`，由 `react.ts` 轉出（連前兩批共 26 支）。預設表逐字照 `.vue`，差別只有翻譯表兩列（見 5）。
+2. **React 慣例**（我定的，揭露；同 C236 §二 2）：
+   - `v-model:open` → `open`／`onOpenChange`；`v-model` → `value`／`onValueChange`；emit → `onConfirm`／`onSelect`。不給就是非受控。
+   - `UiDialog` 的三個 slot → `children`／`footer`／`close`。`close` 收一個元素，交給 `Dialog.Close` 當 `render`（Vue 版是 `DialogClose as-child` 包住 slot）—— 那段接線是這裡寫的，有一條 ⭐ 守。
+   - `UiSelect` 的值：Vue 版以空字串表示「沒選」，Base UI 用 `null`；對外照 Vue，在元件裡互轉。
+   - `UiSelect` 明列 `id`／`aria-describedby`／`aria-invalid`／`aria-label`，全部交給觸發鈕 —— C101 在 React 版的形狀。
+3. **在 Base UI 上重量，答案與 reka 相同的**（量法：先用裸基元在 happy-dom 上探一輪，再寫元件）：
+   - DropdownMenu 的選單名字從觸發器接過去（`MenuRoot` 把 `Popup` 的 `aria-labelledby` 設成觸發器的 id）—— 所以 `sr-only` 那段論證、兩條 ⭐ 照舊成立。
+   - AlertDialog 點外面不關、Esc 會關、role 是 `alertdialog`；`onConfirm` 被呼叫時對話框還在（同 C88 的時序，探針在處理器裡）。
+   - Select 的 `id` 留在觸發鈕（`role="combobox"` 的 `<button>`，可被標籤）；隱藏的表單 `<input>` 另取 `…-hidden-input`。
+4. **答案不同的四處，照 Base UI、寫在檔頭與測試名裡**：
+
+| 元件         | reka（Vue 版）                                         | Base UI（React 版）                                                                | 處置                                                                            |
+| ------------ | ------------------------------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| AlertDialog  | 取消鈕自己登記 → 焦點落在取消，與 DOM 順序無關         | 預設聚焦內容裡第一個可聚焦元素：`children` 放連結，焦點落在連結                    | `initialFocus` 指到按鈕列第一顆；⚠️ 兩條路靠同一個順序，模板順序比 Vue 版更承重 |
+| DropdownMenu | 到底不繞回（`loop` 預設 false）                        | `loopFocus` 預設 true                                                              | 設 `false`，照 Vue 版                                                           |
+| DropdownMenu | ↓ 跳過 disabled                                        | disabled 可聚焦（`aria-disabled`，點了沒反應），沒有選項可改                       | 照上游，測試寫 Base UI 的答案                                                   |
+| DropdownMenu | 焦點落點由整頁單例旗標決定；modal 時外面 `aria-hidden` | 鍵盤或點擊打開 → 第一項、程式打開 → 容器；外面不加 `aria-hidden`（內部遮罩擋指標） | 照上游；Vue 檔頭「觸發器自己也被 `aria-hidden` 蓋住」那段灰區在 React 版不發生  |
+
+- AlertDialog 沒用 ref 指到取消鈕本身：幫 `UiButton` 加選填的 `ref`，`api-surface` 判成**破壞性**（函式型別的文字變了）要附 codemod。改走「按鈕列裡的第一顆」，`UiButton` 不動。
+- Select：`alignItemWithTrigger={false}` 對應 reka 的 `position="popper"`；`Positioner` 上的 `z-50` 寫在預設表外面 —— reka 把 content 的 `z-index` 抄到外層定位元素（`PopperContent.js`），Base UI 不抄，寫在 `Popup` 上沒有效果。
+- DropdownMenu 的 `danger` 疊在 `item` 上改走 `cn()`：兩格都有 `data-[highlighted]:` 底色時 twMerge 讓 `danger` 贏；Vue 版兩個都留、看 CSS 順序。
+
+5. **兩版比對**（`react-parity.test.ts`）：
+   - 翻譯表多兩列：`UiSelect` 的 `min-w-(--reka-select-trigger-width)` → `min-w-(--anchor-width)`；`UiDropdownMenu` 的 `data-[state=open]:` → `data-popup-open:`（`data-[highlighted]:`、`data-[placeholder]:`、`data-[disabled]:` Base UI 用同名屬性，不必翻）。
+   - **彈出層不進 SSR 比對**：reka 的 `Teleport` 在 SSR 下是 `<!--v-if-->`，React 的 portal 也不渲染 —— 放進去是一組空對空的綠。新增一條 ★：每一支 `.tsx` 要恰好在「SSR 比過」或「有一支行為測試」其中一邊，而那支測試真的 import 它（勾選類與 Tabs 從 C236 起就是後者，這次寫成清單）。
+6. **行為測試**：`dialog-react`、`alert-dialog-react`、`dropdown-menu-react`、`select-react` 四支 ＋ 共用的 `overlay-react.ts`；`field-wiring-react` 補 `UiSelect` 那一組（多一種 Vue 版沒有的壞法：`for` 指到隱藏的 input，元素存在而按鈕沒有名字）；`a11y.test.ts` 補一條 React 版 `sr-only` 載體。
+   - ⚠️ **「點外面」只送 `click` 的話 `UiDialog` 也不會關**（探針實測）—— 拿那種按法去證明「`UiAlertDialog` 點外面不會關」是恆真。所以按法走按下＋放開，旁邊有一條對照組用同一支函式把 `UiDialog` 關掉。
+7. **theme-verify**（Q69）：`RUNTIME_PROVIDED` 多一列；它自己的「登記表不得有死掉的那一筆」原本只讀 `.vue`，會把這一列判死 —— 改成 `.vue` 與 `.tsx` 都讀（斷言不變，只是看得到 React 那一半）。
+8. **基準**：`api-surface` 218 → 222 個 export（+4，全部相容）；`HANDOFF.md` 那一句同步。供應鏈零變動。`base-ui-no-style.test.ts` 不必動 —— 它掃的是整個套件目錄，不是 import 圖，`dialog`／`menu`／`select` 從 C235 起就在掃描範圍裡。
+
+#### 三、量測
+
+- **探針**（寫元件之前，裸基元、happy-dom）：上面 §二 3、4 的每一格都出自這一輪。
+- **變異**：每顆改一處，各自有檢查紅；未改的對照全綠。
+
+| #   | 改法                                                   | 紅                       |
+| --- | ------------------------------------------------------ | ------------------------ |
+| M1  | `UiAlertDialog` 拿掉 `initialFocus`（退回預設）        | 1                        |
+| M2  | `initialFocus` 指到按鈕列最後一顆                      | 2                        |
+| M3  | 取消與確認對調順序                                     | 3                        |
+| M4  | `confirmVariant` 預設改 `primary`                      | 1                        |
+| M5  | `UiDialog` 的 `close` 不經 `Dialog.Close`              | 1                        |
+| M6  | `footer` 不再優先於 `close`                            | 1                        |
+| M7  | 拿掉 `loopFocus={false}`                               | 1                        |
+| M8  | `onSelect` 回報 `label` 而不是 `value`                 | 1                        |
+| M9  | `sr-only` 換成 `hidden`                                | 3（含 `a11y.test.ts` 1） |
+| M10 | 拿掉 `Menu.Item` 的 `label`                            | **0 —— 等價變異**        |
+| M11 | 拿掉 `align`                                           | 1                        |
+| M12 | `UiSelect` 拿掉 `"" → null` 互轉                       | **0 —— 等價變異**        |
+| M13 | 觸發鈕不接 `aria-describedby`                          | 1                        |
+| M14 | 觸發鈕不接 `id`                                        | 1                        |
+| M15 | `Select.Root` 不給 `items`                             | 2                        |
+| M16 | `UiSelect.tsx` 一格代幣改成 `border-input`（只翻一份） | 1                        |
+| M17 | 翻譯表拿掉 `UiSelect` 那一列                           | 1                        |
+| M18 | `BEHAVIOR_TESTS` 拿掉 `UiDialog`                       | 1                        |
+| M19 | `RUNTIME_PROVIDED` 的 `--anchor-width` 改名            | theme-verify RC=1        |
+
+⚠️ **兩顆零紅都不是破口**：
+
+- **M10**：首字跳轉在沒有 `label` 時讀項目的文字內容，而文字內容就是 `label`。Vue 版的 `:text-value` 是同一件事、同樣零紅（`UiDropdownMenu.vue` 的 prop 說明已記「現在是註解、將來是行為」）—— 照留，理由相同。
+- **M12**：Base UI 對不在 `items` 裡的值也顯示 placeholder，所以拿掉互轉照樣顯示「沒選」。互轉留著是因為 `null` 才是它文件上的「沒選」；而沒有任何選項能合法地以 `""` 為值，找不到分得出兩者的輸入。那條測試原本標 ⭐、標題寫「對 Base UI 換成 null」，量完改掉 —— 它守的是對外行為，不是那一行。
+
+- **對照**：未改的樹 platform/ui 999 條全綠、theme-verify RC 0。
+- theme-verify 自己那條「死掉的那一筆」在只讀 `.vue` 時紅 1 條（自然發生，不是人造的變異）—— §二 7 的改動因此有一個已知會紅的反例。
+- DropdownMenu「選單以外不加 `aria-hidden`」另量一次 `modal` 明傳 `true`／`false`／不給：三種都沒有 `aria-hidden`（`true` 與不給時捲動照樣鎖住）；同一支探針裡 `Dialog` 的對照組**有** `aria-hidden="true"` —— 那一格不是探針量不到。
+
+- **閘門逐支跑**：紅過的是 `api-surface`（先是 `UiButton` 的 `ref` 判破壞性 → 改寫法；再是新 export → `--update`）、`theme-verify`（Q69）、章（新檔）；`a11y` 的 `.tsx` 軌掃到彈出層四支：**0 則** —— 不需要新的覆寫。其餘綠。
+- **`vp check`**：0 錯、13 warning（`main` 同為 13；第一次多出的那一則是新測試裡一個多餘的展開，已改）。
+
+#### 四、交給 ②d 的，以及還沒量的
+
+- **DatePicker**（Q67／Q68）：react-day-picker 10 ＋ `date-fns` ＋ `@date-fns/tz` 進供應鏈並重查健康度；`@internationalized/date` 在 ⑤ 之後變成真的直接相依（Q68 的代價）；`segment` 槽在 React 版沒有對象，翻譯表與契約 ③ 怎麼處理要寫明；`locale` 字串對到日曆的方式沒量。
+- **真瀏覽器沒量**：焦點、點外面、捲動鎖定都是 happy-dom 的答案；DropdownMenu「點擊打開落在第一項」在 happy-dom 上成立，真滑鼠的指標類型判定可能不同。
+- **⑤**：`BEHAVIOR_TESTS` 那張清單在 Vue 退場時仍然有效（它不依賴 `.vue`），但 `react-parity.test.ts` 整支要退役或換尺（C236 §四）—— 那天把這張清單搬到別處。`RUNTIME_PROVIDED` 的 reka 那一列會被自己的「死掉的那一筆」測試點名。
+
+#### 五、C154 §三
+
+| 新增的檢查                                                   | 交付軸                     | 迭代軸（① 對象在外、② 壞法安靜）                 | 級別               |
+| ------------------------------------------------------------ | -------------------------- | ------------------------------------------------ | ------------------ |
+| AlertDialog 焦點兩條路（`alert-dialog-react`）               | 一個 Enter 不會誤刪        | ① 對象在內；② 焦點落在確認鈕上、畫面一個像素不變 | 探針（M1–M3）      |
+| DropdownMenu 名字與鍵盤（`dropdown-menu-react`）             | 輔具與鍵盤使用者用得了     | ① 對象在內；② 無名的選單、繞回與否 —— 畫面正常   | 探針（M7–M9、M11） |
+| Dialog 的 `close` 接線（`dialog-react`）                     | 各案換掉關閉鈕之後仍然會關 | ① 對象在內；② 按鈕在、點了沒反應                 | 探針（M5、M6）     |
+| Select 值互轉與 C101（`select-react`、`field-wiring-react`） | 標籤接得上、空值是「沒選」 | ① 對象在內；② 同 C101                            | 探針（M13–M15）    |
+| 「每支 .tsx 有人在比」清單                                   | —                          | ① 對象在內；② 新元件零比對、全綠                 | 自我防護（不計分） |
+
+#### 六、實測
+
+- 本機 `vpr ready`：**READY_RC 0**（在 `fdc48e5` 上；之後只改了這一行與 §三 最後一條）。拆開逐支跑的那一趟見 §三。
+
+#### 七、與既有裁決的關係
+
+| 裁決                 | 關係                                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **C232**             | §六 ② 的彈出層四支在此；DatePicker 拆到 ②d                                                                   |
+| **C233**             | Base UI 照舊；四支的捲動鎖定走的是它 C233 §三 量過的那條路（`element.style`）                                |
+| **C236**             | §四「五支 ⭐ 要重量」→ 本則 §二 3、4；Q62 的解讀 → Q67／Q68 收尾；「`.tsx` 那一軌只校準了 21 支」→ 四支 0 則 |
+| **C88**              | 「emit／回呼時元件還開著」在 Base UI 上重量，成立                                                            |
+| **C101**             | React 版形狀：明列的 prop 落在觸發鈕上；多一種壞法（`for` 指到隱藏 input）                                   |
+| **AGENTS.md 規則二** | **遵守** —— theme-verify 的登記表交人裁（Q69）                                                               |
+| **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                               |

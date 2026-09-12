@@ -158,10 +158,13 @@ describe("懸空引用", () => {
      *
      * 那正是 C71 的形狀：一份清單被寫下來，而沒有東西在斷言它還成立。
      * 這裡從元件原始碼反查 —— 沒有人在用的名字就是該刪掉的名字。
+     *
+     * `.tsx` 也要讀（C237）：React 版 `UiSelect` 的 `--anchor-width` 只在 `.tsx` 裡，
+     * 只讀 `.vue` 的話它會被判成死的那一筆。
      */
     const dir = join(import.meta.dirname, "../../../platform/ui/src/components");
     const sources = readdirSync(dir)
-      .filter((name) => name.endsWith(".vue"))
+      .filter((name) => name.endsWith(".vue") || name.endsWith(".tsx"))
       .map((name) => readFileSync(join(dir, name), "utf8"))
       .join("\n");
 

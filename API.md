@@ -1228,6 +1228,12 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 ({ tone, children, }: { tone?: "danger" | "info" | "success" | undefined; children?: ReactNode; }) => ReactNode
 ```
 
+### `UiAlertDialog` — function
+
+```
+({ open, onOpenChange, title, description, confirmLabel, cancelLabel, confirmVariant, onConfirm, children, }: { open?: boolean | undefined; onOpenChange?: ((open: boolean) => void) | undefined; title: string; description: string; confirmLabel: string; cancelLabel?: string | undefined; confirmVariant?: "danger" | "primary" | undefined; onConfirm?: (() => void) | undefined; children?: ReactNode; }) => ReactNode
+```
+
 ### `UiAlertDialogSlot` — type
 
 ```
@@ -1282,10 +1288,22 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 "content" | "day" | "field" | "headCell" | "heading" | "nav" | "segment" | "trigger"
 ```
 
+### `UiDialog` — function
+
+```
+({ open, onOpenChange, title, description, footer, close, children, }: { open?: boolean | undefined; onOpenChange?: ((open: boolean) => void) | undefined; title: string; description: string; footer?: ReactNode; close?: ReactElement<unknown, string | JSXElementConstructor<any>> | undefined; children?: ReactNode; }) => ReactNode
+```
+
 ### `UiDialogSlot` — type
 
 ```
 "content" | "description" | "overlay" | "title"
+```
+
+### `UiDropdownMenu` — function
+
+```
+({ open, onOpenChange, label, items, align, onSelect, }: { open?: boolean | undefined; onOpenChange?: ((open: boolean) => void) | undefined; label: string; items: readonly { value: string; label: string; disabled?: boolean | undefined; variant?: "danger" | "default" | undefined; }[]; align?: "end" | "start" | undefined; onSelect?: ((value: string) => void) | undefined; }) => ReactNode
 ```
 
 ### `UiDropdownMenuSlot` — type
@@ -1364,6 +1382,12 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 
 ```
 "indicator" | "item" | "label"
+```
+
+### `UiSelect` — function
+
+```
+({ value, onValueChange, items, placeholder, id, "aria-label": ariaLabel, "aria-describedby": describedBy, "aria-invalid": invalid, }: { value?: string | undefined; onValueChange?: ((value: string) => void) | undefined; items: readonly { value: string; label: string; }[]; placeholder: string; id?: string | undefined; "aria-label"?: string | undefined; "aria-describedby"?: string | undefined; "aria-invalid"?: true | undefined; }) => ReactNode
 ```
 
 ### `UiSelectSlot` — type

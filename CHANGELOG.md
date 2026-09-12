@@ -83,6 +83,7 @@
 | **C234** | 第 ① 批（Q54–Q56）：禁用清單改比套件、補 React 與 Radix；a11y 與 theme-verify 讀 `.tsx`（改用 jsx-a11y-x）；三支移到 ②③                                        |
 | **C235** | 第 ② 批之一（Q57–Q60）：`@org/ui/react` 入口與 React 版 UiButton；CLI 產出當素材、不裝 cva、語意 class 改 utility；Base UI 的空有絆線守著                      |
 | **C236** | 第 ② 批之二（Q61–Q66）：其餘 21 支非彈出層元件；兩版預設表與 SSR 產出逐字比對、分頁對 reka 差分；a11y 的 .tsx 軌第一次校準，三條交人裁                         |
+| **C237** | 第 ② 批之三（Q67–Q69）：彈出層四支；reka 的 ⭐ 在 Base UI 上逐條重量，四處答案不同照實寫；DatePicker 形狀裁定、拆到 ②d                                         |
 
 ---
 

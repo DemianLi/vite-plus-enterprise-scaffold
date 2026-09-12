@@ -168,6 +168,9 @@ export const RUNTIME_PROVIDED: Readonly<Record<string, string>> = {
   "--reka-select-trigger-width":
     'reka-ui 的 SelectContent（position="popper"）在開啟時以 inline style 寫入觸發器寬度，' +
     "讓下拉面板與觸發器等寬。宣告在 @theme 裡會變成一個永遠被蓋掉的死代幣。",
+  "--anchor-width":
+    "Base UI 的 Select.Positioner 在開啟時以 inline style 寫入觸發器寬度（React 版 UiSelect，C237 Q69），" +
+    "與上一列同一個用途。宣告在 @theme 裡會變成一個永遠被蓋掉的死代幣。",
 };
 
 /**
