@@ -63,7 +63,7 @@ createApp(App).use(createUiTheme({ variants: { secondary: "bg-surface-hover text
 乾跑當場撞到 4 處（含**產生器模板裡的一處**，也就是每個新切片天生帶著
 一個換不掉的顏色）。見 C68〈十〉。
 
-⚠️ **覆寫的 class 字串必須寫在 `.ts` 或 `.vue` 裡。** `@source` 只掃這兩種副檔名，
+⚠️ **覆寫的 class 字串必須寫在 `.ts`、`.tsx` 或 `.vue` 裡。** `@source` 只掃這三種副檔名，
 搬進 JSON 或環境變數的話 Tailwind 掃不到、**也不會報錯**，產出的 CSS 少掉那些
 類別而建置全綠 —— 與下面第一個坑同一種症狀。
 
@@ -97,7 +97,7 @@ Tailwind v4 的自動來源偵測**刻意跳過 node_modules**，而 monorepo �
 ### 三、去 CSS 註解時會把 glob 吃掉
 
 ```
-@source "../../../../**/*.{vue,ts}";
+@source "../../../../**/*.{vue,ts,tsx}";
                      ↑ 這裡的 /**/ 是一個合法的 CSS 空註解
 ```
 

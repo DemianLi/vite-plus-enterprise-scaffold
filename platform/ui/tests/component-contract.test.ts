@@ -13,8 +13,12 @@ import {
   definePropsBlock,
   exportedTypeNames,
   propUnionMembers,
+  reactComponentExports,
+  reactPropsBlock,
+  reactStringDefaults,
   resolveUnion,
   stringDefaults,
+  type ComponentKind,
 } from "./contract.ts";
 
 /**
@@ -42,12 +46,20 @@ const COMPONENTS_DIR = join(PACKAGE_ROOT, "src/components");
 
 const THEME = readFileSync(join(PACKAGE_ROOT, "src/theme.ts"), "utf8");
 const INDEX = readFileSync(join(PACKAGE_ROOT, "src/index.ts"), "utf8");
+const REACT_ENTRY = readFileSync(join(PACKAGE_ROOT, "src/react.ts"), "utf8");
 
-/** 元件清單從**檔案系統**推導，不是寫死（A1）。 */
+/**
+ * 元件清單從**檔案系統**推導，不是寫死（A1）。
+ *
+ * 遷移期間（C232 §六 ②–④）同一個目錄裡 `.vue` 與 `.tsx` 並存，同一組條文套在兩者上；
+ * 各條文依 `kind` 取該框架的寫法（C235）。只掃 `.vue` 的話，React 那一半會零執行然後全綠。
+ */
 const COMPONENTS = readdirSync(COMPONENTS_DIR)
-  .filter((name) => name.endsWith(".vue"))
+  .filter((name) => name.endsWith(".vue") || name.endsWith(".tsx"))
   .map((name) => ({
-    name: name.replace(/\.vue$/, ""),
+    name: name.replace(/\.(?:vue|tsx)$/, ""),
+    file: name,
+    kind: (name.endsWith(".tsx") ? "react" : "vue") as ComponentKind,
     source: readFileSync(join(COMPONENTS_DIR, name), "utf8"),
   }));
 
@@ -62,12 +74,18 @@ describe("元件契約", () => {
    * 安靜失效的方式就是這個。
    */
   it("★ 至少掃到兩個元件", () => {
-    expect(COMPONENTS.length).toBeGreaterThanOrEqual(2);
+    expect(COMPONENTS.filter(({ kind }) => kind === "vue").length).toBeGreaterThanOrEqual(2);
   });
 
-  describe.each(COMPONENTS)("$name", ({ name, source }) => {
-    it("① 被 index.ts 以同名匯出", () => {
-      const exported = componentExports(INDEX);
+  it("★ React 那一半也掃到了", () => {
+    // 批次 ②（C235）第一支是 UiButton；全部 27 支到齊後這裡改成與上面同一個門檻。
+    expect(COMPONENTS.filter(({ kind }) => kind === "react").length).toBeGreaterThanOrEqual(1);
+  });
+
+  describe.each(COMPONENTS)("$file", ({ name, kind, source }) => {
+    it("① 被自己那個入口以同名匯出（Vue → index.ts、React → react.ts）", () => {
+      const exported =
+        kind === "react" ? reactComponentExports(REACT_ENTRY) : componentExports(INDEX);
       expect(exported.map((entry) => entry.file)).toContain(name);
       expect(exported.find((entry) => entry.file === name)?.exportedAs).toBe(name);
     });
@@ -91,7 +109,7 @@ describe("元件契約", () => {
     });
 
     it("④ props 的 union 是字面值，不是型別別名", () => {
-      const props = definePropsBlock(source);
+      const props = kind === "react" ? reactPropsBlock(source) : definePropsBlock(source);
       if (props === null) return;
       expect(aliasesUsedInProps(props, exportedTypeNames(THEME))).toEqual([]);
     });
@@ -99,14 +117,15 @@ describe("元件契約", () => {
     it("⑤ 模板不得直接引用預設表", () => {
       // 接縫還在、只是沒接上 —— 打錯一個名字，前面每一條都還是綠的，
       // 而各案的覆寫一個字都不會生效。
-      expect(defaultTablesInTemplate(source)).toEqual([]);
+      expect(defaultTablesInTemplate(source, kind)).toEqual([]);
     });
 
     it("預設值必須是該 prop 的 union 成員之一", () => {
-      const props = definePropsBlock(source);
+      const props = kind === "react" ? reactPropsBlock(source) : definePropsBlock(source);
       if (props === null) return;
 
-      for (const [prop, value] of stringDefaults(source)) {
+      const defaults = kind === "react" ? reactStringDefaults(source) : stringDefaults(source);
+      for (const [prop, value] of defaults) {
         const members = propUnionMembers(props, prop);
         // 沒有 union 的 prop（`type?: "button" | …` 以外的自由字串）跳過 ——
         // 這一條問的是「預設值在不在清單裡」，不是「每個 prop 都要有清單」。
@@ -262,6 +281,56 @@ const parts: Readonly<Record<UiFakeSlot, string>> = { a: theme.UiFake?.a ?? DEFA
     // 空集合對空集合是相等的 —— 錨點改名之後這一整組斷言會安靜地變成恆真。
     expect(() => declaredSlotTypes("export type Something = {};")).toThrow(/找不到區塊起點/);
     expect(() => resolveUnion(FAKE_THEME, "UiNotThere")).toThrow(/找不到區塊起點/);
+  });
+
+  it("① React 元件沒有被 react.ts 匯出，而 Vue 的條文不認 .tsx 那一行", () => {
+    // 分成兩支判定函式的理由：index.ts 誤轉出一支 React 元件時，Vue 那一條不能把它當成合法。
+    const entry = `export { UiButton } from "./components/UiButton.tsx";`;
+    expect(reactComponentExports(entry).map((e) => e.file)).not.toContain("UiDialog");
+    expect(componentExports(entry)).toEqual([]);
+  });
+
+  it("④ React 的 props 寫成型別別名", () => {
+    const component = `export function UiFake({
+  slot = "a",
+}: {
+  slot?: UiFakeSlot;
+}): ReactNode {
+  return (<div />);
+}`;
+    expect(aliasesUsedInProps(reactPropsBlock(component), exportedTypeNames(FAKE_THEME))).toEqual([
+      "UiFakeSlot",
+    ]);
+  });
+
+  it("React 的預設值打錯字", () => {
+    const component = `export function UiFake({
+  variant = "secondry",
+}: {
+  variant?: "primary" | "secondary";
+}): ReactNode {
+  return (<div />);
+}`;
+    const value = reactStringDefaults(component).get("variant");
+    expect(value).toBe("secondry");
+    expect(propUnionMembers(reactPropsBlock(component), "variant")).not.toContain(value);
+  });
+
+  it("⑤ JSX 綁到預設表 —— React 版的同一個一字之差", () => {
+    const broken = `export function UiFake(): ReactNode {
+  const theme = useUiTheme();
+  return (<div className={DEFAULT_PARTS.a} />);
+}
+const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };`;
+    expect(defaultTablesInTemplate(broken, "react")).toEqual(["DEFAULT_PARTS"]);
+  });
+
+  it("★ React 元件找不到 props 或 JSX 那一段要丟例外，不是跳過", () => {
+    // Vue 那邊「沒有 defineProps／沒有 template」是合法的；.tsx 沒有這兩段只代表
+    // 慣例漂了，跳過的話 ④ ⑤ 與預設值那一條會一起對它恆真。
+    const drifted = `export const UiFake = (props: Props) => <div />;`;
+    expect(() => reactPropsBlock(drifted)).toThrow(/找不到區塊起點/);
+    expect(() => defaultTablesInTemplate(drifted, "react")).toThrow(/找不到區塊起點/);
   });
 
   it("★ 別名解析要跟著往下走，不是只認字面值", () => {

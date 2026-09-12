@@ -11,6 +11,14 @@
       "lastStableAt": "2026-09-05"
     },
     {
+      "name": "@base-ui/react",
+      "latest": "1.8.0",
+      "license": "MIT",
+      "publishedAt": "2026-09-04",
+      "stableReleasesPerYear": 10,
+      "lastStableAt": "2026-09-04"
+    },
+    {
       "name": "@internationalized/date",
       "latest": "3.12.4",
       "license": "Apache-2.0",
@@ -51,11 +59,35 @@
       "lastStableAt": "2026-08-27"
     },
     {
+      "name": "@testing-library/react",
+      "latest": "16.3.3",
+      "license": "MIT",
+      "publishedAt": "2026-08-27",
+      "stableReleasesPerYear": 3,
+      "lastStableAt": "2026-08-27"
+    },
+    {
       "name": "@types/node",
       "latest": "22.20.2",
       "license": "MIT",
       "publishedAt": "2026-09-09",
       "stableReleasesPerYear": 168,
+      "lastStableAt": "2026-09-09"
+    },
+    {
+      "name": "@types/react",
+      "latest": "19.3.0",
+      "license": "MIT",
+      "publishedAt": "2026-09-09",
+      "stableReleasesPerYear": 44,
+      "lastStableAt": "2026-09-09"
+    },
+    {
+      "name": "@types/react-dom",
+      "latest": "19.3.0",
+      "license": "MIT",
+      "publishedAt": "2026-09-09",
+      "stableReleasesPerYear": 11,
       "lastStableAt": "2026-09-09"
     },
     {
@@ -161,6 +193,22 @@
       "publishedAt": "2026-08-12",
       "stableReleasesPerYear": 5,
       "lastStableAt": "2026-08-12"
+    },
+    {
+      "name": "react",
+      "latest": "19.3.0",
+      "license": "MIT",
+      "publishedAt": "2026-09-09",
+      "stableReleasesPerYear": 26,
+      "lastStableAt": "2026-09-09"
+    },
+    {
+      "name": "react-dom",
+      "latest": "19.3.0",
+      "license": "MIT",
+      "publishedAt": "2026-09-09",
+      "stableReleasesPerYear": 26,
+      "lastStableAt": "2026-09-09"
     },
     {
       "name": "reka-ui",

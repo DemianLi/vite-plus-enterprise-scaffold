@@ -55,10 +55,10 @@ import type { App, InjectionKey, Plugin } from "vue";
  * `{ UiDialog: { ovelay: "…" } }` 會安靜地被忽略，而畫面看起來只是「沒生效」。
  * 真的需要第五個槽的話，那是 `platform/ui` 的變更，走 PR，所有案子一起得到它。
  *
- * ⚠️ ── 覆寫字串必須寫在 `.ts` 或 `.vue` 裡 ──────────────────────────
+ * ⚠️ ── 覆寫字串必須寫在 `.ts`、`.tsx` 或 `.vue` 裡 ──────────────────
  *
  * `platform/ui/src/styles/index.css` 的 `@source` 是
- * `"../../../../**\/*.{vue,ts}"`。把覆寫搬進 JSON、YAML、`.mjs` 或環境變數，
+ * `"../../../../**\/*.{vue,ts,tsx}"`。把覆寫搬進 JSON、YAML、`.mjs` 或環境變數，
  * Tailwind **掃不到那些類別名，也不會報錯** —— 產出的 CSS 少掉它們，
  * 而建置全綠。這與 `@source` 本身那個坑是同一個（見該檔檔頭）。
  *
@@ -296,6 +296,19 @@ export const NO_OVERRIDE: UiThemeOverride = Object.freeze({});
  * 是為了有一個地方擋掉下面兩種「看起來有接上、實際上沒有」：
  */
 export function createUiTheme(override: UiThemeOverride): Plugin {
+  const checked = checkedOverride(override);
+  return {
+    install(app: App) {
+      app.provide(UI_THEME, checked);
+    },
+  };
+}
+
+/**
+ * 那兩道防線本身。抽出來是因為 React 版的 `createUiTheme()`（`theme-context.tsx`）
+ * 要擋同樣兩件事 —— 各寫一份的話，日後補第三道只會補到其中一邊（C235）。
+ */
+export function checkedOverride(override: UiThemeOverride): UiThemeOverride {
   // 攤平成 `UiButton.secondary` 這種名字：下面兩條防線的訊息要指得出是哪一格，
   // 而巢狀之後光說 "secondary" 已經不夠 —— 兩個元件可以有同名的槽。
   const tables: SlotTables = override;
@@ -326,11 +339,7 @@ export function createUiTheme(override: UiThemeOverride): Plugin {
     }
   }
 
-  return {
-    install(app: App) {
-      app.provide(UI_THEME, freezeDeep(override));
-    },
-  };
+  return freezeDeep(override);
 }
 
 /**

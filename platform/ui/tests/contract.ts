@@ -91,6 +91,21 @@ export function componentExports(indexSource: string): readonly ComponentExport[
   return found;
 }
 
+/**
+ * React 那一半的 ①（C235）：`react.ts` 裡 `export { UiButton } from "./components/UiButton.tsx"`。
+ *
+ * 分成兩支而不是一支認兩種寫法：Vue 的條文要是意外認得 `.tsx` 那一行，
+ * `index.ts` 誤轉出 React 元件就會被當成合法 —— 而 `vue-typecheck` 會對著它紅在別處。
+ */
+export function reactComponentExports(reactSource: string): readonly ComponentExport[] {
+  const found: ComponentExport[] = [];
+  const pattern = /export \{ (\w+) \} from "\.\/components\/(\w+)\.tsx";/g;
+  for (const match of stripComments(reactSource).matchAll(pattern)) {
+    found.push({ exportedAs: match[1] as string, file: match[2] as string });
+  }
+  return found;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 條文 ② 每個元件都必須有一組具名槽
 // ─────────────────────────────────────────────────────────────────────────────
@@ -296,6 +311,17 @@ export function templateBlock(componentSource: string): string {
 }
 
 /**
+ * React 元件的「模板」：`return (` 到 `);` 那一段 JSX（C235）。
+ *
+ * ⚠️ 找不到就丟，**不像 `templateBlock` 回傳空字串**。Vue 那邊沒有 template 的
+ * 元件是合法的（純 render 函式）；`.tsx` 元件沒有這一段，只代表慣例漂了 ——
+ * 回傳空字串會讓 ⑤ 對它恆真。
+ */
+export function jsxBlock(componentSource: string): string {
+  return block(stripComments(componentSource), "return (", ");");
+}
+
+/**
  * 模板裡直接引用到的**預設表**名稱。有任何一個就是違規。
  *
  * ── 這一條擋的是一個字的錯 ──────────────────────────────────────────
@@ -312,8 +338,11 @@ export function templateBlock(componentSource: string): string {
  * `UiButton` 有同樣的間接（`classes`），只是它剛好沒寫錯 ——
  * 所以規則寫成通則，不是寫成「UiDialog 必須怎樣」。
  */
-export function defaultTablesInTemplate(componentSource: string): readonly string[] {
-  const template = templateBlock(componentSource);
+export function defaultTablesInTemplate(
+  componentSource: string,
+  kind: ComponentKind = "vue",
+): readonly string[] {
+  const template = kind === "react" ? jsxBlock(componentSource) : templateBlock(componentSource);
   if (template === "") return [];
 
   const used: string[] = [];
@@ -346,6 +375,31 @@ export function definePropsBlock(componentSource: string): string | null {
   const clean = stripComments(componentSource);
   if (!clean.includes("defineProps<{")) return null;
   return block(clean, "defineProps<{", "}>");
+}
+
+/** 兩個框架各自的寫法。遷移期間（C232 §六 ②–④）同一組條文要檢查兩者。 */
+export type ComponentKind = "vue" | "react";
+
+/**
+ * React 元件的 props 型別字面值：`}: {` 到 `})` 那一段（C235）。
+ *
+ * 慣例是「解構參數 ＋ 行內型別字面值」，不另立 `interface XxxProps` ——
+ * 理由同 ④：`api-surface` 記的是簽章的文字，具名介面只會印出名字。
+ * 找不到就丟，不回傳 null：Vue 那邊「沒有 props」是合法的，這邊沒有這一段
+ * 只代表慣例漂了，而回傳 null 會讓 ④ 與「預設值在 union 裡」一起跳過。
+ */
+export function reactPropsBlock(componentSource: string): string {
+  return block(stripComments(componentSource), "}: {", "})");
+}
+
+/** 解構參數裡的字串預設值：`({ variant = "secondary", … }: {` 那一段。 */
+export function reactStringDefaults(componentSource: string): ReadonlyMap<string, string> {
+  const destructured = block(stripComments(componentSource), "({", "}: {");
+  const found = new Map<string, string>();
+  for (const match of destructured.matchAll(/(\w+)\s*=\s*"([^"]*)"/g)) {
+    found.set(match[1] as string, match[2] as string);
+  }
+  return found;
 }
 
 /**
