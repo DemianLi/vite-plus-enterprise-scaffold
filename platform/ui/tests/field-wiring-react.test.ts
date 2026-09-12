@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { UiField } from "../src/components/UiField.tsx";
 import { UiInput } from "../src/components/UiInput.tsx";
+import { UiSelect } from "../src/components/UiSelect.tsx";
 import { UiTextarea } from "../src/components/UiTextarea.tsx";
 
 /**
@@ -128,5 +129,43 @@ describe("control 的三格落到控制項上 —— React 沒有 fallthrough，
     expect(element.id).toBeTruthy();
     expect(element.getAttribute("aria-describedby")).toBeTruthy();
     expect(element.getAttribute("aria-invalid")).toBe("true");
+  });
+});
+
+describe("UiField 包 UiSelect：`control` 落到觸發鈕上（C101 的 React 形狀，C237）", () => {
+  /**
+   * Vue 版的缺陷是 `<label for>` 指向一個不存在的元素（`field-wiring.test.ts` 那一組）。
+   * React 版多一種壞法：Base UI 另渲染一個隱藏的表單 `<input>`，`for` 若指到它，
+   * 元素存在、`getElementById` 找得到，而使用者操作的那顆按鈕仍然沒有名字。
+   */
+  function selectField(props: Props): HTMLElement {
+    const { container } = render(
+      createElement(UiField, {
+        ...props,
+        children: (wiring) =>
+          createElement(UiSelect, {
+            ...wiring,
+            items: [{ value: "a", label: "A" }],
+            placeholder: "選一個",
+          }),
+      }),
+    );
+    return container;
+  }
+
+  it("🔴 `<label for>` 指到的是觸發鈕（role=combobox），不是隱藏的 input", () => {
+    const container = selectField({ label: "分級" });
+    const htmlFor = container.querySelector("label")?.htmlFor ?? "";
+    expect(htmlFor).toBeTruthy();
+    expect(document.getElementById(htmlFor)?.getAttribute("role")).toBe("combobox");
+  });
+
+  it("🔴 三格一起落到觸發鈕上，不是只有 id", () => {
+    const container = selectField({ label: "分級", description: "選一個等級", error: "必填" });
+    const trigger = container.querySelector('[role="combobox"]');
+    expect(trigger, "沒有渲染出觸發鈕").not.toBeNull();
+    expect(trigger?.id).toBeTruthy();
+    expect(trigger?.getAttribute("aria-describedby")).toBeTruthy();
+    expect(trigger?.getAttribute("aria-invalid")).toBe("true");
   });
 });

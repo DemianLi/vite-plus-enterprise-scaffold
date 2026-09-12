@@ -148,6 +148,26 @@ describe("骨架對輔具隱藏", () => {
   });
 });
 
+describe("「⋯」選單的名字載體（React）", () => {
+  /**
+   * 下面「產物」那一組拿 `UiDropdownMenu.vue` 的 `sr-only` 去編 CSS。React 版寫的是同一個
+   * 字串（C237），但沒有這一條的話，`.tsx` 換掉那個 class 時兩邊不會有任何一條紅 ——
+   * 名字還在、那行字卻顯示在按鈕上。
+   */
+  const menu = REACT_COMPONENTS.find(({ name }) => name === "UiDropdownMenu.tsx");
+
+  it("★ UiDropdownMenu.tsx 還在（具名條文的保險）", () => {
+    expect(menu, "找不到 UiDropdownMenu.tsx —— 具名條文會零執行然後全綠").toBeDefined();
+  });
+
+  it("包著 label 的那個 span 是 sr-only —— 與 Vue 版編 CSS 的那一個字串相同", () => {
+    const candidate = /<span className="([^"]+)">\{label\}<\/span>/.exec(
+      jsxBlock(menu?.source ?? ""),
+    )?.[1];
+    expect(candidate).toBe("sr-only");
+  });
+});
+
 describe("骨架對輔具隱藏（React）", () => {
   // 同上一組，讀的是 `return (` 那段 JSX（C236）。具名的理由與保險同上。
   const skeleton = REACT_COMPONENTS.find(({ name }) => name === "UiSkeleton.tsx");

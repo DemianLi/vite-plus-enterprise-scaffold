@@ -32,6 +32,10 @@ export { UiRadioGroup } from "./components/UiRadioGroup.tsx";
 export { UiRadioItem } from "./components/UiRadioItem.tsx";
 export { UiSwitch } from "./components/UiSwitch.tsx";
 export { UiTextarea } from "./components/UiTextarea.tsx";
+export { UiDialog } from "./components/UiDialog.tsx";
+export { UiAlertDialog } from "./components/UiAlertDialog.tsx";
+export { UiSelect } from "./components/UiSelect.tsx";
+export { UiDropdownMenu } from "./components/UiDropdownMenu.tsx";
 export { cn } from "./utils/cn.ts";
 
 export { createUiTheme } from "./theme-context.tsx";
