@@ -12071,7 +12071,7 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 3. **`UiButton.tsx`**：由 base-nova 的 Button 改寫。留下 Base UI 的 `Button` 基元；換掉 cva（Q59，改回 `VARIANTS`／`SIZES` 兩張純物件表）、variant 名（Q58）、覆寫語意（整條替換）。樣式字串逐字對齊 `UiButton.vue`。⚠️ **React 沒有 Vue 的屬性穿透**：`UiButton.vue` 收到的 `aria-*`、`@click` 自己落到 `<button>` 上，這裡只收列出來的那幾個（含 `onClick`），要第二種屬性就加一個 prop，`api-surface` 記成相容變更。
 4. **元件契約擴到 `.tsx`**：`component-contract.test.ts` 掃同一個目錄的 `.vue` 與 `.tsx`，條文依框架取寫法 —— ① `react.ts` 的具名轉出（與 Vue 那一條分成兩支判定函式，`index.ts` 誤轉出 React 元件時 Vue 那一條不能把它當合法）、④ 解構參數的型別字面值、⑤ `return (` 那段 JSX、預設值取解構的預設。⚠️ 找不到這幾段時**丟例外、不跳過**：Vue 那邊「沒有 `defineProps`／沒有 template」是合法的，`.tsx` 沒有只代表慣例漂了，跳過會讓三條條文對它恆真。`a11y.test.ts` 的「動畫必須關得掉」同樣擴到 `.tsx`（只讀預設表）；「骨架對輔具隱藏」「模板不留 HTML 註解」讀 Vue 模板，留給 ②b 的 `UiSkeleton`。
 5. **Base UI 的「空」**（C233 §六、C234 §五）：`tests/base-ui-no-style.test.ts` 對裝上去的那一版走執行期相依閉包、逐檔掃 `createElement('style')`。今天是 9 支套件（含捲動鎖定住的 `@base-ui/utils`）、2000 個執行期檔案、**0 處**；正向對照是這棵樹上已知會注入的真實套件 —— `reka-ui` 的 `dist/utils/style.{js,cjs}` 2 處（Splitter 禁令的來源）。⚠️ 走閉包而不是只掃入口：Radix 那一側的注入點就在傳遞相依。⚠️ 解析不走 `require.resolve`：`@babel/runtime` 沒有 `.` 匯出（第一趟紅在這裡），而 pnpm 的 symlink 要先取真實路徑才走得到相依（第二趟）。
-6. **`@source` 讀 `.tsx`**：`{vue,ts}` → `{vue,ts,tsx}`。全樹掃那個字面值：改了 `index.css`、`README.md` 兩處、`theme.ts`、`styles.test.ts` 五處；**沒改**的是在描述歷史的（`DECISIONS*.md`、`HANDOFF.md` 2110／2117）與拿它當去註解器輸入的測試（`conformance` 三處）。
+6. **`@source` 讀 `.tsx`**：`{vue,ts}` → `{vue,ts,tsx}`。全樹掃那個字面值：改了 `index.css`、`README.md`、`theme.ts` 各 1 處（另加兩處「只掃 `.ts`／`.vue`」的同義句）、`styles.test.ts` 5 處；**沒改**的 16 處逐行讀過，都不是在描述現在的設定 —— 在描述歷史的（`DECISIONS.md` 5、`DECISIONS-2.md` 2、`HANDOFF.md` 2110／2117），以及拿它當「去註解器會把 `/**/` 吃掉」的例子或輸入的（`conformance` 的 `phantom-deps.ts` 檔頭與兩支測試共 5 處、`compliance` 的 `map.ts` 與它產出的 `COMPLIANCE.md` 各 1 處）。⚠️ 第一版這句寫「`conformance` 三處」—— 那次的掃描輸出被截斷，重掃才數對。
 7. **其他接線**：`tsconfig.json` 加 `"jsx": "react-jsx"`；exit-drill 的測試相依帳目加 `@testing-library/react`（安裝）、`@types/react`／`@types/react-dom`（明示不裝：演練不做型別檢查）；`api-surface` 的 `docs.ts` 那句「元件在 `*.vue`」補上 `*.tsx`。
 8. **基準**：`api-surface`（+1 個進入點、+34 個 export，全部相容）、`inventory.json` 723 → 734（+11 支純 JS，原生 146、家族 12 不變）、`dependency-health.json` 重擷（40 筆）、`provenance.json` 重擷。`doc-facts` 點名後同步 9 處：套件總數（`README.md` 1、`HANDOFF.md` 5、`UI-SURVEY.md` 1）、`platform/` 進入點 13 → 14 與 export 163 → 197（`HANDOFF.md` 1 句）。
 
@@ -12131,7 +12131,7 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 
 #### 七、實測
 
-- 本機 `vpr ready`：**READY_RC <待填>**
+- 本機 `vpr ready`：**READY_RC 0**（在 `b575754` 上；之後只改了本則的文字 —— §三 6 那句「沒改的清單」更正、這一行）。更早沒有跑過完整的一趟；拆開逐支跑的那一趟見 §四。
 
 #### 八、與既有裁決的關係
 
