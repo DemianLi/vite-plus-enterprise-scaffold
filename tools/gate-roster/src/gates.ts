@@ -196,11 +196,13 @@ export interface Gate {
    * ⚠️ 它與 `notInGateScript` **正交**，`spec-report` 就是那個交叉格（下發 ∧ 不進
    * `scripts.gate`）。「下發」是接進 fork 的 `ready`／workflow，不等於進 gate 鏈。
    *
-   * ⚠️ 它只管**接線**：C215 的 (c) 之下檔案全部下發，而各工具自己的測試由
-   * `vp run -r test` 跑到，不看這一欄（C216 §四）。
+   * ⚠️ 它只管**接線**：C215 的 (c) 之下檔案全部下發。⚠️ 而「接線」從批次 ② 起
+   * 包含測試那一步：`ready:fork` 排除 `upstream-only` 而有 `pkg` 的那幾個套件的測試，
+   * 排除清單就從這一欄推（C217 §五）。C216 §四 寫的「各工具自己的測試不看這一欄」
+   * 在那之後不成立（C229）。
    *
-   * 這一欄目前唯一的讀者是 `roster.test.ts` 那條非空斷言；消費它的接線是批次 ②，
-   * 刻意分兩步（C216）。
+   * 讀者：`check.ts` 從這一欄推 `gate:fork`、`ready:fork` 的測試排除清單，並比對 CI
+   * 上游專用步驟的條件（C218）；另有 `roster.test.ts` 那條非空斷言。
    */
   readonly ship: Ship;
 }
@@ -574,8 +576,10 @@ export const GATES: readonly Gate[] = [
       to: "upstream-only",
       why:
         "清單的理由是「只在 CI，不在 vpr gate」。前半成立：它在 tier2 是獨立一步。" +
-        "⚠️ 後半要補：它的測試由 `vp run -r test` 跑到，所以 fork 的 `ready` 照跑它 —— " +
-        "不下發的只有 tier2 那一步（C216 §三；C215 沒有逐條問過這一列的理由）。",
+        "⚠️ 不下發的是兩半：tier2 那一步，以及 fork 的測試那一步 —— `ready:fork` 排除" +
+        "`upstream-only` 而有 `pkg` 的套件，它在其中（C217 §五；C216 §三 那句「照跑」" +
+        "在批次 ② 之後不成立，C217 §九）。檔案與 `vpr bff-check` 別名照樣下發：團隊要對" +
+        "自己的 gateway 驗時手動跑（HANDOFF〈8. 架構〉）。C215 沒有逐條問過這一列的理由（C229）。",
     },
   },
   {
