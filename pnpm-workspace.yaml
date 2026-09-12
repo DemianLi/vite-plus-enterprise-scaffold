@@ -55,6 +55,18 @@ catalog:
   # 那正是 D15 記過的 lightningcss 兩個版本、MPL-2.0 範圍翻倍的形狀。
   "@internationalized/date": ^3.5.0
 
+  # --- React 那一套（C232 §五、C233 Q53、C235）---
+  # 遷移期間與上面 Vue 那一套並列，批次 ⑤ 刪 Vue 時一起收。元件由 shadcn CLI 的
+  # Base UI 那一套產出再改寫（Q58）；**不是 radix-ui** —— Radix 的捲動鎖定會注入
+  # 不帶 nonce 的 `<style>`，被 `style-src 'self'` 安靜擋掉（C233 §三）。
+  # ⚠️ 「Base UI 不注入 `<style>`」由 `platform/ui/tests/base-ui-no-style.test.ts`
+  # 對裝上去的那一版逐檔掃，升級時自己會紅，不靠 C233 那一次的量測。
+  react: ^19.3.0
+  react-dom: ^19.3.0
+  "@types/react": ^19.3.0
+  "@types/react-dom": ^19.3.0
+  "@base-ui/react": ^1.8.0
+
   # --- 元件測試（§11 II ⑨ 的執行期那一層）---
   # ⚠️ C47 才剛以「會把瀏覽器二進位拉進供應鏈盤點範圍」為由拒絕 Playwright，
   # 這兩個看起來像同一件事，但成本完全不同：**純 JS，沒有平台二進位、
@@ -65,6 +77,8 @@ catalog:
   # 換不掉），但 happy-dom 快得多，而這裡要的只是一個能算 textContent 的 DOM。
   "@vue/test-utils": ^2.4.11
   happy-dom: ^20.11.2
+  # React 那一半的對應（C232 §五）。同樣是純 JS。
+  "@testing-library/react": ^16.3.3
 
   # --- 驗收規格（TESTING.md 的層 3，第二類的完成率設施）---
   # ⚠️ **不是第二套 runner** —— 它是 Vitest 上的一層 API，跑在既有的 Vitest 裡。

@@ -11,7 +11,7 @@
 > ⚠️ **這是形狀參考，不是使用說明。**
 > 它回答「有哪些 export、prop 叫什麼、型別是什麼」。
 > 它**不**回答「為什麼這樣設計、怎麼接線」—— 那些寫在原始碼的檔頭註解裡
-> （元件在 `platform/ui/src/components/*.vue`），而且比這裡詳細得多。
+> （元件在 `platform/ui/src/components/*.vue` 與 `*.tsx`），而且比這裡詳細得多。
 > 要動手做一個畫面，先讀 `HANDOFF.md`〈從這裡到第一個能操作的畫面〉。
 
 ## `@org/bff-contract`
@@ -1198,6 +1198,240 @@ UiTableRow?: Readonly<Partial<Record<"row", string>>> | undefined
 UiTabs?: Readonly<Partial<Record<UiTabsSlot, string>>> | undefined
 UiTabsPanel?: Readonly<Partial<Record<"panel", string>>> | undefined
 UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
+```
+
+### `UiVariant` — type
+
+```
+"danger" | "ghost" | "primary" | "secondary"
+```
+
+---
+
+## `@org/ui/react`
+
+### `cn` — function
+
+```
+(...inputs: ClassValue[]) => string
+```
+
+### `createUiTheme` — function
+
+```
+(override: UiThemeOverride) => UiThemeProvider
+```
+
+### `UiAlertDialogSlot` — type
+
+```
+"actions" | "content" | "description" | "overlay" | "title"
+```
+
+### `UiAlertSlot` — type
+
+```
+"alert" | "danger" | "info" | "success"
+```
+
+### `UiBadgeSlot` — type
+
+```
+"accent" | "badge" | "danger" | "neutral"
+```
+
+### `UiButton` — function
+
+```
+({ variant, size, type, disabled, onClick, children, }: { variant?: "danger" | "ghost" | "primary" | "secondary" | undefined; size?: "md" | "sm" | undefined; type?: "button" | "reset" | "submit" | undefined; disabled?: boolean | undefined; onClick?: ((event: MouseEvent<HTMLButtonElement, MouseEvent>) => void) | undefined; children?: ReactNode; }) => ReactNode
+```
+
+### `UiButtonSlot` — type
+
+```
+"danger" | "ghost" | "md" | "primary" | "secondary" | "sm"
+```
+
+### `UiCheckboxSlot` — type
+
+```
+"indicator" | "label" | "root"
+```
+
+### `UiDatePickerSlot` — type
+
+```
+"content" | "day" | "field" | "headCell" | "heading" | "nav" | "segment" | "trigger"
+```
+
+### `UiDialogSlot` — type
+
+```
+"content" | "description" | "overlay" | "title"
+```
+
+### `UiDropdownMenuSlot` — type
+
+```
+"content" | "danger" | "icon" | "item" | "trigger"
+```
+
+### `UiFieldSlot` — type
+
+```
+"description" | "error" | "field"
+```
+
+### `UiInputSlot` — type
+
+```
+"input"
+```
+
+### `UiLabelSlot` — type
+
+```
+"label"
+```
+
+### `UiPaginationSlot` — type
+
+```
+"ellipsis" | "item" | "list" | "nav"
+```
+
+### `UiRadioGroupSlot` — type
+
+```
+"group"
+```
+
+### `UiRadioItemSlot` — type
+
+```
+"indicator" | "item" | "label"
+```
+
+### `UiSelectSlot` — type
+
+```
+"chevron" | "content" | "indicator" | "item" | "trigger"
+```
+
+### `UiSeparatorSlot` — type
+
+```
+"separator"
+```
+
+### `UiSize` — type
+
+```
+"md" | "sm"
+```
+
+### `UiSkeletonSlot` — type
+
+```
+"skeleton"
+```
+
+### `UiSwitchSlot` — type
+
+```
+"root" | "thumb"
+```
+
+### `UiTableBodySlot` — type
+
+```
+"body"
+```
+
+### `UiTableCellSlot` — type
+
+```
+"cell" | "numeric"
+```
+
+### `UiTableHeadCellSlot` — type
+
+```
+"cell"
+```
+
+### `UiTableHeadSlot` — type
+
+```
+"head"
+```
+
+### `UiTableRowSlot` — type
+
+```
+"row"
+```
+
+### `UiTableSlot` — type
+
+```
+"scroller" | "table"
+```
+
+### `UiTabsPanelSlot` — type
+
+```
+"panel"
+```
+
+### `UiTabsSlot` — type
+
+```
+"list" | "trigger"
+```
+
+### `UiTextareaSlot` — type
+
+```
+"textarea"
+```
+
+### `UiThemeOverride` — type
+
+```
+UiAlert?: Readonly<Partial<Record<UiAlertSlot, string>>> | undefined
+UiAlertDialog?: Readonly<Partial<Record<UiAlertDialogSlot, string>>> | undefined
+UiBadge?: Readonly<Partial<Record<UiBadgeSlot, string>>> | undefined
+UiButton?: Readonly<Partial<Record<UiButtonSlot, string>>> | undefined
+UiCheckbox?: Readonly<Partial<Record<UiCheckboxSlot, string>>> | undefined
+UiDatePicker?: Readonly<Partial<Record<UiDatePickerSlot, string>>> | undefined
+UiDialog?: Readonly<Partial<Record<UiDialogSlot, string>>> | undefined
+UiDropdownMenu?: Readonly<Partial<Record<UiDropdownMenuSlot, string>>> | undefined
+UiField?: Readonly<Partial<Record<UiFieldSlot, string>>> | undefined
+UiInput?: Readonly<Partial<Record<"input", string>>> | undefined
+UiLabel?: Readonly<Partial<Record<"label", string>>> | undefined
+UiPagination?: Readonly<Partial<Record<UiPaginationSlot, string>>> | undefined
+UiRadioGroup?: Readonly<Partial<Record<"group", string>>> | undefined
+UiRadioItem?: Readonly<Partial<Record<UiRadioItemSlot, string>>> | undefined
+UiSelect?: Readonly<Partial<Record<UiSelectSlot, string>>> | undefined
+UiSeparator?: Readonly<Partial<Record<"separator", string>>> | undefined
+UiSkeleton?: Readonly<Partial<Record<"skeleton", string>>> | undefined
+UiSwitch?: Readonly<Partial<Record<UiSwitchSlot, string>>> | undefined
+UiTable?: Readonly<Partial<Record<UiTableSlot, string>>> | undefined
+UiTableBody?: Readonly<Partial<Record<"body", string>>> | undefined
+UiTableCell?: Readonly<Partial<Record<UiTableCellSlot, string>>> | undefined
+UiTableHead?: Readonly<Partial<Record<"head", string>>> | undefined
+UiTableHeadCell?: Readonly<Partial<Record<"cell", string>>> | undefined
+UiTableRow?: Readonly<Partial<Record<"row", string>>> | undefined
+UiTabs?: Readonly<Partial<Record<UiTabsSlot, string>>> | undefined
+UiTabsPanel?: Readonly<Partial<Record<"panel", string>>> | undefined
+UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
+```
+
+### `UiThemeProvider` — type
+
+```
+(props: { readonly children?: ReactNode; }): ReactNode
 ```
 
 ### `UiVariant` — type

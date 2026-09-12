@@ -68,6 +68,9 @@ export const DRILL_TEST_DEPENDENCIES: readonly string[] = [
   // ⚠️ 少了它，演練跑的是一份**看起來全綠、而規格一條都沒執行**的樹 ——
   // 那正是 C114 §二 記的靜默失效，症狀與成功一模一樣。
   "@amiceli/vitest-cucumber",
+  // `platform/ui/tests/button-react.test.ts` 掛載 React 版元件（C235）。`@vue/test-utils`
+  // 的對應，同樣純 JS、與工具鏈無關。
+  "@testing-library/react",
 ];
 
 /**
@@ -122,6 +125,8 @@ export const DROPPED_TEST_DEPENDENCIES: readonly DroppedDependency[] = [
     name: "@types/node",
     reason: "只有型別宣告，執行期不載入任何東西。演練不做型別檢查，裝了也不會被讀到。",
   },
+  { name: "@types/react", reason: "同 @types/node：只有型別宣告，演練不做型別檢查。" },
+  { name: "@types/react-dom", reason: "同 @types/node：只有型別宣告，演練不做型別檢查。" },
 ];
 
 export interface ManifestDevDependencies {

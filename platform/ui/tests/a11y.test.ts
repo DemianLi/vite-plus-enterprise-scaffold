@@ -51,6 +51,10 @@ const COMPONENTS = readdirSync(COMPONENTS_DIR)
     source: readFileSync(join(COMPONENTS_DIR, name), "utf8"),
   }));
 
+const REACT_COMPONENTS = readdirSync(COMPONENTS_DIR)
+  .filter((name) => name.endsWith(".tsx"))
+  .map((name) => ({ name, source: readFileSync(join(COMPONENTS_DIR, name), "utf8") }));
+
 /** 預設表裡帶動畫的那幾格。`animate-none` 本身是「關掉」，不是動畫。 */
 function animatedSlots(source: string): readonly (readonly [string, string])[] {
   return [...defaultSlotValues(source)].filter(([, classes]) =>
@@ -99,7 +103,9 @@ describe("動畫必須關得掉", () => {
     expect(animated.map(({ name }) => name)).not.toEqual([]);
   });
 
-  describe.each(COMPONENTS)("$name", ({ source }) => {
+  // React 那一半同一條（C235）：這條只讀預設表，兩種寫法的表是同一個慣例。
+  // 「骨架對輔具隱藏」與「模板不留 HTML 註解」讀的是 Vue 模板，不在這裡擴。
+  describe.each([...COMPONENTS, ...REACT_COMPONENTS])("$name", ({ source }) => {
     it("預設表裡每一格動畫都配了 motion-reduce:animate-none", () => {
       // 前庭障礙使用者關不掉的閃動（C81 §六 的第二條）。Tailwind v4.3.3
       // 不自帶這層保護 —— 由下面「Tailwind 不自帶保護」那條實測證明。

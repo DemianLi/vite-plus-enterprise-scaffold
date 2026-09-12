@@ -2,7 +2,9 @@
   "extends": "@org/tsconfig/lib.json",
   "compilerOptions": {
     // 元件本身只需要瀏覽器型別，但 tests/ 要讀檔驗證樣式入口的宣告。
-    "types": ["vite/client", "node"]
+    "types": ["vite/client", "node"],
+    // React 那一半（`./react` 入口，C235）。`.vue` 不經過這個選項。
+    "jsx": "react-jsx"
   },
   "include": ["src", "tests"]
 }

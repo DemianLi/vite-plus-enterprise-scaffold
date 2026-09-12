@@ -12033,3 +12033,114 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 | **C68**              | 不變 —— ② 處理                                                                                                         |
 | **AGENTS.md 規則二** | **遵守** —— 相依健康度紅時沒有自己登記例外，交人裁（Q56）                                                              |
 | **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                                         |
+
+### C235 — 第 ② 批之一：`@org/ui/react` 入口與 React 版 `UiButton` 一路走通 —— CLI 產出當素材、`Ui*` 契約照舊；不裝 cva、語意 class 改寫成 utility；Base UI 的「空」由一支會紅的測試守著（2026-09-12，Q57–Q60）
+
+> C232 §六 ② 的實作，**分兩支 PR**：這一支是基礎設施加第一支元件（`UiButton`），從相依、入口、契約、閘門一路走到 `vpr ready` 綠；其餘 26 支在下一支（②b）。一次 27 支加兩千多行移植的測試審不動，而合併是逐支 PR 的。
+
+#### 一、四題由人裁
+
+| #       | 問題                                                                                           | 裁決                                   |
+| ------- | ---------------------------------------------------------------------------------------------- | -------------------------------------- |
+| **Q57** | ②–④ 期間 React 元件從哪裡匯出（Vue 那 4 支消費端要到 ③ 才改得動）                              | **`@org/ui/react` 子路徑**             |
+| **Q58** | shadcn CLI 產出的碼算什麼：素材（改寫成 `Ui*` 契約）／原封收進、外面包一層                     | **素材，`Ui*` 契約照舊**               |
+| **Q59** | `class-variance-authority` 最後穩定版 2024-11-26，相依健康度會紅：不裝改物件查表／裝並登記風險 | **不裝**，catalog 那句「刻意不裝」照舊 |
+| **Q60** | Base UI 那一套用到 7 個語意 class（C233 估 1 個）：改寫成 utility／收 preset 另加閘門          | **改寫成 utility**                     |
+
+- ⚠️ **Q57 的代價在 ⑤**：`api-surface` 把 `exports` 的每一個子路徑記成獨立的鍵（`cli.ts:183`–`187`），⑤ 把 `./react` 收回 `.` 是一次要登記、要附 codemod 的破壞性變更。沒有 fork（Q49），代價只在樹內。
+- **Q58 的依據是已經寫下的契約**：`theme.ts` 明文 variant 名**刻意不跟** shadcn（`primary`／`danger` 對 `default`／`destructive`），覆寫語意是**整條替換**；CLI 產出的元件把 `className` 經 `cn` 附加 —— 正是 `theme.ts` 點名過、tailwind-merge 認不出衝突時安靜失效的那一種。代價：日後重跑 `shadcn add` 不能直接覆蓋，要人比對。
+- **Q59 只有 cva 會紅**：同一批候選逐支查過最後穩定版 —— `@base-ui/react` 2026-09、`react` 2026-09、`lucide-react` 2026-09、`react-day-picker` 2026-08、`date-fns` 2026-05、`tw-animate-css` 2026-02、`shadcn` 2026-09；`health.ts:87` 的界線是 365 天。與 Q56 同一個形狀，所以交人裁（AGENTS.md 規則二）。
+
+#### 二、量到的：shadcn 的 Base UI 那一套實際帶進什麼
+
+量法：抓 `ui.shadcn.com/r/styles/base-nova/<名>.json`（CLI `add` 寫出來的就是這份內容），對應 `platform/ui` 27 支的 21 個條目逐一讀。**CLI 本身沒有在這個 monorepo 裡跑**（C233 §五 那一條仍然成立）。
+
+| 項目                       | 條目                                                                                                                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 用 cva 的（Q59）           | button、badge、alert、field、tabs —— 5 支                                                                                                                                                                          |
+| 語意 class（Q60）          | `cn-font-heading`（dialog、alert-dialog）、`cn-menu-target`／`cn-menu-translucent`（select、dropdown-menu）、`cn-rtl-flip`（calendar、pagination、dropdown-menu）、`cn-calendar-*` 三個（calendar）—— **7 個名字** |
+| 圖示（`icon-placeholder`） | calendar、checkbox、dialog、dropdown-menu、pagination、select —— 6 支，實際是 `lucide-react`                                                                                                                       |
+| 額外相依                   | calendar：`react-day-picker@latest`、`date-fns`（Base UI 沒有日曆）                                                                                                                                                |
+
+後兩列是 ②b 的供應鏈變動，本則不裝。
+
+#### 三、做了什麼
+
+1. **入口**：`platform/ui/package.json` 加 `"./react": "./src/react.ts"`。規矩與 `index.ts` 相同（只具名轉出、不轉出基元），`styles.test.ts` 多一條守 `react.ts`。型別清單與 `index.ts` 逐字相同 —— 只轉出 `UiButton` 用到的那幾個時，`api-surface` 紅 15 條「公開的 API 形狀引用了沒有 export 的型別」：`UiThemeOverride` 引用了全部的槽型別。
+2. **主題**：`theme.ts` 的兩道防線抽成 `checkedOverride()`，Vue 的 `createUiTheme()` 改呼叫它；React 版在 `theme-context.tsx`：context 不匯出（同 `UI_THEME` 不從 `index.ts` 匯出的理由），`createUiTheme()` 回傳一個 provider 元件而不是覆寫表 —— 呼叫端手上沒有東西可以繞過防線直接塞進 context。
+3. **`UiButton.tsx`**：由 base-nova 的 Button 改寫。留下 Base UI 的 `Button` 基元；換掉 cva（Q59，改回 `VARIANTS`／`SIZES` 兩張純物件表）、variant 名（Q58）、覆寫語意（整條替換）。樣式字串逐字對齊 `UiButton.vue`。⚠️ **React 沒有 Vue 的屬性穿透**：`UiButton.vue` 收到的 `aria-*`、`@click` 自己落到 `<button>` 上，這裡只收列出來的那幾個（含 `onClick`），要第二種屬性就加一個 prop，`api-surface` 記成相容變更。
+4. **元件契約擴到 `.tsx`**：`component-contract.test.ts` 掃同一個目錄的 `.vue` 與 `.tsx`，條文依框架取寫法 —— ① `react.ts` 的具名轉出（與 Vue 那一條分成兩支判定函式，`index.ts` 誤轉出 React 元件時 Vue 那一條不能把它當合法）、④ 解構參數的型別字面值、⑤ `return (` 那段 JSX、預設值取解構的預設。⚠️ 找不到這幾段時**丟例外、不跳過**：Vue 那邊「沒有 `defineProps`／沒有 template」是合法的，`.tsx` 沒有只代表慣例漂了，跳過會讓三條條文對它恆真。`a11y.test.ts` 的「動畫必須關得掉」同樣擴到 `.tsx`（只讀預設表）；「骨架對輔具隱藏」「模板不留 HTML 註解」讀 Vue 模板，留給 ②b 的 `UiSkeleton`。
+5. **Base UI 的「空」**（C233 §六、C234 §五）：`tests/base-ui-no-style.test.ts` 對裝上去的那一版走執行期相依閉包、逐檔掃 `createElement('style')`。今天是 9 支套件（含捲動鎖定住的 `@base-ui/utils`）、2000 個執行期檔案、**0 處**；正向對照是這棵樹上已知會注入的真實套件 —— `reka-ui` 的 `dist/utils/style.{js,cjs}` 2 處（Splitter 禁令的來源）。⚠️ 走閉包而不是只掃入口：Radix 那一側的注入點就在傳遞相依。⚠️ 解析不走 `require.resolve`：`@babel/runtime` 沒有 `.` 匯出（第一趟紅在這裡），而 pnpm 的 symlink 要先取真實路徑才走得到相依（第二趟）。
+6. **`@source` 讀 `.tsx`**：`{vue,ts}` → `{vue,ts,tsx}`。全樹掃那個字面值：改了 `index.css`、`README.md` 兩處、`theme.ts`、`styles.test.ts` 五處；**沒改**的是在描述歷史的（`DECISIONS*.md`、`HANDOFF.md` 2110／2117）與拿它當去註解器輸入的測試（`conformance` 三處）。
+7. **其他接線**：`tsconfig.json` 加 `"jsx": "react-jsx"`；exit-drill 的測試相依帳目加 `@testing-library/react`（安裝）、`@types/react`／`@types/react-dom`（明示不裝：演練不做型別檢查）；`api-surface` 的 `docs.ts` 那句「元件在 `*.vue`」補上 `*.tsx`。
+8. **基準**：`api-surface`（+1 個進入點、+34 個 export，全部相容）、`inventory.json` 723 → 734（+11 支純 JS，原生 146、家族 12 不變）、`dependency-health.json` 重擷（40 筆）、`provenance.json` 重擷。`doc-facts` 點名後同步 9 處：套件總數（`README.md` 1、`HANDOFF.md` 5、`UI-SURVEY.md` 1）、`platform/` 進入點 13 → 14 與 export 163 → 197（`HANDOFF.md` 1 句）。
+
+#### 四、量測
+
+- **變異**：每顆改一處（M4 一顆改兩處同名的讀取），各自有檢查紅；未改的對照全綠（262 條、`exit-drill` RC 0、`api-surface` RC 0）。
+
+| #   | 改法                                                | 紅                                         |
+| --- | --------------------------------------------------- | ------------------------------------------ |
+| M1  | 契約只掃 `.vue`                                     | 1（「React 那一半也掃到了」）              |
+| M2  | `react.ts` 轉出時改名                               | 1（①）                                     |
+| M3  | JSX 直接綁預設表                                    | 1（⑤）                                     |
+| M4  | 元件讀成 `UiDialog` 那一格                          | 2（③、整條替換）                           |
+| M5  | React 版 `createUiTheme()` 不經 `checkedOverride()` | 1                                          |
+| M6  | 相依閉包不往下走                                    | 1（★ 閉包裡要有 `@base-ui/utils`）         |
+| M7  | 注入樣式寫錯                                        | 3（reka-ui 對照、人造套件、變體）          |
+| M8  | `react.ts` 轉出 Base UI 的 `Button`                 | 1                                          |
+| M9  | `@source` 退回 `{vue,ts}`                           | 1                                          |
+| M10 | exit-drill 帳目拿掉 `@testing-library/react`        | exit-drill RC 1（未登記的 devDependency）  |
+| M11 | 覆寫改成附加                                        | 1（整條替換）                              |
+| M12 | `UiButton.tsx` 的 variant union 少一個成員          | api-surface RC 1（破壞性變更未附 codemod） |
+| M13 | `UiButton.tsx` 放一行型別錯誤                       | `vp check` TS2322                          |
+
+⚠️ **M13 前兩次跑是紅錯地方**：`vp check` 停在格式那一段 —— RC 1 但不是型別錯誤。第一次我以為是插入的兩行沒格式化，先 `vp fmt` 那支檔再跑，**照樣紅在格式**；讀了訊息才知道紅的是 `tools/supply-chain/inventory.json`：`supply-chain --update` 寫出來的檔案不過 `oxfmt`，而它已經跟著一支 WIP commit 進去了。改用 `vp check --no-fmt` 才量到 TS2322；那支檔在最後一趟 `vp fmt` 補上格式。
+
+- **建置探針**（`apps/console` 的正式建置）：`UiButton.tsx` 暫加一個只在那裡出現的 utility，`UiButton.vue` 暫加另一個當對照。
+
+|                    | `.tsx` 那個值 | `.vue` 對照 | 建置 |
+| ------------------ | ------------- | ----------- | ---- |
+| `@source` 含 `tsx` | 2 處          | 2 處        | RC 0 |
+| `@source` 退回舊值 | **0 處**      | 2 處        | RC 0 |
+
+⚠️ **第一次跑回報兩邊都是 0，是量測台的假零**：探針值寫成 `0.137em`，壓縮器輸出 `.137em`，grep 本來就不可能命中 —— 而那一趟沒有 `.vue` 對照，看不出是尺壞了。換成 `3.137em` 並補上對照才是上表。
+
+- **閘門逐支跑**（`gate:upstream` 拆開，不用 `&&` 串）：`gate-roster`、`conformance`、`api-surface`（更新基準後）、`vue-typecheck`、`theme-verify`、`compliance`、`pii-check`、`scope-check`、`threshold-check`、`promise-check`、`eslint`、`a11y` 綠；紅的是章、`exit-drill`、`supply-chain`、`doc-facts` —— 都是本批該連帶更新的，已同步。`a11y` 的 `.tsx` 那一軌第一次有真檔可讀：`UiButton.tsx` 0 則訊息。
+- **`vp check`**：0 錯、13 warning（`main` 同為 13）。
+
+#### 五、交給 ②b 的，以及還沒量的
+
+- **其餘 26 支**：逐支從 base-nova 改寫；7 個語意 class 換成等價 utility（Q60）；`lucide-react`（圖示）、`react-day-picker` ＋ `date-fns`（日曆）三支進供應鏈，相依健康度逐支重查。
+- **`a11y.test.ts` 的兩條 Vue 模板條文**要在 `UiSkeleton.tsx` 進來時移植；「★ React 那一半也掃到了」的門檻在 27 支到齊後改成與 Vue 那一條相同。
+- **`.tsx` 那一軌仍沒有對真畫面校準**：`UiButton` 太簡單，0 則訊息證明不了什麼。
+- **`api-surface` 的「`export *`」檢查會讀到註解**（`shape.ts:1138` 對整份原文跑 `/export\s+\*/`）：`react.ts` 檔頭第一版寫著「不 `export *`」就紅了。紅燈而不是綠燈，所以改的是註解，工具沒動。
+- **Base UI 絆線只認 `createElement('style')` 這一個形狀**：注入換成別的寫法（例如 `innerHTML` 塞 `<style>`）看不到，那時要回瀏覽器量（C233 §三 的量法），不是放寬樣式。它的正向對照 `reka-ui` 在 ⑤ 隨 Vue 退場，那天要換一個對照，不能刪。
+- **⑤ 收回 `.`** 要一份 codemod（Q57）。
+
+#### 六、C154 §三
+
+| 新增的檢查                               | 交付軸                                        | 迭代軸（① 對象在外、② 壞法安靜）                                             | 級別                           |
+| ---------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------ |
+| Base UI 的執行期相依閉包不注入 `<style>` | 彈出層在嚴格 CSP 下真的鎖得住捲動（C233 §三） | ① 第三方套件的升級；② 瀏覽器擋掉、零報錯，body 標了已鎖而頁面照樣能捲        | 探針（M6、M7；對照 `reka-ui`） |
+| 元件契約擴到 `.tsx`                      | 各案的覆寫真的生效（C62 那三條軸的「形狀」）  | ① 對象在內（`platform/ui` 自己的元件）；② 覆寫不生效而型別全對、畫面照常     | 探針（M1–M4）                  |
+| `@source` 讀 `.tsx`                      | 交出去的畫面有樣式                            | ① 對象在內；② 建置 RC 0、CSS 照樣產出，只是少了 `.tsx` 那一半的 utility      | 探針（建置探針、M9）           |
+| exit-drill 帳目的三列                    | 換掉 vite-plus 之後測試照樣跑得起來（D2）     | ① 相依清單；② 演練在排程上才炸、之前全綠（`dependencies.ts` 檔頭記的那一次） | 探針（M10）                    |
+
+**自我防護的夾具**（第 3 條，不計分）：「★ React 那一半也掃到了」；「★ React 元件找不到 props 或 JSX 那一段要丟例外」；Base UI 那支的「★ 閉包裡真的有東西」「★ 真的掃到了檔案」；「引號與空白的變體都認得」；React 版 `createUiTheme` 的「★ 沒有 UiTheme 包著時用預設值」。
+
+#### 七、實測
+
+- 本機 `vpr ready`：**READY_RC <待填>**
+
+#### 八、與既有裁決的關係
+
+| 裁決                 | 關係                                                                                                            |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **C232**             | §六 ② 做了第一支元件與基礎設施，其餘在 ②b；§五「UI 基元」一列照 C233                                            |
+| **C233**             | §六「空要由一支會紅的檢查守著」做完；§六 C68 那一條以 Q60 為準                                                  |
+| **C234**             | §五 四項：cva 衝突 → Q59；Base UI 的空 → 本則 §三 5；語意 class → Q60（Button 沒有，②b）；`.tsx` 校準 → 仍待 ②b |
+| **D15**              | **照舊** —— 元件原始碼由本 repo 擁有；CLI 是素材來源（Q58）                                                     |
+| **C68**              | **洞不回來** —— 不收 preset（Q60）                                                                              |
+| **AGENTS.md 規則二** | **遵守** —— cva 的健康度沒有自己登記例外，交人裁（Q59）                                                         |
+| **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                                  |

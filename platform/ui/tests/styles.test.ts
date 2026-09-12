@@ -39,10 +39,10 @@ const ENTRY = join(PACKAGE_ROOT, "src/styles/index.css");
  *
  * 二、天真地去註解（`/\*[^]*?\*\/` 一把掃）會**吃掉 glob**：
  *
- *     @source "../../../../**\/*.{vue,ts}";
+ *     @source "../../../../**\/*.{vue,ts,tsx}";
  *                          ↑ 這裡的 /**\/ 是一個合法的 CSS 空註解
  *
- * 結果那行變成 `../../../..*.{vue,ts}` —— 路徑少了一層，而測試看到的
+ * 結果那行變成 `../../../..*.{vue,ts,tsx}` —— 路徑少了一層，而測試看到的
  * 「宣告」跟 Tailwind 看到的不是同一個東西。這種錯最難查：兩邊都沒報錯。
  *
  * 所以要先認得字串：**要比對程式碼就得先分辨程式碼與字面值**，
@@ -150,10 +150,10 @@ describe("樣式入口", () => {
 
 describe("去註解器本身", () => {
   it("不會把 glob 裡的 /**/ 當成空註解吃掉", () => {
-    // 這是實際踩過的坑：@source "../../../../**/*.{vue,ts}" 裡的 /**/ 是一個
+    // 這是實際踩過的坑：@source "../../../../**/*.{vue,ts,tsx}" 裡的 /**/ 是一個
     // 合法的 CSS 空註解，天真的去註解器會把路徑少刨掉一層 ——
     // 而測試看到的宣告與 Tailwind 看到的變成兩回事，兩邊都不報錯。
-    expect(declaredSources(entry())).toContain("../../../../**/*.{vue,ts}");
+    expect(declaredSources(entry())).toContain("../../../../**/*.{vue,ts,tsx}");
   });
 
   it("註解裡提到的 @source 不算宣告", () => {
@@ -215,7 +215,7 @@ describe("設計代幣", () => {
  *
  * 一、巢狀的 `{}` 正則數不了。
  * 二、引號裡的 `{` 不是括號。這份 CSS 自己就有
- *     `@source "../../../../**\/*.{vue,ts}"` 這種字面值，而上面那支
+ *     `@source "../../../../**\/*.{vue,ts,tsx}"` 這種字面值，而上面那支
  *     `stripCssComments` 的檔頭已經為同一件事付過一次代價：
  *     **要比對程式碼就得先分辨程式碼與字面值。**
  *
@@ -324,5 +324,13 @@ describe("公開契約", () => {
     const index = readFileSync(join(PACKAGE_ROOT, "src/index.ts"), "utf8");
     expect(index).not.toContain('from "reka-ui"');
     expect(index).not.toContain("export * from");
+  });
+
+  it("React 那一個入口同樣不轉出基元（C235）", () => {
+    // 同一條理由換一個基元庫：Base UI 今天不注入 <style>（base-ui-no-style.test.ts），
+    // 但「哪些基元可以用」仍然不交給各團隊。
+    const react = readFileSync(join(PACKAGE_ROOT, "src/react.ts"), "utf8");
+    expect(react).not.toContain('from "@base-ui/react');
+    expect(react).not.toContain("export * from");
   });
 });

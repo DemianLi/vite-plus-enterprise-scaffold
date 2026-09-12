@@ -53,7 +53,7 @@ const HEADER = `# platform/ API 形狀參考
 > ⚠️ **這是形狀參考，不是使用說明。**
 > 它回答「有哪些 export、prop 叫什麼、型別是什麼」。
 > 它**不**回答「為什麼這樣設計、怎麼接線」—— 那些寫在原始碼的檔頭註解裡
-> （元件在 \`platform/ui/src/components/*.vue\`），而且比這裡詳細得多。
+> （元件在 \`platform/ui/src/components/*.vue\` 與 \`*.tsx\`），而且比這裡詳細得多。
 > 要動手做一個畫面，先讀 \`HANDOFF.md\`〈從這裡到第一個能操作的畫面〉。
 `;
 
