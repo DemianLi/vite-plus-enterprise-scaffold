@@ -214,6 +214,10 @@ BFF_ORIGIN=https://gateway.internal ./node_modules/.bin/vpr dev
 | `tools/codemods`      | 破壞性變更的遷移腳本；`api-surface` 擋下的就是**沒附 codemod** 的那些     |
 | `tools/promise-check` | **這一條承諾本身** —— 照 `specs/` 的規格弄壞一份副本，跑閘門，比對結果    |
 
+⚠️ **最後一列只在上游跑。** `promise-check` 在名冊上是 `upstream-only`：驗證承諾是上游的責任
+（C215 §九），fork 的 `vpr gate` 不接它（見〈放上 `.scaffold-fork`〉）。上面那句「三種都會當場紅」
+紅在上游，不在你們的樹上。
+
 > **這一條承諾的原文在 [`specs/promise-1-architecture.feature`](specs/promise-1-architecture.feature)。**
 > 那份規格是給人逐字讀的：打開它就知道「分工開發不受影響」在這個腳手架裡
 > 具體指哪幾件事，不必去讀任何一支閘門的原始碼。
@@ -425,8 +429,10 @@ compiler API，所以 `tools/vue-typecheck` 用具名 catalog 拉一份 JS 版�
 README 那張表的 Tier 2 那格漏了兩道閘門，**不知道漏了多久** —— 而那一格正是
 讀者判斷「PR 會被什麼擋下來」的地方。兩處都已修好，但**成因還在**。
 
-⚠️ **這一條會絆到你**，不只絆到維護者：你在 `tools/` 底下加目錄時也會走到
-這條路 —— 擋你的是 `gate-roster` 的「工具沒登記」，它要你把新的那支加進
+⚠️ **在 fork 裡，擋你的不是這一條，是章。** `gate-roster` 是上游專用、fork 不接
+（見〈放上 `.scaffold-fork`〉）；你在 `tools/` 底下加目錄，紅的是 `vpr scaffold-stamp`
+（見〈腳手架的那一半不要改〉）—— 團隊自己的工具照〈團隊自己的工具〉放在 `tools/` 以外。
+**在上游**，擋人的才是 `gate-roster` 的「工具沒登記」：它要你把新的那支加進
 `GATES`（要寫 tiers）或 `UNGATED`（要寫理由）。加閘門的人就要一起改那四處。
 
 **實務上要怎麼辦：** 加一道閘門時，四處要一起改。用這個指令找齊：
@@ -467,9 +473,10 @@ grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 > 另有一份 [SCOPE.md](SCOPE.md) 講的是**目錄**：這棵樹上有什麼，而每一項有沒有
 > 人寫過一句它是什麼。⚠️ **它不回答「准不准」** —— 判準的問法還在，但後果已隨
 > 兩條線併回一條而消失（C136 §三）。那份主要是給**維護這條線的人**的
-> —— ⚠️ **但你加東西進 `platform/` 或根層的時候也會用到**：`scope-check` 會要求
-> 新的那一項在那份文件登記一列，那幾欄寫你們自己的理由就好。
-> `tools/` 底下則是 `gate-roster` 要你寫一句理由（C136 §四）。
+> —— ⚠️ **在上游**，加東西進 `platform/` 或根層的時候也會用到：`scope-check` 會要求
+> 新的那一項在那份文件登記一列；`tools/` 底下則是 `gate-roster` 要一句理由（C136 §四）。
+> **fork 不接這兩道**（名冊上都是 `upstream-only`）；fork 裡 `platform/`、`tools/` 由章守著
+> （見〈腳手架的那一半不要改〉）。
 > 兩份刻意不重述對方的內容。
 
 ---
