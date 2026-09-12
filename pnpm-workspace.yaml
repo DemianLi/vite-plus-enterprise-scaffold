@@ -53,6 +53,9 @@ catalog:
   # ⚠️ 版本**逐字跟著 reka-ui 自己宣告的範圍**（^3.5.0），不是抄目前解到的
   # 3.12.3。寫得比它窄的話，reka-ui 哪天需要一個更舊的 3.x 就會產生第二份 ——
   # 那正是 D15 記過的 lightningcss 兩個版本、MPL-2.0 範圍翻倍的形狀。
+  # ⚠️ **上面「不是新的範圍」只到批次 ⑤ 為止**（C237 Q68、C238）：React 版 UiDatePicker
+  # 在執行期用它（CalendarDate、getDayOfWeek），刪 reka-ui 之後它就是 platform/ui 自己的
+  # 直接相依，而「跟著 reka-ui 的範圍」那句也跟著失去對象 —— 那天要重寫這一段。
   "@internationalized/date": ^3.5.0
 
   # --- React 那一套（C232 §五、C233 Q53、C235）---
@@ -66,6 +69,12 @@ catalog:
   "@types/react": ^19.3.0
   "@types/react-dom": ^19.3.0
   "@base-ui/react": ^1.8.0
+  # React 版 UiDatePicker 的日曆（C236 Q62、C238）。Base UI 沒有日曆；帶進 date-fns 與
+  # @date-fns/tz 兩支傳遞相依。三支的閉包也在 base-ui-no-style.test.ts 裡逐檔掃
+  # `createElement('style')`，理由同上面 Base UI 那一句。
+  # ⚠️ 只 import 它自己的 `react-day-picker/locale` 裡用得到的語系（C238 Q71）——
+  # 全部照字串查的話約 95 個 date-fns 語系一起進 bundle（壓縮後約 1.6MB）。
+  react-day-picker: ^10.0.1
 
   # --- 元件測試（§11 II ⑨ 的執行期那一層）---
   # ⚠️ C47 才剛以「會把瀏覽器二進位拉進供應鏈盤點範圍」為由拒絕 Playwright，

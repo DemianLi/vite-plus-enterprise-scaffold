@@ -36,6 +36,7 @@ export { UiDialog } from "./components/UiDialog.tsx";
 export { UiAlertDialog } from "./components/UiAlertDialog.tsx";
 export { UiSelect } from "./components/UiSelect.tsx";
 export { UiDropdownMenu } from "./components/UiDropdownMenu.tsx";
+export { UiDatePicker } from "./components/UiDatePicker.tsx";
 export { cn } from "./utils/cn.ts";
 
 export { createUiTheme } from "./theme-context.tsx";
