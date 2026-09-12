@@ -11724,3 +11724,107 @@ CSS 裡另有一段 `/*! tailwindcss … MIT License */` —— 第三方授權�
 | **AGENTS.md 規則四**    | **遵守** —— `specs/` 不匯出，不改                                           |
 | **C154 §三**            | **遵守** —— 新的機械檢查，兩軸已報                                          |
 | **C136 §八**            | **遵守** —— 舊裁決一個字都不改；批次 ② 改的是 `platform/` 的註解，不是裁決  |
+
+### C232 — 前端整棵換成 React：shadcn 從「照模式手寫」改成「用 CLI 產出、收進 `platform/ui`」；驗收規格那條鏈沒有框架碼，原封帶過去（2026-09-12，Q49–Q52）
+
+> 使用者要求：UI 從 Vue 版 shadcn 改成 React 版 shadcn。本則只裁決、零程式碼；第一批是一片示範切片（§六）。
+
+#### 一、四題由人裁
+
+| #       | 問題                                                    | 裁決                                      |
+| ------- | ------------------------------------------------------- | ----------------------------------------- |
+| **Q49** | 有沒有團隊已經拉 Vue 版去做案子、手上有 Vue 的業務碼    | **沒有**                                  |
+| **Q50** | 上游的 Vue 怎麼處理：整棵換／兩套並存／React 開新版本線 | **整棵換成 React，Vue 退場**              |
+| **Q51** | React 版 shadcn 的元件：照 D15 手寫／裝 CLI 產出        | **裝 shadcn CLI，產出收進 `platform/ui`** |
+| **Q52** | 第一批：先做一片示範切片／直接全面改寫                  | **先做一片示範切片**                      |
+
+- ⚠️ **「只換 UI 元件層」不是選項**：React 版 shadcn 的元件只能跑在 React 裡，Vue 應用用不了。所以 Q50 問的是 Vue 的去留，不是換哪一層。
+- ⚠️ **Q49 是前提**，同 C231 的 Q47：C215 承諾團隊無痛升級，今天沒有 fork，所以換得乾淨。**遷移期間 `main` 是半 Vue 半 React —— §六 ⑤ 做完之前不打 release tag**，否則第一個拉 tag 的團隊就讓這個前提失效。
+
+#### 二、Vue 綁在哪裡
+
+量法：子代理盤點（`main @ cc252a3`，與今天的 `47095cc` 只差 C231 的文件），下列數字逐項重驗過。
+
+| 面         | 綁 Vue 的東西                                                                                                                                                                                             | 量                            |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| UI 元件    | `platform/ui` 的 SFC；主題是 Vue plugin；`@source` 只掃 `{vue,ts}`                                                                                                                                        | 27 支，14 支 import `reka-ui` |
+| 應用殼     | `apps/console` 的 `main.ts`、`App.vue`、`DevSession.vue`、`env.d.ts`                                                                                                                                      | 4 支                          |
+| 示範切片   | views、composables、pinia store、`RouteRecordRaw` 路由、`i18n.d.ts`                                                                                                                                       | 2 片                          |
+| 切片合約   | `slice-kit` 的 `define-feature.ts`／`register.ts` 把 `routes` 型別定成 `RouteRecordRaw`；四份禁用 import 清單寫的是 Vue 生態的套件名；`SOURCE_EXTENSIONS` 含 `.vue`                                       | 1 個 package                  |
+| 相依       | `package.json` 宣告 Vue 系相依；catalog 的 D13／D15 兩段、`catalogs.vue-typecheck`、`allowBuilds: vue-demi`                                                                                               | 9 支                          |
+| 工具       | 大改：`vue-typecheck`、`conformance`、`theme-verify`、`ui-survey`、`compliance`、`slice-gen`、`api-surface`、`exit-drill`；小改：`doc-facts`、`promise-check`、`pii-check`、`codemods`、`threshold-check` | 8 ＋ 5 支                     |
+| 閘門       | `vue-typecheck`、`theme-verify`（fork、tier1）；`conformance`、`api-surface`、`exit-surface`（fork、tier2）；`a11y`（上游、tier1）；`eslint`（上游、tier2）                                               | 7 道                          |
+| CSP        | `platform/security-headers/src/policy.ts` 兩條策略的理由寫的是 Vue                                                                                                                                        | 2 處                          |
+| 裁決與文件 | D13、D14、D15 與十餘則 C 系列；`README.md` 第 4 行「Vue 3 為應用層」、`HANDOFF.md` 第 894 行「決策：shadcn-vue」                                                                                          | —                             |
+
+- ⚠️ **fork 預設的 6 道閘門（C215）裡 5 道綁 Vue** —— 只有 `scaffold-stamp` 不碰。
+- ⚠️ **沒有任何一則裁決評估過 React 對 Vue。** 兩份裁決檔提到 React 的只有三行（`DECISIONS.md:5993`–`6004`），都在比較 shadcn 兩版的元件目錄；D15 與 `ui-survey` 只比過 Vue 的元件庫。本則因此是這棵樹第一次選框架，不是翻案。
+
+#### 三、帶得過去的：驗收規格那條鏈
+
+`features/invoice` 的 `.feature` → `tests/specs/invoice.spec.ts` → `src/usecases/query-invoice.ts` → `src/ports.ts`：**零框架 import**。對照組：同一個 pattern 掃同一片的 `composables/`、`store.ts`、`routes.ts`，命中 5 處。
+
+這是遷移的基準線：AGENTS.md 規則三說「完成」的定義在驗收規格裡 —— **遷移前後同一份規格綠，就是業務沒有被改壞。** 例外是 `features/order/tests/masking.test.ts`，它用 `@vue/test-utils` 的 `mount`，要重寫。
+
+#### 四、要重新證明的，不是照抄
+
+1. **CSP 的理由**：`policy.ts` 不給 `'unsafe-eval'` 的理由是「Vue 3 的 runtime-only build 不含樣板編譯器」；`style-src-attr 'unsafe-inline'` 是為了 Vue 的 `:style`。換成 React，結論可能照舊（React 不需要 eval；`style={{…}}` 同樣是 inline 屬性），**但寫下的理由不再成立** —— 要重寫理由，不是把句子帶過去。這正是 C224–C230 反覆抓到的形狀：散文對不上機制。
+2. **Splitter 禁令**：它存在是因為 reka-ui 在執行期注入 `<style>`，被 `style-src 'self'` 擋掉。Radix 會不會同樣注入，**是量測，不是推論** —— 在示範切片裡量。
+3. **C68 不照 shadcn 樣式層的理由**：「語意 class ＋ CSS preset，打錯一個字畫面安靜少一塊樣式，而沒有閘門在守」。Q51 改用 CLI —— CLI 產出的樣式是寫在元件裡的 Tailwind utility，還是語意 class ＋ preset，要在示範切片實測。**若是後者，C68 那個洞會跟著回來**，要另裁（加閘門，或不收 preset）。
+4. **D14 的分層**：React 的 hook 同樣叫 `useXxx()`，「有狀態的邏輯住在 hook 裡、元件只負責呈現」照舊；目錄名要不要從 `composables/` 改成 `hooks/`，示範切片定。
+
+#### 五、選型（預設，示範切片驗過再定案；人可以改）
+
+版本取自 2026-09-12 的 `pnpm view`。
+
+| D13 那一列 | Vue 版                                     | React 版                                                           |
+| ---------- | ------------------------------------------ | ------------------------------------------------------------------ |
+| 資料存取   | TanStack Query（Vue Query）                | `@tanstack/react-query` 5.102.8                                    |
+| 狀態       | Pinia，store 住切片內                      | `zustand` 5.0.15，store 照樣住切片內、id 照樣帶切片前綴            |
+| i18n       | vue-i18n，訊息隨切片走                     | `react-i18next` 17.0.13 ＋ `i18next` 26.4.2                        |
+| 路由       | vue-router                                 | `react-router` 8.3.1                                               |
+| UI 基元    | reka-ui                                    | `radix-ui` 1.6.7，經 `shadcn` 4.21.0 CLI 產出                      |
+| 建置外掛   | `@vitejs/plugin-vue`                       | `@vitejs/plugin-react` 6.1.1                                       |
+| 元件測試   | `@vue/test-utils`                          | `@testing-library/react` 16.3.3                                    |
+| lint／a11y | `eslint-plugin-vue`、`vuejs-accessibility` | `eslint-plugin-react-hooks` 7.1.1、`eslint-plugin-jsx-a11y` 6.10.2 |
+| 型別檢查   | `vue-tsc`（`vue-typecheck` 閘門）          | `.tsx` 由 TypeScript 直接檢查 —— 由誰接手，示範切片量              |
+
+每一列都是該生態最常見的對應，而 D13 的理由欄（query key 命名空間化、store 住切片內、訊息隨切片走）在 React 端都寫得出來。
+
+#### 六、分批
+
+| 批               | 內容                                                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **⓪ 示範切片**   | 一片最小的 React 切片在 `prototype/react-slice` 分支上跑到 `vpr ready` 綠：量 §四 的 1–3 與 §五 最後一列，列出每一支會紅的工具與它紅的原因。**產出是量測與下一則裁決，不合進 `main`** |
+| ① 相依與工具鏈   | catalog 換成 React 那一套；讓 `.tsx` 走得通：`api-surface` 的解析器、`slice-gen` 範本、`theme-verify` 掃描、`conformance` 的清單、`exit-drill` 的 `DRILL_PLUGINS`                     |
+| ② `platform/ui`  | shadcn CLI 產出 27 個元件的 React 版；主題改成 React context；`@source` 改掃 `tsx`；`api-surface` 的公開面重新立基準                                                                  |
+| ③ 合約、切片、殼 | `slice-kit` 的 `routes` 改型別、禁用清單換套件名；兩片示範切片與 `apps/console` 改寫；`masking.test.ts` 重寫；CSP 理由重寫（§四 1）                                                   |
+| ④ lint 與 a11y   | `eslint-config` 換 react-hooks／jsx-a11y；`vue-typecheck` 退出名冊、`gate:fork` 與 CI；`compliance` 的對照表                                                                          |
+| ⑤ Vue 退場       | 刪 `.vue`、Vue 相依與 catalog 段落；`README`、`HANDOFF`、`TESTING` 改寫 —— **然後才打 tag**                                                                                           |
+
+⚠️ **與 C231 的順序**：C231 批次 ②「上游清 `platform/` 的痕跡」要排在本則 ② 之後 —— `platform/ui` 的 27 支會整批重寫，先清等於白做。C231 的白名單從相依圖推，換框架後自己跟著走，不用改。
+
+#### 七、C154 §三
+
+本則零程式碼，不新增、不拿掉任何機械檢查。`vue-typecheck` 在批次 ④ 退場時另報 —— 理由是它守的 `.vue` 不存在了，不是它不值得（C137 §一 不准拿成本論證增減閘門）。
+
+#### 八、留白
+
+- **§五 的選型是預設**，示範切片驗過才定案；人要換哪一列，說一聲就換。
+- **shadcn CLI 要連公網抓 registry**：只在上游維護端跑，產出收進版控；封閉網路的團隊不需要 CLI —— 與 D15「這個決策強制帶出的四件事」第 2 條同一個形狀。
+- **供應鏈基線要重擷取**，Radix 那一批套件的授權要過一次；`ui-survey` 是只收 Vue 元件庫的市調工具，要不要加 React 候選，批次 ① 定。
+- `tools/` 裡 3 支 `.vue` fixture（`api-surface` 1、`vue-typecheck` 2）隨各自的工具處理。
+- `platform/eslint-config/tests/fixtures/a11y-violations.vue` 隨批次 ④ 換成 `.tsx` 的違規樣本 —— 那是 a11y 閘門的對照組，不能只刪不補。
+
+#### 九、與既有裁決的關係
+
+| 裁決                             | 關係                                                                                            |
+| -------------------------------- | ----------------------------------------------------------------------------------------------- |
+| **D13**                          | **以本則 §五 為準**（不改原文）；理由欄照舊成立                                                 |
+| **D14**                          | **照舊** —— 分層不變，composable 換成 hook                                                      |
+| **D15**                          | **以本則為準**：從「照 shadcn 模式手寫」改成「CLI 產出、收進 `platform/ui`」；D4 的位置論證照舊 |
+| **C68〈shadcn 這件事要講清楚〉** | **待示範切片重驗** —— 它不照樣式層的理由（preset 沒有閘門在守）可能跟著 CLI 回來                |
+| **C215**                         | **前提成立於 Q49**；遷移期間不發版                                                              |
+| **C231**                         | **白名單不用改**；它的批次 ② 排在本則 ② 之後                                                    |
+| **AGENTS.md 規則三**             | **遷移的基準線** —— 驗收規格那條鏈沒有框架碼                                                    |
+| **C136 §八**                     | **遵守** —— 舊裁決一個字都不改                                                                  |
