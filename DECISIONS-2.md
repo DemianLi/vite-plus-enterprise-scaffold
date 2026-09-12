@@ -11632,7 +11632,7 @@ C225 §三 記了 `doc-facts`、`scope-check` 兩列。這一批逐列對名冊�
 | `rm -rf tools`                            | ✅   | ✅                        | ❌ 3 個 package：`eslint-config` 的 a11y 拿 `git ls-files` 當期望（34 vs 31） |
 | `git rm -r tools` ＋ commit               | ✅   | ✅                        | ✅ 11 個 package                                                              |
 | 刪 `platform/`                            | ✅   | ❌ `ERR_MODULE_NOT_FOUND` | —                                                                             |
-| **最小匯出**（§四 的白名單，不帶 `.git`） | ✅   | ✅                        | 不交測試，不跑                                                                |
+| **最小匯出**（§四 的白名單，不帶 `.git`） | ✅   | ✅                        | **未驗** —— 這一趟只驗了安裝與建置；批次 ① 補（§四.7）                        |
 
 - **`platform/` 是交付物本體**（`SCOPE.md` 〈`platform/`〉那一節）：業務在執行期依賴它的八個 package。
 - **`tools/` 沒有任何被依賴的地方**：`apps`／`features`／`platform` 零宣告、零 import（設定檔裡只剩註解）。
@@ -11672,8 +11672,11 @@ CSS 裡另有一段 `/*! tailwindcss … MIT License */` —— 第三方授權�
 
 1. **匯出是一支新工具，產出一個沒有 `.git` 的目錄。** 交付物是那個目錄，不是 repo，不帶歷史。
 2. **白名單，不是黑名單** —— 由 workspace 相依的閉包推：從 `apps/*`、`features/*` 出發，沿 `dependencies`／`devDependencies` 走得到的 `platform/*` 才匯出。今天推出來正好是八個（`bff-contract`、`config`、`http-client`、`pii`、`security-headers`、`slice-kit`、`tsconfig`、`ui`），走不到的是 `bff-mock`、`eslint-config` —— 與手列的一致。⚠️ 用推的，是因為手列的清單會在下一個人新增 package 的那天安靜失準；黑名單則會把下一支新檔預設交出去。
+
+   ⚠️⚠️ **閉包量的是「走得到」，不是「執行期要用」。** 它沿 `devDependencies` 走，才收得到 `tsconfig`（11 個 package 的 devDep）與 `security-headers`（`apps/console` 的 devDep、建置期 import）—— 而同一條規則，也會把**哪天被寫進某個 `devDependencies` 的純測試用 workspace package** 安靜地匯出去。`bff-mock`、`eslint-config` 今天在外面，是因為沒有人依賴它們，**不是因為規則分得出開發期與執行期**。這是白名單唯一還會像黑名單那樣漏的地方：今天只有 §四.6 的掃描**可能**接到（那種 package 的內容多半帶痕跡），不保證；要不要另設規則，批次 ① 定。
+
 3. **測試不匯出**：`tests/`、`fixtures/`、`*.test.*`、`*.spec.*`、`*.feature`。根層 `specs/` 不匯出 —— **不匯出，不是去改它**（AGENTS.md 規則四）。
-4. **`package.json` 改寫**：拿掉 `test` script 與只有測試用到的 devDependencies；根層只留 `build`、`dev`。`pnpm-workspace.yaml` 拿掉 `tools/*`。
+4. **`package.json` 改寫**：拿掉 `test` script 與只有測試用到的 devDependencies；根層只留 `build`、`dev`。`pnpm-workspace.yaml` 拿掉 `tools/*`。⚠️ **根層 `.gitignore` 不複製、改寫一份**：原檔 78 行裡有 stryker、`tools/`、C120、C182 與「突變測試」的說明（§三 那 109 支就含它）；匯出只寫建置與開發需要的條目（`node_modules`、`dist`、`.env*` 那一類）。根層帶過去的其餘檔案同樣要過 §四.6。
 5. **lockfile 帶原檔、讓 pnpm 剪**（§二）。
 6. **痕跡掃描跑在匯出結果上**，任一命中 → 匯出失敗、不留產物。詞表見 §三；對照組兩個方向都要（一份已知會命中的樣本、一份已知乾淨的樣本）。
 7. **匯出後重跑一次演練**：repo 外的乾淨目錄、離線安裝、建置 —— §二 驗的是「拿掉 `tools/` 的樹」，**不是匯出那棵**。
@@ -11685,12 +11688,12 @@ CSS 裡另有一段 `/*! tailwindcss … MIT License */` —— 第三方授權�
 
 #### 六、分四批
 
-| 批  | 內容                                                                                                                              |
-| --- | --------------------------------------------------------------------------------------------------------------------------------- |
-| ①   | 匯出工具：白名單推導、改寫、掃描、演練。掃描**先只報數**（今天必紅）                                                              |
-| ②   | 上游清 `platform/` 八個 package 的非測試碼（註解、README、執行期字串）                                                            |
-| ③   | 清 `apps/console` 與兩片示範切片；`features/*/vite.config.ts` 讀 `slice-kit` 的覆蓋率門檻 —— 測試設定能不能搬出建置設定，量過再定 |
-| ④   | 掃描歸零後接線：上游的閘門鏈跑「對今天的樹匯出一次＋掃描」                                                                        |
+| 批  | 內容                                                                                                                                                            |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ①   | 匯出工具：白名單推導、改寫、掃描、演練。掃描**先只報數**（今天必紅）                                                                                            |
+| ②   | 上游清 `platform/` 八個 package 的非測試碼（註解、README、執行期字串 —— ⚠️ `http-client` 那句帶 `D8` 的錯誤訊息會活過壓縮、進正式產物，**這一批不能只掃註解**） |
+| ③   | 清 `apps/console` 與兩片示範切片；`features/*/vite.config.ts` 讀 `slice-kit` 的覆蓋率門檻 —— 測試設定能不能搬出建置設定，量過再定                               |
+| ④   | 掃描歸零後接線：上游的閘門鏈跑「對今天的樹匯出一次＋掃描」                                                                                                      |
 
 #### 七、C154 §三
 
