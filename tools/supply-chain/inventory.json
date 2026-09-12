@@ -1,7 +1,7 @@
 {
   "lockfileDocuments": 2,
   "totals": {
-    "packages": 715,
+    "packages": 723,
     "native": 146,
     "families": 12,
     "withoutIntegrity": 0
@@ -1282,5 +1282,5 @@
       "reason": "Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me"
     }
   ],
-  "nonNativeDigest": "df81ab0afa7914baea822cd04faba238a978770be05ffa74b15711b20079e534"
+  "nonNativeDigest": "fe72d877e19332adbd763b7b91c7f2f28b9cc818b11b4c330a089f37a7fbb9d8"
 }

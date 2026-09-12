@@ -76,7 +76,11 @@ export function composableFunctionName(fileName: string): string {
  * ⚠️ 這條不禁 `@tanstack/vue-query` 出現在切片裡 —— composable 就是要用它。
  * 禁的是**位置**，不是相依。
  */
-export const VIEW_FORBIDDEN_IMPORTS = ["@tanstack/vue-query", "@org/http-client"] as const;
+export const VIEW_FORBIDDEN_IMPORTS = [
+  "@tanstack/vue-query",
+  "@tanstack/react-query",
+  "@org/http-client",
+] as const;
 
 /** 元件也不得直接 import 同切片的資料存取模組（相對路徑，需另外判定）。 */
 export const VIEW_FORBIDDEN_LOCAL_MODULES = ["api"] as const;
@@ -115,7 +119,11 @@ export const STORE_FILE = "src/store.ts";
  * entity 就進不了 store。剩下的路徑（元件手動把資料塞進 store）明顯得多，
  * code review 看得到。
  */
-export const STORE_FORBIDDEN_IMPORTS = ["@tanstack/vue-query", "@org/http-client"] as const;
+export const STORE_FORBIDDEN_IMPORTS = [
+  "@tanstack/vue-query",
+  "@tanstack/react-query",
+  "@org/http-client",
+] as const;
 
 /** store 也不得 value import 同切片的資料存取模組。 */
 export const STORE_FORBIDDEN_LOCAL_MODULES = ["api"] as const;
@@ -197,6 +205,10 @@ export const USECASES_DIR = "src/usecases";
  *
  * ⚠️ 這裡**沒有列 `@org/http-client`**，那不是遺漏：usecase 拿的是 `ports.ts`
  * 的介面，真實作住在 `api.ts`。禁的是框架，不是資料存取本身。
+ *
+ * ⚠️ 遷移期間（C232 §六 ⑤ 之前）兩套並列：React 那一套取自 C232 §五 的選型。
+ * 它們必須在第一行 React usecase 出現**之前**就在這裡 —— 少一項的症狀不是紅，
+ * 是那一項安靜地放行（C234 §二）。
  */
 export const USECASE_FORBIDDEN_IMPORTS = [
   "vue",
@@ -204,6 +216,13 @@ export const USECASE_FORBIDDEN_IMPORTS = [
   "vue-router",
   "vue-i18n",
   "@tanstack/vue-query",
+  "react",
+  "react-dom",
+  "react-router",
+  "react-i18next",
+  "i18next",
+  "zustand",
+  "@tanstack/react-query",
 ] as const;
 
 /**
@@ -304,17 +323,65 @@ export const BANNED_DIRECT_DEPENDENCIES = [
  * 靜態 CSP 標頭就夠」上面。為了一個分隔面板把那個級距推上去，不划算。
  *
  * 要用它的話，這條規則的改動就是那場討論的入口。
+ *
+ * ── Radix：同一個形狀，射程是所有會鎖捲動的彈出層（C233 §三、C234 §三）──
+ *
+ * Radix 的捲動鎖定經 `react-remove-scroll` → `react-style-singleton` 注入 `<style>`，
+ * nonce 向 `__webpack_nonce__` 要 —— Vite 底下沒有這個變數，所以**永遠不帶**。
+ * 瀏覽器實測：body 標了已鎖、`overflow` 仍是 visible，零報錯。hash 放行也量過
+ * 不可行：內容帶執行期算出的捲軸寬度，同一個 Dialog 開兩次 hash 不同。
+ *
+ * 名單是量出來的，不是列舉元件目錄：`radix-ui` 1.6.7 的 35 個命名空間逐支追
+ * dist 的 import，**真的 import** `react-remove-scroll` 的只有下面 7 支
+ *（對照：`react-dismissable-layer` 的 manifest 列了它、dist 沒有 import，不在名單）。
+ * 同一批模組有三種寫法 —— 根入口的具名匯入、`radix-ui/<子路徑>`、
+ * `@radix-ui/react-<名字>` —— 三種都得擋，只擋一種等於另兩種是後門。
  */
-export const CSP_INCOMPATIBLE_MODULES = [
+export interface CspIncompatibleModule {
+  readonly specifier: string;
+  /** 只有匯入這些名字才算違規（單一入口的套件）。省略 ＝ 這個模組或它的子路徑整支都算。 */
+  readonly names?: readonly string[];
+  readonly reason: string;
+}
+
+const RADIX_SCROLL_LOCK_REASON =
+  "Radix 的捲動鎖定會注入不帶 nonce 的 <style>，被 style-src 'self' 擋掉，" +
+  "彈出層打開時頁面照樣能捲、零報錯（C233 §三）。hash 放行量過不可行，" +
+  "per-request nonce 會推翻 R6；這棵樹的彈出層走 @base-ui/react（Q53）";
+
+const RADIX_SCROLL_LOCK_MODULES = [
+  ["AlertDialog", "alert-dialog"],
+  ["ContextMenu", "context-menu"],
+  ["Dialog", "dialog"],
+  ["DropdownMenu", "dropdown-menu"],
+  ["Menubar", "menubar"],
+  ["Popover", "popover"],
+  ["Select", "select"],
+] as const;
+
+export const CSP_INCOMPATIBLE_MODULES: readonly CspIncompatibleModule[] = [
   {
     specifier: "reka-ui",
-    /** 匯入這些名字才算違規。reka-ui 是單一入口，所以要看具名匯入。 */
     names: ["SplitterGroup", "SplitterPanel", "SplitterResizeHandle"],
     reason:
       "Splitter 在拖曳時會注入 <style> 元素，被 style-src 'self' 擋掉。" +
       "要放行需要 per-request nonce，而那會推翻 R6「靜態 CSP 標頭就夠」的成本論證",
   },
-] as const;
+  {
+    specifier: "radix-ui",
+    names: RADIX_SCROLL_LOCK_MODULES.map(([name]) => name),
+    reason: RADIX_SCROLL_LOCK_REASON,
+  },
+  ...RADIX_SCROLL_LOCK_MODULES.map(([, path]) => ({
+    specifier: `radix-ui/${path}`,
+    reason: RADIX_SCROLL_LOCK_REASON,
+  })),
+  // `react-menu` 不在 `radix-ui` 的命名空間裡，但它是另外三支選單的共同底層。
+  ...[...RADIX_SCROLL_LOCK_MODULES.map(([, path]) => path), "menu"].map((path) => ({
+    specifier: `@radix-ui/react-${path}`,
+    reason: RADIX_SCROLL_LOCK_REASON,
+  })),
+];
 
 /**
  * D15：切片不得直接使用設計系統的底層 —— 一律走 `@org/ui`。
@@ -332,8 +399,18 @@ export const CSP_INCOMPATIBLE_MODULES = [
  *
  * 這條與 D14 的 view 禁令是同一個形狀：擋的是「繞過既有的那一層」，
  * 不是「不准有那個檔案」。
+ *
+ * ⚠️ 後三項是 React 那一套的基元與 `cn()` 底層：shadcn CLI 的 Base UI 那一套實測
+ * `init` 產出的就是這三支（C234 §三）。遷移期間與 Vue 那三支並列。
  */
-export const SLICE_DESIGN_SYSTEM_IMPORTS = ["reka-ui", "clsx", "tailwind-merge"] as const;
+export const SLICE_DESIGN_SYSTEM_IMPORTS = [
+  "reka-ui",
+  "clsx",
+  "tailwind-merge",
+  "@base-ui/react",
+  "cn",
+  "class-variance-authority",
+] as const;
 
 /** D15：設計系統的唯一入口。切片要用元件只能從這裡拿。 */
 export const DESIGN_SYSTEM_PACKAGE = "@org/ui";
@@ -405,6 +482,24 @@ export const SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".mjs", ".vue"] as const
  */
 export const IMPORT_SPECIFIER_PATTERN =
   /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*)["']([^"']+)["']/g;
+
+/**
+ * import 指定字串 → 它屬於哪一個套件（`@base-ui/react/dialog` → `@base-ui/react`）。
+ *
+ * ⚠️ 禁用清單列的是**套件**，而比對原本是整串相等。Vue 那一套大多是單一入口，
+ * 所以那個差別一直量不到；React 那一套不是 —— shadcn CLI 產出的就是
+ * `@base-ui/react/button` 這種子路徑，整串相等會讓它整批繞過清單（C234 §二）。
+ *
+ * 相對路徑與含冒號的（`node:fs`、`virtual:*`）原樣回傳：它們不是套件，
+ * 也不會與清單裡的任何一項相等。
+ */
+export function importedPackage(specifier: string): string {
+  if (specifier.startsWith(".") || specifier.startsWith("/") || specifier.includes(":")) {
+    return specifier;
+  }
+  const segments = specifier.split("/");
+  return specifier.startsWith("@") ? segments.slice(0, 2).join("/") : (segments[0] ?? specifier);
+}
 
 /**
  * 切片命名規則：目錄名 kebab-case，套件名 `@org/feature-<目錄名>`。

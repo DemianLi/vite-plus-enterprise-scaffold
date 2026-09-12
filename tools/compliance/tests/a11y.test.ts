@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import a11yConfig from "@org/eslint-config/a11y";
@@ -6,6 +8,7 @@ import { GATES } from "../src/map.ts";
 import {
   ACCESSIBILITY_STANDARD,
   CRITERIA,
+  languageTracks,
   preFilterRules,
   scopedOverrides,
   verifyCriteria,
@@ -93,15 +96,29 @@ describe("verifyCriteria：悲觀方向（假的洞）", () => {
 describe("前置過濾器的規則清單是推導的，不是抄的", () => {
   /**
    * ⚠️ 這一條守的是「有人把清單複製一份貼進來」。複製一份的症狀是：
-   * 升級 `eslint-plugin-vuejs-accessibility` 之後新規則不會出現在交付文件裡，
-   * 而文件仍然宣稱自己列的是閘門實際檢查的東西。
+   * 升級外掛之後新規則不會出現在交付文件裡，而文件仍然宣稱自己列的是
+   * 閘門實際檢查的東西。
    */
-  it("★ 全部帶 vuejs-accessibility/ 前綴，而且數量與設定一致", () => {
+  it("★ 每一條都帶某一軌的外掛前綴，而且數量是各軌加總", () => {
     const rules = preFilterRules();
+    const tracks = languageTracks();
+    const plugins = new Set(tracks.map((track) => track.plugin));
+
     expect(rules.length).toBeGreaterThan(0);
-    for (const rule of rules) expect(rule.startsWith("vuejs-accessibility/")).toBe(true);
+    expect(rules.length).toBe(tracks.reduce((sum, track) => sum + track.ruleCount, 0));
+    for (const rule of rules) expect(plugins.has(rule.slice(0, rule.indexOf("/")))).toBe(true);
     // 排序過 = 產出穩定，不會因為物件鍵順序改變而讓 baseline 漂移。
     expect([...rules].sort()).toEqual(rules);
+  });
+
+  /**
+   * #297 的判法（第一個 rules 區塊是清單、其餘都是覆寫）在 `.tsx` 那一軌加進來那天
+   * 會把整軌印成覆寫（C234）。這條問的是那個結果：**沒有任何一軌的規則出現在覆寫表裡。**
+   */
+  it("🔴 整軌不會被當成覆寫 —— 覆寫表裡的每一列都不是某一軌的全開設定", () => {
+    const tracks = languageTracks();
+    expect(tracks.length).toBeGreaterThan(1);
+    expect(scopedOverrides().every((override) => override.setting !== '"error"')).toBe(true);
   });
 });
 
@@ -110,11 +127,17 @@ describe("範圍覆寫：全域清單之後的區塊要進交付文件", () => {
     renderAccessibility({
       criteria: CRITERIA,
       rules: preFilterRules(config),
+      tracks: languageTracks(config),
       overrides: scopedOverrides(config),
     });
 
+  // 帶 `plugins` 的是一軌不是覆寫（C234）—— 少了這個條件，`.tsx` 那一軌會被當成豁免區塊。
   const isScoped = (entry: unknown): entry is { files: string[]; rules: Record<string, unknown> } =>
-    typeof entry === "object" && entry !== null && "files" in entry && "rules" in entry;
+    typeof entry === "object" &&
+    entry !== null &&
+    "files" in entry &&
+    "rules" in entry &&
+    !("plugins" in entry);
 
   /** 真設定裡 `platform/ui` 那個豁免區塊：三顆變異都從它長出來，找不到就不要量。 */
   const exemption = (() => {
@@ -175,16 +198,18 @@ describe("範圍覆寫：全域清單之後的區塊要進交付文件", () => {
 
   it("🔴 M2：豁免的 files 擴成 **/*.vue → 交付文件變了", () => {
     const widened = "**/*.vue";
+    // 比的是覆寫表的**那一列**（規則＋glob），不是 glob 字面：`.vue` 那一軌自己的範圍
+    // 就是 `**/*.vue`，軌道表會印出它（C234）—— 裸 glob 在真設定的產出裡本來就有。
+    const rule = Object.keys(exemption.rules)[0] ?? "";
+    const row = `${rule.slice(rule.indexOf("/") + 1)}\` | \`${widened}\``;
     expect(
       exemption.files,
       `真設定的豁免 files 已經是 ${widened} —— 注入值與真值相同，這顆變異變成 no-op`,
     ).not.toContain(widened);
 
     const mutated = render(withExemptionReplaced({ ...exemption, files: [widened] }));
-    expect(mutated).toContain(`\`${widened}\``);
-    expect(render(), "真設定的產出本來就印著這個 glob —— 上面那條沒有量到注入").not.toContain(
-      `\`${widened}\``,
-    );
+    expect(mutated).toContain(row);
+    expect(render(), "真設定的產出本來就有這一列 —— 上面那條沒有量到注入").not.toContain(row);
   });
 
   it("🔴 M3：豁免區塊多關一條 → 交付文件變了", () => {
@@ -217,7 +242,12 @@ describe("範圍覆寫：全域清單之後的區塊要進交付文件", () => {
 
   it("🔴 沒有任何覆寫 → 文件要明說，不是把那一節省掉", () => {
     expect(
-      renderAccessibility({ criteria: CRITERIA, rules: preFilterRules(), overrides: [] }),
+      renderAccessibility({
+        criteria: CRITERIA,
+        rules: preFilterRules(),
+        tracks: languageTracks(),
+        overrides: [],
+      }),
     ).toContain("沒有範圍覆寫");
   });
 });
@@ -226,7 +256,32 @@ describe("產出的文件", () => {
   const markdown = renderAccessibility({
     criteria: CRITERIA,
     rules: preFilterRules(),
+    tracks: languageTracks(),
     overrides: scopedOverrides(),
+  });
+
+  it("★ 每一軌的範圍都印出來 —— 否則兩份清單讀起來像在每一個檔上都跑", () => {
+    for (const track of languageTracks()) {
+      expect(markdown).toContain(`\`${track.files.join(", ")}\``);
+      expect(markdown).toContain(`\`${track.package}\``);
+      expect(markdown).toContain(`| ${track.ruleCount} |`);
+    }
+  });
+
+  /**
+   * `.tsx` 那一軌的前綴是 `jsx-a11y`、裝的是 `eslint-plugin-jsx-a11y-x`（C234）。
+   * 套件欄若從前綴推，交付文件會寫一支沒裝的套件，而上面每一條都從同一個前綴推導、看不見它。
+   */
+  it("🔴 套件欄印的是真的裝了的那一支", () => {
+    const manifest = JSON.parse(
+      readFileSync(
+        new URL("../../../platform/eslint-config/package.json", import.meta.url),
+        "utf8",
+      ),
+    ) as { dependencies: Record<string, string> };
+    for (const track of languageTracks()) {
+      expect(Object.keys(manifest.dependencies)).toContain(track.package);
+    }
   });
 
   it("★ 明說自己不是完整清單 —— 否則會被讀成「AA 只有四條」", () => {
@@ -251,8 +306,8 @@ describe("產出的文件", () => {
   });
 
   it("🔴 規則清單是空的 → 產出的文件會宣稱「共 0 條」，那要看得出來", () => {
-    expect(renderAccessibility({ criteria: CRITERIA, rules: [], overrides: [] })).toContain(
-      "共 0 條",
-    );
+    expect(
+      renderAccessibility({ criteria: CRITERIA, rules: [], tracks: [], overrides: [] }),
+    ).toContain("共 0 條");
   });
 });

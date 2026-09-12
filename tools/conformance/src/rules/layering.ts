@@ -14,6 +14,7 @@ import {
   STORE_FORBIDDEN_LOCAL_MODULES,
   USECASES_DIR,
   USECASE_FORBIDDEN_IMPORTS,
+  importedPackage,
   isTypeOnlyImportAt,
 } from "@org/slice-kit/contract";
 
@@ -92,7 +93,9 @@ export function checkSliceLayering(slicePath: string, slice: string): Finding[] 
         // 借型別不算耦合：`import type` 在 verbatimModuleSyntax 下會被完全抹除。
         if (isTypeOnlyImportAt(source, match.index)) continue;
 
-        const forbidden = STORE_FORBIDDEN_IMPORTS.find((banned) => specifier === banned);
+        const forbidden = STORE_FORBIDDEN_IMPORTS.find(
+          (banned) => importedPackage(specifier) === banned,
+        );
         if (forbidden !== undefined) {
           fail(
             slice,
@@ -145,7 +148,9 @@ export function checkSliceLayering(slicePath: string, slice: string): Finding[] 
           if (specifier === undefined || match.index === undefined) continue;
           if (isTypeOnlyImportAt(source, match.index)) continue;
 
-          const forbidden = USECASE_FORBIDDEN_IMPORTS.find((banned) => specifier === banned);
+          const forbidden = USECASE_FORBIDDEN_IMPORTS.find(
+            (banned) => importedPackage(specifier) === banned,
+          );
           if (forbidden !== undefined) {
             fail(
               slice,
@@ -171,7 +176,9 @@ export function checkSliceLayering(slicePath: string, slice: string): Finding[] 
         const specifier = match[1];
         if (specifier === undefined) continue;
 
-        const forbiddenPackage = VIEW_FORBIDDEN_IMPORTS.find((banned) => specifier === banned);
+        const forbiddenPackage = VIEW_FORBIDDEN_IMPORTS.find(
+          (banned) => importedPackage(specifier) === banned,
+        );
         if (forbiddenPackage !== undefined) {
           fail(
             slice,

@@ -3,6 +3,7 @@ import { relative } from "node:path";
 
 import {
   IMPORT_SPECIFIER_PATTERN,
+  importedPackage,
   isTypeOnlyImportAt,
   SLICE_DESIGN_SYSTEM_IMPORTS,
   DESIGN_SYSTEM_PACKAGE,
@@ -31,7 +32,9 @@ export function checkDesignSystemBoundary(slicePath: string, slice: string): Fin
         // 借型別不算耦合，理由同 store 的規則。
         if (isTypeOnlyImportAt(source, match.index)) continue;
 
-        const banned = SLICE_DESIGN_SYSTEM_IMPORTS.find((name) => specifier === name);
+        const banned = SLICE_DESIGN_SYSTEM_IMPORTS.find(
+          (name) => importedPackage(specifier) === name,
+        );
         if (banned === undefined) continue;
 
         fail(

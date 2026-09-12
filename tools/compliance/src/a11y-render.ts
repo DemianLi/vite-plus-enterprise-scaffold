@@ -3,6 +3,7 @@ import {
   REQUIRED_LEVEL,
   type AcceptanceStage,
   type Criterion,
+  type LanguageTrack,
   type ScopedOverride,
 } from "./a11y.ts";
 import type { Coverage } from "./map.ts";
@@ -27,11 +28,12 @@ function cell(text: string): string {
 export interface A11yRenderInput {
   readonly criteria: readonly Criterion[];
   readonly rules: readonly string[];
+  readonly tracks: readonly LanguageTrack[];
   readonly overrides: readonly ScopedOverride[];
 }
 
 export function renderAccessibility(input: A11yRenderInput): string {
-  const { criteria, rules, overrides } = input;
+  const { criteria, rules, tracks, overrides } = input;
   const lines: string[] = [];
 
   lines.push(
@@ -94,16 +96,26 @@ export function renderAccessibility(input: A11yRenderInput): string {
     "⚠️ 這裡刻意**不**宣稱每條規則對應哪一條成功準則。那個對照需要規範原文，",
     "而猜一個對照寫進交付文件，比不寫更糟。",
     "",
-    `共 ${rules.length} 條：`,
+    "每一軌只在它自己的範圍上跑 —— 規則名的前綴就是它屬於哪一軌：",
     "",
+    "| 範圍（files） | 規則前綴 | 套件 | 規則數 |",
+    "| --- | --- | --- | --- |",
   );
+
+  for (const track of tracks) {
+    lines.push(
+      `| \`${cell(track.files.join(", "))}\` | \`${cell(track.plugin)}\` | \`${cell(track.package)}\` | ${track.ruleCount} |`,
+    );
+  }
+
+  lines.push("", `共 ${rules.length} 條：`, "");
 
   for (const rule of rules) lines.push(`- \`${rule}\``);
 
   lines.push("", "## 哪些規則在哪些路徑被覆寫", "");
 
   if (overrides.length === 0) {
-    lines.push("沒有範圍覆寫：上面那份清單在每一個 `.vue` 上都跑。");
+    lines.push("沒有範圍覆寫：上面每一軌的規則在它的範圍內全部都跑。");
   } else {
     lines.push("| 規則 | 範圍（files） | 設定 |");
     lines.push("| --- | --- | --- |");
