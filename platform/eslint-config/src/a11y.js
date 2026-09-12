@@ -209,4 +209,34 @@ export default [
     files: ["platform/ui/src/components/**/*.vue"],
     rules: { "vuejs-accessibility/form-control-has-label": "off" },
   },
+  {
+    /**
+     * ⚠️ **上一格的 React 版：`control-has-associated-label` 在同一個目錄的 `.tsx` 關掉**
+     * （C236，人裁）。處境與上一格相同 —— `UiInput`／`UiTextarea` 的 `id` 與名字由使用端給
+     * （`UiField` 的 `control`，或 `aria-label`），規則在元件檔裡看不到。差別只在 React 沒有
+     * `$attrs`，那三格是明列的 prop（`UiInput.tsx` 檔頭）。
+     *
+     * ⚠️ 範圍與上一格同一個理由刻意只有這個目錄：切片與畫面裡的控制項照樣被守。
+     */
+    files: ["platform/ui/src/components/**/*.tsx"],
+    rules: { "jsx-a11y/control-has-associated-label": "off" },
+  },
+  {
+    /**
+     * ⚠️ **`prefer-tag-over-role` 在這兩支關掉（C236，人裁）。** `.tsx` 那一軌第一次掃到真的
+     * 元件時紅的一條 —— 照上面「先判規則是不是比標準嚴」的處理，判定是規則比較嚴：
+     *
+     *   `UiAlert`     要 `role="status"` 改成 `<output>`。規格上 `<output>` 是「計算或使用者
+     *                 動作的結果」，而它的隱含即時播報在報讀軟體間支援不一致 —— 明寫 role
+     *                 反而可靠。`danger` 那一支的 `role="alert"` 沒有對應的標籤可換。
+     *   `UiSeparator` 要 `role="separator"` 改成 `<hr>`。那只是語意模式；預設的裝飾模式是
+     *                 `role="none"`，照樣得用 `<div>`，而 preflight 給 `<hr>` 的上框線會讓
+     *                 語意模式比裝飾模式多一條線。
+     *
+     * 兩支都與 Vue 版的 DOM 逐字相同（`platform/ui/tests/react-parity.test.ts`）。
+     * ⚠️ **範圍刻意是兩個檔名，不是目錄**：其他元件與切片、畫面裡的 role 照樣被這條守。
+     */
+    files: ["platform/ui/src/components/UiAlert.tsx", "platform/ui/src/components/UiSeparator.tsx"],
+    rules: { "jsx-a11y/prefer-tag-over-role": "off" },
+  },
 ];

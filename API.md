@@ -1222,6 +1222,12 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 (override: UiThemeOverride) => UiThemeProvider
 ```
 
+### `UiAlert` — function
+
+```
+({ tone, children, }: { tone?: "danger" | "info" | "success" | undefined; children?: ReactNode; }) => ReactNode
+```
+
 ### `UiAlertDialogSlot` — type
 
 ```
@@ -1232,6 +1238,12 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 
 ```
 "alert" | "danger" | "info" | "success"
+```
+
+### `UiBadge` — function
+
+```
+({ tone, children, }: { tone?: "accent" | "danger" | "neutral" | undefined; children?: ReactNode; }) => ReactNode
 ```
 
 ### `UiBadgeSlot` — type
@@ -1250,6 +1262,12 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 
 ```
 "danger" | "ghost" | "md" | "primary" | "secondary" | "sm"
+```
+
+### `UiCheckbox` — function
+
+```
+({ checked, onCheckedChange, label, children, }: { checked?: boolean | undefined; onCheckedChange?: ((checked: boolean) => void) | undefined; label?: string | undefined; children?: ReactNode; }) => ReactNode
 ```
 
 ### `UiCheckboxSlot` — type
@@ -1276,10 +1294,22 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 "content" | "danger" | "icon" | "item" | "trigger"
 ```
 
+### `UiField` — function
+
+```
+({ label, description, error, children, }: { label: string; description?: string | undefined; error?: string | undefined; children: (control: { id: string; "aria-describedby"?: string | undefined; "aria-invalid"?: true | undefined; }) => ReactNode; }) => ReactNode
+```
+
 ### `UiFieldSlot` — type
 
 ```
 "description" | "error" | "field"
+```
+
+### `UiInput` — function
+
+```
+({ value, onValueChange, id, name, type, placeholder, disabled, "aria-describedby": describedBy, "aria-invalid": invalid, }: { value?: string | number | undefined; onValueChange?: ((value: string) => void) | undefined; id?: string | undefined; name?: string | undefined; type?: "email" | "number" | "password" | "search" | "tel" | "text" | "url" | undefined; placeholder?: string | undefined; disabled?: boolean | undefined; "aria-describedby"?: string | undefined; "aria-invalid"?: true | undefined; }) => ReactNode
 ```
 
 ### `UiInputSlot` — type
@@ -1288,10 +1318,22 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 "input"
 ```
 
+### `UiLabel` — function
+
+```
+({ htmlFor, children, }: { htmlFor: string; children?: ReactNode; }) => ReactNode
+```
+
 ### `UiLabelSlot` — type
 
 ```
 "label"
+```
+
+### `UiPagination` — function
+
+```
+({ page, onPageChange, total, perPage, }: { page?: number | undefined; onPageChange?: ((page: number) => void) | undefined; total: number; perPage: number; }) => ReactNode
 ```
 
 ### `UiPaginationSlot` — type
@@ -1300,10 +1342,22 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 "ellipsis" | "item" | "list" | "nav"
 ```
 
+### `UiRadioGroup` — function
+
+```
+({ value, onValueChange, children, }: { value?: string | undefined; onValueChange?: ((value: string) => void) | undefined; children?: ReactNode; }) => ReactNode
+```
+
 ### `UiRadioGroupSlot` — type
 
 ```
 "group"
+```
+
+### `UiRadioItem` — function
+
+```
+({ value, label, children, }: { value: string; label?: string | undefined; children?: ReactNode; }) => ReactNode
 ```
 
 ### `UiRadioItemSlot` — type
@@ -1318,6 +1372,12 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 "chevron" | "content" | "indicator" | "item" | "trigger"
 ```
 
+### `UiSeparator` — function
+
+```
+({ orientation, semantic, }: { orientation?: "horizontal" | "vertical" | undefined; semantic?: boolean | undefined; }) => ReactNode
+```
+
 ### `UiSeparatorSlot` — type
 
 ```
@@ -1330,10 +1390,22 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 "md" | "sm"
 ```
 
+### `UiSkeleton` — function
+
+```
+({ className }: { className?: string | undefined; }) => ReactNode
+```
+
 ### `UiSkeletonSlot` — type
 
 ```
 "skeleton"
+```
+
+### `UiSwitch` — function
+
+```
+({ checked, onCheckedChange, id, "aria-label": ariaLabel, }: { checked?: boolean | undefined; onCheckedChange?: ((checked: boolean) => void) | undefined; id?: string | undefined; "aria-label"?: string | undefined; }) => ReactNode
 ```
 
 ### `UiSwitchSlot` — type
@@ -1342,16 +1414,46 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 "root" | "thumb"
 ```
 
+### `UiTable` — function
+
+```
+({ children }: { children?: ReactNode; }) => ReactNode
+```
+
+### `UiTableBody` — function
+
+```
+({ children }: { children?: ReactNode; }) => ReactNode
+```
+
 ### `UiTableBodySlot` — type
 
 ```
 "body"
 ```
 
+### `UiTableCell` — function
+
+```
+({ numeric, children, }: { numeric?: boolean | undefined; children?: ReactNode; }) => ReactNode
+```
+
 ### `UiTableCellSlot` — type
 
 ```
 "cell" | "numeric"
+```
+
+### `UiTableHead` — function
+
+```
+({ children }: { children?: ReactNode; }) => ReactNode
+```
+
+### `UiTableHeadCell` — function
+
+```
+({ scope, children, }: { scope?: "col" | "row" | undefined; children?: ReactNode; }) => ReactNode
 ```
 
 ### `UiTableHeadCellSlot` — type
@@ -1366,6 +1468,12 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 "head"
 ```
 
+### `UiTableRow` — function
+
+```
+({ children }: { children?: ReactNode; }) => ReactNode
+```
+
 ### `UiTableRowSlot` — type
 
 ```
@@ -1378,6 +1486,18 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 "scroller" | "table"
 ```
 
+### `UiTabs` — function
+
+```
+({ items, value, onValueChange, children, }: { items: readonly { value: string; label: string; }[]; value?: string | undefined; onValueChange?: ((value: string) => void) | undefined; children?: ReactNode; }) => ReactNode
+```
+
+### `UiTabsPanel` — function
+
+```
+({ value, children, }: { value: string; children?: ReactNode; }) => ReactNode
+```
+
 ### `UiTabsPanelSlot` — type
 
 ```
@@ -1388,6 +1508,12 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 
 ```
 "list" | "trigger"
+```
+
+### `UiTextarea` — function
+
+```
+({ value, onValueChange, id, name, placeholder, disabled, "aria-describedby": describedBy, "aria-invalid": invalid, }: { value?: string | undefined; onValueChange?: ((value: string) => void) | undefined; id?: string | undefined; name?: string | undefined; placeholder?: string | undefined; disabled?: boolean | undefined; "aria-describedby"?: string | undefined; "aria-invalid"?: true | undefined; }) => ReactNode
 ```
 
 ### `UiTextareaSlot` — type

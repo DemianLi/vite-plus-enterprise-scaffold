@@ -78,8 +78,9 @@ describe("元件契約", () => {
   });
 
   it("★ React 那一半也掃到了", () => {
-    // 批次 ②（C235）第一支是 UiButton；全部 27 支到齊後這裡改成與上面同一個門檻。
-    expect(COMPONENTS.filter(({ kind }) => kind === "react").length).toBeGreaterThanOrEqual(1);
+    // 門檻與 Vue 那一條相同（C236）。C235 原訂「27 支到齊後」才改，但這一條防的是
+    // 「零支」而不是「少幾支」，② 之二已經有 22 支，沒有理由再留一個比較寬的門檻。
+    expect(COMPONENTS.filter(({ kind }) => kind === "react").length).toBeGreaterThanOrEqual(2);
   });
 
   describe.each(COMPONENTS)("$file", ({ name, kind, source }) => {
@@ -331,6 +332,45 @@ const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };`
     const drifted = `export const UiFake = (props: Props) => <div />;`;
     expect(() => reactPropsBlock(drifted)).toThrow(/找不到區塊起點/);
     expect(() => defaultTablesInTemplate(drifted, "react")).toThrow(/找不到區塊起點/);
+  });
+
+  it("★ React 的 props 裡再有一層 `{ … }` 時，切到的是整段而不是第一個 `})` 之前", () => {
+    // `UiField` 的 render prop 就是這個形狀。舊的切法停在 `}) => ReactNode`，
+    // 後面那個 `variant` 整行不見 —— 而 ④ 與預設值那一條拿切錯的那段去比，照樣綠。
+    const component = `export function UiFake({
+  variant = "secondry",
+  children,
+}: {
+  children: (control: { id: string }) => ReactNode;
+  variant?: "primary" | "secondary";
+}): ReactNode {
+  return (<div />);
+}`;
+    expect(propUnionMembers(reactPropsBlock(component), "variant")).toEqual([
+      "primary",
+      "secondary",
+    ]);
+  });
+
+  it("★ JSX 裡的箭頭函式含 `);` 時，⑤ 看到的是整段 JSX", () => {
+    // `onClick={() => go(n)}` 之後才綁到預設表的話，舊的切法在第一個 `);` 就停了。
+    const broken = `export function UiFake(): ReactNode {
+  const theme = useUiTheme();
+  return (
+    <div onClick={() => { go(1); }} className={DEFAULT_PARTS.a} />
+  );
+}
+const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };`;
+    expect(defaultTablesInTemplate(broken, "react")).toEqual(["DEFAULT_PARTS"]);
+  });
+
+  it("★ 收成一行的 `return <… />;` 也切得到", () => {
+    // 格式化器會把放得進一行的 JSX 收掉括號（`UiSkeleton.tsx`）。
+    const oneLine = `export function UiFake(): ReactNode {
+  return <div className={DEFAULT_PARTS.a} />;
+}
+const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };`;
+    expect(defaultTablesInTemplate(oneLine, "react")).toEqual(["DEFAULT_PARTS"]);
   });
 
   it("★ 別名解析要跟著往下走，不是只認字面值", () => {

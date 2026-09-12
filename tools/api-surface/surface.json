@@ -878,6 +878,10 @@
         "kind": "function",
         "type": "(override: UiThemeOverride) => UiThemeProvider"
       },
+      "UiAlert": {
+        "kind": "function",
+        "type": "({ tone, children, }: { tone?: \"danger\" | \"info\" | \"success\" | undefined; children?: ReactNode; }) => ReactNode"
+      },
       "UiAlertDialogSlot": {
         "kind": "type",
         "type": "\"actions\" | \"content\" | \"description\" | \"overlay\" | \"title\""
@@ -885,6 +889,10 @@
       "UiAlertSlot": {
         "kind": "type",
         "type": "\"alert\" | \"danger\" | \"info\" | \"success\""
+      },
+      "UiBadge": {
+        "kind": "function",
+        "type": "({ tone, children, }: { tone?: \"accent\" | \"danger\" | \"neutral\" | undefined; children?: ReactNode; }) => ReactNode"
       },
       "UiBadgeSlot": {
         "kind": "type",
@@ -897,6 +905,10 @@
       "UiButtonSlot": {
         "kind": "type",
         "type": "\"danger\" | \"ghost\" | \"md\" | \"primary\" | \"secondary\" | \"sm\""
+      },
+      "UiCheckbox": {
+        "kind": "function",
+        "type": "({ checked, onCheckedChange, label, children, }: { checked?: boolean | undefined; onCheckedChange?: ((checked: boolean) => void) | undefined; label?: string | undefined; children?: ReactNode; }) => ReactNode"
       },
       "UiCheckboxSlot": {
         "kind": "type",
@@ -914,25 +926,49 @@
         "kind": "type",
         "type": "\"content\" | \"danger\" | \"icon\" | \"item\" | \"trigger\""
       },
+      "UiField": {
+        "kind": "function",
+        "type": "({ label, description, error, children, }: { label: string; description?: string | undefined; error?: string | undefined; children: (control: { id: string; \"aria-describedby\"?: string | undefined; \"aria-invalid\"?: true | undefined; }) => ReactNode; }) => ReactNode"
+      },
       "UiFieldSlot": {
         "kind": "type",
         "type": "\"description\" | \"error\" | \"field\""
+      },
+      "UiInput": {
+        "kind": "function",
+        "type": "({ value, onValueChange, id, name, type, placeholder, disabled, \"aria-describedby\": describedBy, \"aria-invalid\": invalid, }: { value?: string | number | undefined; onValueChange?: ((value: string) => void) | undefined; id?: string | undefined; name?: string | undefined; type?: \"email\" | \"number\" | \"password\" | \"search\" | \"tel\" | \"text\" | \"url\" | undefined; placeholder?: string | undefined; disabled?: boolean | undefined; \"aria-describedby\"?: string | undefined; \"aria-invalid\"?: true | undefined; }) => ReactNode"
       },
       "UiInputSlot": {
         "kind": "type",
         "type": "\"input\""
       },
+      "UiLabel": {
+        "kind": "function",
+        "type": "({ htmlFor, children, }: { htmlFor: string; children?: ReactNode; }) => ReactNode"
+      },
       "UiLabelSlot": {
         "kind": "type",
         "type": "\"label\""
+      },
+      "UiPagination": {
+        "kind": "function",
+        "type": "({ page, onPageChange, total, perPage, }: { page?: number | undefined; onPageChange?: ((page: number) => void) | undefined; total: number; perPage: number; }) => ReactNode"
       },
       "UiPaginationSlot": {
         "kind": "type",
         "type": "\"ellipsis\" | \"item\" | \"list\" | \"nav\""
       },
+      "UiRadioGroup": {
+        "kind": "function",
+        "type": "({ value, onValueChange, children, }: { value?: string | undefined; onValueChange?: ((value: string) => void) | undefined; children?: ReactNode; }) => ReactNode"
+      },
       "UiRadioGroupSlot": {
         "kind": "type",
         "type": "\"group\""
+      },
+      "UiRadioItem": {
+        "kind": "function",
+        "type": "({ value, label, children, }: { value: string; label?: string | undefined; children?: ReactNode; }) => ReactNode"
       },
       "UiRadioItemSlot": {
         "kind": "type",
@@ -942,6 +978,10 @@
         "kind": "type",
         "type": "\"chevron\" | \"content\" | \"indicator\" | \"item\" | \"trigger\""
       },
+      "UiSeparator": {
+        "kind": "function",
+        "type": "({ orientation, semantic, }: { orientation?: \"horizontal\" | \"vertical\" | undefined; semantic?: boolean | undefined; }) => ReactNode"
+      },
       "UiSeparatorSlot": {
         "kind": "type",
         "type": "\"separator\""
@@ -950,21 +990,49 @@
         "kind": "type",
         "type": "\"md\" | \"sm\""
       },
+      "UiSkeleton": {
+        "kind": "function",
+        "type": "({ className }: { className?: string | undefined; }) => ReactNode"
+      },
       "UiSkeletonSlot": {
         "kind": "type",
         "type": "\"skeleton\""
+      },
+      "UiSwitch": {
+        "kind": "function",
+        "type": "({ checked, onCheckedChange, id, \"aria-label\": ariaLabel, }: { checked?: boolean | undefined; onCheckedChange?: ((checked: boolean) => void) | undefined; id?: string | undefined; \"aria-label\"?: string | undefined; }) => ReactNode"
       },
       "UiSwitchSlot": {
         "kind": "type",
         "type": "\"root\" | \"thumb\""
       },
+      "UiTable": {
+        "kind": "function",
+        "type": "({ children }: { children?: ReactNode; }) => ReactNode"
+      },
+      "UiTableBody": {
+        "kind": "function",
+        "type": "({ children }: { children?: ReactNode; }) => ReactNode"
+      },
       "UiTableBodySlot": {
         "kind": "type",
         "type": "\"body\""
       },
+      "UiTableCell": {
+        "kind": "function",
+        "type": "({ numeric, children, }: { numeric?: boolean | undefined; children?: ReactNode; }) => ReactNode"
+      },
       "UiTableCellSlot": {
         "kind": "type",
         "type": "\"cell\" | \"numeric\""
+      },
+      "UiTableHead": {
+        "kind": "function",
+        "type": "({ children }: { children?: ReactNode; }) => ReactNode"
+      },
+      "UiTableHeadCell": {
+        "kind": "function",
+        "type": "({ scope, children, }: { scope?: \"col\" | \"row\" | undefined; children?: ReactNode; }) => ReactNode"
       },
       "UiTableHeadCellSlot": {
         "kind": "type",
@@ -974,6 +1042,10 @@
         "kind": "type",
         "type": "\"head\""
       },
+      "UiTableRow": {
+        "kind": "function",
+        "type": "({ children }: { children?: ReactNode; }) => ReactNode"
+      },
       "UiTableRowSlot": {
         "kind": "type",
         "type": "\"row\""
@@ -982,6 +1054,14 @@
         "kind": "type",
         "type": "\"scroller\" | \"table\""
       },
+      "UiTabs": {
+        "kind": "function",
+        "type": "({ items, value, onValueChange, children, }: { items: readonly { value: string; label: string; }[]; value?: string | undefined; onValueChange?: ((value: string) => void) | undefined; children?: ReactNode; }) => ReactNode"
+      },
+      "UiTabsPanel": {
+        "kind": "function",
+        "type": "({ value, children, }: { value: string; children?: ReactNode; }) => ReactNode"
+      },
       "UiTabsPanelSlot": {
         "kind": "type",
         "type": "\"panel\""
@@ -989,6 +1069,10 @@
       "UiTabsSlot": {
         "kind": "type",
         "type": "\"list\" | \"trigger\""
+      },
+      "UiTextarea": {
+        "kind": "function",
+        "type": "({ value, onValueChange, id, name, placeholder, disabled, \"aria-describedby\": describedBy, \"aria-invalid\": invalid, }: { value?: string | undefined; onValueChange?: ((value: string) => void) | undefined; id?: string | undefined; name?: string | undefined; placeholder?: string | undefined; disabled?: boolean | undefined; \"aria-describedby\"?: string | undefined; \"aria-invalid\"?: true | undefined; }) => ReactNode"
       },
       "UiTextareaSlot": {
         "kind": "type",

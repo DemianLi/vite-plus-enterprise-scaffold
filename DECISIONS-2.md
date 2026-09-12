@@ -12144,3 +12144,114 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 | **C68**              | **洞不回來** —— 不收 preset（Q60）                                                                              |
 | **AGENTS.md 規則二** | **遵守** —— cva 的健康度沒有自己登記例外，交人裁（Q59）                                                         |
 | **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                                  |
+
+### C236 — 第 ② 批之二：其餘 21 支非彈出層元件 —— 兩版預設表與 SSR 產出逐字比對、分頁對 reka 差分；a11y 的 `.tsx` 軌第一次掃到真元件，三條交人裁（2026-09-13，Q61–Q66）
+
+> C232 §六 ② 的第二支 PR。C235 把「其餘 26 支」整包交給 ②b，這一支再拆：**不需要彈出層、也不需要新套件的 21 支**在這裡；Dialog、AlertDialog、Select、DropdownMenu、DatePicker 五支在 ②c —— 它們的 ⭐ 保證（焦點落在取消、點外面不關、選單的名字從觸發器接過去）是 reka-ui 的實作細節，要在 Base UI 上逐條重量，DatePicker 還帶一筆供應鏈變動。拆法是揭露、不是問（同 C235）。
+
+#### 一、六題由人裁
+
+| #       | 問題                                                                                | 裁決                                                                                                                                      |
+| ------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Q61** | 圖示：照 Vue 版內嵌 SVG／裝 `lucide-react`（C235 §五 的預估）                       | **內嵌 SVG**                                                                                                                              |
+| **Q62** | React 版 `UiDatePicker`（Base UI 沒有日曆）                                         | 人答以 shadcn 文件 date-picker 那一頁 —— **照它的組合**（Base UI `Popover` ＋ `Calendar`／react-day-picker）；值與 `locale` 照 Q58，②c 做 |
+| **Q63** | `control-has-associated-label` 判 `UiInput`／`UiTextarea` 沒有標籤                  | **比照 `.vue`**，`platform/ui/src/components/**/*.tsx` 關這一條                                                                           |
+| **Q64** | `<label onMouseDown>`（雙擊不反白）被 `no-noninteractive-element-interactions` 判紅 | **改用 `select-none`**                                                                                                                    |
+| **Q65** | `prefer-tag-over-role` 要 `UiAlert` 改 `<output>`、`UiSeparator` 改 `<hr>`          | **這兩支關這一條**                                                                                                                        |
+| **Q66** | 方向：照 Q58 逐支改寫／裝 CLI 當取素材的工具／推翻 Q58、CLI 產出原封收進            | **照 Q58 繼續，CLI 不裝**                                                                                                                 |
+
+- **Q62**：人先反問「shadcn 的 date picker（Base UI）為什麼不用」。查的結果它不是一支元件：registry 沒有 `date-picker` 條目（`base-nova/date-picker.json` 404），是文件裡的組合範例，`Calendar` 是 react-day-picker 的 `DayPicker`（`calendar.json` 的相依是 `react-day-picker@latest`、`date-fns`）—— 也就是我原本列的第一個選項。人再答以那一頁的網址；我讀成「照那一頁的組合」，值型別（`CalendarDate`）與 `locale` 屬於 Q58 已裁的契約，不重問。⚠️ **這是解讀，不是逐字裁決**；②c 動手前若人說讀錯了，照人的。
+  - react-aria-components 出局的量測：`react-aria` 的 `usePreventScroll`、`usePress` 有 `createElement('style')` —— 與 Radix 同一種 CSP 問題（C233），另加 13 支套件。react-day-picker 10.0.1 帶 `date-fns` 4.4.0、`@date-fns/tz` 1.5.0（空專案實測 +3 支），三支最後一版都在 2026-05，健康度界線內。
+- **Q66 的由來**：人問「不是已經安裝了 shadcn CLI？」—— **沒有**：lockfile 0 筆、樹上沒有 `components.json`。C232 Q51 裁的是「裝 CLI、產出收進 `platform/ui`」，C235 實作時沒在 repo 裡跑，素材取自 CLI `add` 寫出的同一份 registry JSON（C235 §二）。⚠️ **C235 的報告只寫了那一行、沒說「所以 CLI 沒裝」，是我沒講清楚。**
+  - 人接著問選項二、三哪個更適合腳手架與 fork 團隊。判準是 **fork 裡元件原始碼歸誰**：`platform/` 是章封住的目錄（`tools/scaffold-stamp/src/stamp.ts` 的 `CLOSED_DIRS`），fork 客製走自己 app 的 `createUiTheme`（`apps/console/src/main.ts`）與代幣（`apps/console/src/styles.css`），切片禁 import 基元（`SLICE_DESIGN_SYSTEM_IMPORTS`）。所以選項二的 CLI 在 fork 裡要不寫進封住的目錄、要不踩禁用清單；選項三「改原始碼客製」的模型在 fork 裡沒有原始碼可改，客製退回每個呼叫點的 `className` 附加，還要重裁 Q59–Q61、theme-verify 的代幣與具名槽。它真正的好處（照 shadcn 文件直接貼、組合式 API 較有彈性）記在這裡，不是沒看到。
+- **Q63／Q65 是 C234 §五 預告的校準**：`.tsx` 那一軌第一次掃到真元件，7 則錯、3 條規則。照 `a11y.js` 的處理先判「規則比標準嚴，還是畫面真的有缺陷」—— 三條我都判成前者；出口是設定的兩條交人裁（AGENTS.md 規則二），出口是寫法的那一條（Q64）也交人，因為它改的是行為。
+
+#### 二、做了什麼
+
+1. **21 支元件**：`UiAlert`、`UiBadge`、`UiLabel`、`UiSeparator`、`UiSkeleton`、`UiInput`、`UiTextarea`、`UiTable` 一組六支、`UiField`、`UiCheckbox`、`UiSwitch`、`UiRadioGroup`、`UiRadioItem`、`UiTabs`、`UiTabsPanel`、`UiPagination`，由 `react.ts` 轉出（連 `UiButton` 共 22 支）。預設表逐字照 `.vue`；檔頭短，論證指回 `.vue`（⑤ 要搬，見 §四）。
+2. **React 慣例**（我定的，揭露）：
+   - `defineModel` → `value`／`onValueChange`（勾選類 `checked`／`onCheckedChange`、分頁 `page`／`onPageChange`）；不給就是非受控，初值同 Vue 的預設。`UiTabs`、`UiPagination` 沒受控時自己記本地狀態 —— 同 `defineModel` 沒綁時的行為；`UiTabs` 空字串選第一個照 Vue 的 `current`。
+   - 沒有 fallthrough，Vue 靠 `$attrs` 的那幾格明列成 prop（同 C235）：`UiInput`／`UiTextarea` 收 `UiField` 的 `control` 三格（`id`／`aria-describedby`／`aria-invalid`）＋ `name`／`placeholder`／`disabled`（`UiInput` 另收 `type` union）；`UiSwitch` 收 `id`／`aria-label`；`UiSkeleton` 收 `className`（尺寸每個使用點不同）—— 它走 `cn()`，所以 Vue 版檔頭「`rounded-full` 兩個都在、看 CSS 順序」那句警告對 React 版不成立。
+   - `UiField` 的 scoped slot → render prop `children(control)`；`UiLabel` 的 `for` → `htmlFor`。
+3. **Base UI 缺的三樣**：
+   - **Separator 沒有「裝飾」模式**（永遠 `role="separator"`）：照 shadcn 用它，預設就從裝飾翻成語意、每條排版線都被唸，畫面一個像素不變。改成自己送屬性，照 reka 的 `BaseSeparator`（裝飾 `role="none"`；語意 `role="separator"`，垂直才帶 `aria-orientation`）。
+   - **沒有分頁**：Vue 檔頭「不要自己算頁碼」的前提（reka 替它算）不成立了。`src/utils/page-range.ts` 是 reka `getRange` 在 `showEdges` 那一支的逐行移植；標記照 reka 產出的 DOM 手寫（連 `value` prop 穿透成 `<button value>` 都照抄）。`aria-label` 是 reka 的英文原樣，翻不翻是 i18n 的決定，不在這一批。
+   - **沒有 Label**：Vue 版存在的行為理由（雙擊不反白）改用 `select-none`（Q64），寫在預設表**外面** —— 那是行為不是樣式，覆寫整條替換時不該被換掉（有測試守）。`UiCheckbox`、`UiRadioItem` 的標籤同一個處置。
+4. **勾選類的標籤接法**：Base UI 的 Checkbox／Radio／Switch 是 `<span role>` ＋ 隱藏的 `<input>`，`id` 落在 input 上（span 不可被標籤），名字由 Base UI 的 `useAriaLabelledBy` 從 input 的 `labels` 找回、接成 `aria-labelledby`。預設表因此換三個 variant：`data-[state=checked]:` → `data-checked:`、`disabled:` → `data-disabled:`、`peer-disabled:` → `peer-data-disabled:`（span 沒有 `:disabled`）；Tabs 只換 `data-[state=active]:` → `data-active:`。
+5. **兩版逐字比對**（`tests/react-parity.test.ts`）：
+   - **預設表原文**：每支 `.tsx` 對它的 `.vue`，只准差上面那張翻譯表；翻譯表每一列都要真的用得到（用不到的列是沒人在比的例外）。擋的是「只翻了其中一份」—— 各元件檔頭都寫著代幣對照沒有閘門在守。
+   - **SSR 產出**：原生元素做的 14 組 ＋ 分頁 211 組（總頁數 1–20 × 每一頁，另加 0 筆），標籤、屬性、文字逐一相同；id 換成出現順序的代號，`for`／`aria-describedby` 指不指得到同一個元素仍然比得出來。React 刻意多出來的 class 只有 `select-none`（`UiLabel` 與包著它的 `UiField`），列成例外，並有一條 ★ 守它真的在。
+   - 經過基元的四支（勾選類、Tabs）DOM 本來就不同，改在 `tests/choice-react.test.ts` 逐條重量 Vue 檔頭的 ⭐：名字接得上、標籤的 `for` 指到可標籤的元素、點標籤會切換、沒給值時選第一個分頁。`tests/field-wiring-react.test.ts` 移植 `UiField` 的接線條文。
+6. **契約的切法**：`reactPropsBlock` 切到第一個 `})`、`jsxBlock` 切到第一個 `);` —— `UiField` 的 render prop 型別、JSX 裡的箭頭函式都會讓它們**切錯而不是切不到**，後面的條文拿切錯的那段去比、照樣綠。改成取配對的括號；格式化器收成一行的 `return <div … />;`（`UiSkeleton`）另認一形。三形各有一條人造來源的 ★。
+7. **`a11y.test.ts`**：「骨架對輔具隱藏」移植到 `.tsx`；「模板不留 HTML 註解」**刻意不移植** —— JSX 的 `{/* */}` 在 SSR 與用戶端都不輸出，那條要擋的東西在 `.tsx` 上不存在（理由寫進該條的註解，免得讀起來像漏掃）。「★ React 那一半也掃到了」改成 ≥2（與 Vue 同；C235 原訂 27 支到齊才改，但這一條防的是零支）。
+8. **a11y 的設定**（Q63、Q65）：兩個區塊，理由寫在 `a11y.js`；`ACCESSIBILITY.md` 的覆寫表多兩列。
+9. **基準**：`api-surface` 197 → 218 個 export（+21，全部相容）；`HANDOFF.md` 那一句同步（`doc-facts` 點名）。供應鏈零變動。
+
+#### 三、量測
+
+- **變異**：每顆改一處，各自有檢查紅；未改的對照全綠（903 條、a11y RC 0）。
+
+| #   | 改法                                                     | 紅                |
+| --- | -------------------------------------------------------- | ----------------- |
+| M1  | `reactPropsBlock` 退回切到第一個 `})`                    | 1                 |
+| M2  | `jsxBlock` 退回切到第一個 `);`                           | 1                 |
+| M3  | 翻譯表拿掉 `UiTabs` 那一列                               | 1                 |
+| M4  | `UiCheckbox.tsx` 一格代幣改成 `border-input`（只翻一份） | 1                 |
+| M5  | `page-range` 的 `leftSibling > first + 2` → `+ 1`        | **0 —— 等價變異** |
+| M5b | `itemCount = totalNumbers - 2` → `- 1`                   | 110               |
+| M6  | 下一頁的 `disabled` 條件 `===` → `>`                     | 21                |
+| M7  | `aria-describedby` 順序對調                              | 2                 |
+| M8  | 沒有錯誤時 `aria-invalid` 送 `false`                     | 3                 |
+| M9  | `UiInput` 不接 `aria-describedby`                        | 6                 |
+| M10 | `UiTabs` 拿掉「空值選第一個」                            | 2                 |
+| M11 | `UiCheckbox` 標籤的 `for` 指錯                           | 4                 |
+| M12 | `UiSeparator` 裝飾模式也送 `role="separator"`            | 3                 |
+| M13 | `UiSkeleton.tsx` 拿掉 `aria-hidden`                      | 2                 |
+| M14 | `UiLabel` 拿掉 `select-none`                             | 2                 |
+| M15 | `react.ts` 少轉出 `UiSwitch`                             | 1                 |
+| M16 | `a11y.js` 拿掉 `prefer-tag-over-role` 那一格             | a11y 2 errors     |
+| M17 | `a11y.js` 拿掉 `control-has-associated-label` 那一格     | a11y 2 errors     |
+| M18 | `UiLabel` 掛回 mousedown 處理器                          | a11y 1 error      |
+
+⚠️ **M5 零紅不是破口**：`showLeft` 的第一項與第三項（`Math.abs(leftSibling - first) > 2`）都等於 `leftSibling > 3`，單改一項是等價變異。那個冗餘是 reka 原樣，逐行移植帶過來、不改 —— 改了就不再是逐行移植，而差分證明的正是「兩份算法相同」。M5b 是同一支函式的非等價變異。
+
+- **差分第一趟 212 紅**：211 組分頁全紅在 reka 的 `<button value>` 那一格（其餘逐字相同，於是照抄，見 §二 3）；另 1 條是正規化器自己的 ★（`cn(\n "x"` 壓成 `cn( "x"`）—— 真檔兩邊都被 oxfmt 格式化過所以沒紅，是自我測試先抓到的。
+- **閘門逐支跑**（不用 `&&` 串）：紅過的是章（新檔）、`api-surface`（新 export）、`compliance`（覆寫表）、`doc-facts`（`HANDOFF.md` 那一句）、`a11y`（§一 那 7 則）—— 都已處理；其餘綠。`theme-verify` 數到 49 個元件（27 `.vue` ＋ 22 `.tsx`）、0 處原始顏色。
+- **`vp check`**：0 錯、13 warning（`main` 同為 13）。
+
+#### 四、交給 ②c 的，以及還沒量的
+
+- **五支**：Dialog、AlertDialog、Select、DropdownMenu、DatePicker。`alert-dialog.test.ts`（13 條）、`dropdown-menu.test.ts`（25 條）的 ⭐ 要在 Base UI 上重量，不是翻譯；`field-wiring.test.ts` 的 C101 那條（`UiSelect` 接 `control`）在 React 版的形狀是「明列的 prop 落在觸發鈕上」。
+- **DatePicker**（Q62）：react-day-picker 10 ＋ `date-fns` ＋ `@date-fns/tz` 進供應鏈；對外 `CalendarDate`、內部本地午夜互轉；`locale` 字串怎麼對到 react-day-picker 的 locale 物件沒量。
+- **`.tsx` 那一軌這次只校準了這 21 支**；彈出層五支第一次跑到時照同一個處理。
+- **⑤**：`.tsx` 檔頭都指回 `.vue` 的論證 —— 刪 Vue 時那些論證要搬過來，否則一起消失（刪之前先掃「見 `Ui….vue`」）。`react-parity.test.ts` 在 ⑤ 失去對照組，要整支退役或換尺，不能留著；它的 ★「每一支 .tsx 都有它的 .vue」會先紅。
+- 分頁的 `aria-label` 是英文（reka 原樣）；翻譯是 i18n 的決定。
+- `UiSkeleton` 的 `className` 走 twMerge、Vue 版是串接 —— 兩版在「與預設衝突的 class」上行為不同，SSR 比對沒涵蓋（比對時沒傳 `className`）。
+
+#### 五、C154 §三
+
+| 新增的檢查                               | 交付軸                                     | 迭代軸（① 對象在外、② 壞法安靜）                                                 | 級別                  |
+| ---------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------- | --------------------- |
+| 兩版預設表逐字比對                       | 各案的代幣與覆寫在兩版上長得一樣           | ① 對象在內（`platform/ui`）；② 只翻一份代幣 → 那一格顏色永遠換不掉、畫面照常     | 探針（M3、M4）        |
+| 兩版 SSR 產出比對（含分頁 211 組差分）   | 交出去的畫面結構與無障礙屬性不因換框架而變 | ① 對象在內；② 頁碼邊界錯是「某幾頁排版怪怪的」，回報率極低（`UiPagination.vue`） | 探針（M5b、M6、M12）  |
+| 勾選類與 Tabs 的行為（`choice-react`）   | 鍵盤與輔具使用者用得了                     | ① 對象在內；② 名字接不上、點標籤沒反應 —— 畫面完全正常                           | 探針（M10、M11、M14） |
+| `UiField` 的接線（`field-wiring-react`） | 同 C84                                     | ① 對象在內；② 同 C84                                                             | 探針（M7–M9）         |
+
+**自我防護的夾具**（不計分）：契約切法的三條 ★；正規化本身五條；「翻譯表每一列都用得到」；「每一支 .tsx 都有它的 .vue」；分頁格數 211；「React 多出來的 class 真的在」。
+
+#### 六、實測
+
+- 本機 `vpr ready`：（本則寫成時還沒跑完一趟；結果補在下一支 commit）
+
+#### 七、與既有裁決的關係
+
+| 裁決                 | 關係                                                                                                                                                                                                     |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **C232**             | §六 ② 的其餘五支在 ②c                                                                                                                                                                                    |
+| **C233**             | Base UI 照舊；Q62 排除 react-aria 的理由同 C233 §三（注入 `<style>`）                                                                                                                                    |
+| **C234**             | §五「`.tsx` 那一軌沒對真畫面校準」→ 本則 §一（21 支）；彈出層五支仍待                                                                                                                                    |
+| **C235**             | §五「其餘 26 支」→ 21 支在此、5 支在 ②c；「`lucide-react` 進供應鏈」→ Q61 不裝；「Skeleton 兩條移植」→ 一條移植、一條判無對象（§二 7）；「★ 門檻」→ ≥2；§二「CLI 沒在 monorepo 裡跑」的意思在 Q66 講清楚 |
+| **C84／C101**        | 接線照舊；React 版明列 prop                                                                                                                                                                              |
+| **Q58**              | 照舊（Q66 重新確認）                                                                                                                                                                                     |
+| **AGENTS.md 規則二** | **遵守** —— 三條 a11y 的出口都交人裁                                                                                                                                                                     |
+| **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                                                                                                                           |
