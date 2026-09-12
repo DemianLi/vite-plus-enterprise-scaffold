@@ -45,7 +45,7 @@ if (problems.length === 0) {
   console.log(
     `✓ 閘門名冊一致：${GATES.length} 道閘門（Tier 1 ${tier1} 道、Tier 2 ${tier2} 道）、` +
       `${UNGATED.length} 個刻意不接的工具\n` +
-      "  比對的是：package.json 的 gate 與各別名、兩個 workflow、README〈兩層檢查〉那張表\n" +
+      "  比對的是：package.json 的 gate 與各別名、兩個 workflow、README〈兩層檢查〉那張表與目錄樹\n" +
       "  ⚠️ 只比對本 repo 自己寫的檢查。semgrep 與 gitleaks 不在名冊裡，\n" +
       "     所以這道閘門對那幾個步驟什麼都沒說 —— 理由見 src/gates.ts 檔頭。",
   );

@@ -8,6 +8,7 @@ import { repoRoot, sandbox } from "@org/gate-kit/testing";
 import {
   CITES_RULING,
   FORK_ONLY_IF,
+  NOT_A_GATE,
   ROSTER,
   UPSTREAM_ONLY_IF,
   checkRoster,
@@ -17,6 +18,7 @@ import {
   deriveTierCommands,
   extractSteps,
   extractTierCommands,
+  extractToolTree,
   selectorCommand,
   selectorScript,
   workspacePatterns,
@@ -57,6 +59,8 @@ interface Layout {
   treeStep: Record<Tier, boolean>;
   /** tier1 的兩條測試步驟。 */
   testSteps: { run: string; if: string }[];
+  /** README 目錄樹 `tools/` 那一段的每一行；`null` 是整段不在。 */
+  treeRows: { dir: string; description: string }[] | null;
 }
 
 /** fixture 的 `pnpm-workspace.yaml` 只有這一個樣式（見 `write`）。 */
@@ -127,6 +131,19 @@ function healthy(roster: Roster): Layout {
       { run: "./node_modules/.bin/vp run -r test -- --reporter=default", if: UPSTREAM_ONLY_IF },
       { run: `./node_modules/.bin/${test} -- --reporter=default`, if: FORK_ONLY_IF },
     ],
+    treeRows: [
+      ...roster.gates.flatMap((gate) =>
+        gate.pkg === undefined
+          ? []
+          : [
+              {
+                dir: gate.pkg,
+                description: `${gate.label}（${gate.tiers.map((tier) => tier.replace("tier", "Tier ")).join("、")} 閘門）`,
+              },
+            ],
+      ),
+      ...roster.ungated.map((entry) => ({ dir: entry.pkg, description: "不是閘門" })),
+    ],
   };
 }
 
@@ -177,7 +194,18 @@ function write(layout: Layout): string {
     "## 兩層檢查\n\n" +
       "| | 內容 | 指令 | 何時跑 |\n| --- | --- | --- | --- |\n" +
       `| **Tier 1 — 品質** | ${layout.tier1Labels.join(" + ")} | x | y |\n` +
-      `| **Tier 2 — 安全閘門** | ${layout.tier2Labels.join(" + ")} | x | y |\n`,
+      `| **Tier 2 — 安全閘門** | ${layout.tier2Labels.join(" + ")} | x | y |\n` +
+      (layout.treeRows === null
+        ? ""
+        : // 前後各放一段別的目錄：`platform/` 底下也是 `│   └──` 開頭的行，抽取不能把它們算進來。
+          "\n```\n├── platform/  不是這一段\n│   └── ui/  元件\n├── tools/  建置與治理腳本\n" +
+          layout.treeRows
+            .map(
+              (row, i, all) =>
+                `│   ${i === all.length - 1 ? "└" : "├"}── ${row.dir}/  ${row.description}\n`,
+            )
+            .join("") +
+          "│\n├── specs/  框架承諾\n```\n"),
   );
 
   return root;
@@ -413,6 +441,67 @@ describe("四個消費端各自漂移", () => {
     });
     // 表格列還在（只是格子空了），所以報的是「漏了」而不是「不見了」。
     expect(kinds(root)).toContain("README 漏了一道");
+  });
+});
+
+describe("README 目錄樹的 tools/ 那一段（C230）", () => {
+  // 例子從名冊取，不寫死名字：名冊換了，這幾條照樣指得到一支真的閘門與一支真的例外。
+  const aGate = GATES.find((gate) => gate.pkg !== undefined && gate.tiers.length === 1) as Gate;
+  const anUngated = UNGATED[0] as Ungated;
+  const rewrite = (dir: string, description: string) => (layout: Layout) => {
+    const row = layout.treeRows?.find((candidate) => candidate.dir === dir);
+    if (row !== undefined) row.description = description;
+  };
+
+  it("🔴 名冊登記了、樹上沒列 —— 接上那天 `threshold-check` 就是這樣", () => {
+    const root = broken((layout) => {
+      layout.treeRows = layout.treeRows?.filter((row) => row.dir !== aGate.pkg) ?? null;
+    });
+    expect(kinds(root)).toEqual(["README 目錄樹漏了一支"]);
+  });
+
+  it("🔴 樹上列了名冊沒有的", () => {
+    const root = broken((layout) => {
+      layout.treeRows?.push({ dir: "mystery", description: "不是閘門" });
+    });
+    expect(kinds(root)).toEqual(["README 目錄樹多了一支"]);
+  });
+
+  it("🔴 例外沒標 —— 接上那天 `codemods` 就是這樣", () => {
+    const root = broken(rewrite(anUngated.pkg, "改東西的腳本"));
+    expect(kinds(root)).toEqual(["README 目錄樹沒標出例外"]);
+  });
+
+  it("🔴 閘門那一行寫著不進閘門 —— C226 的形狀", () => {
+    const root = broken(rewrite(aGate.pkg as string, `${aGate.label}（刻意不進閘門）`));
+    expect(kinds(root)).toEqual(["README 目錄樹說它不是閘門"]);
+  });
+
+  it("🔴 層級寫錯 —— 只查身分的話這一格會綠", () => {
+    const wrong = aGate.tiers[0] === "tier1" ? "Tier 2" : "Tier 1";
+    const root = broken(rewrite(aGate.pkg as string, `${aGate.label}（${wrong} 閘門）`));
+    expect(kinds(root)).toEqual(["README 目錄樹的層級不對"]);
+  });
+
+  it("🔴 整段不見", () => {
+    const root = broken((layout) => {
+      layout.treeRows = null;
+    });
+    expect(kinds(root)).toEqual(["README 目錄樹不見了"]);
+  });
+
+  it("三種寫法都認得是例外，而「閘門名冊」這種字不算", () => {
+    for (const text of ["不是閘門", "刻意不進閘門", "刻意不接"]) {
+      expect(NOT_A_GATE.test(text)).toBe(true);
+    }
+    expect(NOT_A_GATE.test("閘門名冊的單一事實來源")).toBe(false);
+  });
+
+  it("抽取只取 tools/ 那一段：前面的 platform/、後面的 specs/ 都不算", () => {
+    const tree = extractToolTree(
+      "├── platform/  x\n│   └── ui/  元件\n├── tools/  y\n│   ├── a/  甲\n│   └── b/  乙\n│\n├── specs/  z\n",
+    );
+    expect([...(tree ?? new Map<string, string>()).keys()]).toEqual(["a", "b"]);
   });
 });
 

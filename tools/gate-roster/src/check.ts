@@ -336,6 +336,7 @@ export function checkRoster(root: string, roster: Roster = ROSTER): Problem[] {
     ...checkScripts(scripts, gates, forkTest),
     ...checkWorkflows(read, gates, forkTest),
     ...checkReadme(read, gates),
+    ...checkReadmeTree(read, gates, ungated),
   ];
 }
 
@@ -628,5 +629,98 @@ function checkReadme(read: Read, gates: readonly Gate[]): Problem[] {
     }
   }
 
+  return problems;
+}
+
+/**
+ * 目錄樹裡「這一支不是閘門」的寫法。具名 export 同 `CITES_RULING`：測試引用它，不抄一份。
+ */
+export const NOT_A_GATE = /不是閘門|不進閘門|刻意不接/;
+
+const TREE_HEAD = /^├── tools\//;
+const TREE_ROW = /^│ {3}[├└]── ([\w-]+)\/\s*(.*)$/;
+
+/** README 目錄樹 `tools/` 那一段：目錄名 → 那一行的說明。找不到那一段回 `undefined`。 */
+export function extractToolTree(readme: string): Map<string, string> | undefined {
+  const lines = readme.split("\n");
+  const at = lines.findIndex((line) => TREE_HEAD.test(line));
+  if (at < 0) return undefined;
+  const rows = new Map<string, string>();
+  for (const line of lines.slice(at + 1)) {
+    const match = TREE_ROW.exec(line);
+    if (match === null) break;
+    rows.set(match[1] ?? "", match[2] ?? "");
+  }
+  return rows;
+}
+
+function checkReadmeTree(
+  read: Read,
+  gates: readonly Gate[],
+  ungated: readonly Ungated[],
+): Problem[] {
+  const problems: Problem[] = [];
+
+  // ── ⑦ README 目錄樹的 `tools/` 那一段（C230，Q46）─────────────────
+  //
+  // 那一段的開頭寫著「多數是會失敗的閘門，例外都在下面標明」—— 一句沒有東西在守的
+  // 主張。C226 那一行把 `scope-check` 寫成「刻意不進閘門」十五天；接上這條的當天，
+  // 樹上三支沒列（其中一支是閘門）、三支例外沒標。
+  //
+  // ⚠️ 查的是**身分與層級的字面**：列了沒有、例外標了沒有、寫了 Tier 幾就要對上。
+  // 說明那幾個字寫得對不對，這條看不見。
+  const tree = extractToolTree(read("README.md"));
+  if (tree === undefined) {
+    problems.push({
+      kind: "README 目錄樹不見了",
+      detail: "README.md 裡找不到 `├── tools/` 開頭的那一行（目錄樹那一段）",
+    });
+    return problems;
+  }
+
+  const tiersByPkg = new Map<string, readonly Tier[]>();
+  for (const gate of gates) if (gate.pkg !== undefined) tiersByPkg.set(gate.pkg, gate.tiers);
+  const registered = new Set([...tiersByPkg.keys(), ...ungated.map((entry) => entry.pkg)]);
+
+  for (const pkg of registered) {
+    if (tree.has(pkg)) continue;
+    problems.push({
+      kind: "README 目錄樹漏了一支",
+      detail: `README 目錄樹的 tools/ 那一段沒有 ${pkg}/ —— 名冊登記了它`,
+    });
+  }
+
+  for (const [dir, description] of tree) {
+    if (!registered.has(dir)) {
+      problems.push({
+        kind: "README 目錄樹多了一支",
+        detail: `README 目錄樹列了 tools/${dir}/，但 GATES 與 UNGATED 都沒有它`,
+      });
+      continue;
+    }
+    const tiers = tiersByPkg.get(dir);
+    const marked = NOT_A_GATE.test(description);
+    if (tiers === undefined && !marked) {
+      problems.push({
+        kind: "README 目錄樹沒標出例外",
+        detail:
+          `tools/${dir}/ 在 UNGATED，它那一行要寫明不是閘門（「不是閘門」「不進閘門」或「刻意不接」）\n` +
+          `      —— 那一段的開頭說「例外都在下面標明」。`,
+      });
+    }
+    if (tiers !== undefined && marked) {
+      problems.push({
+        kind: "README 目錄樹說它不是閘門",
+        detail: `tools/${dir}/ 在 GATES，而它那一行寫著不是閘門（C226 那一型）`,
+      });
+    }
+    const claimed = /Tier\s*(\d)/.exec(description)?.[1];
+    if (tiers !== undefined && claimed !== undefined && !tiers.includes(`tier${claimed}` as Tier)) {
+      problems.push({
+        kind: "README 目錄樹的層級不對",
+        detail: `tools/${dir}/ 那一行寫 Tier ${claimed}，名冊的 tiers 是 ${tiers.join("、")}`,
+      });
+    }
+  }
   return problems;
 }
