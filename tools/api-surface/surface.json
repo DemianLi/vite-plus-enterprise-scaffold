@@ -406,7 +406,11 @@
       },
       "CSP_INCOMPATIBLE_MODULES": {
         "kind": "value",
-        "type": "readonly [{ readonly specifier: \"reka-ui\"; readonly names: readonly [\"SplitterGroup\", \"SplitterPanel\", \"SplitterResizeHandle\"]; readonly reason: string; }]"
+        "type": "readonly CspIncompatibleModule[]"
+      },
+      "CspIncompatibleModule": {
+        "kind": "type",
+        "members": ["names?: readonly string[] | undefined", "reason: string", "specifier: string"]
       },
       "DESIGN_SYSTEM_PACKAGE": {
         "kind": "value",
@@ -415,6 +419,10 @@
       "IMPORT_SPECIFIER_PATTERN": {
         "kind": "value",
         "type": "RegExp"
+      },
+      "importedPackage": {
+        "kind": "function",
+        "type": "(specifier: string) => string"
       },
       "isTypeOnlyImportAt": {
         "kind": "function",
@@ -455,7 +463,7 @@
       },
       "SLICE_DESIGN_SYSTEM_IMPORTS": {
         "kind": "value",
-        "type": "readonly [\"reka-ui\", \"clsx\", \"tailwind-merge\"]"
+        "type": "readonly [\"reka-ui\", \"clsx\", \"tailwind-merge\", \"@base-ui/react\", \"cn\", \"class-variance-authority\"]"
       },
       "SLICE_PACKAGE_PREFIX": {
         "kind": "value",
@@ -483,7 +491,7 @@
       },
       "STORE_FORBIDDEN_IMPORTS": {
         "kind": "value",
-        "type": "readonly [\"@tanstack/vue-query\", \"@org/http-client\"]"
+        "type": "readonly [\"@tanstack/vue-query\", \"@tanstack/react-query\", \"@org/http-client\"]"
       },
       "STORE_FORBIDDEN_LOCAL_MODULES": {
         "kind": "value",
@@ -507,7 +515,7 @@
       },
       "USECASE_FORBIDDEN_IMPORTS": {
         "kind": "value",
-        "type": "readonly [\"vue\", \"pinia\", \"vue-router\", \"vue-i18n\", \"@tanstack/vue-query\"]"
+        "type": "readonly [\"vue\", \"pinia\", \"vue-router\", \"vue-i18n\", \"@tanstack/vue-query\", \"react\", \"react-dom\", \"react-router\", \"react-i18next\", \"i18next\", \"zustand\", \"@tanstack/react-query\"]"
       },
       "USECASES_DIR": {
         "kind": "value",
@@ -519,7 +527,7 @@
       },
       "VIEW_FORBIDDEN_IMPORTS": {
         "kind": "value",
-        "type": "readonly [\"@tanstack/vue-query\", \"@org/http-client\"]"
+        "type": "readonly [\"@tanstack/vue-query\", \"@tanstack/react-query\", \"@org/http-client\"]"
       },
       "VIEW_FORBIDDEN_LOCAL_MODULES": {
         "kind": "value",

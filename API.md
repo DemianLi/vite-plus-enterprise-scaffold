@@ -573,7 +573,15 @@ readonly ["axios", "ky", "got", "superagent", "node-fetch"]
 ### `CSP_INCOMPATIBLE_MODULES` — value
 
 ```
-readonly [{ readonly specifier: "reka-ui"; readonly names: readonly ["SplitterGroup", "SplitterPanel", "SplitterResizeHandle"]; readonly reason: string; }]
+readonly CspIncompatibleModule[]
+```
+
+### `CspIncompatibleModule` — type
+
+```
+names?: readonly string[] | undefined
+reason: string
+specifier: string
 ```
 
 ### `DESIGN_SYSTEM_PACKAGE` — value
@@ -586,6 +594,12 @@ readonly [{ readonly specifier: "reka-ui"; readonly names: readonly ["SplitterGr
 
 ```
 RegExp
+```
+
+### `importedPackage` — function
+
+```
+(specifier: string) => string
 ```
 
 ### `isTypeOnlyImportAt` — function
@@ -642,7 +656,7 @@ true
 ### `SLICE_DESIGN_SYSTEM_IMPORTS` — value
 
 ```
-readonly ["reka-ui", "clsx", "tailwind-merge"]
+readonly ["reka-ui", "clsx", "tailwind-merge", "@base-ui/react", "cn", "class-variance-authority"]
 ```
 
 ### `SLICE_PACKAGE_PREFIX` — value
@@ -684,7 +698,7 @@ readonly [".ts", ".tsx", ".js", ".mjs", ".vue"]
 ### `STORE_FORBIDDEN_IMPORTS` — value
 
 ```
-readonly ["@tanstack/vue-query", "@org/http-client"]
+readonly ["@tanstack/vue-query", "@tanstack/react-query", "@org/http-client"]
 ```
 
 ### `STORE_FORBIDDEN_LOCAL_MODULES` — value
@@ -720,7 +734,7 @@ readonly ["api"]
 ### `USECASE_FORBIDDEN_IMPORTS` — value
 
 ```
-readonly ["vue", "pinia", "vue-router", "vue-i18n", "@tanstack/vue-query"]
+readonly ["vue", "pinia", "vue-router", "vue-i18n", "@tanstack/vue-query", "react", "react-dom", "react-router", "react-i18next", "i18next", "zustand", "@tanstack/react-query"]
 ```
 
 ### `USECASES_DIR` — value
@@ -738,7 +752,7 @@ readonly ["vue", "pinia", "vue-router", "vue-i18n", "@tanstack/vue-query"]
 ### `VIEW_FORBIDDEN_IMPORTS` — value
 
 ```
-readonly ["@tanstack/vue-query", "@org/http-client"]
+readonly ["@tanstack/vue-query", "@tanstack/react-query", "@org/http-client"]
 ```
 
 ### `VIEW_FORBIDDEN_LOCAL_MODULES` — value

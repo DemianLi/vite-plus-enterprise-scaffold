@@ -2,7 +2,7 @@
   "name": "@org/eslint-config",
   "version": "0.0.0",
   "private": true,
-  "description": "兩份互不相干的 ESLint 設定：`.` 是 Tier 2 安全閘門（只裝安全與邊界規則，與 oxlint 零重疊），`./a11y` 是無障礙靜態閘門（Tier 1）；`./worktrees` 不是第三份設定，是兩份共用的巢狀工作樹邊界（C190）；`./scaffold` 也不是，它是根層 `eslint.config.js` 裡腳手架的那一半（C219）",
+  "description": "兩份互不相干的 ESLint 設定：`.` 是 Tier 2 安全閘門（只裝安全與邊界規則，與 oxlint 零重疊），`./a11y` 是無障礙靜態閘門（Tier 1，`.vue` 與 `.tsx` 各一軌，C234）；`./worktrees` 不是第三份設定，是兩份共用的巢狀工作樹邊界（C190）；`./scaffold` 也不是，它是根層 `eslint.config.js` 裡腳手架的那一半（C219）",
   "type": "module",
   "exports": {
     ".": "./src/index.js",
@@ -14,6 +14,7 @@
     "test": "vp test"
   },
   "dependencies": {
+    "eslint-plugin-jsx-a11y-x": "catalog:",
     "eslint-plugin-no-unsanitized": "catalog:",
     "eslint-plugin-security": "catalog:",
     "eslint-plugin-vue": "catalog:",

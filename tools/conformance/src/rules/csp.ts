@@ -40,8 +40,9 @@ function clauseImports(clause: string, name: string): boolean {
 /**
  * D15：全 repo 禁止 CSP 不相容的模組。
  *
- * 目前只有一條：reka-ui 的 Splitter 會在拖曳時注入 <style> 元素，
- * 被 style-src 'self' 擋掉。症狀是「游標沒變」這種沒有人會聯想到 CSP 的小毛病。
+ * reka-ui 的 Splitter 會在拖曳時注入 <style> 元素，被 style-src 'self' 擋掉 ——
+ * 症狀是「游標沒變」這種沒有人會聯想到 CSP 的小毛病。Radix 的捲動鎖定是同一個
+ * 形狀，射程大得多（名單與量法在契約裡）。
  *
  * 這條掃**整個 repo**（含 platform/），不是只掃切片 —— 因為 platform/ui 才是
  * 最可能不小心用到它的地方。
@@ -55,23 +56,27 @@ export function checkCspIncompatibleImports(root: string, dir: string, label: st
         const specifier = match[1];
         if (specifier === undefined || match.index === undefined) continue;
 
+        // 整串相等，不是 `importedPackage`：`radix-ui` 的具名匯入與 `radix-ui/dialog`
+        // 是兩條不同的條目，收斂成套件名會讓子路徑落進根入口那條、按 names 比而放行。
         const rule = CSP_INCOMPATIBLE_MODULES.find((entry) => entry.specifier === specifier);
         if (rule === undefined) continue;
+
+        const fix =
+          `${rule.reason}。改用不需要它的版面，或把這條規則的改動當成` +
+          "「要不要為了它引入 per-request nonce」那場討論的入口" +
+          "（見 slice-kit 契約的 CSP_INCOMPATIBLE_MODULES）";
+
+        if (rule.names === undefined) {
+          fail(label, "CSP 不相容的元件", `${relative(root, file)} 匯入了 ${specifier}`, fix);
+          continue;
+        }
 
         const clause = importClauseBefore(contents, match.index);
         if (clause === null) continue;
 
         for (const name of rule.names) {
           if (!clauseImports(clause, name)) continue;
-
-          fail(
-            label,
-            "CSP 不相容的元件",
-            `${relative(root, file)} 匯入了 ${name}`,
-            `${rule.reason}。改用不需要它的版面，或把這條規則的改動當成` +
-              "「要不要為了它引入 per-request nonce」那場討論的入口" +
-              "（見 slice-kit 契約的 CSP_INCOMPATIBLE_MODULES）",
-          );
+          fail(label, "CSP 不相容的元件", `${relative(root, file)} 匯入了 ${name}`, fix);
         }
       }
     }

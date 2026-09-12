@@ -347,7 +347,13 @@ function classify(token: string, declared: ReadonlySet<string>): Classified | nu
  */
 function isComment(line: string): boolean {
   const trimmed = line.trim();
-  return trimmed.startsWith("*") || trimmed.startsWith("//") || trimmed.startsWith("<!--");
+  return (
+    trimmed.startsWith("*") ||
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("<!--") ||
+    // JSX 裡的註解：`.vue` 的 `<!--` 在 `.tsx` 裡長這樣（C234）。
+    trimmed.startsWith("{/*")
+  );
 }
 
 /**
@@ -375,6 +381,19 @@ export function findPaletteUsage(
   });
 
   return violations;
+}
+
+/**
+ * 閘門讀哪些副檔名。偵測器逐行切詞、不認語法，所以 `className` 與 `class` 讀起來一樣。
+ *
+ * ⚠️ `.tsx` 不能等到最後一支 `.vue` 刪掉才加（C234 §二）：遷移期間兩種並存，
+ * `cli.ts` 那兩條「掃不到就紅」只在**兩種都沒有**時響 —— 只認 `.vue` 的話，
+ * 新寫的 `.tsx` 元件會在一道全綠的閘門底下安靜地不被檢查。
+ */
+export const SCANNED_EXTENSIONS = [".vue", ".tsx"] as const;
+
+export function isScannedSource(fileName: string): boolean {
+  return SCANNED_EXTENSIONS.some((extension) => fileName.endsWith(extension));
 }
 
 /**

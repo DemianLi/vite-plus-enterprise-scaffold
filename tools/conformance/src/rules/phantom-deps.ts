@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { builtinModules } from "node:module";
 import { join, relative, sep } from "node:path";
 
-import { IMPORT_SPECIFIER_PATTERN } from "@org/slice-kit/contract";
+import { IMPORT_SPECIFIER_PATTERN, importedPackage } from "@org/slice-kit/contract";
 
 import { collect, type Finding } from "../finding.ts";
 import { collectSourceFiles, collectCssFiles, readJson } from "../scan.ts";
@@ -153,12 +153,7 @@ function packageOfSpecifier(specifier: string): string | null {
   if (specifier.startsWith(".") || specifier.startsWith("/")) return null;
   if (specifier.includes(":")) return null;
 
-  const slash = specifier.indexOf("/");
-  const name = specifier.startsWith("@")
-    ? specifier.split("/").slice(0, 2).join("/")
-    : slash === -1
-      ? specifier
-      : specifier.slice(0, slash);
+  const name = importedPackage(specifier);
 
   if (BUILTIN_MODULES.has(name)) return null;
   if (!isPackageName(name)) return null;

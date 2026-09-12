@@ -1,4 +1,6 @@
+import jsxA11y from "eslint-plugin-jsx-a11y-x";
 import a11y from "eslint-plugin-vuejs-accessibility";
+import tseslint from "typescript-eslint";
 import vueParser from "vue-eslint-parser";
 
 import nestedWorktrees from "./worktrees.js";
@@ -58,6 +60,33 @@ const ALL_RULES = Object.fromEntries(
   Object.keys(a11y.rules).map((name) => [`vuejs-accessibility/${name}`, "error"]),
 );
 
+/**
+ * `.tsx` 那一軌（C234）：同一個推導法，只多一道 —— **標了淘汰的不開**。
+ *
+ * 外掛是 `eslint-plugin-jsx-a11y-x`，上游 `eslint-plugin-jsx-a11y` 的分支（Q56，
+ * 理由在 `pnpm-workspace.yaml` 的 catalog 那一列）。命名空間刻意仍叫 `jsx-a11y`：
+ * 換回上游時規則 ID、fixture 與交付文件一個字都不必動。
+ *
+ * 上游 6.10.2 標淘汰的三條（`accessible-emoji`、`label-has-for`、`no-onchange`）
+ * 這個分支已經拿掉；`meta.deprecated` 那道濾網留著，是給它之後再淘汰的規則用的 ——
+ * 寫一份排除清單的話，理由同上：寫死的清單會過期。
+ *
+ * ⚠️ **不開淘汰規則不是調鬆門檻**：`label-has-for` 的預設要求 label **同時**包住
+ * 控制項**而且**帶 `for` —— 正是下面 `.vue` 那一格改成 `some` 的同一個問題；
+ * 上游已經把它換成 `label-has-associated-control`，後者在這份清單裡。
+ * 另外兩條的淘汰理由是瀏覽器與報讀軟體已經處理掉那個情況。
+ *
+ * ⚠️ **這一軌的預設選項還沒有對真畫面校準過**：接上這天樹上零支 `.tsx`
+ *（C234 §四）。第一批 React 畫面進來時才會第一次真的被執行到 —— 那時紅的東西，
+ * 照 `.vue` 那一格 `label-has-for` 的處理：先判「是規則比它宣稱的標準更嚴，
+ * 還是畫面真的有缺陷」，不是先改選項。
+ */
+const TSX_RULES = Object.fromEntries(
+  Object.entries(jsxA11y.rules)
+    .filter(([, rule]) => rule.meta?.deprecated !== true)
+    .map(([name]) => [`jsx-a11y/${name}`, "error"]),
+);
+
 export default [
   // 這道閘門問的是「**這個 checkout** 裡的每一個 .vue」，不是「這個目錄樹底下」——
   // 理由、實測與它為什麼不算改門檻，全部寫在 `worktrees.js`（C190）。
@@ -90,7 +119,7 @@ export default [
      * 本 package 跑（`tests/…`）。寫死前綴的版本在其中一邊會安靜地失效 ——
      * 實測就是這樣紅的，而失效的方向是「fixture 沒被排除」＝閘門永遠紅。
      */
-    ignores: ["**/tests/fixtures/a11y-violations.vue"],
+    ignores: ["**/tests/fixtures/a11y-violations.vue", "**/tests/fixtures/a11y-violations.tsx"],
   },
   {
     files: ["**/*.vue"],
@@ -137,6 +166,26 @@ export default [
        */
       "vuejs-accessibility/label-has-for": ["error", { required: { some: ["nesting", "id"] } }],
     },
+  },
+  {
+    files: ["**/*.tsx"],
+    languageOptions: {
+      /**
+       * ⚠️ **這一格把 `src/index.js` 那個 `typescript: 6.0.3` 釘子綁上了這一軌**，
+       * 而 `.vue` 那一格的 `parser: false` 正是為了不綁它。這裡沒有那個選項：
+       * `.tsx` 的 JSX 與型別註記寫在同一段程式碼裡，不剖析 TS 就讀不到 JSX。
+       * 只當語法剖析器用（沒有 `project`，不讀型別資訊），與 Tier 2 同一個用法；
+       * 解除條件因此也相同 —— typescript-eslint 支援 TS 7 那天，兩軌一起解。
+       */
+      parser: tseslint.parser,
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+        ecmaFeatures: { jsx: true },
+      },
+    },
+    plugins: { "jsx-a11y": jsxA11y },
+    rules: TSX_RULES,
   },
   {
     /**

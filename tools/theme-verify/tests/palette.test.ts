@@ -7,6 +7,7 @@ import {
   TRANSLATION_TARGETS,
   declaredColorTokens,
   findPaletteUsage,
+  isScannedSource,
   translationFor,
   usedClassNames,
 } from "../src/palette.ts";
@@ -29,6 +30,37 @@ const DECLARED = declaredColorTokens(THEME_CSS);
 
 const scan = (source: string) =>
   findPaletteUsage("Fixture.vue", source, DECLARED).map((v) => v.className);
+
+/**
+ * `.tsx` 走同一支偵測器（C234）：它逐行切詞、不認語法，所以要驗的是
+ * 「JSX 的寫法切得出同樣的詞」，以及 JSX 註解不會被當成用法。
+ */
+describe("`.tsx` 的寫法", () => {
+  const scanTsx = (source: string) =>
+    findPaletteUsage("Fixture.tsx", source, DECLARED).map((v) => v.className);
+
+  it("🔴 className 字串與 cva 的變體物件裡的原始顏色 → 紅", () => {
+    expect(scanTsx(`<div className="bg-gray-50 px-2">`)).toEqual(["bg-gray-50"]);
+    expect(scanTsx(`  outline: "border-gray-300 hover:bg-gray-50",`)).toEqual([
+      "border-gray-300",
+      "hover:bg-gray-50",
+    ]);
+  });
+
+  it("★ JSX 註解裡的顏色不算用法 —— 同 `.vue` 的 `<!--`", () => {
+    expect(scanTsx(`        {/* 轉換前是 bg-gray-50 */}`)).toEqual([]);
+  });
+
+  it("🔴 閘門讀 `.tsx` —— 遷移期間兩種並存，只讀 `.vue` 的話新元件安靜地不被檢查", () => {
+    expect(isScannedSource("UiButton.tsx")).toBe(true);
+    expect(isScannedSource("UiButton.vue")).toBe(true);
+  });
+
+  it("★ 對照：`.ts` 不讀 —— 那是邏輯不是畫面，讀進來會把變體表以外的字串也當類別", () => {
+    expect(isScannedSource("index.ts")).toBe(false);
+    expect(isScannedSource("button.test.tsx.snap")).toBe(false);
+  });
+});
 
 describe("內建色階", () => {
   it("🔴 直接用 gray → 紅", () => {

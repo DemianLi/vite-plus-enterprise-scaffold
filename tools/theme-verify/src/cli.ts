@@ -9,8 +9,10 @@ import tailwindcss from "@tailwindcss/vite";
 import { parseFlags } from "@org/gate-kit";
 
 import {
+  SCANNED_EXTENSIONS,
   declaredColorTokens,
   findPaletteUsage,
+  isScannedSource,
   translationFor,
   usedClassNames,
   type PaletteViolation,
@@ -132,7 +134,7 @@ function fail(rule: string, detail: string, fix: string): void {
  */
 const componentSources = new Map<string, string>(
   (existsSync(COMPONENTS) ? readdirSync(COMPONENTS) : [])
-    .filter((file) => file.endsWith(".vue"))
+    .filter(isScannedSource)
     .map((file) => [file, readFileSync(join(COMPONENTS, file), "utf8")]),
 );
 
@@ -166,7 +168,7 @@ function collectViews(dir: string, out: Map<string, string>): void {
         continue;
       }
       collectViews(join(dir, entry.name), out);
-    } else if (entry.name.endsWith(".vue")) {
+    } else if (isScannedSource(entry.name)) {
       const path = join(dir, entry.name);
       out.set(relative(ROOT, path), readFileSync(path, "utf8"));
     }
@@ -224,7 +226,7 @@ function runStatic(): void {
   if (files.length === 0) {
     fail(
       "元件目錄是空的",
-      `${relative(ROOT, COMPONENTS)} 底下找不到任何 .vue`,
+      `${relative(ROOT, COMPONENTS)} 底下找不到任何 ${SCANNED_EXTENSIONS.join("／")}`,
       "這條檢查掃不到東西時會全綠 —— 那正是「綠燈代表沒有人看」，所以這裡直接紅",
     );
     return;
@@ -233,7 +235,7 @@ function runStatic(): void {
   // 消費端掃不到東西也是「綠燈代表沒有人看」—— 與上面那條同一個理由。
   if (consumerSources.size === 0) {
     fail(
-      "切片與應用底下找不到任何 .vue",
+      `切片與應用底下找不到任何 ${SCANNED_EXTENSIONS.join("／")}`,
       `${CONSUMER_ROOTS.join("／")} 掃出 0 個檔`,
       "這條檢查掃不到東西時會全綠 —— 所以這裡直接紅",
     );

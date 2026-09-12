@@ -11918,3 +11918,118 @@ CSS 裡另有一段 `/*! tailwindcss … MIT License */` —— 第三方授權�
 | **`assertStaticCspCompatible`（R6）** | **nonce 那條路與它衝突**，Q53 沒選那條          |
 | **AGENTS.md 規則二**                  | **遵守** —— 放寬 CSP 交人裁，人選了不放寬       |
 | **C136 §八**                          | **遵守** —— 舊裁決一個字都不改                  |
+
+### C234 — 第 ① 批：React 那一套要在它的第一行碼進來**之前**就有人擋 —— 禁用清單改比套件、補上 React 與 Radix；a11y 接上 `.tsx`（改用 jsx-a11y-x）；theme-verify 讀 `.tsx`；其餘三支跟著它們的輸入走（2026-09-12，Q54–Q56）
+
+> C232 §六 ① 的實作。示範切片仍在 `prototype/react-slice`，不合進 `main`。
+
+#### 一、三題由人裁
+
+| #       | 問題                                                                                                  | 裁決                                |
+| ------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| **Q54** | React 的 a11y 外掛：`eslint-plugin-jsx-a11y` 6.10.2（上游）／`eslint-plugin-jsx-a11y-x` 0.2.0（分支） | 上游 —— **被 Q56 推翻**             |
+| **Q55** | `ui-survey` 要不要加 React 候選（C232 §八 留給本批）                                                  | **不加**，隨 Vue 在 ⑤ 一起處理      |
+| **Q56** | 上游裝上去之後 `supply-chain` 的相依健康度會紅：登記接受風險／改用分支                                | **改用 `eslint-plugin-jsx-a11y-x`** |
+
+- ⚠️ **Q54 答的時候少一個事實**：上游最後一版是 2024-10-26，而「12 個月沒有穩定版」會讓相依健康度紅。過關只有兩條路 —— 在 `HEALTH_ACKNOWLEDGEMENTS` 登記接受風險（先例 `clsx`），或換掉它；工具的修法原文就是「決定要換掉它還是接受風險」。那是人的判斷，所以重問，不是 agent 自己加那一列（AGENTS.md 規則二）。
+- **Q56 的依據是量出來的**：
+
+|                                      | 上游 6.10.2                        | 分支 0.2.0               |
+| ------------------------------------ | ---------------------------------- | ------------------------ |
+| ESLint 10.8.1 下逐條單獨跑           | 39 條、零崩潰、39 條對違規樣本開火 | 36 條、零崩潰、36 條開火 |
+| 排除上游標淘汰的 3 條之後實際會開的  | 36                                 | 36 —— **同一份**         |
+| peer                                 | `eslint ^3…^9`（要一條 peer 放行） | `^9 \|\| ^10`            |
+| 最後一版                             | 2024-10-26（健康度紅）             | 2026-05-10               |
+| 空專案只裝 ESLint 為 69 支，加它之後 | 181（**+112**）                    | 77（**+8**）             |
+| 維護                                 | 主流                               | 0.x、單一維護者          |
+
+本樹實際：`inventory.json` 715 → 723。原生二進位、家族都沒變。
+
+#### 二、判準：什麼放第 ①、什麼跟著它的輸入走
+
+C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現那天，有沒有東西會自己紅？** 不會的，現在做；會的，跟著輸入走 —— 那一刻它有真的輸入可以驗，現在做只能對著空集合驗。
+
+| 項目                                               | 輸入何時出現                     | 那天會不會自己紅                                                                                                       | 放在 |
+| -------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---- |
+| 禁用 import 清單（usecase／view／store／設計系統） | 第一行 React 碼（②③）            | **不會** —— 清單少一項，那一項安靜放行                                                                                 | ①    |
+| 那幾份清單的比對方式                               | 同上                             | **不會** —— 比的是整串，`@base-ui/react/dialog` 對 `@base-ui/react` 不相等，繞過                                       | ①    |
+| CSP 禁用名單（Radix）                              | 有人照 CLI 的 radix 那一套產元件 | **不會**                                                                                                               | ①    |
+| a11y 閘門讀 `.tsx`                                 | ② 第一批 React 元件              | **不會** —— 設定不認得的檔「File ignored」，綠（C233 §二）                                                             | ①    |
+| theme-verify 讀 `.tsx`                             | ②                                | **不會** —— 「掃不到就紅」只在 `.vue` 與 `.tsx` **都沒有**時響；②③ 不刪 `.vue`（⑤ 才刪），兩者並存                     | ①    |
+| exit-drill 的 `DRILL_PLUGINS`                      | ③ 應用殼註冊 `react()`           | **會** —— `accountPlugins` 對「註冊了沒登記」回錯                                                                      | ③    |
+| api-surface 的 `.tsx` 解析                         | ② `platform/ui` 公開面換掉       | **會** —— 公開面一換基準就紅；那一刻要回答的是「解析出來的形狀有沒有意義」，只能拿真元件量                             | ②    |
+| slice-gen 範本                                     | ③                                | 做不到：`slice-kit` 把 `routes` 寫死成 `RouteRecordRaw`（`define-feature.ts:29`），React 範本在 ③ 改合約之前過不了型別 | ③    |
+| catalog 的 React 執行期那一套                      | ② 起才有消費者                   | —— 沒有消費者的 catalog 列沒有東西在驗；而 shadcn `init` 實測要的東西（§五）是 ② 的決定                                | ②    |
+
+- ⚠️ theme-verify 那一列我原本判成「會自己紅」，讀了 `tools/theme-verify/src/cli.ts` 那兩條紅燈的條件才翻過來。
+- 本批唯一的相依是 `eslint-plugin-jsx-a11y-x` —— 它是第 ① 批的東西在用（`platform/eslint-config`）。
+
+#### 三、做了什麼
+
+1. **`importedPackage()`**（`platform/slice-kit/src/contract.ts`）：import 指定字串 → 它屬於哪個套件。三份分層清單與設計系統清單改比套件；`phantom-deps` 共用同一支（原本自己推一次）。**只會變嚴**：Vue 那一套的子路徑從此也被擋。
+2. **清單**：usecase +7（`react`、`react-dom`、`react-router`、`react-i18next`、`i18next`、`zustand`、`@tanstack/react-query`，取自 C232 §五）；view／store +`@tanstack/react-query`；設計系統 +`@base-ui/react`、`cn`、`class-variance-authority`（shadcn `init` 的 Base UI 那一套實測產出的三支，§五）。遷移期間與 Vue 那一套並列。
+3. **CSP**：Radix 7 個命名空間 × 三種寫法（根入口的具名匯入、`radix-ui/<子路徑>`、`@radix-ui/react-<名>`，另加三支選單的共同底層 `react-menu`）＝ 16 條。量法：`radix-ui` 1.6.7 的 35 個命名空間逐支追 dist 的 import，**真的 import** `react-remove-scroll` 的是 AlertDialog、ContextMenu、Dialog、DropdownMenu、Menubar、Popover、Select；對照：`react-dismissable-layer` 的 manifest 列了它、dist 沒有 import，不在名單。條目允許省略 `names`（整支都算）。
+4. **a11y**：`a11y.js` 加 `.tsx` 那一軌。外掛是分支（Q56），命名空間仍叫 `jsx-a11y` —— 換回上游時規則 ID 與 fixture 一個字都不必動，交付文件的套件欄由外掛自報的 `meta.name` 重算（沒自報的照 `eslint-plugin-<前綴>` 補，測試逐軌對 `package.json` 的相依；只印前綴的第一版會讓交付文件寫一支沒裝的套件）；`meta.deprecated` 的濾網留著給它以後淘汰的規則。剖析器是 typescript-eslint：**這一格把 Tier 2 那個 `typescript: 6.0.3` 釘子綁上了 a11y 這一軌**，`.vue` 那一格的 `parser: false` 正是為了不綁它，而 `.tsx` 沒有那個選項（JSX 與型別註記寫在同一段碼裡）；解除條件與 Tier 2 相同。fixture `a11y-violations.tsx` 帶 `@ts-nocheck`（`vp check` 對它報 113 個 TS17004／TS7026，理由在檔頭）。`tools/compliance` 改認「帶 `plugins` 的區塊是一軌」—— #297 那個「第一個 rules 區塊是清單、其餘是覆寫」的判法會把整軌 36 條印成覆寫、「實際檢查的項目」少一軌；交付文件多一張軌道表。
+5. **theme-verify**：讀的副檔名（`.vue`／`.tsx`）搬進 `palette.ts` 並有測試；JSX 註解 `{/*` 算註解（同 `.vue` 的 `<!--`）。
+6. **基準**：api-surface（7 項相容變更）、`ACCESSIBILITY.md`、`inventory.json`、`dependency-health.json`（34 筆整批重擷）。文件裡推導得出的數字由 `doc-facts` 點名後同步：套件總數 715 → 723（`README.md` 1、`HANDOFF.md` 5、`UI-SURVEY.md` 1）、`platform/` 被追蹤的 export 161 → 163（`HANDOFF.md` 1）。
+
+#### 四、量測
+
+- **變異**：每顆恰好改到 1 處、各自有測試紅；未改的對照全綠。
+
+| #   | 改法                                       | 紅  |
+| --- | ------------------------------------------ | --- |
+| M1  | 設計系統清單改回整串比對                   | 1   |
+| M2  | 三份分層清單改回整串比對                   | 1   |
+| M3  | CSP 省略 `names` 的條目不報                | 2   |
+| M4  | `.tsx` 那一軌多濾掉一條                    | 1   |
+| M5  | `.tsx` 那一軌的 `files` 窄成 `platform/**` | 8   |
+| M6  | fixture 不排除                             | 3   |
+| M7  | 拿掉 TS 剖析器                             | 2   |
+| M8  | theme-verify 只讀 `.vue`                   | 1   |
+| M9  | compliance 把一軌當覆寫                    | 3   |
+| M10 | 交付文件不印軌道表                         | 2   |
+| M11 | 交付文件的套件欄改從前綴推                 | 1   |
+
+⚠️ **M3 第一次跑回報全綠，是假的**：perl 把樣式裡的 `${relative(...)}` 當變數展開，替換沒有發生（套用後仍剩 1 處）；改用環境變數傳樣式重跑才是 2 紅。M4–M10 先在上游外掛上量過一次，換成分支之後整組重跑，紅燈數逐顆相同。
+
+- **鄰居工作樹**：用本支的 a11y 設定掃主 checkout（底下開著 `react-slice-a7`，裡面有一支 `main.tsx`）：41 檔、`.vue` 34、`.tsx` 0、`.claude/worktrees/` 底下 0、訊息 0。
+- **theme-verify 少了 `.tsx` 會怎樣**：在 `platform/ui/src/components/` 暫放一支寫死 `bg-gray-50` 的 `.tsx` 元件。讀 `.tsx`：RC 1，點名 `UiProbe.tsx:1 用了 bg-gray-50`。改回只讀 `.vue`、同一支檔還在：**RC 0**，印「27 個元件、0 處原始顏色」。探針檔已刪。
+- **`vp check`**：0 錯、13 warning（`main` 同為 13）。
+
+#### 五、還沒量的，以及交給後面的
+
+- **`.tsx` 那一軌的預設選項沒有對真畫面校準過**：樹上零支 `.tsx`。② 第一次跑到時紅的東西，照 `a11y.js` 裡 `.vue` 那一格 `label-has-for` 的處理 —— 先判「是規則比它宣稱的標準更嚴，還是畫面真的有缺陷」。
+- **theme-verify 會把 shadcn 的語意 class 判成「未翻譯的代幣」**：寫測試時 `text-primary` 就被判了。那是閘門照設計在做事（承諾三：槽名不需要翻譯表）；② 產出的元件要逐支翻，與 Vue 版同一件工作，C233 §六 的 `cn-font-heading` 也在這一類。
+- **Base UI 的「空」要由一支會紅的檢查守著**（C233 §六）：`@base-ui/react` 真的裝進來才量得到，② 做。
+- **`CSP_INCOMPATIBLE_MODULES` 的型別從字面 tuple 變成 `readonly CspIncompatibleModule[]`**：api-surface 的基準從此看不到名單內容，改名單不再出現在它的 diff 裡。守名單的剩 conformance 那條「每一條都擋得住」與人讀 diff。
+- **`eslint-plugin-jsx-a11y-x` 是 0.x、單一維護者**：它停更時相依健康度會紅，那天換回上游（規則 ID 不變）。
+- **設計系統禁令在三處文件被列舉成 Vue 那三支**：`platform/ui/README.md:112`、`features/invoice/README.md:27`，以及**產生後者的** `tools/slice-gen/src/files.ts:199` —— 所以每產生一片新切片就多一份。現在是「少列」不是「列錯」，而沒有閘門比對它們與契約；③ 改寫 slice-gen 範本時，一併改成指向契約的 `SLICE_DESIGN_SYSTEM_IMPORTS`、不再列舉。不在這裡動：範本的那一段在 ③ 整段換掉。
+- **oxlint 自己有沒有 jsx-a11y 規則沒量到**（`vp lint --rules` 無輸出）。a11y 本來就是獨立的 ESLint 軌（`a11y.js` 檔頭），不影響本則。
+- **shadcn `init` 實測**（Base UI、nova、vite 範本，在 repo 外）：加 `@base-ui/react`、`class-variance-authority`、`cn`、`lucide-react`、`shadcn`（**執行期**相依，為了 `shadcn/tailwind.css`）、`tw-animate-css`、`@fontsource-variable/geist`；Button 是寫在元件裡的 utility，語意 class 0 個。⚠️ **`class-variance-authority` 與 catalog 那句「刻意不裝」衝突** —— ② 裁。字型是自帶檔案，`font-src 'self'` 不必動。
+
+#### 六、C154 §三
+
+| 新增的檢查                 | 交付軸                                                          | 迭代軸（① 對象在外、② 壞法安靜）                                           | 級別             |
+| -------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------- |
+| a11y 的 `.tsx` 那一軌      | 交給機關的 React 畫面；`compliance` 把這道閘門對到 2.4.3／2.4.6 | ① 畫面的 a11y 缺陷；② 沒有它，`.tsx` 是「File ignored」而閘門綠            | 探針（C233 §二） |
+| 清單比套件 ＋ React 那幾項 | 切片分層（D14）與設計系統收斂（D15）                            | ① 切片的 import；② 子路徑整串比對放行、全綠                                | 探針（M1、M2）   |
+| CSP 的 Radix 名單          | 彈出層打開時頁面照樣能捲，使用者看得見                          | ① 元件的 import；② 瀏覽器零報錯，body 標了已鎖                             | 探針（C233 §三） |
+| theme-verify 讀 `.tsx`     | 配色換得掉（承諾三）                                            | ① 元件的類別；② 沒有它，`.tsx` 元件寫死顏色而閘門 RC 0、印「0 處原始顏色」 | 探針（§四）      |
+
+**自我防護的夾具**（第 3 條，不計分）：兩軌各一份 fixture 的「每一條都開火／沒有多的／沒有剖析錯誤／都是 error」；「`.tsx` 那一軌開的正好是沒標淘汰的那些」；「射程涵蓋切片、應用與 `platform/ui` 的 `.tsx`」（樹上還沒有 `.tsx`，所以問設定不問檔案）；compliance 的「整軌不會被當成覆寫」「每一軌的範圍都印出來」「套件欄印的是真的裝了的那一支」；conformance 的「契約的每一條 CSP 條目都擋得住」。
+
+#### 七、實測
+
+- 本機 `vpr ready`：**READY_RC 0**（在 `eb9155d` 上；之後只多了這一行）。更早紅過三趟：第三趟（`f6285ce`）紅在章 —— 我先重算章、`vp fmt` 才改了測試檔，順序錯了。前兩趟紅：第一趟在 `doc-facts`（§三 6 那八處數字），第二趟在腳手架的章（上游改了 21 支腳手架檔，`vpr scaffold-stamp-update` 重算）—— 都是這批該連帶更新的，不是缺陷。
+
+#### 八、與既有裁決的關係
+
+| 裁決                 | 關係                                                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **C232**             | §六 ① 以本則 §二 為準（三支移到 ②③）；§五「lint／a11y」那一列的 a11y 外掛以 Q56 為準；§八 `ui-survey` 以 Q55 為準      |
+| **C233**             | §六「`jsx-a11y` 提前到 ①」做完；「`CSP_INCOMPATIBLE_MODULES` 換成 Base UI 的內容」改成「補 Radix、Base UI 的空留到 ②」 |
+| **D14／D15**         | 禁用清單加 React 那一套，判準不變                                                                                      |
+| **C68**              | 不變 —— ② 處理                                                                                                         |
+| **AGENTS.md 規則二** | **遵守** —— 相依健康度紅時沒有自己登記例外，交人裁（Q56）                                                              |
+| **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                                         |

@@ -113,7 +113,8 @@ export const CRITERIA: readonly Criterion[] = [
     gates: ["a11y-lint"],
     note:
       "⚠️ **這一條連 Freego 都判定不了，是人工檢測項目。** 開發期只擋得到" +
-      "最粗的那一種：`vuejs-accessibility/tabindex-no-positive`（正 tabindex）。" +
+      "最粗的那一種：正 tabindex（`vuejs-accessibility/tabindex-no-positive`、" +
+      "`.tsx` 那一軌的 `jsx-a11y/tabindex-no-positive`）。" +
       "真正的失效方式 ——「DOM 順序與視覺順序不一致」「對話框的焦點沒有真的鎖住」" +
       "—— 需要真瀏覽器跑鍵盤，**任何靜態或模擬 DOM 的做法都買不到**。",
   },
@@ -125,8 +126,10 @@ export const CRITERIA: readonly Criterion[] = [
     preFilter: "partial",
     gates: ["a11y-lint"],
     note:
-      "標籤那一半開發期擋得到（`form-control-has-label`、`label-has-for`、" +
-      "`heading-has-content`）。**標題階層那一半擋不到**：階層是頁面級性質，" +
+      "標籤那一半開發期擋得到（`.vue`：`form-control-has-label`、`label-has-for`、" +
+      "`heading-has-content`；`.tsx`：`label-has-associated-control`、" +
+      "`control-has-associated-label`、`heading-has-content`）。" +
+      "**標題階層那一半擋不到**：階層是頁面級性質，" +
       "而開發期的檢查單位是元件與畫面 —— 實測 repo 裡每個畫面只有一個 `<h1>`，" +
       "axe 的 `heading-order` 掃孤立畫面時永遠不適用。",
   },
@@ -141,15 +144,79 @@ export const CRITERIA: readonly Criterion[] = [
  * 刻意**不**宣稱這些規則各自對應哪一條成功準則：那個對照需要規範原文，
  * 而猜一個對照寫進交付文件，比不寫更糟。
  */
-export function preFilterRules(config: readonly unknown[] = a11yConfig): readonly string[] {
-  const withRules = config.find(
-    (entry): entry is { rules: Record<string, unknown> } =>
-      typeof entry === "object" && entry !== null && "rules" in entry,
+interface RulesBlock {
+  readonly files?: unknown;
+  readonly plugins?: unknown;
+  readonly rules: Record<string, unknown>;
+}
+
+function hasRules(entry: unknown): entry is RulesBlock {
+  return (
+    typeof entry === "object" &&
+    entry !== null &&
+    "rules" in entry &&
+    typeof (entry as Record<string, unknown>).rules === "object"
   );
-  if (withRules === undefined) {
+}
+
+/**
+ * **帶 `plugins` 的區塊是「一軌」**：一種檔、一個外掛、一份全開的清單。
+ * 沒帶的是覆寫 —— 它只調整已經開的規則。
+ *
+ * ⚠️ 第一版判「第一個有 rules 的區塊是清單、其餘都是覆寫」（#297）。
+ * `.tsx` 那一軌加進來那天（C234）那個判法就錯了：它會把整份 jsx-a11y 清單
+ * 當成「只對 `**\/*.tsx` 生效的覆寫」一條條印進交付文件，而「實際檢查的項目」
+ * 那一節少掉整整一軌 —— 又是樂觀方向的謊。
+ */
+function isTrack(block: RulesBlock): boolean {
+  return block.plugins !== undefined;
+}
+
+export function preFilterRules(config: readonly unknown[] = a11yConfig): readonly string[] {
+  const tracks = config.filter(hasRules).filter(isTrack);
+  if (tracks.length === 0) {
     throw new Error("@org/eslint-config/a11y 裡找不到 rules —— 讀不到就不要給判決");
   }
-  return Object.keys(withRules.rules).sort();
+  return tracks.flatMap((track) => Object.keys(track.rules)).sort();
+}
+
+export interface LanguageTrack {
+  readonly files: readonly string[];
+  /** 規則名的前綴（flat config 的 `plugins` 鍵），不是套件名。 */
+  readonly plugin: string;
+  readonly package: string;
+  readonly ruleCount: number;
+}
+
+/**
+ * ⚠️ 前綴與套件名可以不同：`.tsx` 那一軌裝的是分支 `eslint-plugin-jsx-a11y-x`，
+ * 前綴刻意留 `jsx-a11y`（C234）。只印前綴，交付文件就會宣稱檢查的是一支沒裝的套件。
+ * `eslint-plugin-vuejs-accessibility` 沒有自報 `meta.name`，照 ESLint 的命名慣例補 ——
+ * 兩條路徑都由測試對 `platform/eslint-config/package.json` 的相依逐軌核對。
+ */
+function pluginPackage(prefix: string, plugin: unknown): string {
+  const name = (plugin as { meta?: { name?: unknown } } | undefined)?.meta?.name;
+  return typeof name === "string" ? name : `eslint-plugin-${prefix}`;
+}
+
+/** 每一軌管哪些檔、用哪個外掛、開幾條 —— 交付文件要說得出「這份清單在哪些檔上跑」。 */
+export function languageTracks(config: readonly unknown[] = a11yConfig): readonly LanguageTrack[] {
+  return config
+    .filter(hasRules)
+    .filter(isTrack)
+    .map((track) => {
+      const files = track.files;
+      if (!Array.isArray(files) || files.length === 0) {
+        throw new Error("@org/eslint-config/a11y 的語言區塊沒有 files —— 讀不到範圍就不要給判決");
+      }
+      const plugins = Object.entries(track.plugins as Record<string, unknown>);
+      return {
+        files: files.map(String),
+        plugin: plugins.map(([prefix]) => prefix).join("、"),
+        package: plugins.map(([prefix, plugin]) => pluginPackage(prefix, plugin)).join("、"),
+        ruleCount: Object.keys(track.rules).length,
+      };
+    });
 }
 
 /**
@@ -168,40 +235,25 @@ export interface ScopedOverride {
 export function scopedOverrides(
   config: readonly unknown[] = a11yConfig,
 ): readonly ScopedOverride[] {
-  const firstRulesIndex = config.findIndex(
-    (entry): entry is { rules: Record<string, unknown> } =>
-      typeof entry === "object" && entry !== null && "rules" in entry,
-  );
-  if (firstRulesIndex === -1) {
+  const blocks = config.filter(hasRules);
+  if (blocks.length === 0) {
     throw new Error("@org/eslint-config/a11y 裡找不到 rules —— 讀不到就不要給判決");
   }
 
   const overrides: ScopedOverride[] = [];
 
-  for (let i = firstRulesIndex + 1; i < config.length; i++) {
-    const entry = config[i];
-    if (
-      typeof entry === "object" &&
-      entry !== null &&
-      "rules" in entry &&
-      typeof (entry as Record<string, unknown>).rules === "object"
-    ) {
-      const block = entry as { files?: unknown; rules: Record<string, unknown> };
-      const files = block.files;
-      if (!files || !Array.isArray(files) || files.length === 0) {
-        // 沒有範圍的第二個 rules 區塊會靜默蓋掉全域設定 —— 讀不到範圍就不要給判決。
-        throw new Error("@org/eslint-config/a11y 的覆寫區塊沒有 files");
-      }
+  for (const block of blocks) {
+    if (isTrack(block)) continue;
 
-      const rules = block.rules;
-      for (const [rule, setting] of Object.entries(rules)) {
-        const settingStr = setting === "off" || setting === 0 ? "off" : JSON.stringify(setting);
-        overrides.push({
-          rule,
-          files: [...files],
-          setting: settingStr,
-        });
-      }
+    const files = block.files;
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      // 沒有範圍的覆寫會靜默蓋掉整軌的設定 —— 讀不到範圍就不要給判決。
+      throw new Error("@org/eslint-config/a11y 的覆寫區塊沒有 files");
+    }
+
+    for (const [rule, setting] of Object.entries(block.rules)) {
+      const settingStr = setting === "off" || setting === 0 ? "off" : JSON.stringify(setting);
+      overrides.push({ rule, files: files.map(String), setting: settingStr });
     }
   }
 

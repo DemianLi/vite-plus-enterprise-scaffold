@@ -5,7 +5,11 @@ import { join } from "node:path";
 
 import { repoRoot, sandbox } from "@org/gate-kit/testing";
 
-import { USECASE_FORBIDDEN_IMPORTS } from "@org/slice-kit/contract";
+import {
+  CSP_INCOMPATIBLE_MODULES,
+  importedPackage,
+  USECASE_FORBIDDEN_IMPORTS,
+} from "@org/slice-kit/contract";
 
 import type { Finding } from "../src/finding.ts";
 import { checkActionPinning } from "../src/rules/action-pinning.ts";
@@ -207,6 +211,36 @@ describe("要一棵目錄樹，但仍然不用起行程", () => {
     expect(checkCspIncompatibleImports(root, join(root, "platform"), "platform")).toEqual([]);
   });
 
+  it("🔴 Radix 的捲動鎖定：根入口、子路徑、scoped 套件三種寫法都紅（C234 §三）", () => {
+    const root = tree({
+      "platform/ui/src/a.tsx": 'import { Dialog } from "radix-ui";\n',
+      "platform/ui/src/b.tsx": 'import { Root } from "radix-ui/select";\n',
+      "platform/ui/src/c.tsx": 'import * as Menu from "@radix-ui/react-menu";\n',
+    });
+    const found = checkCspIncompatibleImports(root, join(root, "platform"), "platform");
+    expect(rules(found)).toEqual(Array(3).fill("CSP 不相容的元件"));
+  });
+
+  it("★ 對照：Radix 不鎖捲動的元件不在禁令內 —— 三種寫法各一支都綠", () => {
+    const root = tree({
+      "platform/ui/src/a.tsx": 'import { Label } from "radix-ui";\n',
+      "platform/ui/src/b.tsx": 'import { Root } from "radix-ui/label";\n',
+      "platform/ui/src/c.tsx": 'import { Slot } from "@radix-ui/react-slot";\n',
+    });
+    expect(checkCspIncompatibleImports(root, join(root, "platform"), "platform")).toEqual([]);
+  });
+
+  it("🔴 契約的**每一條**CSP 條目都真的擋得住 —— 名單從契約取，不抄字面", () => {
+    for (const entry of CSP_INCOMPATIBLE_MODULES) {
+      const name = entry.names?.[0] ?? "X";
+      const root = tree({
+        "platform/ui/src/a.tsx": `import { ${name} } from "${entry.specifier}";\n`,
+      });
+      const found = checkCspIncompatibleImports(root, join(root, "platform"), "platform");
+      expect(rules(found), `${entry.specifier} 沒有被擋下來`).toEqual(["CSP 不相容的元件"]);
+    }
+  });
+
   it("composable 檔名與匯出的函式名對不上 → 紅", () => {
     const root = tree({
       "features/order/src/composables/useOrderList.ts": "export function useOrders() {}\n",
@@ -235,6 +269,22 @@ describe("要一棵目錄樹，但仍然不用起行程", () => {
     expect(rules(checkDesignSystemBoundary(join(root, "features/order"), SLICE))).toEqual([
       "繞過設計系統",
     ]);
+  });
+
+  it("🔴 子路徑匯入同一個基元也算繞過 —— shadcn CLI 產出的就是這種寫法（C234 §二）", () => {
+    const root = tree({
+      "features/order/src/ui/Dialog.tsx": 'import { Dialog } from "@base-ui/react/dialog";\n',
+    });
+    expect(rules(checkDesignSystemBoundary(join(root, "features/order"), SLICE))).toEqual([
+      "繞過設計系統",
+    ]);
+  });
+
+  it("★ 對照：@org/ui 的子路徑不是繞過", () => {
+    const root = tree({
+      "features/order/src/views/OrderList.tsx": 'import { UiButton } from "@org/ui/button";\n',
+    });
+    expect(checkDesignSystemBoundary(join(root, "features/order"), SLICE)).toEqual([]);
   });
 
   it("整片沒有任何一處用 @org/ui → 紅（C41）", () => {
@@ -372,6 +422,25 @@ describe("CSS 註解剝除器：引號狀態機", () => {
  * ⚠️ 清單從契約取、逐項跑（下面第四條），不抄字面 —— 抄一份的話升級契約時
  * 新加的那一項會安靜地沒有人擋，而這裡照樣全綠。
  */
+describe("importedPackage：禁用清單比的是套件，不是整串", () => {
+  it.each([
+    ["@base-ui/react/dialog", "@base-ui/react"],
+    ["@base-ui/react", "@base-ui/react"],
+    ["react/jsx-runtime", "react"],
+    ["react", "react"],
+    ["radix-ui/dialog", "radix-ui"],
+  ])("%s → %s", (specifier, expected) => {
+    expect(importedPackage(specifier)).toBe(expected);
+  });
+
+  it.each(["./api.ts", "../views/x.tsx", "/abs/path", "node:fs", "virtual:uno.css"])(
+    "★ 不是套件的原樣回傳：%s",
+    (specifier) => {
+      expect(importedPackage(specifier)).toBe(specifier);
+    },
+  );
+});
+
 describe("usecase 層的純度：契約宣告了邊界，這一組讓它會紅", () => {
   const USECASE_SLICE = "features/invoice";
   const usecase = (root: string): Finding[] =>
@@ -408,6 +477,14 @@ describe("usecase 層的純度：契約宣告了邊界，這一組讓它會紅",
       });
       expect(rules(usecase(root)), `${banned} 沒有被擋下來`).toEqual(["usecase 認得框架"]);
     }
+  });
+
+  it("🔴 子路徑匯入同一個框架也紅 —— `react/jsx-runtime` 是 react", () => {
+    const root = tree({
+      "features/invoice/src/usecases/query-invoice.ts":
+        'import { jsx } from "react/jsx-runtime";\nexport const y = jsx;\n',
+    });
+    expect(rules(usecase(root))).toEqual(["usecase 認得框架"]);
   });
 
   it("★ 對照：真樹 features/invoice 的 usecase 是綠的 —— 規則嚴到連真的那份都過不了，上面幾條就沒有意義", () => {

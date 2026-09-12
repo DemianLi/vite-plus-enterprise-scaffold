@@ -80,6 +80,7 @@
 | **C231** | 交付機關只給匯出（Q47、Q48）：拿掉 `tools/` 建得起來，痕跡大半在會交出去的 78 支檔裡；白名單從相依圖推，分四批                                                 |
 | **C232** | 前端整棵換成 React（Q49–Q52）：沒有既有 fork 所以換得乾淨；shadcn 改用 CLI 產出收進 `platform/ui`；先做一片示範切片，遷移完成前不發版                          |
 | **C233** | 示範切片量完（Q53）：plugin-react 裝得起、`vp check` 看得到 `.tsx`；Radix 的捲動鎖定被 CSP 安靜擋掉、hash 放行不可行，改用 Base UI                             |
+| **C234** | 第 ① 批（Q54–Q56）：禁用清單改比套件、補 React 與 Radix；a11y 與 theme-verify 讀 `.tsx`（改用 jsx-a11y-x）；三支移到 ②③                                        |
 
 ---
 

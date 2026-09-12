@@ -9,7 +9,13 @@ import { CONTROLS, FUTURE, GATES, REGULATION } from "./map.ts";
 import { blockingGates, owedGaps, render, unprovenGates } from "./render.ts";
 import { verifyMap } from "./verify.ts";
 import { RETENTION_EVIDENCE, renderEvidenceManifest, verifyEvidence } from "./evidence.ts";
-import { CRITERIA, preFilterRules, scopedOverrides, verifyCriteria } from "./a11y.ts";
+import {
+  CRITERIA,
+  languageTracks,
+  preFilterRules,
+  scopedOverrides,
+  verifyCriteria,
+} from "./a11y.ts";
 import { renderAccessibility } from "./a11y-render.ts";
 import { parseFlags } from "@org/gate-kit";
 
@@ -136,6 +142,7 @@ function renderAccessibilityFormatted(): string {
     renderAccessibility({
       criteria: CRITERIA,
       rules: preFilterRules(),
+      tracks: languageTracks(),
       overrides: scopedOverrides(),
     }),
     "ACCESSIBILITY.md",
