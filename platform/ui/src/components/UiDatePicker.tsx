@@ -31,7 +31,9 @@ import type { UiDatePickerSlot } from "../theme.ts";
  *
  * react-day-picker 把 `data-selected`／`data-disabled` 放在 `<td>`，外側日叫 `data-outside`；
  * 預設表的 `day` 那格是寫給按鈕的、名字是 reka 的。自訂的 `DayButton` 照 reka 的名字重蓋一次，
- * 所以預設表與各案寫好的覆寫兩版通用，不必進翻譯表。
+ * 所以預設表與各案寫好的覆寫兩版通用，不必進翻譯表。⚠️ 例外是 `initialFocus`：它讀的是
+ * react-day-picker 蓋在 `<td>` 上的 `data-selected`／`data-today`，那兩個名字改了焦點就落空
+ *（C238 M17／M18 守著）。
  *
  * ── 值：本地午夜，兩個方向都是 ──────────────────────────────────────
  *

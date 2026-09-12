@@ -12473,7 +12473,7 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 - **⑤**：刪 Vue 時槽型別本來就要改（`api-surface` 那天本來就判破壞性），`segment`／`trigger` 那兩個半格死的 variant 可以一起收，★ 會提醒；`@internationalized/date` 的 catalog 那段要重寫（§二 6）；`BEHAVIOR_TESTS` 隨 `react-parity.test.ts` 搬家（C237 §四 已記）。
 - **真瀏覽器沒量**：年月下拉是透明的原生 `<select>` 疊在文字上（shadcn 同一個做法），焦點環走 `has-focus-visible:`；happy-dom 量不到畫面。
 - **語系只有兩個**：加一個是在表裡加一列（新增，不破壞）。
-- **順手看到、沒動的**：`tools/compliance/COMPLIANCE.md` 的「外部直接相依（24 個）」與 `tools/supply-chain/src/cli.ts` 註解的「24 個套件」早已過期（本批之前就是 40 筆，現在 41）。散文裡的計數，不是本批的範圍。
+- **順手看到、沒動的**：`tools/compliance/COMPLIANCE.md` 的「外部直接相依（24 個）」與 `tools/supply-chain/src/cli.ts` 註解的「24 個套件」早已過期（本批之前就是 40 筆，現在 41）。散文裡的計數，不是本批的範圍；另開一張任務交人啟動（改數字、改寫成不寫數字、或讓 `doc-facts` 守它，三選一要人裁）。
 
 #### 五、C154 §三
 
@@ -12488,7 +12488,7 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 
 #### 六、實測
 
-- 本機 `vpr ready`：**READY**
+- 本機 `vpr ready`：**READY_RC 0**（在 `e3ea549` 上；之後只改了元件檔頭一句註解、這一行與 §四 最後一條）。第一趟在 `ed01f52` 上紅在 `doc-facts`（§三）。
 
 #### 七、與既有裁決的關係
 
