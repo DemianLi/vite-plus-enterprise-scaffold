@@ -11498,7 +11498,7 @@ C225 §三 記了 `doc-facts`、`scope-check` 兩列。這一批逐列對名冊�
 - `bff-check` 的 `ship.why` 改寫：不下發的是**兩半** —— tier2 那一步，以及 fork 的測試那一步；檔案與 `vpr bff-check` 別名照樣下發，團隊要對自己的 gateway 驗時手動跑（HANDOFF〈8. 架構〉）。
 - `Ship` 欄位註解的兩句改寫：「接線」從批次 ② 起包含測試那一步；讀者列出 `check.ts` 的三種消費與那條非空斷言。**不寫行號** —— 註解裡的行號沒有東西在守。
 - 重算章（`vpr scaffold-stamp-update`）：`gates.ts` 在章的射程內（C220），上游改了腳手架的檔就重算、與改動進同一支 PR。
-- READY_PLACEHOLDER
+- **本機 `vpr ready` READY_RC 0**（`e7a0ea9`）：閘門名冊一致（18 道）、章相符（360 個檔）、文件數字一致、`SCOPE.md` 與版控一致、門檻 11 格綠、承諾成立（2／6）。
 
 #### 四、掃過的
 
