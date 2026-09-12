@@ -3,7 +3,7 @@
 # 一行一個檔、一行一條 script，照字典序 —— 兩支 PR 改到不同的檔，合併不會撞在同一行。
 file	8016f658f28465508a11d63a71f493bd1ac71e1a555566bb2e7e2f94bb803c81	.github/workflows/exit-drill.yml
 file	e4c2434b01fa70ea1de336acdca3d08c8ef0f98e48f356d0869a3836a41580fe	.github/workflows/supply-chain-recapture.yml
-file	f62119bf439696b26e9cc29bf0450c991ab9bd921d5ea5e9b3fd51c019c18bf8	.github/workflows/tier1-quality.yml
+file	f16145550c548f4d941cb49146615759e5bfb136e23d46f3b2e1714adde0734a	.github/workflows/tier1-quality.yml
 file	0705e810e82d6185e8f816d3829decb5065bf6f3f892101454ecb044a53aa6e2	.github/workflows/tier2-security.yml
 file	e8fdcc05db3256ba477c0d1f43fa3d5a6db16d33f7411731d86bc01dc4a1c0a2	platform/bff-contract/README.md
 file	729cf1929c7713592a710fb8b0cd280100df0385e5c81a4fc7d46f1f916cb4de	platform/bff-contract/package.json
