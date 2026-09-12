@@ -73,6 +73,7 @@
 | **C224** | `AGENTS.md` 規則四在 fork 裡不縮、改理由：根層 `specs/` 在 fork 沒有閘門執行也沒有章在守，禁的理由從「閘門照著它執行」換成歸屬；部分推翻 C215 §八「射程改寫」  |
 | **C225** | `HANDOFF.md` 採用指南三處把上游專用的閘門寫成會在 fork 跑：`promise-check` 那一列、「擋你的是 `gate-roster`」、`scope-check` 會要你登記 —— fork 裡擋人的是章   |
 | **C226** | `README.md` 目錄樹說 `scope-check`「刻意不進閘門，見 C133」：C136 接上閘門鏈時改了〈兩層檢查〉的表、漏了樹，假了 15 天                                         |
+| **C227** | `TESTING.md` §五 那張兩類表：Tier 2 安全整條、`doc-facts`、`scope-check` 在 fork 裡不是第二類（不下發）；表原樣保留、表下更正；C225 漏了 Tier 2 那列           |
 
 ---
 
