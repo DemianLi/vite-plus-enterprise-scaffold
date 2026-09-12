@@ -13,8 +13,15 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { CONFIG_FILES, MEASURED_FILE, collectSlots, floorSource, type Slot } from "./config.ts";
-import { parseDiagnostics, type ParsedDiagnostics } from "./diagnostics.ts";
+import {
+  CONFIG_FILES,
+  MEASURED_FILE,
+  collectSlots,
+  floorOne,
+  floorSource,
+  type Slot,
+} from "./config.ts";
+import { parseDiagnostics, type ParsedDiagnostics, type Reading } from "./diagnostics.ts";
 
 /**
  * 跑探針：拿一份門檻被壓到地板的 lint 設定，量出每一格的實測最大值。
@@ -178,13 +185,7 @@ function withFarm<T>(toolRoot: string, configs: readonly string[], body: (farm: 
  *   而 `vpr gate` 上跑的永遠是那條路徑 —— 兩者不同的只有承諾檢查那條。
  */
 export function probe(toolRoot: string, targetRoot: string = toolRoot): ProbeOutcome {
-  const sources = CONFIG_FILES.map((file) => {
-    const path = join(targetRoot, file);
-    // ⚠️ 說得出是哪個目錄、哪一份。少了這一句，`--root` 指錯地方的症狀是一個 ENOENT，
-    // 而那長得像「這支工具壞了」，不像「你給的那棵樹裡沒有設定檔」。
-    if (!existsSync(path)) throw new ProbeError(`${targetRoot} 底下沒有 ${file}`);
-    return readFileSync(path, "utf8");
-  });
+  const sources = readSources(targetRoot);
 
   let rewritten = 0;
   let unmeasured = 0;
@@ -210,22 +211,70 @@ export function probe(toolRoot: string, targetRoot: string = toolRoot): ProbeOut
     const probeSlots = collectSlots(printConfig(toolRoot, farm));
     const probeFiles = fileList(toolRoot, farm);
 
-    const raw = runLint(toolRoot, farm, ["-f", "json"]).stdout;
-    let payload: unknown;
-    try {
-      payload = JSON.parse(raw) as unknown;
-    } catch (cause) {
-      throw new ProbeError(`探針那趟 lint 的輸出不是 JSON：${String(cause)}`);
-    }
-
     return {
       realSlots,
       probeSlots,
-      parsed: parseDiagnostics(payload),
+      parsed: diagnose(toolRoot, farm, "探針"),
       realFiles,
       probeFiles,
       rewritten,
       unmeasured,
     };
   });
+}
+
+/**
+ * 補量一格：`MEASURED_FILE` 裡只有這一格壓到 0、其餘原封不動，根層那份也原封不動（C223）。
+ *
+ * ⚠️ 它走在**綠燈樹上走不到**的那條路上 —— 只有某一格在排名地板上報「量不到」時才跑，
+ * 所以綠燈的 `vpr gate` 仍然是五趟 `vp lint`。守它的是 `tests/threshold.test.ts` 那條整合測試。
+ *
+ * ⚠️ `expectedFiles` 是探針那一趟自己掃到的檔數。補量那座農場若掃到零個檔，
+ * 讀數是空的 —— 而空讀數在這裡的意思是「真的量不到」，會把一格過期報成另一件事。
+ */
+export function recheckAtZero(
+  toolRoot: string,
+  targetRoot: string,
+  slot: { readonly rule: string; readonly rank: number },
+  expectedFiles: number,
+): readonly Reading[] {
+  const configs = readSources(targetRoot).map((source, at) => {
+    if (CONFIG_FILES[at] !== MEASURED_FILE) return source;
+    const result = floorOne(source, slot.rule, slot.rank);
+    if (result.count !== 1) {
+      throw new ProbeError(
+        `補量那一趟找不到 ${slot.rule} 的第 ${slot.rank} 格（改寫了 ${result.count} 格，應該是 1）`,
+      );
+    }
+    return result.text;
+  });
+
+  const parsed = withFarm(toolRoot, configs, (farm) => diagnose(toolRoot, farm, "補量"));
+  if (parsed.files !== expectedFiles) {
+    throw new ProbeError(
+      `補量那一趟掃了 ${parsed.files} 個檔，探針那一趟是 ${expectedFiles} 個 —— 讀數不能拿來判「量不到」`,
+    );
+  }
+  return parsed.readings;
+}
+
+function readSources(targetRoot: string): string[] {
+  return CONFIG_FILES.map((file) => {
+    const path = join(targetRoot, file);
+    // ⚠️ 說得出是哪個目錄、哪一份。少了這一句，`--root` 指錯地方的症狀是一個 ENOENT，
+    // 而那長得像「這支工具壞了」，不像「你給的那棵樹裡沒有設定檔」。
+    if (!existsSync(path)) throw new ProbeError(`${targetRoot} 底下沒有 ${file}`);
+    return readFileSync(path, "utf8");
+  });
+}
+
+function diagnose(toolRoot: string, farm: string, pass: string): ParsedDiagnostics {
+  const raw = runLint(toolRoot, farm, ["-f", "json"]).stdout;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw) as unknown;
+  } catch (cause) {
+    throw new ProbeError(`${pass}那趟 lint 的輸出不是 JSON：${String(cause)}`);
+  }
+  return parseDiagnostics(payload);
 }

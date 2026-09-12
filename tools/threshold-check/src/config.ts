@@ -151,8 +151,31 @@ export interface FlooredSource {
  * 每一格給不同的地板值之後，oxlint 自己在訊息裡寫著 `Maximum allowed is N`，
  * **歸屬是 oxlint 算的，不是我們算的**。多一個 override、改一次 glob，
  * 這支工具一行都不用動。
+ *
+ * ⚠️ **排名地板有一個盲區（C223）**：第 n 格的地板是 n，真最大值掉到 ≤ n 時
+ * 那一格一條都不報 —— 與「範圍裡什麼都沒有」同讀數。所以地板 ≥ 1 的格報
+ * 「量不到」時不能直接信，要用 `floorOne` 補量一趟。
  */
 export function floorSource(source: string): FlooredSource {
+  return rewriteSlots(source, (_name, rank) => rank);
+}
+
+/**
+ * 只把**一格**壓到 0，其餘原封不動 —— 排名地板的補量（C223）。
+ *
+ * 這一趟裡 `allowed = 0` 的讀數**只能是它的**：`pairSlots` 要求每一格的地板值
+ * 低於門檻，而第 0 名的地板是 0，所以每一格的門檻都 ≥ 1 —— 原封不動的手足
+ * 報不出 `allowed = 0`。
+ */
+export function floorOne(source: string, rule: string, rank: number): FlooredSource {
+  return rewriteSlots(source, (name, at) => (name === rule && at === rank ? 0 : undefined));
+}
+
+/** `pick` 回 `undefined` 的格子原封不動、不計數。`rank` 是同一條規則的第幾次出現。 */
+function rewriteSlots(
+  source: string,
+  pick: (name: string, rank: number) => number | undefined,
+): FlooredSource {
   const seen = new Map<string, number>();
   let count = 0;
 
@@ -162,8 +185,10 @@ export function floorSource(source: string): FlooredSource {
     if (name === undefined) return match;
     const rank = seen.get(name) ?? 0;
     seen.set(name, rank + 1);
+    const value = pick(name, rank);
+    if (value === undefined) return match;
     count += 1;
-    return `${groups.head}${rank}${groups.tail}`;
+    return `${groups.head}${value}${groups.tail}`;
   });
 
   return { text, count };

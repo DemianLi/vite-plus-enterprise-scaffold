@@ -4,9 +4,9 @@ import { resolve } from "node:path";
 import { formatReport } from "@org/conformance/report";
 import { parseFlags, repoRoot } from "@org/gate-kit";
 
-import { judge, measure } from "./check.ts";
+import { judge, measure, resolveUnmeasurable } from "./check.ts";
 import { MEASURED_FILE, pairPass } from "./config.ts";
-import { probe, ProbeError } from "./probe.ts";
+import { probe, ProbeError, recheckAtZero } from "./probe.ts";
 
 /**
  * 複雜度門檻有沒有比實測最大值高。
@@ -114,7 +114,14 @@ try {
       console.error(`\n✗ 門檻檢查的量測台自己壞了\n\n  ${pairing.why}\n`);
       process.exitCode = 1;
     } else {
-      const rows = measure(pairing.pairs, outcome.parsed.readings);
+      const rows = resolveUnmeasurable(measure(pairing.pairs, outcome.parsed.readings), (pair) =>
+        recheckAtZero(
+          ROOT,
+          TARGET,
+          { rule: pair.slot.rule, rank: pair.floor },
+          outcome.parsed.files,
+        ),
+      );
       const findings = judge(rows);
 
       if (findings.length === 0) {
