@@ -10,6 +10,7 @@
  *   - `.github/workflows/tier1-quality.yml`
  *   - `.github/workflows/tier2-security.yml`
  *   - README〈兩層檢查〉那張表
+ *   - README 目錄樹的 `tools/` 那一段（哪幾支是閘門、例外有沒有標明；C230 接上）
  *
  * **而沒有任何東西在斷言它們一致。**
  *
@@ -246,7 +247,7 @@ export const GATES: readonly Gate[] = [
     command: "node tools/gate-roster/src/cli.ts",
     tiers: ["tier1"],
     why:
-      "四份名冊（scripts.gate、兩個 workflow、README 那張表）必須對得上（C71）；" +
+      "四份名冊（scripts.gate、兩個 workflow、README 那張表與目錄樹）必須對得上（C71；目錄樹是 C230）；" +
       "接到 main 是 C132，而接上的當場抓到三個真漏洞。" +
       "在 Tier 1 而不是 Tier 2 的理由與 theme-verify 同一條：Tier 2 的三條規則" +
       "只為了「安全掃描的結果會隨時間失效」，而「名冊有沒有對齊」不會隨時間失效。",

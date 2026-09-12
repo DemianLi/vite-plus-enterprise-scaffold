@@ -262,23 +262,26 @@ export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderL
 │
 ├── tools/                    建置與治理腳本。多數是會失敗的閘門，例外都在下面標明
 │   ├── gate-kit/             閘門底下那一層（不是閘門）：repo 根、走目錄、旗標解析
+│   ├── fork-select/          vpr gate／vpr ready 的選擇器：有沒有 .scaffold-fork 決定跑哪一條（不是閘門，見 C217）
 │   ├── gate-roster/          閘門名冊的單一事實來源，以及四個消費端的一致性檢查
 │   ├── scaffold-stamp/       腳手架的章：fork 之後不准改的那一半還是不是原樣（含 oxlint 生效設定）
 │   ├── conformance/          切片邊界一致性檢查（宣告依賴＋相對路徑逃逸）
 │   ├── api-surface/          platform/* 的型別形狀與基準比對，改名或改形狀即失敗
 │   ├── vue-typecheck/        .vue 的型別檢查（vp check 的 tsgolint 不看 SFC）
 │   ├── theme-verify/         設計系統接縫：真的建置兩次，證明各案換得掉配色與形狀
-│   ├── codemods/             breaking change 必附的遷移腳本
-│   ├── slice-gen/            切片產生器（vp create slice）
+│   ├── codemods/             breaking change 必附的遷移腳本（改東西的，不是閘門，見 C71）
+│   ├── slice-gen/            切片產生器（vp create slice；產東西的，不是閘門，見 C71）
 │   ├── bff-check/            對參考實作或真實 gateway 驗收 D8 契約
 │   ├── exit-drill/           D2 退出演練：用上游 Vite/Vitest 實際重建一次
 │   ├── supply-chain/         套件盤點、SCA 例外申請書、鏡像清單、封閉網路前置條件
-│   ├── csp-verify/           CSP 探針；探針由工具產生，不讓人照抄
+│   ├── csp-verify/           CSP 探針；探針由工具產生，不讓人照抄（要人開瀏覽器，刻意不接，見 C52）
 │   ├── compliance/           控制項與證據的對應表
 │   ├── pii-check/            個資外洩路徑檢查
 │   ├── doc-facts/            文件裡的數字 vs. repo 內部事實來源
 │   ├── scope-check/          SCOPE.md 列的東西 vs. 版控裡真正存在的目錄（Tier 1 閘門，見 C136）
+│   ├── threshold-check/      複雜度門檻沒有過期：實測最大值降了，門檻要跟著降（Tier 1 閘門，見 C147）
 │   ├── spec-report/          驗收規格的完成率報表
+│   ├── release-distance/     距上一版幾支 commit、幾天（只報數，不是閘門，見 C169）
 │   ├── promise-check/        specs/ 的承諾：照規格弄壞一份副本，跑指名的閘門，比對結果
 │   └── ui-survey/            UI-SURVEY.md 的資料來源（決策期工具，刻意不進閘門，見 C45）
 │

@@ -76,6 +76,7 @@
 | **C227** | `TESTING.md` §五 那張兩類表：Tier 2 安全整條、`doc-facts`、`scope-check` 在 fork 裡不是第二類（不下發）；表原樣保留、表下更正；C225 漏了 Tier 2 那列           |
 | **C228** | `TESTING.md`〈兩類〉那句「第二類天然通過」：C136 拿掉判準後果、把 `tools/` 交給 `gate-roster`，改了 `SCOPE.md` 漏了這句；改寫、留問法，`:53` 照留              |
 | **C229** | 名冊 `bff-check` 的 `ship.why` 說 fork 的 `ready` 照跑它的測試：C217 §五 已排除；同檔 `Ship` 註解兩句同樣過期；改寫並重算章                                    |
+| **C230** | README 目錄樹 `tools/` 那一段接上 `gate-roster`（Q46 A）：身分、例外、層級對名冊；接上當天紅六處，同一支補齊                                                   |
 
 ---
 
