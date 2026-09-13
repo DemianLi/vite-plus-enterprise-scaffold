@@ -12558,6 +12558,7 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 - Tier 1 的「何時跑」寫著 pre-commit，`vite.config.ts`、`vite.scaffold.ts`、`package.json` 都查不到任何 pre-commit 機制 —— 拿掉。
 - 目錄樹的根層少列 `DECISIONS-2.md`、`TESTING.md`、`API.md`、`SPEC-REPORT.md`、`CHANGELOG.md`、`CODEOWNERS`、`.scaffold-stamp`、`reports/research/`；`DECISIONS.md` 被寫成唯一的決策日誌。
 - 隨整節消失的：`vite-plus` 寫 0.2.x（實際 0.3.1）、CI 表少列 `supply-chain-recapture.yml`。
+- **第一版改寫自己寫錯一句**：簡介寫「四件承諾每一條都由 `specs/` 的規格逐條執行」，而 `specs/` 只有 `promise-1-architecture.feature` 一份承諾規格（另一份是 `gate-thresholds.feature`）。舊 README 用一段 ⚠️ 分開「有什麼」與「有東西在守」，改寫時拿掉那段、把兩件事壓成一句。改成「承諾一由規格執行，其餘三條由設計系統接縫、platform API 表面檢查與 `platform/ui` 的元件契約測試守著」。⚠️ `doc-facts` 守的是數字不是陳述，這一句紅不了。
 
 #### 五、刻意沒做的
 
@@ -12569,7 +12570,7 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 #### 六、實測
 
 - `gate-roster` ✓、`doc-facts` ✓（14 個事實、27 個引用樣式）、`scope-check` ✓、`scaffold-stamp` ✓（重算後）；`doc-facts`＋`gate-roster` 的測試 126 支全過。
-- 本機 `vpr ready`：**READY_RC 0**（在 `72fb5b0` 上；之後只改了這一行）。
+- 本機 `vpr ready`：**READY_RC 0**（在 `72fb5b0` 上；之後只改了這一行與 §四 最後一條所記的簡介一句，兩處都不在任何閘門的射程內，`vp fmt --check` 綠）。
 
 #### 七、與既有裁決的關係
 
