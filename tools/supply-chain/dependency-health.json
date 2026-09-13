@@ -203,6 +203,14 @@
       "lastStableAt": "2026-09-09"
     },
     {
+      "name": "react-day-picker",
+      "latest": "10.0.1",
+      "license": "MIT",
+      "publishedAt": "2026-05-15",
+      "stableReleasesPerYear": 13,
+      "lastStableAt": "2026-05-15"
+    },
+    {
       "name": "react-dom",
       "latest": "19.3.0",
       "license": "MIT",

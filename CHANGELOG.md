@@ -84,6 +84,7 @@
 | **C235** | 第 ② 批之一（Q57–Q60）：`@org/ui/react` 入口與 React 版 UiButton；CLI 產出當素材、不裝 cva、語意 class 改 utility；Base UI 的空有絆線守著                      |
 | **C236** | 第 ② 批之二（Q61–Q66）：其餘 21 支非彈出層元件；兩版預設表與 SSR 產出逐字比對、分頁對 reka 差分；a11y 的 .tsx 軌第一次校準，三條交人裁                         |
 | **C237** | 第 ② 批之三（Q67–Q69）：彈出層四支；reka 的 ⭐ 在 Base UI 上逐條重量，四處答案不同照實寫；DatePicker 形狀裁定、拆到 ②d                                         |
+| **C238** | 第 ② 批之四（Q70–Q73）：React 版 DatePicker；八格逐格找落點、`locale` 一張小表、一週起始日照 CLDR；react-day-picker 三支進供應鏈                               |
 
 ---
 

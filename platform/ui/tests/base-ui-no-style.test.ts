@@ -44,6 +44,21 @@ describe("Base UI 的執行期相依閉包不注入 <style>", () => {
   });
 });
 
+describe("react-day-picker 的執行期相依閉包也不注入 <style>（C238）", () => {
+  // 同一個「空」的第二份：它在 `UiDatePicker` 的面板裡渲染，CSP 下的壞法與上面一模一樣。
+  const dayPicker = dependencyClosure("react-day-picker", PACKAGE_JSON, PEERS);
+
+  it("★ 閉包裡真的有東西 —— 兩支傳遞相依都走到了", () => {
+    expect([...dayPicker.keys()].sort()).toEqual(["@date-fns/tz", "date-fns", "react-day-picker"]);
+  });
+
+  it.each([...dayPicker])("%s 零處 createElement('style')", (_name, dir) => {
+    const { hits, scanned } = injectingFiles(dir);
+    expect(scanned).toBeGreaterThan(0);
+    expect(hits).toEqual([]);
+  });
+});
+
 describe("🔴 判定函式抓得到真的注入", () => {
   it("reka-ui 的 Splitter 那一支 —— 這棵樹上已知會注入的真實套件", () => {
     // 正向對照用真實套件而不是只用人造字串：證明這個樣式對得上實際發佈的寫法

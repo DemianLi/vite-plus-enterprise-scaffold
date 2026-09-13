@@ -559,7 +559,7 @@ grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 | 2   | 資安         | 原生工具鏈的**政策性**例外（146 個二進位）                                    | 機關端 SCA 判 fail                                            | ⬜       | **每一案**                                    |
 | 3   | 資安         | 接受 43 個只有發佈簽章的佐證                                                  | 同上，且覆核時會被抓                                          | ⬜       | **每一案**                                    |
 | 4   | 法務         | MPL-2.0 ＋ 22 個**完全無授權聲明**的套件                                      | 授權政策掃描標記，可能驗收前才爆                              | ⬜       | **每一案**                                    |
-| 5   | 平台／IT     | 內部 registry 鏡像 **734 個**套件                                             | 機關端重建時抓不到套件                                        | ✅       | 原始碼交付／機關端重建                        |
+| 5   | 平台／IT     | 內部 registry 鏡像 **737 個**套件                                             | 機關端重建時抓不到套件                                        | ✅       | 原始碼交付／機關端重建                        |
 | 6   | 平台／IT     | registry 設在**機器層級**，不是專案                                           | 封閉環境下 `vp` 第一步就往公網連                              | ✅       | 同上（收件人是**機關端**，不是你們 CI）       |
 | 7   | 平台／IT     | 確認 `darwin-x64`／`win32-x64` 是否要支援                                     | 機關端那台裝不起來                                            | ✅       | 同上（問的是**機關端跑什麼平台**）            |
 | 8   | 架構         | 指派 D8 同源中間層由誰提供                                                    | 登入、CSRF、401／403 整條路徑沒有著落                         | ✅       | **每一案**（有登入就有）                      |
@@ -639,7 +639,7 @@ grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 申請書全部由 `pnpm-lock.yaml` 推導，**不要手改**。內容含逐家族明細、佐證等級、
 授權分佈、容量，以及四項**由閘門實際斷言**（非宣稱）的補償控制：
 
-- 734 個套件全帶 sha512 integrity，CI 以 `--frozen-lockfile` 安裝
+- 737 個套件全帶 sha512 integrity，CI 以 `--frozen-lockfile` 安裝
 - `allowBuilds` 內沒有任何原生套件 → 那 146 個在安裝時不執行任何腳本
 - lockfile 的 digest 與擷取當下一致，每次 gate 比對
 - 家族清單進版控，新家族出現時閘門擋下並要求人工分類
@@ -714,7 +714,7 @@ package/yuku-parser.node  3.8 MB  ← 原生二進位
 **要做的**
 
 ```bash
-./node_modules/.bin/vpr mirror-manifest   # 734 筆，含 sha512，可直接餵給鏡像工具
+./node_modules/.bin/vpr mirror-manifest   # 737 筆，含 sha512，可直接餵給鏡像工具
 ./node_modules/.bin/vpr airgap            # 前置條件、平台矩陣、驗收方式
 ```
 
@@ -979,7 +979,7 @@ gh api repos/<owner>/<repo>/codeowners/errors
 | --- | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
 | 1   | `@tailwindcss/vite` 加進 `DRILL_PLUGINS` | ✅ 已登記，並補上**產物比對**（反向測試：拿掉 @source → 37%，紅）                          |
 | 2   | 重跑 `vpr supply-chain --capture`        | ✅ 519 套件／144 原生／12 家族。新家族 `@tailwindcss` 已分類為 toolchain                   |
-| 3   | 新增 `platform/ui` package               | ✅ CODEOWNERS（暫掛）、api-surface（14 個進入點／222 個 export）、退出演練 alias 都已接上  |
+| 3   | 新增 `platform/ui` package               | ✅ CODEOWNERS（暫掛）、api-surface（14 個進入點／223 個 export）、退出演練 alias 都已接上  |
 | 4   | 擋住「切片自己拼一套設計系統」           | ✅ 擋的是 **import 而非目錄**（理由見契約）；另加全 repo 禁用 reka-ui Splitter（CSP）      |
 | 5   | 瀏覽器實測 CSP                           | ✅ 五個探針全對（Chrome 148）。⚠️ 證據檔與守它的閘門已於 2026-08-16 拆除（C52）—— 見下方註 |
 
@@ -1698,7 +1698,7 @@ grep -n "uses:" .github/workflows/*.yml
 
 | 這個 repo 對 npm 相依做的             | 對 CI action 做的 |
 | ------------------------------------- | ----------------- |
-| 734 個套件全帶 sha512                 | 標籤              |
+| 737 個套件全帶 sha512                 | 標籤              |
 | `--frozen-lockfile` 安裝              | 標籤              |
 | tarball digest 進版控、每次 gate 比對 | 標籤              |
 | 146 個原生二進位逐一分佐證等級        | 標籤              |
@@ -2145,7 +2145,7 @@ vue-tsc 全綠** —— 兩個 TypeScript 同時在場的第一個實例。
 | ------------- | ----------------------------------- | -------------------------------------- |
 | 資安          | `vpr sca-dossier`                   | SCA 例外申請書（含補償控制與佐證分級） |
 | 法務          | `vpr sca-dossier`                   | 同上的〈授權分佈〉一節                 |
-| 平台／IT      | `vpr mirror-manifest`               | 734 筆鏡像清單，含 sha512              |
+| 平台／IT      | `vpr mirror-manifest`               | 737 筆鏡像清單，含 sha512              |
 | 平台／IT      | `vpr airgap`                        | 封閉網路前置條件、平台矩陣、驗收方式   |
 | 稽核          | `tools/exit-drill/evidence.json`    | 退出演練證據（進版控）                 |
 | 架構／gateway | `vpr bff-check`                     | D8 中間層的 13 條驗收條目              |

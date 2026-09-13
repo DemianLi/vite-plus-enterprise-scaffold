@@ -1282,6 +1282,12 @@ UiTextarea?: Readonly<Partial<Record<"textarea", string>>> | undefined
 "indicator" | "label" | "root"
 ```
 
+### `UiDatePicker` — function
+
+```
+({ value, onValueChange, placeholder, locale, id, "aria-label": ariaLabel, "aria-describedby": describedBy, "aria-invalid": invalid, }: { value?: CalendarDate | undefined; onValueChange?: ((value: CalendarDate | undefined) => void) | undefined; placeholder: string; locale?: string | undefined; id?: string | undefined; "aria-label"?: string | undefined; "aria-describedby"?: string | undefined; "aria-invalid"?: true | undefined; }) => ReactNode
+```
+
 ### `UiDatePickerSlot` — type
 
 ```

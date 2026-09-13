@@ -3,6 +3,7 @@ import { cleanup, render } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { UiDatePicker } from "../src/components/UiDatePicker.tsx";
 import { UiField } from "../src/components/UiField.tsx";
 import { UiInput } from "../src/components/UiInput.tsx";
 import { UiSelect } from "../src/components/UiSelect.tsx";
@@ -167,5 +168,42 @@ describe("UiField 包 UiSelect：`control` 落到觸發鈕上（C101 的 React �
     expect(trigger?.id).toBeTruthy();
     expect(trigger?.getAttribute("aria-describedby")).toBeTruthy();
     expect(trigger?.getAttribute("aria-invalid")).toBe("true");
+  });
+});
+
+describe("UiField 包 UiDatePicker：`control` 落到按鈕上（C238）", () => {
+  /**
+   * Vue 版接不起來：`DatePickerRoot` 不渲染元素，屬性落在它身上就消失，所以 `field` 那三條
+   * `aria-invalid:*` 從落地起就是死的（`UiField.vue` 檔頭）。React 版是一顆按鈕，這一組量它接上了。
+   */
+  function dateField(props: Props): HTMLElement {
+    const { container } = render(
+      createElement(UiField, {
+        ...props,
+        children: (wiring) => createElement(UiDatePicker, { ...wiring, placeholder: "請選擇日期" }),
+      }),
+    );
+    return container;
+  }
+
+  it("🔴 `<label for>` 指到的是那顆按鈕", () => {
+    const container = dateField({ label: "生日" });
+    const htmlFor = container.querySelector("label")?.htmlFor ?? "";
+    expect(htmlFor).toBeTruthy();
+    expect(document.getElementById(htmlFor)?.getAttribute("data-slot")).toBe("date-picker");
+  });
+
+  it("🔴 aria-invalid 落在帶紅框 class 的同一個元素上 —— Vue 版那三條死 class 在這裡是活的", () => {
+    const container = dateField({ label: "生日", description: "民國年請換算", error: "必填" });
+    const picker = container.querySelector('[data-slot="date-picker"]');
+    expect(picker?.getAttribute("aria-invalid")).toBe("true");
+    expect(picker?.className.split(" ")).toContain("aria-invalid:border-danger");
+    // 日期文字在最前面（`date-picker-react.test.ts`），後面接 `UiField` 的說明與錯誤兩格。
+    const described = (picker?.getAttribute("aria-describedby") ?? "").split(" ");
+    expect(described.map((target) => document.getElementById(target)?.textContent)).toEqual([
+      "請選擇日期",
+      "民國年請換算",
+      "必填",
+    ]);
   });
 });
