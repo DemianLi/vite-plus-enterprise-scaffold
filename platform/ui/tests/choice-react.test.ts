@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -58,11 +58,14 @@ describe("UiCheckbox（React）", () => {
     expect(screen.getByRole("checkbox").getAttribute("aria-checked")).toBe("true");
   });
 
-  it("受控：checked 為 true 時勾勾在，為 false 時不在", () => {
+  it("受控：checked 為 true 時勾勾在，為 false 時不在", async () => {
     const { rerender } = render(createElement(UiCheckbox, { label: "甲", checked: true }));
     expect(screen.getByRole("checkbox").querySelector("svg")).not.toBeNull();
     rerender(createElement(UiCheckbox, { label: "甲", checked: false }));
-    expect(screen.getByRole("checkbox").querySelector("svg")).toBeNull();
+    // ⚠️ 取消勾選後 Indicator 不是同步卸載：Base UI 等離場動畫結束（useOpenChangeComplete）
+    // 才卸載。同步斷言只在 happy-dom 20.11.2 上綠；20.14.5 晚一拍，而退出演練不帶 lockfile
+    // 就是解到它（C247）。
+    await waitFor(() => expect(screen.getByRole("checkbox").querySelector("svg")).toBeNull());
   });
 
   it("children 取代 label", () => {

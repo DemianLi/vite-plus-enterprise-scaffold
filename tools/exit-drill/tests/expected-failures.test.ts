@@ -131,14 +131,24 @@ describe("reconcileFailures", () => {
  * 不是另抄一份清單。
  */
 describe("EXPECTED_FAILURES 指得到真的測試", () => {
-  const TITLE = /\b(?:describe|it)\(\s*"((?:[^"\\]|\\.)*)"/g;
+  const TITLE = /\b(describe|it)\(\s*"((?:[^"\\]|\\.)*)"/g;
 
-  /** 從一支測試檔的原始碼推出所有 `describe 標題` 組合。 */
+  /**
+   * 從一支測試檔的原始碼推出所有 `describe 標題` 組合。
+   *
+   * ⚠️ 每個 `it` 歸到它前面最近的那個 `describe`。第一版拿檔內第一個標題當所有 `it`
+   * 的群組，一支檔只有一個 `describe` 時兩者等價；`proxy-target.test.ts` 的 D8 那組
+   * 是第二個 `describe`，登記它的那天（C247）這條才紅。
+   */
   function fullNamesOf(sourcePath: string): readonly string[] {
     const source = readFileSync(join(ROOT, sourcePath), "utf8");
-    const titles = [...source.matchAll(TITLE)].map((match) => match[1] ?? "");
-    const [group = ""] = titles;
-    return titles.slice(1).map((title) => `${group} ${title}`);
+    const names: string[] = [];
+    let group = "";
+    for (const [, kind, title = ""] of source.matchAll(TITLE)) {
+      if (kind === "describe") group = title;
+      else names.push(`${group} ${title}`);
+    }
+    return names;
   }
 
   /** 演練工作目錄的 `app/` 就是 repo 的 `apps/console/`。 */

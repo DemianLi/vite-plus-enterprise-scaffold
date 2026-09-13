@@ -575,10 +575,10 @@ grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 ./node_modules/.bin/vpr exit-drill    # 每季一次，證據進版控
 ```
 
-最後一次（2026-09-05，UTC）：退到上游 **Vite 8.2.1** 建置成功、上游 Vitest **540 個測試全過**、
-**應用程式原始碼一字未改**。另有 **5 條登記在案的預期失敗** —— 它們問的是這個 repo
-的建置設定而不是應用（`vite-plus` 本身、`apps/console/vite.config.ts`、根 `package.json`），
-演練把那三樣東西換掉了，所以它們在演練裡必然失敗，逐條登記在
+最後一次（2026-09-13，UTC）：退到上游 **Vite 8.3.0** 建置成功、上游 Vitest **853 個測試全過**、
+**應用程式原始碼一字未改**。另有 **9 條登記在案的預期失敗** —— 它們問的是這個 repo
+的建置設定而不是應用（`vite-plus` 本身、`apps/console/vite.config.ts`、根 `package.json`、
+不在退出保證內的 `@org/bff-mock`），演練把那幾樣東西換掉或排除了，所以它們在演練裡必然失敗，逐條登記在
 [`expected-failures.ts`](tools/exit-drill/src/expected-failures.ts)（C148）。證據在
 [`tools/exit-drill/evidence.json`](tools/exit-drill/evidence.json)。
 
