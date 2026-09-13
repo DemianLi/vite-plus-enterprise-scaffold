@@ -12569,7 +12569,7 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 #### 六、實測
 
 - `gate-roster` ✓、`doc-facts` ✓（14 個事實、27 個引用樣式）、`scope-check` ✓、`scaffold-stamp` ✓（重算後）；`doc-facts`＋`gate-roster` 的測試 126 支全過。
-- 本機 `vpr ready`：見 PR。
+- 本機 `vpr ready`：**READY_RC 0**（在 `72fb5b0` 上；之後只改了這一行）。
 
 #### 七、與既有裁決的關係
 
