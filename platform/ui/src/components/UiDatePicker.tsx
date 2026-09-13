@@ -8,17 +8,53 @@ import { useUiTheme } from "../theme-context.tsx";
 import type { UiDatePickerSlot } from "../theme.ts";
 
 /**
- * 日期選擇器，React 版（C238）。為什麼不是 `<input type="date">`、值為什麼是
- * `CalendarDate` 不是 `Date`、代幣對照，見 `UiDatePicker.vue` 的檔頭。
+ * 日期選擇器。
+ *
+ * ── 為什麼不是 `<input type="date">` ──────────────────────────────
+ *
+ * 原生的那個**日曆面板是作業系統畫的**，CSS 完全碰不到 —— 各案換不掉它，
+ * 而「快速換配色與元件樣式」那條承諾對這一格就不成立。而且各家瀏覽器的呈現
+ * 差很多（Safari 與 Firefox 的日曆長得完全不一樣）。同一條理由見 `UiSelect`。
+ * 代價比其他元件大：日期還有**曆法、時區、地區格式**三個問題，而它們每一個
+ * 自己寫都會錯。
  *
  * 形狀是「一顆按鈕 ＋ 日曆」，年月用下拉切換（C237 Q67）—— **不能打字**。Base UI 沒有日曆，
  * 日曆是 react-day-picker（C236 Q62）。
  *
+ * ── 值的型別是 `CalendarDate`，不是 `Date` ──────────────────────────
+ *
+ * 這是**刻意的**，而且是這個元件最容易被「簡化」掉的一格。
+ *
+ * JS 的 `Date` 是一個**時間點**（UTC 毫秒），而使用者在日曆上點的是一個
+ * **日曆日**。兩者在跨時區時不相等：台北時間 8/19 00:30 存成 `Date` 再用
+ * UTC 讀出來是 **8/18** —— 那就是「生日差一天」這個經典 bug。
+ * `CalendarDate` 沒有時間也沒有時區，它就是「2026 年 8 月 19 日」。
+ * 送去後端時用 `value.toString()` 得到 `"2026-08-19"`（ISO 日期，不是時間戳）。
+ *
+ * ⚠️ 代價是 `@internationalized/date` 是 `platform/ui` 執行期的直接相依（C238 Q68）——
+ * 它原本是跟著 reka-ui 進來的傳遞相依，reka 退場後它是自己的一筆供應鏈範圍。
+ *
+ * ── ⚠️ 代幣對照是人工核對的，沒有閘門在守（見 UiBadge、#57）────────
+ *
+ *   border-input                     → border-line
+ *   bg-popover / text-popover-fg     → bg-surface / text-fg
+ *   text-muted-foreground            → text-fg-muted
+ *   bg-primary / text-primary-fg     → bg-accent / text-on-accent
+ *   ring-ring/50                     → ring-focus/50
+ *   rounded-md                       → rounded-control
+ *   shadow-md                        → shadow-overlay
+ *
+ * ⚠️ 與 `UiSelect` 同一個陷阱：上游用 `hover:bg-accent` 做「淺色 hover 底」，
+ * 而本 repo 的 `--color-accent` 是**品牌主色（深色）**。這裡 hover 翻成
+ * `surface-hover`，只有**選中**那一格才用 `bg-accent`。#57 的判準認不出這種
+ * 「名字一樣、意思不同」，見 C78 §5。
+ *
  * ── 八格的落點（C238 Q70）──────────────────────────────────────────
  *
- * 槽型別是照 Vue 版的「分段輸入欄」切的，React 版沒有那個欄，所以逐格找對象：
+ * 槽型別是照 reka 版的「分段輸入欄」切的，這裡沒有那個欄，所以逐格找對象：
  *
- *   field    → 整顆按鈕（Vue 版那三條 `aria-invalid:*` 在這裡第一次生效，見 `UiField.vue`）
+ *   field    → 整顆按鈕（`aria-invalid:*` 那三條從 reka 版起就是死的 —— `DatePickerRoot`
+ *              不渲染元素、屬性落不下去（C79）—— 在這裡第一次生效）
  *   segment  → 按鈕裡的日期文字
  *   trigger  → 按鈕裡的日曆圖示
  *   content／nav／heading／headCell／day → 面板／上下月／年月下拉那一列／星期／日格
@@ -43,18 +79,24 @@ import type { UiDatePickerSlot } from "../theme.ts";
  *
  * ── `locale` 是一張小表（C238 Q71）─────────────────────────────────
  *
- * react-day-picker 要的是語系物件，Vue 版收的是字串。照字串查全部語系要整批打包
- * （約 95 個、壓縮後約 1.6MB），所以只收表裡那幾個；**表外的字串丟例外**，理由同 Vue 版
- * 檔頭：安靜退回英文比整片白掉難查。⚠️ 型別刻意是 `string` 不是 union —— union 多一個
- * 成員會被 api-surface 判成破壞性，而加語系應該是新增。
+ * 地區決定分段順序與星期名稱（`MM/DD/YYYY` vs `DD/MM/YYYY`），自己拼的症狀是「某些地區的
+ * 使用者把生日打反」—— 而在開發者自己的機器上永遠正常。react-day-picker 要的是語系物件，
+ * 對外收的是字串。照字串查全部語系要整批打包（約 95 個、壓縮後約 1.6MB），所以只收表裡
+ * 那幾個；**表外的字串丟例外**：吞掉之後的症狀是「日期格式莫名其妙變成美式」，比整片白掉
+ * 難查得多。⚠️ 型別刻意是 `string` 不是 union —— union 多一個成員會被 api-surface 判成
+ * 破壞性，而加語系應該是新增。
  *
- * ── 與 Vue 版答案不同、刻意的 ─────────────────────────────────────────
+ * ⚠️ 預設值刻意是 `"zh-TW"` 而不是跟著瀏覽器：**跟著瀏覽器會讓同一份資料在不同人的畫面上
+ * 長不一樣**，而政府案的表單截圖是要附在公文裡的。要跟著使用者的話明確傳 `navigator.language`。
+ * 刻意**沒有**開 `minValue`／`maxValue`／不可選日：那是「這個欄位的規則」，而規則屬於表單
+ * 不屬於設計系統 —— 真的需要時再開是一筆 minor（新增選填 prop）。
+ *
+ * ── 刻意的選擇 ───────────────────────────────────────────────────────
  *
  * - 選了就收（C238 Q73）。reka 的 `closeOnSelect` 預設 false；按鈕 ＋ 日曆的形狀下，
  *   不收的話每選一次都要再關一次。
- * - `placeholder` 必填（C238 Q72）：Vue 版沒選時分段欄自己會顯示年月日佔位，按鈕沒有。
- * - 沒有 `invalid`：Vue 版要它是因為 `DatePickerRoot` 不渲染元素、屬性落不下去；這裡是單一
- *   按鈕，`aria-invalid` 與 `UiSelect` 一樣走 `UiField` 的 `control`。
+ * - `placeholder` 必填（C238 Q72）：分段欄沒選時自己會顯示年月日佔位，按鈕沒有。
+ * - 沒有 `invalid`：這裡是單一按鈕，`aria-invalid` 與 `UiSelect` 一樣走 `UiField` 的 `control`。
  * - 日期文字也掛進 `aria-describedby`：包在 `UiField` 裡時按鈕的名字是標籤，選好的日期
  *   只剩描述這條路會被念到。
  * - 年份下拉的範圍是今年前後各 100 年，並延伸到涵蓋目前的值。react-day-picker 的預設是

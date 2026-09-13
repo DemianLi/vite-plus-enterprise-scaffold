@@ -16,7 +16,7 @@ import { extendTailwindMerge } from "tailwind-merge";
  *
  * ── 為什麼不裝 class-variance-authority ────────────────────────────
  *
- * 變體用純物件查表就夠（見 Button.vue）。少一個相依就是少一筆 SCA 範圍、
+ * 變體用純物件查表就夠（見 UiButton.tsx）。少一個相依就是少一筆 SCA 範圍、
  * 少一筆鏡像清單、少一次 --capture —— 與 D2 當初不裝 YAML parser 的同一條理由。
  *
  * ── 它的成本：2026-08-19 量過，決定不動（C75）─────────────────────

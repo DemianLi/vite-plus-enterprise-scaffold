@@ -4,8 +4,16 @@ import { useUiTheme } from "../theme-context.tsx";
 import type { UiTabsPanelSlot } from "../theme.ts";
 
 /**
- * 一個分頁的內容，React 版（C236）。必須放在 `UiTabs` 裡，`value` 要對得上
- * `items[].value` —— 對不上是一片空白而不報錯，見 `UiTabsPanel.vue` 的檔頭。
+ * 一個分頁的內容。必須放在 `UiTabs` 裡面，`value` 要與 `items[].value` 其中一個完全相同。
+ *
+ * ── 為什麼是獨立的檔案而不是 `UiTabs` 的一個 prop ─────────────────
+ *
+ * 因為**數量是使用端決定的**。做成 `panelA`／`panelB` 這種具名 prop 的話，
+ * `UiTabs` 就得先知道有幾個分頁。這是 Root ＋ Item 這個形狀存在的理由：
+ * Item 的**數量與內容**都在使用端，Root 只提供上下文。
+ *
+ * ⚠️ 放在 `UiTabs` 外面、或 `value` 對不上，都不會報錯，只會**什麼都不渲染**。
+ * 執行期才知道，沒有閘門守得住，所以寫在這裡。
  */
 export function UiTabsPanel({
   value,

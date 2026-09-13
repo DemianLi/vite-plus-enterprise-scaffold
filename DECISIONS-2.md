@@ -12848,3 +12848,100 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **C241 §三**         | **不衝突，對象不同** —— 那一則不改，是因為那五則在程式碼裡（render prop 的傳法、effect 裡 `await` 之後的 setState），消它要動結構，換來的只是一則不擋的訊息安靜。本則九則裡八則是註解裡的空白字元、一則是等價的語法簡化，零行為變化；而 ZWSP 本身就有害（§二 第 2 點），不只是為了讓訊息安靜 |
 | **AGENTS.md 規則二** | **遵守** —— 沒有改任何 lint 設定                                                                                                                                                                                                                                                             |
+
+### C243 — 第 ⑤ 批之一：刪 Vue 之前，先把它說過的話與它算過的答案留住 —— 27 支元件與四支行為測試的論證搬進 React 版，分頁 210 組與 SSR 25 組凍結；一個 `.vue` 都沒刪（2026-09-13，Q98–Q101）
+
+> C232 §六 ⑤ 的第一支。⑤ 拆三支 PR（§二），這一支**不刪任何東西**：它做的是刪之前必須先做、而且只有 Vue 還在時才做得到的那一半。
+
+#### 一、四題由人裁
+
+| #        | 問題                                                                                                                                                     | 裁決                         |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| **Q98**  | `page-range.ts` 自己沒有任何測試，唯一的對照是 `react-parity.test.ts` 那 211 組對 reka 的差分；reka 一刪就沒有答案可對                                   | **凍結成固定期望值**         |
+| **Q99**  | `base-ui-no-style.test.ts` 的 🔴 真實套件對照是 reka-ui（檔內寫明「要換一個對照，不能刪」）；還會留下的已裝套件裡只有 react-dom 的兩支開發版檔含那個寫法 | **換成 react-dom**           |
+| **Q100** | `vite.scaffold.ts` 的兩格 `vue/max-props`：元件換成函式後四維量得到了，但「props 個數」那一格 oxlint 沒有對應規則                                        | **拿掉，文件寫明那一格空著** |
+| **Q101** | `tools/ui-survey`：候選全是 Vue 元件庫、刻意不進閘門；C234 Q55 只說「隨 Vue 在 ⑤ 一起處理」，沒說怎麼處理                                                | **刪工具，文件凍結留存**     |
+
+- **Q100、Q101 在 ⑤b 做**：本支不動 `vite.scaffold.ts` 與 `tools/ui-survey`。
+- **Q99 的代價**：react-dom 的 `createElement("style")` 在兩支開發版建置裡（React 19 的 `<style precedence>` 資源），正式版寫法不同。所以新對照證明的是「判定式認得真實發佈的寫法」，**不是**「react-dom 會在畫面上注入」—— 比 Splitter 弱，檔內照寫。
+- **四題都是在拿掉東西或換掉對照組**，所以全問（AGENTS.md 規則二的方向）。
+
+#### 二、⑤ 拆三支（我決定的，揭露）
+
+| 支             | 內容                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **⑤a（本支）** | 論證搬家、答案凍結、對照加上 react-dom                                                                                                                                                                                                                                                                                                                                      |
+| **⑤b**         | 刪 `platform/ui` 的 27 支 `.vue` 與四支 Vue 測試（含 `react-parity.test.ts`）、`.` 入口收回（C235 Q57 的 codemod）、`vue-typecheck` 與它的消費端（C241 Q95：同一支）、reka 對照、Vue 系相依與 catalog、a11y 的 `.vue` 軌、`eslint-config` 的 Vue 格、`vite.scaffold.ts` 的 `vue` 外掛（Q100）、semgrep 的 vue-router 來源、`ui-survey`（Q101）、各工具的 Vue 分支與 fixture |
+| **⑤c**         | `README`、`HANDOFF`、`TESTING`、`API.md`、`platform/ui/README.md` 的框架敘述（C232 §六 ⑤、C239 Q79）                                                                                                                                                                                                                                                                        |
+
+- **為什麼本支單獨一支**：它是 1600 行的文字搬家加兩份凍結檔，審的人要逐段對照「搬過來的話在 React 上還成立嗎」；混進刪 27 支 `.vue` 的 diff 就審不動。而凍結只能在 reka 還裝著時做 —— 那一步一定排在刪除前面。
+- ⚠️ **開工時我對人說的分法不是這個**：當時說 ⑤a 包含刪 `.vue` 與 `vue-typecheck` 退場。讀完 27 支檔頭（約 1600 行 JSDoc）之後改成現在這樣；Q95 的「與刪 `.vue` 同一支」照舊成立（兩者都在 ⑤b）。
+
+#### 三、做了什麼
+
+1. **27 支 `.tsx` 的檔頭**：每一支原本寫「理由見 `UiX.vue` 的檔頭」，把那段論證搬過來，改寫成對 React／Base UI 成立的樣子。
+   - **沒搬的**，理由都是「它講的是 Vue 的機制，React 版沒有對應物」：`defineModel` 具名與否、屬性穿透（fallthrough／`inheritAttrs`）、`<script setup>` 每實例跑一次的成本、`.vue` 不做型別檢查（HANDOFF #26）、`api-surface` 解析 SFC 的沿革、模板註解會進 SSR 產物。
+   - **reka 量過而 Base UI 沒量的**照實標：`UiDropdownMenu` 的 `label`（reka 的 `textValue`）與 `data-[highlighted]` 對 `focus:`，兩處都寫「reka 版變異驗過零條紅；Base UI 版沒量」。
+   - **「基元支援 X，這裡刻意不開」這種句子，主詞從 reka 悄悄換成了 Base UI**：搬完後掃了 27 支裡這個形狀（`支援它`／`沒有這個`／`基元…預設`），逐句對 `@base-ui/react` 1.8.0 的型別檔。`UiCheckbox` 的三態成立（`CheckboxRoot` 有 `indeterminate`）；**`UiRadioGroup` 的橫向 `orientation` 不成立** —— `RadioGroupProps` 只有 `BaseUIComponentProps<'div'>`，那句話是 reka 的答案，改成「Base UI 沒有這個 prop」，不開的理由照舊。`UiLabel`、`UiTextarea` 的「Base UI 沒有這個基元」成立（套件裡沒有那兩個目錄）。只對了型別，行為沒量。
+   - **說法換了的**：`UiField` 為什麼是 render prop 而不是 context —— Vue 版的理由是「沒有 `cloneElement`」，React 有；改寫成「context 要讓四個控制項各自讀一個看不見的耦合，`cloneElement` 只碰得到直接子節點、包一層就安靜斷掉」。
+2. **四支 React 行為測試的檔頭**：`alert-dialog`、`dialog`、`dropdown-menu`、`field-wiring` 那四支原本寫「綠燈的意思同 Vue 那支的檔頭」「問題與 `field-wiring.test.ts` 相同」，把那幾段（為什麼非得 DOM、happy-dom 量不到什麼、C86 那五個實驗的教訓）搬過來。
+3. **凍結（Q98）**：
+   - `tests/page-range.test.ts`：總頁數 1–20 × 每一個目前頁，**210 組**。
+   - `tests/ssr-expected.json` ＋ `tests/ssr-expected.test.ts`：原生元素那 15 支的 **20 組**產出，加分頁標記 **5 組**（含「0 筆」—— 那一格在 `UiPagination` 的 `Math.max(1, …)`，不在 `pageRange`）。`BEHAVIOR_TESTS` 那張花名冊與「每一支 `.tsx` 恰好在其中一邊」的 ★、正規化的自我測試跟著搬進來（本支與 `react-parity.test.ts` 各一份，⑤b 刪後者）。
+   - **產生方式**：在 `react-parity.test.ts` 全綠的樹上暫加一段輸出，逐組先斷言 React＝Vue 再存 React 那一邊；存完拿掉那一段（該檔本支淨改動 0 行）。凍結當下分頁 210/210 與 reka 相同（差異清單 0 位元組）、SSR 25/25 與 Vue 相同。
+   - ⚠️ **Q98 問的是分頁；另外 20 組是我延伸的**：同一個形狀（答案由 Vue／reka 算、reka 一走就沒了），同一個處置。
+4. **Q99**：`base-ui-no-style.test.ts` 加一條 react-dom 的真實套件對照；reka 那一條留到 ⑤b 隨 reka 一起刪。
+5. **指路改掉**：`page-range.ts`、`UiPagination.tsx`、`UiSeparator.tsx`、`UiCheckbox.tsx`、`UiSelect.tsx` 原本說「由 `react-parity.test.ts` 比對」，改指凍結的那兩支；`utils/cn.ts` 的「見 Button.vue」改指 `UiButton.tsx`。
+
+#### 四、量測
+
+- **變異**（先 commit，還原走 `git checkout`）：
+
+| #   | 改法                                                  | 該紅的那支                 | RC  |
+| --- | ----------------------------------------------------- | -------------------------- | --- |
+| —   | 三支都不改（對照）                                    | 三支                       | 0   |
+| M1  | `pageRange` 的 `siblingCount` 預設 2 → 1              | `page-range.test.ts`       | 1   |
+| M2  | `UiSeparator` 裝飾的 `role` `none` → `presentation`   | `ssr-expected.test.ts`     | 1   |
+| M3  | `UiPagination` 的 `Math.max(1, …)` → `Math.max(0, …)` | `ssr-expected.test.ts`     | 1   |
+| M4  | 凍結檔少一格（`UiSkeleton`）                          | `ssr-expected.test.ts`     | 1   |
+| M5  | 花名冊少一支（`UiLabel`）                             | `ssr-expected.test.ts`     | 1   |
+| M6  | react-dom 那條改指 `clsx`（一個不注入的套件）         | `base-ui-no-style.test.ts` | 1   |
+| M7  | 凍結檔多一格沒人渲染的鍵                              | `ssr-expected.test.ts`     | 1   |
+
+- M4 與 M7 是同一張凍結檔的兩個方向：少一格由逐組的 `toBeDefined` 接住，多一格只有 ★「凍結的每一格都有人渲染」接得住（M7 那趟 32 條裡紅的就是那一條）。
+- M6 第一版想改 `STYLE_INJECTION` 的正則，樣式對不上原文、沒套上（腳本印 `NOT-APPLIED`，沒有算成綠）；改用上表那一版。
+- **第一趟 `react-parity` 紅在 `UiBadge`**：我在預設表裡加註解時吃掉了 `badge:` 後面的空白，逐字比對抓到的。補回空白，沒動那支測試。
+
+#### 五、交給 ⑤b／⑤c 的，以及還沒量的
+
+- **⑤b**：§二 那一列，外加：`react.ts`／`theme.ts`／`styles/index.css` 檔頭的 Vue 敘述（`theme.ts` 的槽名「取自 reka-ui 的基元」、「shadcn-vue 的 part 名」）；React 測試名稱裡約十五處「同 Vue 版」；`a11y.test.ts` 產物那兩組的 candidate 從 `.vue` 模板取，要改從 `.tsx`；C238 §四 的 `segment`／`trigger` 半格死的聚焦 variant 可隨入口收回一起收；C238 §二 6 的 `@internationalized/date` catalog 註解；`tests/contract.ts` 的 `defaultTableBodies` 只剩 `react-parity.test.ts` 一個使用者，隨它一起變成死碼 —— 刪之前先掃訊息與文件有沒有指著它，不是只看 import。
+- ⚠️ **`utils/cn.ts` 檔頭的成本分析是 Vue 的量測，不能直接帶過去**：它的結論「不要在 render function 或 `v-for` 的本體裡呼叫 `cn()`，放在 `<script setup>` 本體或包 `computed()`」建立在「`setup()` 每實例跑一次」上；React 元件的本體就是 render，`UiButton` 每次 render 都呼叫 `cn()`。C75 量的快取命中成本（0.14–0.21 µs）大概讓結論不變，**但那是推論不是量測** —— 交 ⑤b 重量或改寫，不是把句子搬過來。
+- **沒量的**：凍結表只證明「與 reka／Vue 當時的答案相同」，不證明那些答案對；那是 C236 的前提，本則沒有重驗。
+
+#### 六、C154 §三
+
+| 新增的檢查                                   | 交付軸                             | 迭代軸（① 對象在外、② 壞法安靜）                                                           | 級別                  |
+| -------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------ | --------------------- |
+| `page-range.test.ts`（210 組）               | 分頁頁碼正確（表格的必然配套）     | ① 答案來自 reka 的演算法；② 「某幾頁的時候排版怪怪的」，回報率極低（`page-range.ts` 檔頭） | 自我防護（M1）        |
+| `ssr-expected.test.ts`（25 組 ＋ 花名冊）    | 原生元素那 15 支的標記與 aria 接線 | ① 答案來自 Vue 版；② `role`、`scope`、`for` 錯了畫面一個像素都不變                         | 自我防護（M2–M5、M7） |
+| `base-ui-no-style.test.ts` 的 react-dom 對照 | 注入絆線的判定式認得真實發佈的寫法 | ① react-dom 的發佈檔；② 判定式壞了，上面那組「零處」會對空集合恆真                         | 自我防護（M6）        |
+
+**拿掉的檢查**：本支零條。`react-parity.test.ts` 照舊在跑，⑤b 才刪。
+
+#### 七、實測
+
+- 本機 `vpr ready`：READY_RC 0，量在 `efb0e36` 上（走到 `gate` 的最後一步 `release-distance`）；之後只改了這一行。
+
+#### 八、與既有裁決的關係
+
+| 裁決                 | 關係                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **C232 §六 ⑤**       | 本則是它的第一支；拆法見 §二                                                                                   |
+| **C235 §五**         | 「reka 那個對照要換、不能刪」由 Q99 答：先加 react-dom，reka 那條 ⑤b 刪                                        |
+| **C236 §四**         | 「`.tsx` 檔頭都指回 `.vue`，刪之前要搬」—— 本支做完；「`react-parity.test.ts` 要退役或換尺」—— 換成凍結（Q98） |
+| **C237 §四**         | `BEHAVIOR_TESTS` 那張清單搬進 `ssr-expected.test.ts`                                                           |
+| **C238 §四**         | 聚焦 variant 與 catalog 註解留到 ⑤b                                                                            |
+| **C234 Q55**         | `ui-survey` 的處置由 Q101 答                                                                                   |
+| **C241 Q95**         | 照舊：`vue-typecheck` 退場與刪 `.vue` 同一支（⑤b）                                                             |
+| **AGENTS.md 規則二** | **遵守** —— 拿掉規則、換對照、刪工具四件都問過；本支沒有拿掉任何檢查                                           |
+| **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                                 |

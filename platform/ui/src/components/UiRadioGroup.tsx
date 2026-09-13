@@ -4,10 +4,27 @@ import { useUiTheme } from "../theme-context.tsx";
 import type { UiRadioGroupSlot } from "../theme.ts";
 
 /**
- * 單選群組，React 版（C236），與 `UiRadioItem` 一組兩支。為什麼不收成 `items` 陣列、
- * 為什麼沒有橫向 orientation，見 `UiRadioGroup.vue` 的檔頭。
+ * 單選群組。與 `UiRadioItem` 是**一組兩個檔案**（第二個 Root ＋ Item，
+ * 第一個是 `UiTabs`／`UiTabsPanel`）。
  *
- * 不給 `value` 就是非受控、一開始沒有選中（同 Vue 版 `defineModel` 預設空字串）。
+ * ── 為什麼這一組不能像 `UiTabs` 那樣用 `items` 陣列收掉 ──────────────
+ *
+ * `UiTabs` 把 trigger 收進 Root，因為分頁的標籤就是一行字。
+ * 單選項不是：**每一項後面常常要接說明文字、連結、或一個只在選中時出現的
+ * 輸入框**（「其他，請說明 ___」）。用陣列就得再發明一套「每一項的 render」，
+ * 那比兩個檔案複雜。
+ *
+ * ⚠️ 兩個形狀都對，判準是**項目的內容是不是任意的**。
+ * 這一條寫下來是因為下一個 Root ＋ Item 進來時要用同一個判準，
+ * 而不是照抄離它最近的那一個。
+ *
+ * ── 為什麼沒有橫向 orientation ──────────────────────────────────
+ *
+ * Base UI 的 `RadioGroup` 沒有這個 prop（reka 有；Vue 版在那時選了不開）。
+ * 理由照舊成立：橫排單選在窄螢幕會擠成兩行而失去對齊，而版面是使用端的事 ——
+ * 外面包一個 `flex` 就是橫的。開一個 prop 等於讓 `platform/` 決定版面。
+ *
+ * 不給 `value` 就是非受控、一開始沒有選中。
  */
 export function UiRadioGroup({
   value,

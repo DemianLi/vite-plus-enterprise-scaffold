@@ -3,13 +3,23 @@ import { useUiTheme } from "../theme-context.tsx";
 import type { UiSeparatorSlot } from "../theme.ts";
 
 /**
- * 分隔線，React 版（C236）。為什麼預設是裝飾、不給輔具唸，見 `UiSeparator.vue` 的檔頭。
+ * 分隔線。
+ *
+ * ── 為什麼不是一個 `<hr>` 或一條 `border-t` ────────────────────
+ *
+ * 兩種都可以畫出線，差別在**輔具會不會唸它**。多數分隔線是純裝飾
+ * （一個區塊與下一個區塊之間），唸出來只是噪音；少數是真的語意分界。
+ * 所以**預設是裝飾**，`semantic` 才送 `role="separator"`。
+ * 自己寫 `<hr>` 的話永遠是語意的（`<hr>` 有隱含的 `role="separator"`），
+ * 於是一個排版用的分隔線會被唸出來。
  *
  * ⚠️ **不用 Base UI 的 `Separator`：它沒有「裝飾」這個模式**，永遠送 `role="separator"`
  * （`separator/Separator.js`）。照 shadcn 用它的話，預設就從「裝飾」翻成「語意」，
  * 每一條排版用的線都會被唸出來 —— 而畫面一個像素都不會變。這裡照 reka-ui 的
  * `BaseSeparator` 自己送屬性（裝飾 → `role="none"`；語意 → `role="separator"`，
- * 只有垂直時才帶 `aria-orientation`），`tests/react-parity.test.ts` 逐字比對兩版的產出。
+ * 只有垂直時才帶 `aria-orientation`）；產出凍結在 `tests/ssr-expected.json`（C243）。
+ *
+ * 垂直的要有明確高度（外面給），否則畫不出來。
  */
 export function UiSeparator({
   orientation = "horizontal",

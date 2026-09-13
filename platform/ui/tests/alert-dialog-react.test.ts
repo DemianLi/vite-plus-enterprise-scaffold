@@ -8,18 +8,31 @@ import { UiDialog } from "../src/components/UiDialog.tsx";
 import { activeText, pressKey, pressOn, settle } from "./overlay-react.ts";
 
 /**
- * `UiAlertDialog` 的 React 版（C237）。問題與 `alert-dialog.test.ts` 相同，答案要在
- * Base UI 上重量 —— Vue 版那張五個實驗的表量的是 reka 的兩條焦點路徑，其中「取消鈕
- * 自己登記」那一條 Base UI 沒有（見 `UiAlertDialog.tsx` 檔頭）。
+ * `UiAlertDialog` 的行為（C86 起，C237 在 Base UI 上重量）。
  *
- * 焦點保護在這裡同樣是兩條，換成：
+ * ── 為什麼非得是 DOM，不能像 `UiField` 那樣用 SSR ──────────────────
+ *
+ * 內容在 portal 裡，而 portal 在 SSR 下不渲染 —— `renderToString` 一個字都驗不到。
+ * 所以這一支掛在 happy-dom 上（檔頭的 `@vitest-environment` 只限這一支，其餘測試維持 node）。
+ *
+ * ── ⚠️ 焦點保護有兩條路 ────────────────────────────────────────────
  *
  *   路 1 `initialFocus` 指到按鈕列裡的第一顆 → 「⭐ 內容裡有連結時焦點仍在取消」只有它接得住
  *   路 2 預設聚焦第一個可聚焦元素            → 「⭐ 取消鈕是內容裡第一個可聚焦元素」
  *
- * ⚠️ 兩條靠同一個順序（取消在前），對調兩顆會一起失守 —— 與 reka 版不同，見元件檔頭。
+ * ⚠️ 兩條靠同一個順序（取消在前），對調兩顆會一起失守。reka 版（C86）的路 1 是取消鈕
+ * 在掛載時把自己登記給 content、與順序無關，當時五個實驗量過「兩條都在時路 1 贏」；
+ * Base UI 沒有那個機制，見 `UiAlertDialog.tsx` 檔頭。C86 那一輪的教訓仍然適用：元件檔頭
+ * 第一版寫著「預設槽裡不要放可聚焦的東西」，推理是對的、實測是錯的 —— **寫了論證就要去量它。**
  *
- * 綠燈的意思同 Vue 那支的檔頭：happy-dom 上成立，不是真瀏覽器。
+ * ── ⚠️ 綠燈的意思是什麼、不是什麼 ──────────────────────────────────
+ *
+ * **是**：在 happy-dom 這個 DOM 實作上，打開之後 `document.activeElement` 是取消鈕、
+ * 點外面不關、Esc 會關、role 是 `alertdialog`。
+ *
+ * **不是**：真實瀏覽器的焦點行為。happy-dom 沒有實作 CSP、也沒有真正的排版與可見性計算
+ * （`pnpm-workspace.yaml` 對這一點有註記）—— 一個 `display: none` 的取消鈕在這裡照樣
+ * 「聚焦得到」。要驗那一層要真瀏覽器。
  */
 
 afterEach(cleanup);

@@ -5,11 +5,28 @@ import { useUiTheme } from "../theme-context.tsx";
 import type { UiRadioItemSlot } from "../theme.ts";
 
 /**
- * 單選群組裡的一項，React 版（C236）。必須放在 `UiRadioGroup` 裡；`label` 與 `children`
- * 都不給就沒有名字 —— 見 `UiRadioItem.vue` 的檔頭。
+ * 單選群組裡的一項。必須放在 `UiRadioGroup` 裡面。
  *
- * 標籤的接法與預設表的三個 variant 翻譯，與 `UiCheckbox.tsx` 檔頭是同一件事：Base UI 的
- * Radio 也是 span ＋ 隱藏的 input，`id` 落在 input 上。
+ * ⚠️ 放在外面不會報錯，只會**點了沒反應**（拿不到群組的上下文）。
+ * 與 `UiTabsPanel` 那一條同一種：值與上下文都是執行期的，靜態檢查抓不到。
+ *
+ * ── 標籤的關聯自己接，理由是 C76 那次的教訓 ──────────────────────
+ *
+ * `useId()` ＋ `htmlFor`／`id`。少了它的症狀是**點文字不會選、輔具讀不到名字，
+ * 而畫面完全正常** —— C76 的 review 在 `UiCheckbox` 上實測過一次，
+ * 所以這裡從第一版就接上，不等 review。接法與 `UiCheckbox.tsx` 檔頭是同一件事：
+ * Base UI 的 Radio 也是 span ＋ 隱藏的 input，`id` 落在 input 上。
+ *
+ * ⚠️ **`label` 與 `children` 兩個都不給，這一項就沒有名字** —— 畫面上是一個沒有
+ * 文字的圓點，螢幕閱讀器報「未命名的單選鈕」。與 `UiCheckbox` 同一條：
+ * `children` 有沒有內容是執行期才知道的，沒有閘門守得住，所以寫在這裡。
+ * 給了 `children` 就用不到 `label`。
+ *
+ * ── ⚠️ 代幣對照是人工核對的，沒有閘門在守（見 UiBadge、#57）────────
+ *
+ *   border-primary / text-primary   → border-line / text-accent
+ *   fill-primary（indicator 圓點）  → bg-accent（改用 div，少一個 svg）
+ *   focus-visible:ring-ring/50      → focus-visible:ring-focus/50
  */
 export function UiRadioItem({
   value,

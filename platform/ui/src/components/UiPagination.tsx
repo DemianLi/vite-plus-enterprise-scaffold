@@ -5,19 +5,34 @@ import { useUiTheme } from "../theme-context.tsx";
 import type { UiPaginationSlot } from "../theme.ts";
 
 /**
- * 分頁，React 版（C236）。頁碼是 1-based、為什麼一定要顯示首尾頁，見 `UiPagination.vue`。
+ * 分頁。表格的必然配套。頁碼怎麼算見 `../utils/page-range.ts`。
  *
- * ⚠️ Base UI 沒有分頁基元，所以這裡的標記是**照 reka-ui 產出的 DOM 手寫的**：`<nav>` 包一層
- * `<div>`，頁碼是帶 `data-type="page"`／`aria-label="Page N"`／`aria-current` 的按鈕
- * （連 reka 的 `value` prop 穿透成 `<button value>` 那一格都照抄 —— 沒有行為，但少了它差分就不相等），
- * 上下頁是 `aria-label="Previous Page"`／`"Next Page"`、在頭尾時 `disabled`。逐字對齊的理由
- * 是遷移期間兩版要能拿同一把尺量 —— `tests/react-parity.test.ts` 逐組比對兩版的完整產出。
- * 頁碼怎麼算見 `../utils/page-range.ts`。
+ * ── ⚠️ 頁碼是 1-based，而 API 多半是 0-based ──────────────────
+ *
+ * `onPageChange` 出來的第一頁是 `1`。送去後端如果是 `offset` 或 0-based 的 `page`，
+ * **要自己減一** —— 這一格沒有閘門，而錯了的症狀是「永遠少一頁」或
+ * 「第一頁看到第二頁的資料」。刻意不在這裡幫忙轉：轉了之後
+ * 回傳的值與畫面上顯示的數字就不一樣，那更難查。
+ *
+ * ── ⚠️ 首尾頁一定要顯示 ────────────────────────────────────────────
+ *
+ * reka-ui 的 `show-edges` 預設是 `false`，而那個預設讓分頁**有一半是壞的**：
+ * 清單只剩當前頁附近那幾個，**沒有第一頁也沒有最後一頁**，而且因為沒有
+ * 邊緣就**永遠不會出現省略號**。實測（10 頁、當前第 5 頁）：渲染出來是 `3 4 5 6 7`，
+ * 使用者要回第一頁得連按四次上一頁。`pageRange` 移植的是 `show-edges` 那一支。
+ *
+ * ── 標記照 reka-ui 產出的 DOM 手寫 ─────────────────────────────────
+ *
+ * Base UI 沒有分頁基元：`<nav>` 包一層 `<div>`，頁碼是帶 `data-type="page"`／
+ * `aria-label="Page N"`／`aria-current` 的按鈕（連 reka 的 `value` prop 穿透成
+ * `<button value>` 那一格都照抄），上下頁是 `aria-label="Previous Page"`／`"Next Page"`、
+ * 在頭尾時 `disabled`。C236 逐組對 reka 版比對過完整產出；reka 退場後那份產出凍結在
+ * `tests/ssr-expected.json`（C243）。
  *
  * ⚠️ 那幾個 `aria-label` 是英文，**照 reka-ui 的原樣**。它們是輔具唸出來的字，
- * 翻不翻是 i18n 的決定，不在這一批改：改了就與 Vue 版分岔，差分測試就量不到頁碼了。
+ * 翻不翻是 i18n 的決定；改的時候凍結表要一起重產。
  *
- * 不給 `page` 就是非受控、從第 1 頁起（同 Vue 版 `defineModel` 的預設）。
+ * 不給 `page` 就是非受控、從第 1 頁起。
  */
 export function UiPagination({
   page,
