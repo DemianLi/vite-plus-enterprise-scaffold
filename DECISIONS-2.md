@@ -13537,3 +13537,143 @@ C231 §四.2 說閉包沿 devDependencies 走，會把「哪天被寫進某個 d
 - 本機 `vpr ready`：第一趟紅在 §二.7 那條測試；改完之後 **READY_RC 0**（37 個 task）。最後一趟跑在本則與 CHANGELOG 都已 commit 的那一版上，commit 見 PR。
 - `vp check`：0 錯 7 警告，與 C242 收到的基準相同。這一批改寫了大量中文註解，全形空格或 ZWSP 混進去會多出警告而不紅；三趟都是 7。
 - 匯出工具：§三 那一趟，演練 ✓。
+
+### C250 — C231 ③：`apps/console` 與兩片切片清痕跡，匯出工具加三條「不出門」規則 —— 全樹掃到 0 處；切片的測試設定不必搬，不匯出就好（2026-09-14，Q116–Q119）
+
+> C231 §六 ③ 的產出，連同人一次同意的三件待決（C231 §四.2 的規則、詞表加 `gate`／`drill`、詞表加「演練」與 `#<n>`；同時同意的第四件是把主 checkout 切回 `main`，不是裁決事項，不入表）。清單先交人看過才動檔。④（接線）不在本則。
+
+#### 一、人裁的
+
+| #        | 問題                                                                                                                                  | 裁決                                                           |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| —        | C231 §四.2：devDep 那條邊要不要另設規則（C248 §六 量過、寫明「要加，另開一則由人裁」）                                                | **加**（§二.2）                                                |
+| —        | 詞表加 `gate`／`drill`（C248 §八）、加「演練」與 `#<n>` issue 號（C249 §四）                                                          | **加**（§二.1）                                                |
+| **Q116** | `slice-kit/src/contract.ts`（531 行，大半是檢查規則的說明）出門是因為執行期要用 `isValidSliceDir`：拆檔不出門／另開一批／改名兩個常數 | **拆檔，contract 不出門**（§二.3）                             |
+| **Q117** | 詞表沒收的測試字樣（測試、規格、一致性檢查、覆蓋率、agent、TDD…，全樹 250 行）清到哪裡                                                | **`apps`／`features` 一起清**，`platform/` 那約 120 行另排一批 |
+| **Q118** | `apps/console/vite.config.ts` 的 `test.coverage` 區塊（只有射程、沒有門檻）：搬到 test script 的旗標／整塊刪／留著                    | 搬到 test script 的旗標 —— **被 Q119 取代**                    |
+| **Q119** | Q118 量下來有個安靜的坑（§四）：改用不出門的 `vitest.config.ts`／旗標但 script 直接開覆蓋率／照原案寫清楚                             | **改用 `vitest.config.ts`，不出門**                            |
+
+- Q116 的「改名」沒被選的理由在選項裡：那是 Q112 否決過的形狀，換個說法繞過詞表。
+- Q118 → Q119：Q118 的推薦前提是「旗標可靠」，§四 量出來不成立，所以回頭重問，不自己換做法。
+
+#### 二、做了什麼
+
+1. **詞表加三條**（`tools/delivery-export/src/scan.ts`）：
+   - `gate／drill`：逐字比（大小寫各列、前後非英數）。`gateway`、`navigate`、`aggregate`、`DRILL_TIMEOUT` 不算。
+   - `演練`：字面。
+   - `issue 號 #＋數字`：前面不能是英數、`&`、`#`（`&#123;` 是 HTML 實體、`##1` 是標題）。`#1D4ED8` 不算。
+2. **C231 §四.2 的規則**：閉包沿 `devDependencies` 走時，**要出門的檔真的引用了那個 package，那條邊才算**（`closure` 的判斷刻意沒有預設值 —— 預設「全走」的話，漏傳就是規則安靜地關掉）。沒出門的 workspace package 若還寫在某個出門 manifest 的 devDep 裡，一併拿掉（C248 §六 寫的那段連帶改寫）。今天零實例：`security-headers`、`tsconfig` 都被引用，照樣出門。
+3. **兩條「出門的 package 裡、不是測試卻不出門的檔」**：
+   - **自己不建置的成員（沒有 `build`／`dev` script），`vite.config.*` 不出門** —— C231 §六 ③ 的答案（§三）。
+   - **`exports` 裡沒有任何出門的碼引用的子路徑，它指的那支檔不出門**，manifest 的那一條也拿掉。以「包名／子路徑」引用、或同一個 package 裡以相對路徑 import 都算；程式碼、樣式、設定檔（`tsconfig.json` 的 `extends`）都算。今天命中的是 `@org/slice-kit/contract`。
+   - `vitest.config.*` 收進 `TEST_FILE`（Q119）。
+4. **Q116**：`isValidSliceDir` 搬進 `platform/slice-kit/src/slice-name.ts`，`define-feature.ts` 改從那裡 import；`contract.ts` 照樣轉出去，`tools/` 與公開簽章都不用改。出門的 `contract.ts` 因此沒有人引用 → 不出門。
+5. **Q119**：`apps/console/vite.config.ts` 的 `test` 區塊拿掉；射程搬進新的 `apps/console/vitest.config.ts`（從 `vite.config.ts` 併入、只加射程）。
+6. **內容**（照 Q112／Q113／Q115 的寫法）：`apps/console` 12 支、兩片切片的 `src/` 與 README。README 只留〈邊界〉〈結構〉〈命名空間〉（invoice 另留一句〈設計系統〉）；拿掉〈四樣示範〉〈業務功能完成率〉〈開發〉與 `tests/`、`specs/` 那幾列。`DevSession.tsx` 兩句執行期字串原本叫人跑 `./node_modules/.bin/vpr bff`，改成「確認本機的 BFF 已經啟動（位址由 `BFF_ORIGIN` 設定）」—— 匯出樹沒有 `vpr` 也沒有 mock。
+7. **流量那一半**：`tools/slice-gen/src/files.ts` 的範本照同一套改寫。範本產出的新切片，出門的檔原本帶 **30** 處（與改寫前的 invoice 同形）→ **0**。沒改的話，`features/` 清乾淨之後，團隊產生的下一片照樣帶著（C201 的形狀）。
+8. `platform/ui` 兩句示範文案「訂單 #1024」改成「訂單編號 1024」—— `#<n>` 的誤報。
+9. `features/order/tests/masking.test.ts` 檔頭補上「這支是 `platform/pii` 設計決定的舉證，不要搬也不要刪」：原本只寫在切片 README，README 改成只講現況之後搬到被守的那支檔上。
+10. `vite.scaffold.ts` 裡 `tools/slice-gen/src/files.ts` 的 `max-lines-per-function` **803 → 754**：第 7 條讓 `buildSliceFiles` 短了 49 行，`threshold-check` 的「門檻過期」要求降到實測值（C147 §二；降不是規則二禁的那種改動）。
+
+#### 三、C231 §六 ③ 那一題：不必搬，不匯出就好
+
+- 兩片切片的 `package.json` 只有 `check`，沒有 `build`／`dev`；`tsconfig.json` 也不 include `vite.config.ts`。機關端建置走不到那支檔。
+- 實測：匯出一份、拿掉 `features/*/vite.config.ts`，repo 外離線安裝 ✓、建置 ✓，`apps/console/dist` 與沒拿掉的那份**逐位元組相同**（對照組：改一個字元 → diff 紅）。
+- 先例：根層 `vite.config.ts` 本來就不匯出。
+- 規則從 manifest 推，不手列；今天只命中這兩支，`platform/*` 一支 `vite.config.ts` 都沒有。conformance 的 `slice-shape`、`slice-gen` 的 `vite.config.ts` 範本、`coverage-gate` 那幾支測試**一行都沒動** —— 門檻照舊住在切片自己的設定裡，只是那支檔不交出去。
+- ⚠️ 它清不掉 `contract.ts` 那 2 處：`contract.ts` 出門的原因是 `define-feature.ts` 在執行期 import 了它，跟誰引用那兩個常數無關 → Q116。
+
+#### 四、數字
+
+| 量法                                       | 處      | 備註                                                                                                    |
+| ------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------- |
+| `625fc96`，舊詞表、舊規則                  | 165     | C249 §三                                                                                                |
+| `625fc96`，**新詞表、新規則**              | **133** | `apps/console` 66、`features/order` 33、`features/invoice` 30、`slice-kit` 2、`ui` 2（處；散在 105 行） |
+| 本則，新詞表、新規則                       | **0**   | 106 支檔；演練 ✓                                                                                        |
+| `slice-gen` 範本產出的切片（出門的那幾支） | 30 → 0  | 以 `buildSliceFiles` 產一片、用同一張詞表掃                                                             |
+
+- ⚠️ **C249 寫的「platform 369 → 2」在新詞表下是 4**：多出來的是 `ui` 那兩句「訂單 #1024」。那 4 處本則清完（`contract.ts` 不出門、兩句改寫），platform 現在是 0。C249 本文不動（C136 §八）。
+- 新規則讓 3 支檔不出門：`features/{order,invoice}/vite.config.ts`、`platform/slice-kit/src/contract.ts`（CLI 的「出門的 package 裡不出門的檔」那一行）。`apps/console/vitest.config.ts` 走 `TEST_FILE`，不在那一行。
+- **Q118 的坑**（`apps/console`，`vp test --coverage --coverage.reporter=text-summary`）：
+
+  | 寫法                                                                 | 分母（敘述）               |
+  | -------------------------------------------------------------------- | -------------------------- |
+  | 原本 `vite.config.ts` 的 `test.coverage.include`（對照組）           | 23／72                     |
+  | 不帶射程                                                             | 23／23（預設射程的假滿分） |
+  | `--coverage.include=src/**`（一個）                                  | 17／66                     |
+  | `--coverage.include=src/** --coverage.include=bff-routes.ts`（兩個） | **0／0**                   |
+  | `--coverage.include={src/**,bff-routes.ts}`（大括號，一個）          | 23／72                     |
+  | 同上寫進 script，再從 `pnpm run test --coverage` 加旗標              | **23／23**                 |
+  | **`vitest.config.ts`（Q119）**                                       | **23／72**                 |
+
+  最後第二列是決定性的那一格：script 裡的 `--coverage.include=…` 之後再來一個 `--coverage`，後面那個把整個 coverage 設定蓋回預設。沒有錯誤訊息，報表是 100%。
+
+#### 五、變異
+
+`tools/delivery-export` 的測試，每個變異改一處、跑一趟、還原；對照組（不改）0 條紅。
+
+| #   | 變異                                         | 結果                                                                 |
+| --- | -------------------------------------------- | -------------------------------------------------------------------- |
+| M11 | `closure` 不問 `followsDevDependency`        | 1 條紅                                                               |
+| M12 | 自己不建置的成員照樣交出 `vite.config`       | 1 條紅                                                               |
+| M13 | 子路徑一律算有人引用                         | 1 條紅                                                               |
+| M14 | 子路徑的引用只看程式碼檔、不看設定檔         | 1 條紅 —— **這一格先在真樹上發生過**（下面）                         |
+| M15 | 沒出門的 workspace devDep 不從 manifest 拿掉 | **第一趟 0 條紅** → 抽出 `devDependenciesToRemove` 補一條之後 1 條紅 |
+| M16 | 相對 import 一律判成沒有                     | 2 條紅                                                               |
+| M17 | `#<n>` 拿掉前面的限制                        | 2 條紅                                                               |
+| M18 | 不出門的子路徑不從 `exports` 拿掉            | 1 條紅                                                               |
+| M19 | 每個成員都算自己會建置                       | 1 條紅                                                               |
+
+- M14 是實跑抓到的真缺陷：第一版的子路徑規則只看程式碼檔，把 `platform/tsconfig` 的四支 json 全判成沒人用 —— 單元測試全綠，**演練的建置紅**（`"./app.json" is not exported`）。補了「設定檔的 `extends` 也算引用」那一條之後，M14 才有測試會紅。
+- M15 第一趟活下來：`unexportedWorkspaceDevDependencies` 自己有單元測試，`plan()` 把它與測試相依合併的那一行沒有；補的第一版測試又把期望值放進了測試相依那一側，聯集等於它自己，變異照樣綠 —— 第二版才紅。
+- 同一趟實跑還抓到一件不是缺陷的：新檔 `slice-name.ts` 還沒 `git add` 時演練建置紅（`Could not resolve './slice-name.ts'`）。成員清單問 git 不問磁碟（C248 §二.1），那是規則照設計生效。
+- **`exit-drill` 靜態那一關抓到 Q119 的第一版**：`vitest.config.ts` 用 `vite-plus` 的 `defineConfig`／`mergeConfig`，D2 的退出面判它擴大了（`✗ apps/console/vitest.config.ts`），`tests/cli.test.ts` 5 條紅。改的是這支檔，不是閘門的允許清單（AGENTS.md 規則二）：不 import `vite-plus`，直接呼叫 `vite.config.ts` 匯出的函式再展開（它回傳的物件沒有 `test`，淺層展開就夠）。改完 `✓ D2 退出面未擴大`、`exit-drill` 122 條綠、分母仍是 23／72。
+- ⚠️ **`--full` 那一半是推導，非量測**：`runFull` 把 `apps/console` 整個複製進工作區、只刪 `app/vite.config.ts`，所以 `vitest.config.ts` 會被帶進去、而它 import 的那支已經不在。推導它不炸的理由：演練在工作區根目錄自己寫 `vite.config.mjs`／`vitest.config.mjs`，vite 與 vitest 都從執行目錄找設定、不從 `root: "app"` 找；測試只收 `app/tests/**`、`packages/*/tests/**`。沒有實跑 `--full`（連網、分鐘級、會改寫證據檔），季排程那一趟才是第一次量到。
+
+#### 六、代價
+
+- **Vite+ 文件不建議另開 `vitest.config.ts`**（`guide/test.md`：設定放在同一處）。本樹的理由是交付：建置設定出門、測試設定不出門，而旗標那條路 §四 量過會安靜地錯。`apps/console/tsconfig.json` 刻意不 include 它 —— include 的話，出門的 tsconfig 會帶「vitest」這個字；代價是這支檔沒有型別檢查。
+- `DevSession.tsx` 不再教 `vpr bff`：上游開發者看到「連不上 BFF」時，要自己知道根層 `package.json` 有 `bff` script。
+- `apps/console/vite.config.ts` 拿掉了「新 plugin 要登記進 `DRILL_PLUGINS`」那段提醒：`tools/exit-drill/src/plugins.ts` 會掃每一個 `plugins: [`，那條有機制在守；拿掉的是讀設定檔時的提示。
+- 切片 README 的〈四樣示範〉拿掉：那四樣的出處與別處有沒有，只剩 C205 §一。
+- `features/*/tsconfig.json` 的 `include: ["src", "tests"]` 照留（C249 §四 同類）：上游要型別檢查測試，匯出後指向一個不存在的目錄，不報錯。
+- 範本改了，已經用舊範本產生過的 fork 切片不回溯。
+- 詞表外、`apps`／`features` 裡刻意留下的三處：「滲透測試」×2（資安用語）、「實測過」×1（量過的意思）。
+
+#### 七、C154 §三
+
+| 軸       |                                                                                                                                                                                                                      |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **交付** | **有分。** 同 C231 §七：交給機關的那份匯出，今天第一次掃到 0。                                                                                                                                                       |
+| **迭代** | ① 對象在外 ✅：任何人加一個只給測試用的 workspace devDep、一個沒人 import 的子路徑、一句「#123」，都會改變匯出的內容；② 壞法安靜 ✅ —— **級別：探針**：§五 的 M14 在真樹上發生過，但是被演練當場接住，不是安靜出門。 |
+
+#### 八、沒有機制在守的
+
+- ④ 接線之前，掃描照樣只報數：任何人寫一句痕跡照樣會出門。今天的 0 是讀數，不是保證。
+- 詞表外的字（Q117）：`apps`／`features` 這一批逐行讀過一次，之後只有讀 diff 的人在守；`platform/` 那約 120 行還沒讀。
+- `drill-down`（報表下鑽）、全數字的色碼（`#333`）會誤報 —— 方向是匯出失敗，不是安靜放行；今天樹上各 0 處。
+- 「子路徑沒人引用」看的是字串：以變數拼出來的動態 import 看不到。今天樹上零處。
+
+#### 九、與既有裁決的關係
+
+| 裁決                  | 關係                                                                   |
+| --------------------- | ---------------------------------------------------------------------- |
+| **C231 §四.2、§六 ③** | §四.2 的留白由本則 §二.2 補上規則；§六 ③ 的「量過再定」由 §三 答       |
+| **C248 §六、§八**     | §六「要加，另開一則由人裁」→ 本則；§八 的 `gate`／`drill` → 本則 §二.1 |
+| **C249 §四**          | Q114 留下的 `slice-kit` 常數由 Q116 處理；「演練」與 `#<n>` 收進詞表   |
+| **C120 §四**          | **不改** —— console 的射程照舊、照舊不設門檻，只是換了住處             |
+| **C201**              | 同一個形狀 —— 改了存量（`features/`）也改流量（`slice-gen` 範本）      |
+| **C205 §一**          | `masking.test.ts` 的舉證警告從 README 搬到測試檔頭                     |
+| **C220**              | `tools/`、`platform/` 動了，`.scaffold-stamp` 重算                     |
+| **C136 §八**          | **遵守** —— C248、C249 本文一個字都不改；數字的更正寫在本則 §四        |
+| **C154 §三**          | **遵守** —— 新的機械檢查，兩軸已報                                     |
+| **AGENTS.md 規則二**  | **遵守** —— 唯一動到的門檻是往下降（§二.10）；切片的覆蓋率門檻原封不動 |
+| **AGENTS.md 規則四**  | **遵守** —— `specs/` 沒動                                              |
+
+#### 十、實測
+
+- 逐 package 測試：`tools/delivery-export` 69、`tools/slice-gen` 101、`tools/exit-drill` 122、`apps/console` 25，全綠。
+- 匯出工具：106 支檔、0 處，演練三步 ✓。
+- `exit-drill` 靜態那一關：`✓ D2 退出面未擴大`。
+- 本機 `vpr ready`：第一趟紅在 `decision-ids`（程式碼先引了 C250、本則還沒寫）；第二趟紅在 `exit-drill` 的 D2（§五）。最後一趟跑在本則與 CHANGELOG 都已 commit 的那一版上，RC 見 PR。
+- `vp check`：0 錯 7 警告，與 C242 的基準相同。

@@ -6,9 +6,9 @@ import { useInvoiceList } from "../hooks/useInvoiceList.ts";
 import { useInvoiceFilterStore } from "../store.ts";
 
 /**
- * 這個元件**只負責呈現**（D14）。取數在 hooks/useInvoiceList.ts。
+ * 這個元件**只負責呈現**。取數在 hooks/useInvoiceList.ts。
  *
- * 畫面元件一律從 `@org/ui` 取用（D15）。一致性檢查會驗這個切片**真的用過**它：
+ * 畫面元件一律從 `@org/ui` 取用，而且這個切片要**真的用過**它：
  * 自己刻一顆按鈕不會違反任何一條規則，但第二個團隊也刻一顆之後，
  * 兩套永遠不會收斂 —— 而且兩邊各自看起來都是對的。
  */
@@ -19,7 +19,7 @@ export default function InvoiceList(): ReactNode {
   const select = useInvoiceFilterStore((state) => state.select);
   const { items, isPending, isError, error } = useInvoiceList({ page });
 
-  // 被選取的那一筆 —— **從列表推導，不從 store 讀**（D14）。
+  // 被選取的那一筆 —— **從列表推導，不從 store 讀**。
   // store 裡只有一個 id；把物件也存進去就是第二份快取。
   const selected = items.find((item) => item.id === selectedId);
 
@@ -50,7 +50,7 @@ export default function InvoiceList(): ReactNode {
         </ul>
       )}
 
-      {/* 對話框的內容由 `selected` 推導 —— D14 那條「存 id 不存 entity」在畫面上的樣子。 */}
+      {/* 對話框的內容由 `selected` 推導 —— 「存 id 不存 entity」在畫面上的樣子。 */}
       <UiDialog
         open={selected !== undefined}
         onOpenChange={(open) => {

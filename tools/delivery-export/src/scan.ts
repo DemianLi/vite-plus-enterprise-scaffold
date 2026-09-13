@@ -75,10 +75,32 @@ function docWords(docNames: readonly string[]): string[] {
 }
 
 /**
- * C231 §三 那張詞表，加上 Q111 收進來的題號。
+ * 閘門與演練的英文稱呼。逐字比、大小寫各列：`gateway`、`navigate` 不算，`DRILL_PLUGINS`
+ * 也不算（底線是英數字元）—— 那一行另有工具名會命中。
+ * ⚠️ `drill-down`（報表下鑽）會命中：業務碼真的用到那天，匯出是紅的，不是安靜放行（C250 §八）。
+ */
+export const MECHANISM_WORDS = [
+  "gate",
+  "gates",
+  "Gate",
+  "Gates",
+  "GATE",
+  "GATES",
+  "drill",
+  "drills",
+  "Drill",
+  "Drills",
+  "DRILL",
+] as const;
+
+/**
+ * C231 §三 那張詞表，加上 Q111 收進來的題號、C250 收進來的 `gate`／`drill`／演練／issue 號。
  *
  * 工具名與內部文件名**從樹上推**，不手列：`toolNames` 是 `tools/*` 的目錄名，
  * `docNames` 是根層不出門的 `.md`。手列的話，下一支新工具的名字會安靜地不在表上。
+ *
+ * issue 號前面不能是英數、`&`、`#`：`&#123;` 是 HTML 實體、`##1` 是標題。⚠️ 全數字的色碼
+ * （`#333`）與「訂單 #1024」這種業務寫法會命中 —— 誤報的方向是匯出失敗。
  */
 export function traceRules(input: {
   readonly toolNames: readonly string[];
@@ -96,6 +118,9 @@ export function traceRules(input: {
     { label: "stryker／突變／變異／mutation", count: literal(/stryker|突變|變異|mutation/gi) },
     { label: "vpr", count: literal(/\bvpr\b/g) },
     { label: "腳手架／scaffold", count: literal(/腳手架|scaffold/gi) },
+    { label: "gate／drill", count: words("gate／drill", MECHANISM_WORDS) },
+    { label: "演練", count: literal(/演練/g) },
+    { label: "issue 號 #＋數字", count: literal(/(?<![\w&#])#\d+\b/g) },
   ];
 }
 

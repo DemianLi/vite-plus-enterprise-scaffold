@@ -11,6 +11,7 @@ import {
 } from "../src/workspace.ts";
 
 const ROOT = repoRoot();
+const ALL = (): boolean => true;
 
 function member(
   dir: string,
@@ -28,7 +29,7 @@ describe("白名單從相依圖推（C231 §四.2）", () => {
   // 切片。今天推出來的那 11 個（platform 那八個與 C231 手列的一致）是量測，記在 C248 §三。
   it("真樹：apps／features 全數出門、tools 一個都不出門、platform 至少走到一個", () => {
     const members = workspaceMembers(ROOT, trackedFiles(ROOT));
-    const dirs = closure(members).map((m) => m.dir);
+    const dirs = closure(members, ALL).map((m) => m.dir);
     const entries = members.filter((m) => /^(apps|features)\//.test(m.dir)).map((m) => m.dir);
     expect(entries.length).toBeGreaterThan(0);
     for (const entry of entries) expect(dirs).toContain(entry);
@@ -43,7 +44,28 @@ describe("白名單從相依圖推（C231 §四.2）", () => {
       member("platform/p2"),
       member("platform/p3"),
     ];
-    expect(closure(members).map((m) => m.dir)).toEqual(["apps/x", "platform/p1", "platform/p2"]);
+    expect(closure(members, ALL).map((m) => m.dir)).toEqual([
+      "apps/x",
+      "platform/p1",
+      "platform/p2",
+    ]);
+  });
+
+  it("★ devDep 那條邊要出門的碼引用了它才走；dependencies 不問（C231 §四.2，C250）", () => {
+    const members = [
+      member("apps/x", { "@org/p1": "workspace:*" }, { "@org/mock": "workspace:*" }),
+      member("platform/p1", {}, { "@org/cfg": "workspace:*" }),
+      member("platform/mock"),
+      member("platform/cfg"),
+    ];
+    const referenced = (_: Member, dependency: string): boolean => dependency === "@org/cfg";
+    expect(closure(members, referenced).map((m) => m.dir)).toEqual([
+      "apps/x",
+      "platform/p1",
+      "platform/cfg",
+    ]);
+    const none = (): boolean => false;
+    expect(closure(members, none).map((m) => m.dir)).toEqual(["apps/x", "platform/p1"]);
   });
 
   it("★ 拿掉一筆相依，集合跟著變小 —— 只驗「等於今天」的斷言在推導壞掉時照樣綠", () => {
@@ -52,9 +74,9 @@ describe("白名單從相依圖推（C231 §四.2）", () => {
       member("platform/p1"),
       member("platform/p2"),
     ];
-    expect(closure(members).map((m) => m.dir)).toEqual(["apps/x", "platform/p1"]);
+    expect(closure(members, ALL).map((m) => m.dir)).toEqual(["apps/x", "platform/p1"]);
     const without = [member("apps/x"), member("platform/p1"), member("platform/p2")];
-    expect(closure(without).map((m) => m.dir)).toEqual(["apps/x"]);
+    expect(closure(without, ALL).map((m) => m.dir)).toEqual(["apps/x"]);
   });
 
   it("workspaceGlobs 只讀 packages: 那一段，註解與別段不算", () => {

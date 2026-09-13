@@ -25,7 +25,7 @@ import type { UiDropdownMenuSlot } from "../theme.ts";
  * 所以名稱不是選填的裝飾，是這個元件能不能用的前提 —— 同 `UiSelect` 的
  * `placeholder` 與 `UiAlertDialog` 的 `confirmLabel` 必填。
  *
- * ⚠️ `label` 要對得上**這一列**（「訂單 #1024 的操作」），不是「操作」——
+ * ⚠️ `label` 要對得上**這一列**（「訂單編號 1024 的操作」），不是「操作」——
  * 表格裡二十列全叫「操作」的話，輔具的元素清單上就是二十個一樣的名字。
  *
  * ── ⚠️ `sr-only` 那個 `<span>` 沒有具名槽，也不該有 ────────────────

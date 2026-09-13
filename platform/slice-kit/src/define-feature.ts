@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 
-import { isValidSliceDir } from "./contract.ts";
+import { isValidSliceDir } from "./slice-name.ts";
 
 /**
  * 切片對外的**唯一**公開契約。

@@ -9,8 +9,8 @@ import { config } from "@org/config";
 import { createUiTheme } from "@org/ui";
 
 // 這個案子的樣式入口。它自己第一行才是 `@import "@org/ui/styles.css"` ——
-// D15 的基礎版型仍然先載入（Tailwind 的 base reset 必須在元件樣式之前），
-// 差別是各案的代幣覆寫現在有地方可放，不必去改 platform/ui（HANDOFF #24）。
+// 基礎版型仍然先載入（Tailwind 的 base reset 必須在元件樣式之前），
+// 各案的代幣覆寫放在這裡，不必去改 platform/ui。
 import "./styles.css";
 
 import { App } from "./App.tsx";
@@ -18,7 +18,7 @@ import { features } from "./features.ts";
 import { menuLinks, toRouteObject } from "./router.ts";
 
 /**
- * Composition root（D4）。
+ * Composition root。
  *
  * apps/ 是薄殼：只做路由組裝、環境設定、外掛註冊。
  * 任何業務邏輯出現在這裡，都代表某個切片的邊界劃錯了。
@@ -32,7 +32,7 @@ const router = createBrowserRouter([
     path: "/",
     element: <App links={links} />,
     // 每條切片路由都是懶載入的，首次載入時畫面要等第一支畫面的 chunk 回來。
-    // 不給的話 react-router 在 console 印警告（正式產物也會，C240 實測）。
+    // 不給的話 react-router 在 console 印警告（正式產物也會）。
     HydrateFallback: () => null,
     children: [
       ...(home === undefined ? [] : [{ index: true, element: <Navigate to={home} replace /> }]),
@@ -55,7 +55,7 @@ const SHELL_MESSAGES: Readonly<Record<string, Record<string, unknown>>> = {
 };
 
 /**
- * 切片的訊息（D7 由 registerFeatures 合併）再併上外殼自己的。
+ * 切片的訊息（由 registerFeatures 合併）再併上外殼自己的。
  *
  * `defineFeature` 已驗過每片的 i18n 只含自己的命名空間，所以切片之間不會互相
  * 覆蓋 —— 但**它管不到外殼**。名叫 `shell` 的切片會安靜地被這裡蓋掉，
@@ -98,7 +98,7 @@ void i18next.use(initReactI18next).init({
 document.title = config.appTitle;
 
 /**
- * 元件形狀的覆寫（HANDOFF #24 的第二條軸）。
+ * 元件形狀的覆寫。
  *
  * 代幣換得掉值，換不掉**組合** —— 這個案子的預設按鈕不要外框，改成淺底色。
  * 那不是任何一個代幣，它是 `VARIANTS.secondary` 那一整條字串。
@@ -113,9 +113,8 @@ document.title = config.appTitle;
  * 沒問題，但元件的**邊界**對比只有約 1.05:1，而 WCAG 1.4.11（非文字對比）
  * 要求 3:1。
  *
- * 那正是 HANDOFF #22 點名「靜態閘門看不見」的四個行為面缺口之一 ——
- * 也就是說沒有任何東西會為此變紅。而這份 app 是每個案子 fork 的起點，
- * 一個示範用的覆寫不該順便示範一個無障礙缺陷。
+ * 邊界對比不足不會讓任何東西報錯 —— 建置、型別、lint 都看不出來。而這份 app
+ * 是每個案子的起點，一個示範用的覆寫不該順便示範一個無障礙缺陷。
  */
 const UiTheme = createUiTheme({
   UiButton: { secondary: "border-control border-accent bg-surface text-fg hover:bg-surface-hover" },

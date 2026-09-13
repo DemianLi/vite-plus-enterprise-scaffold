@@ -3,7 +3,7 @@ import { defineFeature } from "@org/slice-kit";
 import { routes } from "./routes.ts";
 
 /**
- * 請款單切片對外的**唯一**公開契約（D7）。
+ * 請款單切片對外的**唯一**公開契約。
  *
  * apps/<app>/src/features.ts 只 import 這個 default export ——
  * 新增一個切片 ＝ 改一個檔案、加一行。

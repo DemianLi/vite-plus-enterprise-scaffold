@@ -20,7 +20,7 @@ const currency = new Intl.NumberFormat("zh-TW", {
  * 視覺上完全正確，但輔具那邊很可能一個字都沒有。回傳 `null` 時畫面仍然渲染一個
  * 空的 `role="status"`，那個空元素就是這件事的重點。
  *
- * ⚠️ 這一類缺陷**無障礙靜態閘門看不見**（見 platform/eslint-config/src/a11y.js）。
+ * ⚠️ 無障礙的 lint 規則看不見這一類缺陷：時序不是任何一個元素的屬性。
  */
 function statusKeyOf(isPending: boolean, count: number): string | null {
   if (isPending) return "order.loading";
@@ -29,10 +29,10 @@ function statusKeyOf(isPending: boolean, count: number): string | null {
 }
 
 /**
- * 這個元件**只負責呈現**（D14）。
+ * 這個元件**只負責呈現**。
  *
  * 取數、快取 key、後備值全在 `useOrderList` 裡 —— 元件不得直接 import
- * `@tanstack/react-query` 或本切片的 `api.ts`，這條由一致性檢查強制。
+ * `@tanstack/react-query` 或本切片的 `api.ts`。
  */
 export default function OrderList(): ReactNode {
   const { t } = useTranslation();
@@ -42,7 +42,7 @@ export default function OrderList(): ReactNode {
   const select = useOrderFilterStore((state) => state.select);
   const { orders, isPending, isError, error } = useOrderList({ status, page });
 
-  // 被選取的那一筆 —— **從列表推導，不從 store 讀**（D14）。store 只存 id；
+  // 被選取的那一筆 —— **從列表推導，不從 store 讀**。store 只存 id；
   // 把 Order 物件也存進去就是第二份快取：列表重新整理之後對話框裡還是舊資料。
   const selected = orders.find((order) => order.id === selectedId);
   const statusKey = statusKeyOf(isPending, orders.length);
@@ -99,7 +99,7 @@ export default function OrderList(): ReactNode {
                 {/*
                   客戶姓名在列表上隱碼。防的是內部人員（客服、營運）在日常作業畫面上
                   看到完整個資，不是防使用者看自己的資料。
-                  ⚠️ 強制它的靜態閘門已移除（C52）—— 這裡是**慣例，不是機制**。
+                  ⚠️ 這裡是**慣例，不是機制** —— 漏掉 maskName 的畫面不會讓任何東西報錯。
                 */}
                 <td className="border-b border-line px-3 py-2">{maskName(order.customerName)}</td>
                 <td className="border-b border-line px-3 py-2">
@@ -120,7 +120,7 @@ export default function OrderList(): ReactNode {
       ) : null}
 
       {/*
-        對話框的內容由 `selected` 推導。它是 D14 那條「存 id 不存 entity」
+        對話框的內容由 `selected` 推導。它是「存 id 不存 entity」
         在畫面上的樣子：store 裡只有一個字串。
       */}
       <UiDialog

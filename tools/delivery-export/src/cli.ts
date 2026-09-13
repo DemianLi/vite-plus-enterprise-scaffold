@@ -67,7 +67,8 @@ function main(failOnTrace: boolean, requestedOut: string | undefined): number {
   console.log(
     `白名單：${planned.exported.length} 個 package 出門 —— ${planned.exported.map((m) => m.dir).join("、")}`,
   );
-  console.log(`不出門：${excluded.map((m) => m.dir).join("、")}\n`);
+  console.log(`不出門：${excluded.map((m) => m.dir).join("、")}`);
+  console.log(`出門的 package 裡不出門的檔：${planned.withheld.join("、") || "（無）"}\n`);
   for (const [dir, deps] of planned.dropped) {
     if (deps.length > 0) console.log(`  ${dir} 拿掉測試相依：${deps.join("、")}`);
   }

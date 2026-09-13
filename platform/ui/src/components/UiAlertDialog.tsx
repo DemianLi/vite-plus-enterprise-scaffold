@@ -47,7 +47,7 @@ import type { UiAlertDialogSlot } from "../theme.ts";
  *       open={confirming}
  *       onOpenChange={setConfirming}
  *       title="刪除訂單"
- *       description="訂單 #1024 會被永久刪除，這個動作無法復原。"
+ *       description="訂單編號 1024 會被永久刪除，這個動作無法復原。"
  *       confirmLabel="刪除"
  *       onConfirm={remove}
  *     />
