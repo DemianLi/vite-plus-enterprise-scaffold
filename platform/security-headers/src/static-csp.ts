@@ -11,8 +11,9 @@
  * S3＋CloudFront 做不到。「我們有 gateway」的團隊，十有八九指的是能加標頭、
  * 能轉發、能設 cookie 的東西 —— 不是能改寫 HTML 內容的東西。
  *
- * 實測本專案的 `dist/index.html`：**零個 inline script**（Vue 3 + Vite 的
- * 產物只有 `<script type="module" src>` 與 `<link rel=stylesheet>`）。
+ * 實測本專案的 `dist/index.html`：**零個 inline script**（React + Vite 的
+ * 產物只有 `<script type="module" src>` 與 `<link rel=stylesheet>`；Vue 版時也是，
+ * C239 換框架後重量過）。
  * 所以 nonce 不需要，CSP 可以是一行靜態回應標頭，任何反向代理都設得出來。
  *
  * 但那是一個**會靜默消失的性質**：有人貼一段分析工具的 inline snippet、

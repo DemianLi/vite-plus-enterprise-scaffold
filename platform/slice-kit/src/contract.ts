@@ -534,8 +534,8 @@ export function isValidSliceDir(dir: string): boolean {
 export const slicePackageName = (dir: string): string => `${SLICE_PACKAGE_PREFIX}${dir}`;
 
 /**
- * D11：CSP 無 unsafe-eval 的前提是 Vue runtime-only build。
- * 執行期樣板字串會需要編譯器，一旦有人用了，整份 CSP 就得放寬。
+ * D11：CSP 無 unsafe-eval 的前提是畫面在建置期就編好（JSX 由 Vite 編譯；C239 之前是
+ * Vue 的 runtime-only build）。執行期動態求值字串會需要放寬，一旦有人用了，整份 CSP 就得放寬。
  * 這條由 oxlint 的 no-eval / no-implied-eval 擋，此處記錄理由供檢查腳本引用。
  */
 export const RUNTIME_TEMPLATE_FORBIDDEN = true;
