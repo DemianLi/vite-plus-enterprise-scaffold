@@ -12501,3 +12501,144 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 | **C101**             | React 版形狀同 `UiSelect`：明列的 prop 落在按鈕上                                                       |
 | **AGENTS.md 規則二** | **遵守** —— 放寬兩道測試的那個選項交人裁（Q70）；`no-autofocus` 改寫法、不改規則                        |
 | **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                          |
+
+### C240 — 第 ③ 批：切片契約、兩片示範切片與應用殼換成 React —— 路由型別由契約自訂、`composables/` 改名 `hooks/`、store id 前綴失去對象；驗收規格那條鏈一個位元組都沒動（2026-09-13，Q89–Q92）
+
+> C232 §六 ③ 的實作。C234 §二 交來兩格（exit-drill 的 `DRILL_PLUGINS`、slice-gen 範本）、C234 §五 交來一格（設計系統被列舉成 Vue 那三支的三處文件），C232 §四 1（CSP 的理由）與 §四 4（`composables/` 要不要改名）也在這一批。
+>
+> ⚠️ **編號**：四題在對話裡以 Q74–Q77 問出。起草時另一支開著的 PR（#374，`docs/readme-rewrite`，2026-09-13 03:30 UTC 建立）已經用了 C239 與 Q74–Q88 —— 先開的留號（C141；#270／#271 的先例），本則改記 **C240、Q89–Q92**（Q74→Q89、Q75→Q90、Q76→Q91、Q77→Q92），程式碼註解裡的舊號一併改掉。
+
+#### 一、四題由人裁
+
+| #       | 問題                                                                                                                                    | 裁決                                                      |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Q89** | react-router 的路由物件沒有 `name`，而契約的命名空間檢查、選單的 `routeName`、composition root 那條 ★ 都掛在 name 上                    | **契約自訂 `SliceRoute`**，應用殼轉成 react-router 的格式 |
+| **Q90** | 路由型別一改，`api-surface` 判破壞性（`Feature.routes`、`RegisteredFeatures.routes` 都在基準裡）：就地改並登記 codemod／並列新 API 到 ⑤ | **就地改，登記 codemod**                                  |
+| **Q91** | 切片裡放取數邏輯的目錄 `composables/` 要不要改名 `hooks/`（C232 §四 4 說由示範切片定，而示範切片只有一支 `main.tsx`，這題一直沒答）     | **改成 `hooks/`**                                         |
+| **Q92** | D13 規定 store id 帶切片前綴 —— 因為 Pinia 的 id 全域登記、同名互相覆蓋；zustand 的 `create()` 沒有 id，也沒有全域登記表                | **拿掉，寫明理由**：規則失去對象，不是規則不重要          |
+
+- **Q90 的另一個出口是什麼、為什麼沒選它**：工具自己的修法訊息寫「做不到 codemod 的改動 … 請改為新增 export」。這一支做得到：codemod 遷移的是**契約的型別與名字**（`import type { RouteRecordRaw } from "vue-router"` → `SliceRoute`、三個 hook 名字），畫面從 `.vue` 換成 `.tsx` 是改寫不是改名、不在它的範圍 —— 套完之後型別檢查在每一條還指著 `.vue` 的路由上紅，那一紅指的正是還沒改寫的畫面。**沒有動 `BASELINE_VERSION`**：它的適用範圍是「`platform/` 沒變、變的是工具」，這裡 `platform/` 真的變了。先例是 `flatten-ui-theme-to-components`。
+- **Q92 拿掉的是慣例不是閘門**：量過，沒有任何檢查在守 store id（`defineStore` 只出現在反向測試的錨點與 type-only 判定的樣本字串裡）。`slice-gen` 的「Pinia store id 帶切片命名空間」那條隨之拿掉，原位留一句理由。
+
+#### 二、做了什麼
+
+1. **契約**（`platform/slice-kit`）：
+   - `SliceRoute`（`path`、`name?`、`component: () => Promise<{ default: ComponentType }>`、`meta?`、`children?`）；`Feature.routes`／`RegisteredFeatures.routes` 改用它。`vue-router` 相依拿掉，`react` 改成 peer（只借型別）。
+   - `HOOKS_DIR`（`src/hooks`）、`isValidHookFile`、`hookFunctionName` 取代 composable 那三個名字。
+   - `usesDesignSystem` 改比**套件**（`importedPackage`）—— 見 4。
+   - 註解裡的 Pinia／composable／「掛載 Vue、建 pinia」改寫；`RUNTIME_TEMPLATE_FORBIDDEN` 的理由改成「畫面在建置期就編好」。
+2. **兩片切片**：
+   - `store.ts` → zustand。方法寫成屬性型別：元件把 `select` 單獨選出來傳給 `onClick`，方法語法讓 `unbound-method` 多兩則警告。
+   - `hooks/` → `@tanstack/react-query`。Vue 版要用 `computed` 包 queryKey 才會重新取數，React 每次 render 重算，這一格變成免費的 —— 前提是 key 由輸入算出來（範本測試守著）。後備值是固定的一份陣列。
+   - `views/*.tsx` → `@org/ui/react`（Q57 的入口）＋ `react-i18next`。`OrderList` 的 `role="status"` 常駐（live region 時序）、sr-only 的 caption 與最後一欄表頭、`maskName` 兩處、`Intl.NumberFormat` 照搬；原本 `<style scoped>` 裡的 `#ddd` 換成 `border-line` 代幣。
+   - `i18n.d.ts` 刪掉：C68 那個「`$t` 是不長得像相依的相依」隨 Vue 消失 —— `useTranslation` 是一句真的 import，幽靈相依檢查看得到。`env.d.ts` 只剩 `vite/client`。`tsconfig` 加 `jsx: react-jsx`；`vite.config.ts` 換 `plugin-react`。
+   - `features/order` 扛的四樣示範（C205 §一）逐項保留；README 的行號指標更新（`HANDOFF.md:1290` 本來就指錯地方，改成 `:1354`）。
+3. **應用殼**：
+   - `main.tsx`：`createBrowserRouter` ＋ `react-i18next`（同步初始化，`escapeValue: false` —— React 自己會跳脫）＋ `QueryClientProvider` ＋ `createUiTheme`。`SHELL_MESSAGES` 與「切片佔用 `shell` 命名空間就丟」照搬。
+   - `router.ts`：`toRouteObject`（name 放進 `id`、畫面放進 `lazy`）；`menuLinks`（`routeName` 換成完整路徑，巢狀相對路徑接在父層後面，**找不到就丟** —— 否則是一個指向 `undefined`、點了沒反應的連結）。
+   - `App.tsx`：略過導覽、`nav` 的 `aria-label`、`main` 的 `tabIndex={-1}` 照搬。
+   - `DevSession.tsx`：`import.meta.env.DEV ? lazy(...) : undefined` 的三元式照舊（`dev-session-stripped` 建置兩次在守）；字串用自己的 i18next 命名空間、在模組載入時才登記 —— vue-i18n `local` scope 的對應，理由相同（production 裡整個元件消失，字串不該留在全域訊息表）。
+   - `HydrateFallback`：每條切片路由都懶載入，react-router 在首次載入時警告（正式產物也會，§三 量到的）。
+4. **conformance**：
+   - **`usesDesignSystem` 改比套件**（我自己決定的，揭露）：整串相等時 `@org/ui/react` 不算用過，兩片切片與產生器的輸出三片全被判「沒用設計系統」。C234 §二 為禁用清單做過同一件事，這裡是同一類漏網、方向相反（假紅而不是假綠）；它**不是**放寬 —— 比對的仍是 `DESIGN_SYSTEM_PACKAGE` 一個套件，`import type` 仍不算用過。補一條 ★（M1）。
+   - `layering.ts`：規則名「composable 命名」→「hook 命名」，訊息改寫成 React 的理由。
+   - 反向測試的錨點換成 React 那一套（`patch()` 找不到錨點就丟 —— 換錨點是必要的，不是放寬）。
+5. **slice-gen 範本**整份換 React（相依、`tsconfig`、`vite.config.ts`、store、hook、view、README 的表）。`features/invoice` 的 view／hook／store 與範本逐字同形。C234 §五 交來的那一格：範本、`features/invoice/README.md`、`platform/ui/README.md` 三處不再列舉設計系統的底層，改指向契約的 `SLICE_DESIGN_SYSTEM_IMPORTS`。
+6. **exit-drill**：`DRILL_PLUGINS` 加 `react`（`vue` 留著：根層設定用它跑 `platform/ui` 的 `.vue` 測試）；測試相依帳目加 `@vitejs/plugin-react`、`react-dom`（兩者都是「由別的地方提供」，理由寫在表裡）；`@vue/test-utils` 的消費者換成 `platform/ui`，註解照實改。帳目測試的「加一個未登記的 plugin」補一條「錨點對不上就不算量過」。
+7. **codemod** `slice-routes-and-hooks`（＋6 條測試，重點是不該改的：跟執行期名字一起 import 的句子、前綴撞名的識別字、冪等）；`--dry-run` 命中 6 檔、實際套用。`surface.json` 登記 `removes` 3、`changes` 2。
+8. **catalog**：
+   - 加 `react-router` 8.3.1、`react-i18next` 17.0.13、`i18next` 26.4.2、`zustand` 5.0.15、`@tanstack/react-query` 5.102.8、`@vitejs/plugin-react` 6.1.1。六支都是 MIT，最後一版 2026-08-13～09-03，`health.ts` 的一年線內。
+   - **拿掉** `vue-router`／`pinia`／`vue-i18n`／`@tanstack/vue-query` 四列（我自己決定的，揭露）：消費者在這一批全部搬走，而「沒有消費者的 catalog 列沒有東西在驗」（C234 §二）。`vue` 與 `@vitejs/plugin-vue` 還有消費者，留給 ⑤。
+9. **基準**：`inventory.json` 737 → 708（Vue 那一套與它們的傳遞相依走了、React 那六支進來；原生二進位 146 不變）；`dependency-health.json` 41 → 43（＋6 −4）；`api-surface` 223 → 224 export；`COMPLIANCE.md` 重產；`doc-facts` 點名的八處同步（套件總數 `HANDOFF.md` 五處、`README.md`、`UI-SURVEY.md` 各一，export 數 `HANDOFF.md` 一處）。
+10. **散文**：`README.md` 的 D14 範例與第四層說明、`HANDOFF.md` 那張「還在／沒了」表、`tools/pii-check` 與 `tools/compliance/src/map.ts` 裡現在式的 `OrderList.vue`、`vite.scaffold.ts` 註解的例子、`policy.ts`／`static-csp.ts`／`csp-verify` 的 CSP 理由（§三）。
+
+#### 三、量測
+
+- **規則三的基準線**（C232 §三）：`features/invoice/specs/`、`tests/specs/`、`src/usecases/`、`src/ports.ts` 對 `main` **零差異**（`git diff --numstat` 零列；對照 `src/store.ts` 有列）。usecase 的覆蓋率門檻 100 照跑、綠。
+- **CSP**（C232 §四 1 —— 量，不是推）：正式產物由 `csp-verify` 的伺服器以 enforce 服務，BFF 真的在跑、session 真的建了。
+
+| 量什麼                                       | 正式政策                                                   | 對照組：`style-src-attr 'none'` |
+| -------------------------------------------- | ---------------------------------------------------------- | ------------------------------- |
+| 載入訂單列表、打開明細對話框                 | 零違規；姓名遮成「林○○」                                   | 零違規                          |
+| 捲動鎖定                                     | body `overflow: hidden`（CSSOM 寫的 style 屬性）           | 同左                            |
+| `<style>` 元素                               | 0                                                          | 0                               |
+| 產物 `index.html` 的 `<script>`              | 1 支、帶 `src`；inline 0（`assertStaticCspCompatible` 綠） | —                               |
+| 產物 JS：`setAttribute("style"`／`.cssText=` | 0／0（對照 `.style.` 39 處）                               | —                               |
+| 產物 JS：`eval(`／`new Function`             | 0／0                                                       | —                               |
+
+- **`script-src` 不給 `'unsafe-eval'`**：理由從「Vue 的 runtime-only build」換成「畫面在建置期就編好」，結論照舊。
+- **`style-src-attr 'unsafe-inline'`**：原本的理由（Vue 的 `:style` 產生屬性）不再成立 —— React 與 Base UI 走 CSSOM，CSP 不管那條路，對照組把它收成 `'none'` 仍零違規。**放行照舊**，現在的理由是「只量了對話框那一條路徑」。收不收是人的決定（§四）。
+- **dev**（report-only）：多一條 `script-src` 違規 —— `@vitejs/plugin-react` 在 `index.html` 注入 Fast Refresh 的 inline script，Vue 版沒有這一條；inline `<style>` 那條 Vue 版也有。兩條都只在 dev server，產物沒有。
+- ⚠️ **量測台量錯過兩次**：第一次 `preview_start` 讀的是**主 checkout** 的 `launch.json`，4173 服務的是主 checkout 的 Vue 產物（頁面上 `__vue_app__` 在場、JS 檔名不同）—— 那一次的「零違規」量的是另一棵樹。第二次 worktree 沒有 `apps/console/.env.local`，整頁在 `@org/config` 丟例外、什麼都沒渲染，零違規同樣不算數。第三次補上環境檔、確認 JS 檔名是這一支建出來的那一份，才是上表。
+- **變異**：每顆改一處、跑它該紅的那一支，還原後逐檔比對內容相同。
+
+| #   | 改法                                        | 紅                                              |
+| --- | ------------------------------------------- | ----------------------------------------------- |
+| M1  | `usesDesignSystem` 改回整串比對             | ≥ 5（conformance 的 ★、slice-gen 的對齊與 e2e） |
+| M2  | `menuLinks` 找不到路由不丟                  | 1                                               |
+| M3  | 巢狀路由不接父層路徑                        | 1                                               |
+| M4  | `toRouteObject` 不放 `id`                   | 1                                               |
+| M5  | 懶載入回傳空畫面                            | 1                                               |
+| M6  | codemod 不換路由的型別 import               | 1                                               |
+| M7  | codemod 少換 `COMPOSABLES_DIR`              | 1                                               |
+| M8  | 分層規則讀回 `src/composables`              | 1                                               |
+| M9  | `DRILL_PLUGINS` 的 `react` 改名             | exit-drill 靜態那一半 RC 1                      |
+| M10 | 測試相依帳目拿掉 `@vitejs/plugin-react`     | RC 1（三個 package 被點名）                     |
+| M11 | 測試相依帳目拿掉 `react-dom`                | RC 1                                            |
+| M12 | 拿掉 `HydrateFallback`                      | **0**                                           |
+| M13 | `DevSession` 改成無條件懶載入               | 1（★ production 產物裡一個字都沒有）            |
+| M14 | 範本的 view 不從列表推導                    | 1                                               |
+| M15 | 範本 hook 的 queryKey 寫死                  | 1                                               |
+| M16 | `OrderList` 的列表不遮姓名                  | **0**                                           |
+| M17 | `HOOKS_DIR` 改回 `src/composables`          | 3                                               |
+| M18 | `features/order` 那支 hook 的 queryKey 寫死 | **0**                                           |
+
+零紅三顆，各自的讀法：M12 沒有機制（只多一則 console 警告）；M16 是 C52 起的慣例；**M18 是新看到的缺口** —— 範本那一份有 M15 守，真切片那一份沒有，Vue 版的 `useOrderList` 同樣沒有測試，不是這一批退步的（§四）。每顆還原後逐檔比對內容相同，量完工作區零改動。
+
+- **閘門**：（待填：逐支跑的結果）
+- **`vp check`**：0 錯、11 warning（`main` 13；少的兩則是刪掉的舊註解裡的零寬空白 —— 產生器範本與它的對齊測試各一）。
+
+#### 四、交給後面的，以及還沒量的
+
+- **人裁**：`style-src-attr 'unsafe-inline'` 要不要收（§三）。收之前要把 Select、DropdownMenu、DatePicker 與日後進來的第三方元件在 enforce 下逐一點過。
+- **④**：`eslint-plugin-react-hooks` 還沒裝 —— hook 規則現在只靠命名（`hook 命名`）與 React 的執行期報錯。`vue-typecheck` 從這一批起只看 `platform/ui`（`apps`／`features` 零支 `.vue`）。
+- **⑤**：`README.md` 第 4 行「Vue 3 為應用層」與 HANDOFF／TESTING 的改寫；catalog 的 `vue`／`@vitejs/plugin-vue` 兩列、`DRILL_PLUGINS` 的 `vue`、`@vue/test-utils` 那一筆測試相依；`@org/tsconfig/app.json` 的 `jsx: preserve`（應用殼先在自己的 `tsconfig` 覆寫）；契約三份禁用清單裡 Vue 那一半。
+- **刻意不動的**：`features/invoice/src/usecases/query-invoice.ts` 的檔頭仍寫「不 import vue／pinia …」—— 規則三的基準線要它零差異，範本那一份已改。
+- **沒有機制在守的**：`HydrateFallback`（M12：拿掉它，所有測試照綠，只有 console 多一則警告）；`OrderList.tsx` 有沒有繼續呼叫 `maskName`（M16，C52 起就是慣例不是機制，`HANDOFF.md:1354` 登記著）；**兩片真切片的 hook 的 queryKey 由不由輸入算出來**（M18）—— 補它要一支掛 `QueryClientProvider` 的 hook 測試，不在這一批的範圍。
+- **#374 同時改 `README.md`**：兩支會在 D14 那一段相撞，後合的那支 rebase。
+
+#### 五、C154 §三
+
+| 新增或改動的檢查                                     | 交付軸                        | 迭代軸（① 對象在外、② 壞法安靜）                                    | 級別               |
+| ---------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------- | ------------------ |
+| `usesDesignSystem` 比套件（conformance）             | 切片真的用設計系統（D15）     | ① 切片的 import；② 假紅 —— 最可能的「修法」是關掉這條規則           | 探針（M1）         |
+| `menuLinks` 找不到就丟、巢狀路徑（composition root） | 選單點得到頁面                | ① 切片的路由與選單；② 連結指向 `undefined`、點了沒反應、零報錯      | 探針（M2、M3）     |
+| `toRouteObject` 的 id 與懶載入                       | 路由接得上、畫面照樣分塊      | ① react-router 的格式；② 畫面空白或整包打進首頁                     | 探針（M4、M5）     |
+| hook 目錄與命名（conformance、契約）                 | 取數的位置一致（D14）         | ① 切片的目錄；② 目錄改名後規則對著空目錄全綠                        | 探針（M8、M17）    |
+| exit-drill 的 plugin 與測試相依帳目                  | 退出演練重現得出 React 的產物 | ① 應用殼的設定；② 演練建出一份沒有 JSX 轉譯的產物、寫下 pass（C36） | 探針（M9–M11）     |
+| 範本的 queryKey 與「從列表推導」（slice-gen）        | 新切片從對的形狀開始          | ① 產生器的輸出；② 第一次換條件才看到舊資料                          | 探針（M14、M15）   |
+| codemod 的六條測試                                   | —                             | ① 對象在內                                                          | 自我防護（不計分） |
+
+**拿掉的**：C68 那兩條 ★（`$t` 的宣告與 import、`env.d.ts` 不得是模組）—— 守的對象（vue-i18n 的全域屬性、`declare module "*.vue"` 的 shim）在切片裡不存在了；`slice-gen` 的「Pinia store id 帶切片命名空間」（Q92）。三條原位都留了一句理由。
+
+#### 六、實測
+
+- 本機 `vpr ready`：（待填：READY_RC）
+
+#### 七、與既有裁決的關係
+
+| 裁決                 | 關係                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **C232**             | §六 ③ 做完；§四 1 的 CSP 理由量過、重寫（§三）；§四 4 的目錄名以 Q91 為準；§三 的基準線零差異                                        |
+| **C233**             | Base UI 照舊；CSP 的量法照 §三 的形狀，另加 `style-src-attr` 的對照組                                                                |
+| **C234**             | §二 交來的 exit-drill、slice-gen 兩格做完；§五 設計系統被列舉的三處文件改指向契約；`importedPackage` 的判法延伸到 `usesDesignSystem` |
+| **C235**             | Q57 的 `@org/ui/react` 第一次有切片消費                                                                                              |
+| **D12**              | 破壞性變更附 codemod、同一支 PR 跑完（Q90）                                                                                          |
+| **D13**              | store id 前綴那一句以 Q92 為準（不改原文）；其餘選型照 C232 §五                                                                      |
+| **D14**              | 分層照舊；composable 換成 hook、目錄名以 Q91 為準                                                                                    |
+| **C68**              | 兩條 ★ 隨 Vue 從切片消失而拿掉（§五）                                                                                                |
+| **C52**              | 列表與明細的 `maskName` 照舊是慣例（M16）                                                                                            |
+| **C141**             | 編號讓給先開的 #374                                                                                                                  |
+| **AGENTS.md 規則二** | **遵守** —— `usesDesignSystem` 的改動揭露在 §二 4；`style-src-attr` 收不收交人裁                                                     |
+| **AGENTS.md 規則三** | **遵守** —— 驗收規格那條鏈零差異                                                                                                     |
+| **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                                                       |
