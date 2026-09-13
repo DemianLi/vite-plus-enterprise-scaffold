@@ -61,7 +61,7 @@ export const DRILL_TEST_DEPENDENCIES: readonly string[] = [
   // 少了它 vitest 連 worker 都起不來，錯誤訊息是 ERR_MODULE_NOT_FOUND。
   "happy-dom",
   // `platform/ui` 的 `.vue` 測試用它掛載元件（批次 ⑤ 之前）。純 JS，與工具鏈無關。
-  // ⚠️ 當初隨 masking.test.ts 進來；那支 C239 改成 @testing-library/react，這一筆的
+  // ⚠️ 當初隨 masking.test.ts 進來；那支 C240 改成 @testing-library/react，這一筆的
   // 消費者換成了 platform/ui。
   "@vue/test-utils",
   // `features/invoice/tests/specs/invoice.spec.ts` 的 `describeFeature`——
@@ -71,7 +71,7 @@ export const DRILL_TEST_DEPENDENCIES: readonly string[] = [
   // 那正是 C114 §二 記的靜默失效，症狀與成功一模一樣。
   "@amiceli/vitest-cucumber",
   // `platform/ui/tests/button-react.test.ts` 掛載 React 版元件（C235），
-  // `features/order/tests/masking.test.ts` 也是（C239）。純 JS、與工具鏈無關。
+  // `features/order/tests/masking.test.ts` 也是（C240）。純 JS、與工具鏈無關。
   "@testing-library/react",
 ];
 
@@ -109,7 +109,7 @@ export const DROPPED_TEST_DEPENDENCIES: readonly DroppedDependency[] = [
   },
   {
     name: "@vitejs/plugin-react",
-    reason: "同上，DRILL_PLUGINS 的一筆（C239：應用殼是 React，JSX 要靠它編進產物）。",
+    reason: "同上，DRILL_PLUGINS 的一筆（C240：應用殼是 React，JSX 要靠它編進產物）。",
   },
   {
     name: "@tailwindcss/vite",

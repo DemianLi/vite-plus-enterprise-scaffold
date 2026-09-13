@@ -126,7 +126,7 @@ describe("產出的 package.json 符合一致性檢查", () => {
   });
 
   // ⚠️ 這裡原本有兩條 C68 的 ★（「模板用了 `$t` → 宣告 vue-i18n 並有一句真的 import」、
-  // 「env.d.ts 不得是模組，否則 `declare module "*.vue"` 失效」）。C239 模板換成 React 時
+  // 「env.d.ts 不得是模組，否則 `declare module "*.vue"` 失效」）。C240 模板換成 React 時
   // 拿掉：`useTranslation` 是一句真的 import，幽靈相依檢查看得到；`.vue` 的 shim 也不存在了。
   // 兩條守的對象都消失了，不是被放寬。
 });
@@ -142,7 +142,7 @@ describe("產出的程式碼落在正確的命名空間", () => {
     expect(fileAt("src/index.ts")).toContain('"order-history:read"');
   });
 
-  // store id 帶切片前綴那條隨 C239 Q77 拿掉：zustand 的 store 沒有 id，也撞不到名。
+  // store id 帶切片前綴那條隨 C240 Q92 拿掉：zustand 的 store 沒有 id，也撞不到名。
 
   it("query key 第一段是切片名", () => {
     expect(fileAt("src/api.ts")).toContain('all: ["order-history"]');

@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [
-      // ⚠️ 它把 JSX 編譯成建置產物，同下面的 tailwindcss 必須登記在 DRILL_PLUGINS（C239）。
+      // ⚠️ 它把 JSX 編譯成建置產物，同下面的 tailwindcss 必須登記在 DRILL_PLUGINS（C240）。
       react(),
 
       // D15 —— Tailwind v4。

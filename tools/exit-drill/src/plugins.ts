@@ -48,7 +48,7 @@ export const DRILL_PLUGINS: readonly DrillPlugin[] = [
     importLine: 'import vue from "@vitejs/plugin-vue";',
   },
   {
-    // `apps/console` 從 C239 起是 React。**必須重現**：JSX 要靠它編進產物。
+    // `apps/console` 從 C240 起是 React。**必須重現**：JSX 要靠它編進產物。
     name: "react",
     module: "@vitejs/plugin-react",
     importLine: 'import react from "@vitejs/plugin-react";',

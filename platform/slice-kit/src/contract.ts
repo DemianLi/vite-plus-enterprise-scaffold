@@ -41,7 +41,7 @@ export const REQUIRED_FILES = [
 /**
  * 切片內放 hook 的目錄。
  *
- * 原本叫 `src/composables`（Vue 的慣例位置），C239 Q76 隨切片改寫成 React 一起改名 ——
+ * 原本叫 `src/composables`（Vue 的慣例位置），C240 Q91 隨切片改寫成 React 一起改名 ——
  * 目錄名是讀程式碼的人第一眼看到的東西，React 的人找的是 `hooks/`。
  */
 export const HOOKS_DIR = "src/hooks";
@@ -92,7 +92,7 @@ export const VIEW_FORBIDDEN_IMPORTS = [
 /** 元件也不得直接 import 同切片的資料存取模組（相對路徑，需另外判定）。 */
 export const VIEW_FORBIDDEN_LOCAL_MODULES = ["api"] as const;
 
-/** 切片內的 store（zustand；C239 之前是 Pinia）。 */
+/** 切片內的 store（zustand；C240 之前是 Pinia）。 */
 export const STORE_FILE = "src/store.ts";
 
 /**
@@ -457,7 +457,7 @@ export const DESIGN_SYSTEM_PACKAGE = "@org/ui";
  * 各持一份副本的話，產生器改了模板就會安靜地產出過不了 Tier 2 的切片。
  *
  * ⚠️ 比的是**套件**不是整串（`importedPackage`），同上面那幾份禁用清單（C234 §二）。
- * 整串相等的話 `@org/ui/react`（Q57 的 React 入口）不算用過 —— C239 切片第一次從
+ * 整串相等的話 `@org/ui/react`（Q57 的 React 入口）不算用過 —— C240 切片第一次從
  * 那裡取元件時，三片（含產生器的輸出）全部被判成「沒用設計系統」。
  */
 export function usesDesignSystem(source: string): boolean {
@@ -534,7 +534,7 @@ export function isValidSliceDir(dir: string): boolean {
 export const slicePackageName = (dir: string): string => `${SLICE_PACKAGE_PREFIX}${dir}`;
 
 /**
- * D11：CSP 無 unsafe-eval 的前提是畫面在建置期就編好（JSX 由 Vite 編譯；C239 之前是
+ * D11：CSP 無 unsafe-eval 的前提是畫面在建置期就編好（JSX 由 Vite 編譯；C240 之前是
  * Vue 的 runtime-only build）。執行期動態求值字串會需要放寬，一旦有人用了，整份 CSP 就得放寬。
  * 這條由 oxlint 的 no-eval / no-implied-eval 擋，此處記錄理由供檢查腳本引用。
  */

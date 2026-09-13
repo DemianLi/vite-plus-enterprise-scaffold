@@ -32,7 +32,7 @@ const router = createBrowserRouter([
     path: "/",
     element: <App links={links} />,
     // 每條切片路由都是懶載入的，首次載入時畫面要等第一支畫面的 chunk 回來。
-    // 不給的話 react-router 在 console 印警告（正式產物也會，C239 實測）。
+    // 不給的話 react-router 在 console 印警告（正式產物也會，C240 實測）。
     HydrateFallback: () => null,
     children: [
       ...(home === undefined ? [] : [{ index: true, element: <Navigate to={home} replace /> }]),

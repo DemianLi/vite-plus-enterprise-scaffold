@@ -72,7 +72,7 @@ describe("apps/console composition root", () => {
 });
 
 /**
- * 切片路由 → react-router（C239，Q74）。
+ * 切片路由 → react-router（C240，Q89）。
  *
  * react-router 沒有具名路由：選單的 `routeName` 在 `menuLinks` 換成路徑，
  * 契約的 `name` 在 `toRouteObject` 放進 `id`。兩處換錯的樣子都是「畫面照常、

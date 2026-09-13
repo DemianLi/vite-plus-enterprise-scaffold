@@ -17,7 +17,7 @@ import { USECASE_COVERAGE_GLOB, USECASE_COVERAGE_MIN } from "@org/slice-kit/cont
  *
  * ⚠️ `plugins` 這一行不是贅字：Vue 版時少了它 `.vue` 不會被轉譯，畫面那支會整支
  * 從覆蓋率報表裡消失（實測：行覆蓋率不降反升，而程式碼一個字都沒改）。
- * 換成 React（C239）之後沒有重量過少了它會怎樣 —— 留著它，建置與測試走同一套轉譯。
+ * 換成 React（C240）之後沒有重量過少了它會怎樣 —— 留著它，建置與測試走同一套轉譯。
  */
 export default defineConfig({
   plugins: lazyPlugins(() => [react()]),

@@ -41,7 +41,7 @@ import { USECASE_COVERAGE_GLOB, USECASE_COVERAGE_MIN } from "@org/slice-kit/cont
  *
  * ⚠️ \`plugins\` 這一行不是贅字：Vue 版時少了它 \`.vue\` 不會被轉譯，畫面那支會整支
  * 從覆蓋率報表裡消失（實測：行覆蓋率不降反升，而程式碼一個字都沒改）。
- * 換成 React（C239）之後沒有重量過少了它會怎樣 —— 留著它，建置與測試走同一套轉譯。
+ * 換成 React（C240）之後沒有重量過少了它會怎樣 —— 留著它，建置與測試走同一套轉譯。
  */
 export default defineConfig({
   plugins: [react()],
@@ -446,7 +446,7 @@ export const ${camel}Keys = {
  * 定義在切片內部 —— **不得有全域 store 目錄**，那是三層架構最常見的破口：
  * 一旦出現，兩個切片就會開始共用狀態，邊界當場失效。
  *
- * ⚠️ 沒有 store id：zustand 的 store 是這個模組裡的一個變數，撞不到名（C239 Q77）。
+ * ⚠️ 沒有 store id：zustand 的 store 是這個模組裡的一個變數，撞不到名（C240 Q92）。
  *
  * ── 這裡只放「客戶端才是權威」的東西 ───────────────────────────────────
  *

@@ -294,7 +294,7 @@ describe("要一棵目錄樹，但仍然不用起行程", () => {
     ]);
   });
 
-  it("★ 從 @org/ui/react 取元件也算用過 —— Q57 的 React 入口是同一個設計系統（C239）", () => {
+  it("★ 從 @org/ui/react 取元件也算用過 —— Q57 的 React 入口是同一個設計系統（C240）", () => {
     const root = tree({
       "features/order/src/views/OrderList.tsx": 'import { UiButton } from "@org/ui/react";\n',
     });

@@ -1175,7 +1175,7 @@
         "@org/slice-kit/contract#composableFunctionName"
       ],
       "changes": ["@org/slice-kit#Feature", "@org/slice-kit#RegisteredFeatures"],
-      "reason": "C239（Q74–Q76）：切片與應用殼從 Vue 換成 React。路由型別從 vue-router 的 RouteRecordRaw 換成契約自己的 SliceRoute —— react-router 的路由沒有 name，而命名空間檢查、選單 routeName 都掛在 name 上；hook 的目錄與兩支判定改名（composables → hooks）。codemod 遷移的是型別 import 與這三個名字；畫面從 .vue 換成 .tsx 是改寫不是改名，不在它的範圍，套完之後型別檢查會在每一條還指著 .vue 的路由上紅。沒有 fork（C232 Q49），遷移期間不發版。"
+      "reason": "C240（Q89–Q91）：切片與應用殼從 Vue 換成 React。路由型別從 vue-router 的 RouteRecordRaw 換成契約自己的 SliceRoute —— react-router 的路由沒有 name，而命名空間檢查、選單 routeName 都掛在 name 上；hook 的目錄與兩支判定改名（composables → hooks）。codemod 遷移的是型別 import 與這三個名字；畫面從 .vue 換成 .tsx 是改寫不是改名，不在它的範圍，套完之後型別檢查會在每一條還指著 .vue 的路由上紅。沒有 fork（C232 Q49），遷移期間不發版。"
     }
   ]
 }

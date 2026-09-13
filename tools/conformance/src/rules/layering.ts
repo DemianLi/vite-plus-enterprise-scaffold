@@ -157,7 +157,7 @@ export function checkSliceLayering(slicePath: string, slice: string): Finding[] 
               "usecase 認得框架",
               `${where} value import 了 "${forbidden}"`,
               "業務規則這一層的價值就是它不認得框架 —— 驗收規格打得到它、" +
-                "換掉前端框架它一個字都不用改（C239 從 Vue 換成 React 時就是這樣）。" +
+                "換掉前端框架它一個字都不用改（C240 從 Vue 換成 React 時就是這樣）。" +
                 `要用框架的東西請放到 ${HOOKS_DIR}/use<Xxx>.ts（TESTING.md 層 3）`,
             );
           }

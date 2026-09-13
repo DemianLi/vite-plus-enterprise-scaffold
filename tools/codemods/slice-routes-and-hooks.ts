@@ -1,7 +1,7 @@
 import type { Codemod } from "./run.ts";
 
 /**
- * 切片契約的兩處改名（C239，Q74–Q76）：
+ * 切片契約的兩處改名（C240，Q89–Q91）：
  *
  *   `import type { RouteRecordRaw } from "vue-router"` → `import type { SliceRoute } from "@org/slice-kit"`
  *   `COMPOSABLES_DIR`／`isValidComposableFile`／`composableFunctionName`
