@@ -241,13 +241,11 @@ describe("要一棵目錄樹，但仍然不用起行程", () => {
     }
   });
 
-  it("composable 檔名與匯出的函式名對不上 → 紅", () => {
+  it("hook 檔名與匯出的函式名對不上 → 紅", () => {
     const root = tree({
-      "features/order/src/composables/useOrderList.ts": "export function useOrders() {}\n",
+      "features/order/src/hooks/useOrderList.ts": "export function useOrders() {}\n",
     });
-    expect(rules(checkSliceLayering(join(root, "features/order"), SLICE))).toEqual([
-      "composable 命名",
-    ]);
+    expect(rules(checkSliceLayering(join(root, "features/order"), SLICE))).toEqual(["hook 命名"]);
   });
 
   it("view 直接 import 資料層 → 紅", () => {
@@ -294,6 +292,13 @@ describe("要一棵目錄樹，但仍然不用起行程", () => {
     expect(rules(checkDesignSystemAdoption(join(root, "features/order"), SLICE))).toEqual([
       "設計系統採用",
     ]);
+  });
+
+  it("★ 從 @org/ui/react 取元件也算用過 —— Q57 的 React 入口是同一個設計系統（C239）", () => {
+    const root = tree({
+      "features/order/src/views/OrderList.tsx": 'import { UiButton } from "@org/ui/react";\n',
+    });
+    expect(checkDesignSystemAdoption(join(root, "features/order"), SLICE)).toEqual([]);
   });
 
   /**

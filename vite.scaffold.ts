@@ -231,7 +231,7 @@ export const scaffoldOverrides: Override[] = [
       // ⚠️ 這裡**刻意不用** import/no-relative-parent-imports。
       //
       // 初版用了它來擋「相對路徑逃逸 package 根目錄」，實測後發現它太鈍：
-      // 它擋掉的是**所有** `../`，包含 src/views/OrderList.vue 匯入同一個
+      // 它擋掉的是**所有** `../`，包含 src/hooks/useOrderList.ts 匯入同一個
       // package 內的 `../api.ts` —— 那是完全合法的內部結構。
       // 開著它等於強迫每個切片變成扁平目錄，DX 代價高到大家會去關掉它，
       // 那才是真正的破口。

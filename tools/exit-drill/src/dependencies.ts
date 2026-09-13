@@ -60,7 +60,9 @@ export const DRILL_TEST_DEPENDENCIES: readonly string[] = [
   // `features/order/tests/masking.test.ts` 的 `// @vitest-environment happy-dom`。
   // 少了它 vitest 連 worker 都起不來，錯誤訊息是 ERR_MODULE_NOT_FOUND。
   "happy-dom",
-  // 同一批測試用它掛載元件。純 JS，與工具鏈無關。
+  // `platform/ui` 的 `.vue` 測試用它掛載元件（批次 ⑤ 之前）。純 JS，與工具鏈無關。
+  // ⚠️ 當初隨 masking.test.ts 進來；那支 C239 改成 @testing-library/react，這一筆的
+  // 消費者換成了 platform/ui。
   "@vue/test-utils",
   // `features/invoice/tests/specs/invoice.spec.ts` 的 `describeFeature`——
   // 業務功能完成率那條線的接線檔（C114／C115）。純 JS，peer 只有 vitest，
@@ -68,8 +70,8 @@ export const DRILL_TEST_DEPENDENCIES: readonly string[] = [
   // ⚠️ 少了它，演練跑的是一份**看起來全綠、而規格一條都沒執行**的樹 ——
   // 那正是 C114 §二 記的靜默失效，症狀與成功一模一樣。
   "@amiceli/vitest-cucumber",
-  // `platform/ui/tests/button-react.test.ts` 掛載 React 版元件（C235）。`@vue/test-utils`
-  // 的對應，同樣純 JS、與工具鏈無關。
+  // `platform/ui/tests/button-react.test.ts` 掛載 React 版元件（C235），
+  // `features/order/tests/masking.test.ts` 也是（C239）。純 JS、與工具鏈無關。
   "@testing-library/react",
 ];
 
@@ -106,8 +108,19 @@ export const DROPPED_TEST_DEPENDENCIES: readonly DroppedDependency[] = [
     reason: "由 DRILL_PLUGINS 推導安裝 —— 它是 plugin，帳目在 plugins.ts 那一張表。",
   },
   {
+    name: "@vitejs/plugin-react",
+    reason: "同上，DRILL_PLUGINS 的一筆（C239：應用殼是 React，JSX 要靠它編進產物）。",
+  },
+  {
     name: "@tailwindcss/vite",
     reason: "同上，DRILL_PLUGINS 的一筆（D15 必須重現，否則產物沒有樣式）。",
+  },
+  {
+    name: "react-dom",
+    reason:
+      "`@testing-library/react` 的 peer，列在切片的 devDependencies 只為了讓切片自己跑得動。" +
+      "演練裡它由 runtimeDependencies 帶進來（`@org/ui` 與 `apps/console` 的 dependencies），" +
+      "所以是「由別的地方提供」，不是用不到。",
   },
   {
     name: "tailwindcss",

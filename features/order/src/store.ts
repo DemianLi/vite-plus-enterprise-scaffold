@@ -39,8 +39,9 @@ interface OrderFilterState {
    * 而且不會有任何測試變紅。要顯示的那筆從列表推導。
    */
   readonly selectedId: string | null;
-  select(id: string | null): void;
-  setStatus(next: Order["status"] | undefined): void;
+  // 寫成屬性而不是方法：元件會把它單獨選出來傳給 onClick，方法語法在型別上帶著 `this`。
+  readonly select: (id: string | null) => void;
+  readonly setStatus: (next: Order["status"] | undefined) => void;
 }
 
 export const useOrderFilterStore = create<OrderFilterState>()((set) => ({

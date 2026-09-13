@@ -29,11 +29,10 @@ catalog:
   "@vitest/coverage-v8": 4.1.11
 
   # --- 應用層選型（D13）---
+  # vue-router／pinia／vue-i18n／vue-query 的消費者在批次 ③（C239）搬走了，catalog 列跟著
+  # 拿掉 —— 沒有消費者的列沒有東西在驗（C234 §二）。剩下這兩列是 platform/ui 的 .vue 元件與
+  # 根層測試設定還在用的，批次 ⑤ 刪 Vue 時一起收。React 那一套的對應在下面。
   vue: ^3.5.41
-  vue-router: ^5.2.0
-  pinia: ^4.0.3
-  vue-i18n: ^11.4.8
-  "@tanstack/vue-query": ^5.101.4
   "@vitejs/plugin-vue": ^6.0.8
 
   # --- 樣式與 UI（D15）---

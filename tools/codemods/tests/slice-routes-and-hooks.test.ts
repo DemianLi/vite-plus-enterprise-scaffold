@@ -39,7 +39,9 @@ export const routes: SliceRoute[] = [];
   });
 
   it("沒有命中時回傳 null，讓執行器跳過寫檔", () => {
-    expect(codemod.transform('import { HOOKS_DIR } from "@org/slice-kit/contract";', "x.ts")).toBeNull();
+    expect(
+      codemod.transform('import { HOOKS_DIR } from "@org/slice-kit/contract";', "x.ts"),
+    ).toBeNull();
   });
 
   it("是冪等的：對已遷移的內容重跑不再改動", () => {

@@ -1351,7 +1351,7 @@ D12 的規則是「改 platform 的破壞性變更必須附 codemod」，而這�
 | 還在                                      | 沒了                                |
 | ----------------------------------------- | ----------------------------------- |
 | `platform/pii` 的 `maskName()` 等遮罩函式 | `Feature.personalData` 契約欄位     |
-| `OrderList.vue` 仍然呼叫 `maskName()`     | 「宣告的欄位必須包 mask」的靜態檢查 |
+| `OrderList.tsx` 仍然呼叫 `maskName()`     | 「宣告的欄位必須包 mask」的靜態檢查 |
 | 切片自己的元件測試（跑在 Tier 1）         | CI 上的 `pii-masking` 這道閘門      |
 
 法遵對照表上這一格**重新變成 🔴「無」**，這是刻意的：拿掉閘門而讓表繼續

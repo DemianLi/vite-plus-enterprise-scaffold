@@ -80,7 +80,7 @@ export function hookFunctionName(fileName: string): string {
  * 為什麼是禁「元件 import 它們」而不是禁「元件裡有 useQuery」：
  * 前者是可精確判定的靜態事實，後者要語意分析。同樣的取捨見 D4 第 3 層。
  *
- * ⚠️ 這條不禁 `@tanstack/vue-query` 出現在切片裡 —— composable 就是要用它。
+ * ⚠️ 這條不禁 `@tanstack/react-query` 出現在切片裡 —— hook 就是要用它。
  * 禁的是**位置**，不是相依。
  */
 export const VIEW_FORBIDDEN_IMPORTS = [
@@ -92,19 +92,19 @@ export const VIEW_FORBIDDEN_IMPORTS = [
 /** 元件也不得直接 import 同切片的資料存取模組（相對路徑，需另外判定）。 */
 export const VIEW_FORBIDDEN_LOCAL_MODULES = ["api"] as const;
 
-/** 切片內的 Pinia store。 */
+/** 切片內的 store（zustand；C239 之前是 Pinia）。 */
 export const STORE_FILE = "src/store.ts";
 
 /**
- * **Pinia 只放「客戶端才是權威」的東西。**
+ * **store 只放「客戶端才是權威」的東西。**
  *
  * 判準一句話：*這份資料如果和伺服器不一致，誰是錯的？*
  *
- *   伺服器是權威（`Order[]` 本身）              → TanStack Query，走 composable
- *   客戶端是權威（篩選條件、選取的 id、草稿）   → Pinia
- *   兩者都不是（「選取的那幾筆 Order 物件」）   → 哪裡都不放，composable 裡的 computed
+ *   伺服器是權威（`Order[]` 本身）              → TanStack Query，走 hook
+ *   客戶端是權威（篩選條件、選取的 id、草稿）   → store
+ *   兩者都不是（「選取的那幾筆 Order 物件」）   → 哪裡都不放，render 時從列表推導
  *
- * 濃縮成可以背的一句：**Pinia 存 id，不存 entity。**
+ * 濃縮成可以背的一句：**store 存 id，不存 entity。**
  *
  * 第三類是這條界線真正要擋的東西。把 join 出來的結果存進 store，等於做了第二份
  * 快取 —— 它與 TanStack Query 那份的失效時機不同，而且**不會有任何測試變紅**。
@@ -114,7 +114,7 @@ export const STORE_FILE = "src/store.ts";
  *
  *     import type { Order } from "./api.ts";     // ✓ 借型別，編譯期就消失
  *     import { fetchOrders } from "./api.ts";    // ✗ 呼叫伺服器
- *     import { useQuery } from "@tanstack/vue-query";  // ✗
+ *     import { useQuery } from "@tanstack/react-query";  // ✗
  *
  * 這不是為了方便而開的例外，是語意上本來就不同 —— 而且本 repo 的
  * `verbatimModuleSyntax: true` 讓這個區分**精確可判定**：
@@ -192,14 +192,14 @@ export const SPECS_DIR = "specs";
 /**
  * 規格打的那一層：**零框架相依的純 TS 業務邏輯**。
  *
- * 為什麼規格不直接打 composable：規格步驟一旦需要掛載 Vue、建 pinia、
+ * 為什麼規格不直接打 hook：規格步驟一旦需要掛載 React、建 store、
  * 造 QueryClient，那層設施就會貴到沒有專案組願意用 —— 而第二類的東西
  * **沒人用就等於不存在**。這是整個設計的關鍵取捨。
  *
  * ⚠️ 但這一層**必須在活的路徑上**，否則規格驗的東西與畫面跑的東西是兩條路，
  * 規格全綠而畫面壞掉，沒有任何閘門看得見。所以模板產出的鏈是：
  *
- *     views → composables → usecases → ports（介面）→ api.ts（真實作）
+ *     views → hooks → usecases → ports（介面）→ api.ts（真實作）
  *                              ↑
  *                          規格打這裡，餵 in-memory gateway
  *
@@ -455,10 +455,16 @@ export const DESIGN_SYSTEM_PACKAGE = "@org/ui";
  *   - `tools/conformance` 用它檢查既有切片
  *   - `tools/slice-gen` 的測試用它檢查**產生器的輸出**
  * 各持一份副本的話，產生器改了模板就會安靜地產出過不了 Tier 2 的切片。
+ *
+ * ⚠️ 比的是**套件**不是整串（`importedPackage`），同上面那幾份禁用清單（C234 §二）。
+ * 整串相等的話 `@org/ui/react`（Q57 的 React 入口）不算用過 —— C239 切片第一次從
+ * 那裡取元件時，三片（含產生器的輸出）全部被判成「沒用設計系統」。
  */
 export function usesDesignSystem(source: string): boolean {
   for (const match of source.matchAll(IMPORT_SPECIFIER_PATTERN)) {
-    if (match[1] !== DESIGN_SYSTEM_PACKAGE || match.index === undefined) continue;
+    const specifier = match[1];
+    if (specifier === undefined || match.index === undefined) continue;
+    if (importedPackage(specifier) !== DESIGN_SYSTEM_PACKAGE) continue;
     if (isTypeOnlyImportAt(source, match.index)) continue;
     return true;
   }

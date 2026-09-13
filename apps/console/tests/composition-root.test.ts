@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { registerFeatures } from "@org/slice-kit";
 
 import { features } from "../src/features.ts";
+import { menuLinks, toRouteObject } from "../src/router.ts";
 
 /**
  * Composition root 的煙霧測試。
@@ -67,5 +68,66 @@ describe("apps/console composition root", () => {
     // 少了這條，三個來源同時空掉時下面那條會拿空陣列比空陣列然後報綠。
     expect(derived.size, "反推不出任何命名空間 —— 這條斷言沒有東西可比對").toBeGreaterThan(0);
     expect([...derived].sort()).toEqual([...registered.names].sort());
+  });
+});
+
+/**
+ * 切片路由 → react-router（C239，Q74）。
+ *
+ * react-router 沒有具名路由：選單的 `routeName` 在 `menuLinks` 換成路徑，
+ * 契約的 `name` 在 `toRouteObject` 放進 `id`。兩處換錯的樣子都是「畫面照常、
+ * 點了沒反應」，不會有錯誤訊息。
+ */
+describe("切片路由接到 react-router", () => {
+  const registered = registerFeatures(features);
+
+  it("每個選單項目都換得出它那條路由的完整路徑", () => {
+    const byName = new Map(registered.routes.map((route) => [route.name, route.path]));
+    const links = menuLinks(registered);
+
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) expect(link.path).toBe(byName.get(link.routeName));
+  });
+
+  it("巢狀路由的相對 path 接在父層後面", () => {
+    const nested = registerFeatures([
+      {
+        name: "demo",
+        routes: [
+          {
+            path: "/demo",
+            component: () => Promise.resolve({ default: () => null }),
+            children: [
+              {
+                path: "detail",
+                name: "demo/detail",
+                component: () => Promise.resolve({ default: () => null }),
+              },
+            ],
+          },
+        ],
+        permissions: [],
+        i18n: {},
+        menu: [{ labelKey: "demo.detail", routeName: "demo/detail" }],
+      },
+    ]);
+    expect(menuLinks(nested).map((link) => link.path)).toEqual(["/demo/detail"]);
+  });
+
+  it("🔴 選單指向不存在的路由 → 啟動時就丟，不是渲染一個點了沒反應的連結", () => {
+    const broken = { ...registered, menu: [{ labelKey: "x.title", routeName: "x/missing" }] };
+    expect(() => menuLinks(broken)).toThrow(/x\/missing/);
+  });
+
+  it("路由的 name 成為 react-router 的 id，畫面照樣懶載入", async () => {
+    const [first] = registered.routes;
+    if (first === undefined) throw new Error("沒有任何路由可驗");
+    const converted = toRouteObject(first);
+
+    expect(converted.id).toBe(first.name);
+    expect(converted.path).toBe(first.path);
+    expect(typeof converted.lazy).toBe("function");
+    const lazy = converted.lazy as () => Promise<{ Component?: unknown }>;
+    expect((await lazy()).Component).toBe((await first.component()).default);
   });
 });

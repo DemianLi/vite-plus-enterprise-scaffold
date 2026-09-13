@@ -30,8 +30,9 @@ interface InvoiceFilterState {
    * 要那筆物件的時候，在元件裡從列表推導（見 views/）。
    */
   readonly selectedId: string | null;
-  setPage(next: number): void;
-  select(id: string | null): void;
+  // 寫成屬性而不是方法：元件會把它單獨選出來傳給 onClick，方法語法在型別上帶著 `this`。
+  readonly setPage: (next: number) => void;
+  readonly select: (id: string | null) => void;
 }
 
 export const useInvoiceFilterStore = create<InvoiceFilterState>()((set) => ({

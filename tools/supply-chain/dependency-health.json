@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-09-12",
+  "capturedAt": "2026-09-13",
   "registry": "https://registry.npmjs.org",
   "records": [
     {
@@ -51,11 +51,11 @@
       "lastStableAt": "2026-07-16"
     },
     {
-      "name": "@tanstack/vue-query",
+      "name": "@tanstack/react-query",
       "latest": "5.102.8",
       "license": "MIT",
       "publishedAt": "2026-08-27",
-      "stableReleasesPerYear": 70,
+      "stableReleasesPerYear": 72,
       "lastStableAt": "2026-08-27"
     },
     {
@@ -71,7 +71,7 @@
       "latest": "22.20.2",
       "license": "MIT",
       "publishedAt": "2026-09-09",
-      "stableReleasesPerYear": 168,
+      "stableReleasesPerYear": 163,
       "lastStableAt": "2026-09-09"
     },
     {
@@ -79,7 +79,7 @@
       "latest": "19.3.0",
       "license": "MIT",
       "publishedAt": "2026-09-09",
-      "stableReleasesPerYear": 44,
+      "stableReleasesPerYear": 43,
       "lastStableAt": "2026-09-09"
     },
     {
@@ -89,6 +89,14 @@
       "publishedAt": "2026-09-09",
       "stableReleasesPerYear": 11,
       "lastStableAt": "2026-09-09"
+    },
+    {
+      "name": "@vitejs/plugin-react",
+      "latest": "6.1.1",
+      "license": "MIT",
+      "publishedAt": "2026-08-28",
+      "stableReleasesPerYear": 16,
+      "lastStableAt": "2026-08-28"
     },
     {
       "name": "@vitejs/plugin-vue",
@@ -187,12 +195,12 @@
       "lastStableAt": "2026-09-12"
     },
     {
-      "name": "pinia",
-      "latest": "4.0.3",
+      "name": "i18next",
+      "latest": "26.4.2",
       "license": "MIT",
-      "publishedAt": "2026-08-12",
-      "stableReleasesPerYear": 5,
-      "lastStableAt": "2026-08-12"
+      "publishedAt": "2026-09-03",
+      "stableReleasesPerYear": 66,
+      "lastStableAt": "2026-09-03"
     },
     {
       "name": "react",
@@ -219,6 +227,22 @@
       "lastStableAt": "2026-09-09"
     },
     {
+      "name": "react-i18next",
+      "latest": "17.0.13",
+      "license": "MIT",
+      "publishedAt": "2026-09-01",
+      "stableReleasesPerYear": 53,
+      "lastStableAt": "2026-09-01"
+    },
+    {
+      "name": "react-router",
+      "latest": "8.3.1",
+      "license": "MIT",
+      "publishedAt": "2026-08-28",
+      "stableReleasesPerYear": 34,
+      "lastStableAt": "2026-08-28"
+    },
+    {
       "name": "reka-ui",
       "latest": "2.10.4",
       "license": "MIT",
@@ -228,11 +252,11 @@
     },
     {
       "name": "tailwind-merge",
-      "latest": "3.6.0",
+      "latest": "3.7.0",
       "license": "MIT",
-      "publishedAt": "2026-05-10",
-      "stableReleasesPerYear": 5,
-      "lastStableAt": "2026-05-10"
+      "publishedAt": "2026-09-12",
+      "stableReleasesPerYear": 6,
+      "lastStableAt": "2026-09-12"
     },
     {
       "name": "tailwindcss",
@@ -299,22 +323,6 @@
       "lastStableAt": "2026-06-02"
     },
     {
-      "name": "vue-i18n",
-      "latest": "11.4.10",
-      "license": "MIT",
-      "publishedAt": "2026-08-25",
-      "stableReleasesPerYear": 19,
-      "lastStableAt": "2026-08-25"
-    },
-    {
-      "name": "vue-router",
-      "latest": "5.3.1",
-      "license": "MIT",
-      "publishedAt": "2026-09-02",
-      "stableReleasesPerYear": 17,
-      "lastStableAt": "2026-09-02"
-    },
-    {
       "name": "vue-tsc",
       "latest": "3.3.11",
       "license": "MIT",
@@ -324,11 +332,19 @@
     },
     {
       "name": "zod",
-      "latest": "4.6.2",
+      "latest": "4.6.4",
       "license": "MIT",
-      "publishedAt": "2026-09-10",
-      "stableReleasesPerYear": 26,
-      "lastStableAt": "2026-09-10"
+      "publishedAt": "2026-09-13",
+      "stableReleasesPerYear": 28,
+      "lastStableAt": "2026-09-13"
+    },
+    {
+      "name": "zustand",
+      "latest": "5.0.15",
+      "license": "MIT",
+      "publishedAt": "2026-08-13",
+      "stableReleasesPerYear": 7,
+      "lastStableAt": "2026-08-13"
     }
   ]
 }

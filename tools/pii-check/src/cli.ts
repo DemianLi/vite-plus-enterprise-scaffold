@@ -20,7 +20,7 @@ import { trackedFiles } from "./tracked.ts";
  * ⚠️ 曾經還有一個 `--masking` 模式守 §11 II ⑨（宣告為個資的欄位必須隱碼）。
  * 已移除 —— 它要求每個新切片宣告 `personalData`、而宣告的欄位在 `.vue` 裡
  * 必須包 `maskXxx()`，那是加一個切片時最重的一道摩擦。
- * `platform/pii` 的遮罩函式仍然在、`OrderList.vue` 也仍然呼叫它 ——
+ * `platform/pii` 的遮罩函式仍然在、`OrderList.tsx` 也仍然呼叫它 ——
  * **遮罩還在，只是沒有機制強制。**（見 DECISIONS 的 C52）
  */
 

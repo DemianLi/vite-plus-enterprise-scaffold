@@ -88,9 +88,9 @@ function patch(root: string, relativePath: string, from: string, to: string): vo
 }
 
 const STORE = "src/store.ts";
-const VIEW = "src/views/OrderList.vue";
-const STORE_ANCHOR = 'import { defineStore } from "pinia";';
-const VIEW_ANCHOR = 'import { computed } from "vue";';
+const VIEW = "src/views/OrderList.tsx";
+const STORE_ANCHOR = 'import { create } from "zustand";';
+const VIEW_ANCHOR = 'import { useTranslation } from "react-i18next";';
 
 describe("乾淨的副本本身是綠的", () => {
   /**
@@ -107,7 +107,7 @@ describe("乾淨的副本本身是綠的", () => {
   });
 });
 
-describe("D14：Pinia 只放「客戶端才是權威」的東西", () => {
+describe("D14：store 只放「客戶端才是權威」的東西", () => {
   const CASES = [
     {
       what: "store 直接取數（value import ./api.ts）",
@@ -115,7 +115,7 @@ describe("D14：Pinia 只放「客戶端才是權威」的東西", () => {
     },
     {
       what: "store 直接用 useQuery",
-      line: 'import { useQuery } from "@tanstack/vue-query";',
+      line: 'import { useQuery } from "@tanstack/react-query";',
     },
     {
       what: "store 直接用 http client",
@@ -169,7 +169,7 @@ describe("D14：Pinia 只放「客戶端才是權威」的東西", () => {
 describe("D14：view 只負責呈現", () => {
   const CASES = [
     { what: "view 直接 import 資料層", line: 'import { fetchOrders } from "../api.ts";' },
-    { what: "view 直接用 useQuery", line: 'import { useQuery } from "@tanstack/vue-query";' },
+    { what: "view 直接用 useQuery", line: 'import { useQuery } from "@tanstack/react-query";' },
   ];
 
   for (const { what, line } of CASES) {
@@ -196,7 +196,7 @@ describe("D15：設計系統的兩條規則", () => {
   it("根本不用 @org/ui → 紅（C41）", () => {
     const root = makeSandbox();
     // 把整個 import 拿掉，等於「這個切片自己刻 UI」。
-    patch(root, VIEW, 'import { UiButton, UiDialog } from "@org/ui";\n', "");
+    patch(root, VIEW, 'import { UiButton, UiDialog } from "@org/ui/react";\n', "");
 
     const result = runConformance(root);
     expect(result.red, result.output).toBe(true);
@@ -409,7 +409,7 @@ describe("幽靈依賴：import 了但 package.json 沒宣告", () => {
 
   /**
    * ★ 註解裡的 import 範例。這不是假想的情況：`slice-kit/src/contract.ts` 的
-   * JSDoc 就用 `import { useQuery } from "@tanstack/vue-query"` 當反例，
+   * JSDoc 就用 `import { useQuery } from "@tanstack/react-query"` 當反例，
    * 而它是乾跑時第一個亮起來的偽陽性。
    */
   it("★ 註解裡的 import 範例不得被誤擋", () => {
