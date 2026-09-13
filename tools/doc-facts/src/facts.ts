@@ -160,8 +160,6 @@ export const FACTS: readonly Fact[] = [
     // 然後在套件數變動的那天，**一個講「不要抄數字」的工具，自己的註解裡
     // 躺著六個過期的數字**。示意句是給人定位用的，數字在那裡沒有作用。
     citations: [
-      // README：「腳手架帶進來的東西比想像的多：**N 個套件，其中…」
-      /\*\*(\d+) 個套件，其中/,
       // ⚠️ 這一條刻意**不**要求尾巴的「integrity」。HANDOFF 有兩句同樣的話：
       // 第 5–7 節的「- N 個套件全帶 sha512 integrity」，以及第 23 項對照表的
       // 「| N 個套件全帶 sha512 | 標籤 |」。原本的樣式只咬得到前者，
@@ -183,8 +181,6 @@ export const FACTS: readonly Fact[] = [
     describe: "平台限定的原生二進位總數",
     source: "tools/supply-chain/inventory.json → totals.native",
     citations: [
-      /其中 (\d+) 個是平台限定的原生二進位/,
-      /(\d+) 個原生二進位裡有/,
       /核准 \*\*(\d+) 個平台原生二進位/,
       /那 (\d+) 個在安裝時不執行任何腳本/,
       // HANDOFF 摘要表第 2 列：「原生工具鏈的**政策性**例外（144 個二進位）」
@@ -197,14 +193,13 @@ export const FACTS: readonly Fact[] = [
     id: "families",
     describe: "原生二進位的家族數",
     source: "tools/supply-chain/inventory.json → totals.families",
-    citations: [/分屬 (\d+) 個家族/, /(\d+) 個家族\*\*的例外/],
+    citations: [/(\d+) 個家族\*\*的例外/],
   },
   {
     id: "no-slsa",
     describe: "只有發佈簽章、沒有 SLSA provenance 的原生二進位數",
     source: "tools/supply-chain/provenance.json → totals['registry-signature']",
     citations: [
-      /\*\*(\d+) 個沒有 SLSA provenance\*\*/,
       // HANDOFF 摘要表第 3 列：「接受 43 個只有發佈簽章的佐證」
       /接受 (\d+) 個只有發佈簽章的佐證/,
       // HANDOFF 第 2–3 節：「43 個只有 npm 發佈簽章（可驗發佈者…）」
@@ -269,7 +264,7 @@ export const FACTS: readonly Fact[] = [
     id: "contract-items",
     describe: "D8 中間層的可執行契約條目數",
     /**
-     * 引用最多的一個（5 句），而且兩份文件的**交付表**裡各有一句 ——
+     * 引用最多的一個（4 句），而且兩份文件的**交付表**裡各有一句 ——
      * 那是拿去跟後端／gateway 團隊對規格的那一格。
      */
     source: "platform/bff-contract 的 CONTRACT_ITEMS",
@@ -280,9 +275,7 @@ export const FACTS: readonly Fact[] = [
       /D8 中間層的 (\d+) 條驗收條目/,
       // README 資料夾結構：「中間層必須做到什麼（13 條契約條目）」
       /（(\d+) 條契約條目）/,
-      // README：「全綠代表這一層滿足 D8。13 條契約條目、可覆寫的 env…」
-      /D8。(\d+) 條契約條目/,
-      // README 交付表：「13 條中間層契約條目、可覆寫的 env…」
+      // README〈完整文件〉：「13 條中間層契約條目、可覆寫的環境變數…」
       /(\d+) 條中間層契約條目/,
     ],
   },
