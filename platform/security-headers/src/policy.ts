@@ -40,17 +40,17 @@ export const BASE_DIRECTIVES: CspDirectives = {
 
   // 注意 style-src 與 style-src-attr 是**分開的兩條**。
   //
-  // 這一條原本的理由是 Vue 的 `:style` 產生 inline style **屬性**。C240 換成 React 後重量：
-  // React 的 `style={{…}}`、Base UI 的捲動鎖定與定位都走 CSSOM（`element.style.x = …`），
-  // CSP 不管那條路 —— 正式產物 `setAttribute("style"` 0 處、`.style.` 39 處；把這一條收成
-  // `'none'` 的對照組在 enforce 下打開對話框，零違規，捲動照樣鎖住。
+  // style-src-attr 從 D11 起一直放行 'unsafe-inline'，理由是 Vue 的 `:style` 產生 inline
+  // style **屬性**。換成 React 之後那個理由沒了：React 的 `style={{…}}`、Base UI 的定位與
+  // 捲動鎖定都走 CSSOM（`element.style.x = …`），CSP 不管那條路。C245 在 enforce 下把
+  // 會彈出的五支（Select／DropdownMenu／DatePicker／Dialog／AlertDialog）逐一打開，
+  // 收成 'none' 與原本的 'unsafe-inline' 兩邊的位置、捲動鎖定、違規逐項相同。
   //
-  // ⚠️ **放行照舊，而現在的理由是「沒有量完」**：只量了對話框那一條路徑，其他元件與
-  // 日後加進來的第三方元件沒有逐一點過。要不要收緊是人的決定（C240 §八）。
-  //
-  // 例外仍然精準地縮在屬性上，**不放寬整個 style-src**。
+  // ⚠️ 這一條擋的是 HTML 裡的 `style="…"` 與 `setAttribute("style", …)`。日後加進來的
+  // 第三方元件若走這兩條，症狀是**樣式安靜地沒套上**（console 有一行 violation）——
+  // 那時要改的是元件，要放寬就得改 UNSAFE_INLINE_ALLOWED_IN，review 看得到。
   "style-src": ["'self'"],
-  "style-src-attr": ["'unsafe-inline'"],
+  "style-src-attr": ["'none'"],
 
   "img-src": ["'self'", "data:"],
   "font-src": ["'self'"],
@@ -71,12 +71,12 @@ export const BASE_DIRECTIVES: CspDirectives = {
 export const FORBIDDEN_VALUES = ["'unsafe-eval'", "'unsafe-hashes'", "*"] as const;
 
 /**
- * 唯一允許使用 `'unsafe-inline'` 的指令。
+ * 允許使用 `'unsafe-inline'` 的指令。**C245 起是空的**。
  *
  * 這個清單存在的意義是讓「再加一條例外」變成必須修改本檔、
  * 因而必然出現在 code review 的動作 —— 而不是某人在 nginx 設定裡悄悄加一個字。
  */
-export const UNSAFE_INLINE_ALLOWED_IN = ["style-src-attr"] as const;
+export const UNSAFE_INLINE_ALLOWED_IN = [] as const;
 
 export interface CspOptions {
   /**

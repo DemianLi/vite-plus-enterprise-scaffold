@@ -37,6 +37,7 @@ export interface StaticCspViolation {
 const SCRIPT_TAG = /<script\b([^>]*)>/gi;
 const HAS_SRC = /\bsrc\s*=/i;
 const STYLE_TAG = /<style\b/gi;
+const STYLE_ATTRIBUTE = /\sstyle\s*=/gi;
 const EVENT_HANDLER_ATTRIBUTE = /\son[a-z]+\s*=/gi;
 const JAVASCRIPT_URL = /["'(\s]javascript:/gi;
 
@@ -71,9 +72,17 @@ export function findStaticCspViolations(html: string): StaticCspViolation[] {
     violations.push({
       kind: "inline-style-block",
       excerpt: excerpt(html, match.index),
+      reason: "policy 的 style-src 是 'self'，inline <style> 區塊會被擋掉。",
+    });
+  }
+
+  for (const match of html.matchAll(STYLE_ATTRIBUTE)) {
+    violations.push({
+      kind: "inline-style-attribute",
+      excerpt: excerpt(html, match.index),
       reason:
-        "policy 的 style-src 是 'self'，inline <style> 區塊會被擋掉。" +
-        "（注意：Vue 的 :style 產生的是 style **屬性**，由 style-src-attr 管，不受此限。）",
+        "policy 的 style-src-attr 是 'none'（C245），style 屬性會被擋掉，而且 nonce 救不了 —— " +
+        "屬性不吃 nonce。改用 class；動態值在 JS 裡寫 element.style（CSSOM 不受 CSP 管）。",
     });
   }
 

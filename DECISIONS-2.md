@@ -13053,3 +13053,81 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 | **C238 §二 6**       | `@internationalized/date` 的 catalog 註解重寫                                             |
 | **AGENTS.md 規則二** | **遵守** —— 拿掉的東西都問過或已揭露；團隊那一半（根層 `vite.config.ts`）經 Q106 授權才動 |
 | **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                            |
+
+### C245 — CSP 的 `style-src-attr` 從 `'unsafe-inline'` 收成 `'none'`：會彈出的五支在 enforce 下與舊政策逐項相同；建置期檢查改成也抓 style 屬性；Base UI 的 inline `<style>` 是另一件（2026-09-13）
+
+#### 一、人裁
+
+C240 §四 把「`style-src-attr 'unsafe-inline'` 要不要收」交給人，前提寫明「收之前要把 Select、DropdownMenu、DatePicker 與日後進來的第三方元件在 enforce 下逐一點過」。人答「要」。同一輪交回的另一件（根層 `specs/promise-1-architecture.feature` 第 4 行的「composables」）是規格，AGENTS.md 規則四不准 agent 動 —— 建議的改法（只換成 `hooks`）交人，本則不碰。
+
+#### 二、做了什麼
+
+1. **`policy.ts`**：`style-src-attr` 改成 `'none'`；那段註解重寫成現在的理由與代價（屬性寫法會「樣式安靜地沒套上」，要放寬得改白名單）。
+2. **`UNSAFE_INLINE_ALLOWED_IN` 清成空的**（我自己決定的，揭露）。另一個做法是把 `'unsafe-inline'` 放進 `FORBIDDEN_VALUES` —— 那會把 D11 設計好的「加回例外必須改這個檔」那條路一起堵死，所以不選。清空之後原本那條逐指令檢查的迴圈只在有人加回例外時才走得進去，所以補兩顆不靠它的 ★：「政策裡找不到 `'unsafe-inline'`」與「白名單是空的」。
+3. **建置期的靜態檢查（`static-csp.ts`）加一種違規 `inline-style-attribute`**（我自己決定的，揭露；是收緊、不是放寬）：政策收成 `'none'` 之後，產物 HTML 裡的 `style="…"` 會被瀏覽器擋掉，而原本那條測試寫的是「style 屬性不算違規」—— 不改的話那支檢查會替一個已經不成立的例外背書。今天 `dist/index.html` 的 style 屬性是 0 處（對照：`<script` 1 處），所以這條不會讓現在的建置變紅。原測試翻成「抓得到」，另補一條「名字裡帶 style 的屬性不誤判」。
+4. **`csp-verify`**：探針二（style 屬性）的期望從「生效」翻成「被擋」，README 那張表跟著改。⚠️ 翻過來之後，證明「CSP 不是把什麼都擋了」的只剩探針三（外部樣式表有載入），這一點寫進 README。
+5. **`policy.test.ts` 與 `static-csp.ts` 裡講 Vue `:style` 的句子**改成現在的理由（C244 §三 交過來的那幾句）。
+6. **`api-surface`**：`UNSAFE_INLINE_ALLOWED_IN` 的型別 `readonly ["style-src-attr"]` → `readonly []`，工具判定為相容變更，`--update` 同步基準。登記把負向測試赦免掉的陷阱查過：`tools/api-surface` 的測試與原始碼裡 `UNSAFE_INLINE`／`security-headers` 0 處（對照：同一支掃描拿 `slice-kit#Feature` 掃到 1 支）。
+
+#### 三、量測
+
+**瀏覽器，enforce**（C240 §四 要的那一項）。臨時量測頁（不提交，量完刪掉、`git status` 零列）掛在 `apps/console`，把會彈出的五支與其餘互動元件擺上去，模組一載入就記錄 `securitypolicyviolation`。產物由這個 worktree 建出來，頁面上載入的 JS 檔名與這一次建置的相同；`csp-verify` 起兩份，標頭用 curl 核過。瀏覽器是桌面 app 內建的 Chromium（版本沒記下來）；點擊是 JS 送出的 pointer／mouse 事件，不是實體滑鼠。
+
+| 量什麼                                        | `'none'`（本則）                                  | 對照：`'unsafe-inline'`（原政策） |
+| --------------------------------------------- | ------------------------------------------------- | --------------------------------- |
+| 初次渲染                                      | 0 違規；`style={{…}}` 照樣生效                    | 0 違規                            |
+| Select 打開（位置 181／25，寬 959）           | 相同；1 條 `style-src-elem`                       | 相同；同一條 `style-src-elem`     |
+| DropdownMenu 打開（228／24，寬 160）          | 相同；0 違規；捲動鎖住                            | 相同                              |
+| DatePicker 打開（284／380，寬 250）           | 相同；0 違規                                      | 相同                              |
+| Dialog／AlertDialog 打開                      | 相同；0 違規；捲動鎖住                            | 相同                              |
+| Tabs、Checkbox、Switch 切換                   | 正常；0 違規                                      | —                                 |
+| 正向對照：`setAttribute("style", …)` 一個 div | **被擋**（`style-src-attr`，enforce），顏色沒套上 | 生效，顏色套上                    |
+
+最後一列是這張表能讀的前提：少了它，「0 違規」與「CSP 沒生效」長得一樣。
+
+**靜態篩檢**（先做的，不能取代上表）：已安裝的 `@base-ui/react`、`@base-ui/utils`、`@floating-ui/react-dom`、`@floating-ui/dom`、`react-day-picker`、`react-dom` 的 `setAttribute("style"` 與 `.cssText =` 都是 0 處（對照：`.style.` 寫法 46／2／0／0／2／16 支檔）；`platform/ui/src`、`apps/`、`features/` 的 `style={` 0 處（對照 `className=` 有）；建置產物 `setAttribute("style"` 0、`.cssText=` 0、`.style.` 82。第一趟篩檢量出全部 0 —— 對照組也是 0，是 zsh 把沒加引號的 `--include=*.js` 當成萬用字元展開、再加上 `cd` 跨呼叫留著造成的假零，整趟作廢重量。
+
+#### 四、變異
+
+每顆改一處，跑 `@org/security-headers` 的測試，還原後工作區零改動。
+
+| #    | 改法                                    | 紅                                                       |
+| ---- | --------------------------------------- | -------------------------------------------------------- |
+| 對照 | 不改                                    | 0（44 條全綠）                                           |
+| N1   | `style-src-attr` 改回 `'unsafe-inline'` | 3（找不到 `'unsafe-inline'`、白名單迴圈、`'none'` 那條） |
+| N2   | 白名單加回 `style-src-attr`（政策不動） | 1（白名單是空的）                                        |
+| N3   | 靜態檢查不掃 style 屬性                 | 1（抓得到 style 屬性）                                   |
+| N4   | style 屬性的樣式拿掉前面的空白          | 1（不誤判名字裡帶 style 的屬性）                         |
+
+#### 五、交給後面的，以及沒有機制在守的
+
+- **Base UI 的 inline `<style>`（已存在，與本則無關）**：Select 打開時 `@base-ui/react` 的 `utils/styles` 用 JSX 渲染一個 `<style precedence="base-ui:low">`（藏捲軸），被 `style-src-elem` 擋掉，原政策同樣擋。後果是捲軸沒藏起來（外觀）與 console 一行錯誤。**C233 §三／C235 的「Base UI 不注入 `<style>`」對已安裝的版本不成立**：`base-ui-no-style.test.ts` 只認 `createElement('style')`，認不得編譯後的 `jsx("style", …)`。Base UI 有 `CSPProvider` 的 `disableStyleElements` 可用。把判定式擴到 JSX 寫法會讓那支測試在今天的樹上紅，是改閘門，交人；已開成另一件工作，本則不做。
+- **日後進來的第三方元件**：執行期用 `setAttribute("style")` 或 HTML 字串帶 `style="…"` 的元件，在正式環境的症狀是樣式安靜地沒套上。建置期檢查只看產物 HTML；元件執行期的寫法**沒有機制在守**，靠升級或加元件時跑一次 `csp-verify` 的探針，而那一步要人開瀏覽器（C52 拆掉自動那一半的理由不變）。
+- **`HANDOFF.md` 第 5 項「五個探針全對」**是 2026-08-15 那一次的紀錄，探針二的期望已翻；文件留給 ⑤c。
+- **`policy.ts` 第 14 行的註解**提到一個檔案裡不存在的 `NONE_DIRECTIVES`，是舊的；不在本則範疇，沒改。
+
+#### 六、C154 §三
+
+| 新增的檢查                                         | 交付軸                            | 迭代軸（① 對象在外、② 壞法安靜）                               | 級別               |
+| -------------------------------------------------- | --------------------------------- | -------------------------------------------------------------- | ------------------ |
+| `policy.test.ts`「政策裡找不到 `'unsafe-inline'`」 | CSP 放寬會變紅                    | ① 下發給 gateway 的標頭；② CSP 放寬零症狀，直到滲透測試開單    | 自我防護（N1）     |
+| `policy.test.ts`「白名單是空的」                   | 加回例外必須改這個檔              | ① 同上；② 清空之後逐指令迴圈恆真                               | 自我防護（N2）     |
+| `static-csp`「抓到 style 屬性」與它的誤判守衛      | 產物 HTML 帶 style 屬性時建置失敗 | ① 其他 plugin 寫進 HTML 的東西；② 瀏覽器擋掉只少了樣式、不報錯 | 自我防護（N3、N4） |
+
+#### 七、實測
+
+- 本機 `vpr ready`：READY_RC 0。量在 squash 前的 WIP commit `904e589` 上，一路跑到 `gate` 的最後一步 `release-distance`。之後只改了本則 §七 這一行。
+
+#### 八、與既有裁決的關係
+
+| 裁決                 | 關係                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| **D11**              | 政策收緊；白名單機制照留，清單清空                                                  |
+| **R6**               | 靜態檢查多一種違規；「靜態標頭就夠」的前提不變（style 屬性本來就沒有 nonce 可以救） |
+| **C240 §四**         | 那一格的人裁與前提在本則完成；第三方元件那一半見 §五                                |
+| **C244 §三**         | 交來的 `security-headers` 裡講 Vue `:style` 的句子已改                              |
+| **C233 §三／C235**   | 「Base UI 不注入 `<style>`」對已安裝的版本不成立，見 §五，另案處理                  |
+| **C52**              | 照舊：瀏覽器那一半靠人跑，不回到自動機制                                            |
+| **AGENTS.md 規則二** | **遵守** —— 只收緊；兩處自己決定的（§二 2、3）已揭露                                |
+| **AGENTS.md 規則四** | **遵守** —— `specs/` 那一行交人                                                     |
+| **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                      |

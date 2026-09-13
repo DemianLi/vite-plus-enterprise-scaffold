@@ -493,7 +493,7 @@ reason: string
 ### `UNSAFE_INLINE_ALLOWED_IN` — value
 
 ```
-readonly ["style-src-attr"]
+readonly []
 ```
 
 ---
