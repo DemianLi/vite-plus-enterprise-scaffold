@@ -264,9 +264,9 @@ function raiseFirstThreshold(sandbox: Sandbox): void {
 function firstView(sandbox: Sandbox): string {
   const dir = slicePath(sandbox, 0, "src/views");
   const view = readdirSync(dir)
-    .filter((name) => name.endsWith(".vue"))
+    .filter((name) => name.endsWith(".tsx"))
     .sort()[0];
-  if (view === undefined) throw new Error(`[promise-check] ${dir} 底下沒有 .vue`);
+  if (view === undefined) throw new Error(`[promise-check] ${dir} 底下沒有 .tsx`);
   return join(dir, view);
 }
 
@@ -294,8 +294,9 @@ export const BREAKAGES: ReadonlyMap<string, (sandbox: Sandbox) => void> = new Ma
   [
     "一片切片的 view 直接 import 了自己的資料層",
     (sandbox: Sandbox) => {
-      // `<script setup>` 那一行是 SFC 的定義，比任何一句 import 都穩。
-      insertAfter(firstView(sandbox), "<script setup", 'import { fetchAll } from "../api.ts";');
+      // 第一個含 `from "` 的行一定是一句 import 的結尾（多行 import 的 `} from "…";` 也是），
+      // 插在它後面不會切開任何語句；錨在某個套件名上則會隨各案的 import 而失效（C240）。
+      insertAfter(firstView(sandbox), 'from "', 'import { fetchAll } from "../api.ts";');
     },
   ],
   [
