@@ -36,6 +36,12 @@ rules:
       - pattern: $ROUTE.params
       - pattern: useRoute().query
       - pattern: useRoute().params
+      # react-router（C241，Q97）：上面四條是 vue-router 的寫法，對 React 畫面一條都命不中。
+      # 三個 hook 回傳的整包都是使用者可控的（路徑參數、查詢字串、hash、state），
+      # 所以來源是呼叫本身，不挑欄位。Vue 那四條隨 C232 §六 ⑤ 退場。
+      - pattern: useParams()
+      - pattern: useSearchParams()
+      - pattern: useLocation()
     # ⚠️ 六個 sink 裡**只有中間三個是這條規則獨有的**（C210／#241 實測，
     # 2026-09-09 重驗）：`innerHTML`／`outerHTML`／`document.write` 被 Tier 2 的
     # ESLint `no-unsanitized` 蓋掉，而且**更寬** —— 它不需要 taint，任何非字面值的

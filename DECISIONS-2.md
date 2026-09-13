@@ -12727,3 +12727,79 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 | **AGENTS.md 規則二** | **遵守** —— `usesDesignSystem` 的改動揭露在 §二 4；`style-src-attr` 收不收交人裁                                                     |
 | **AGENTS.md 規則三** | **遵守** —— 驗收規格那條鏈零差異                                                                                                     |
 | **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                                                       |
+
+### C241 — 第 ④ 批：React 的 hook 與 XSS 規則用 oxlint 內建的，不另裝 ESLint 外掛；`vue-typecheck` 退場挪到 ⑤ —— 它守的 `.vue` 還在；SAST 規則補上 react-router 的來源（2026-09-13，Q94–Q97）
+
+> C232 §六 ④ 的實作。動手前量到兩件事讓原排法走不下去，四題都在寫程式之前問（§一）。
+>
+> ⚠️ **編號**：開工時 #374（`docs/readme-rewrite`）仍開著、佔 C239 與 Q74–Q88，`main` 上到 C240、Q93；它在本支 rebase 之前合進 `main`（`b37b8de`），C239 從此指得到。本則接 C241、Q94。
+
+#### 一、四題由人裁
+
+| #       | 問題                                                                                                                                                                                   | 裁決                           |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **Q94** | React 的 hook 與 XSS 規則：C232 §五 預設 `eslint-plugin-react-hooks` 7.1.1；實測 oxlint 1.81 內建 `react`／`react-hooks`，四條在探針上全部開火                                         | **oxlint 內建**                |
+| **Q95** | `vue-typecheck` 何時退場：C232 §七 的理由是「它守的 `.vue` 不存在了」，而 `platform/ui` 還有 27 支 `.vue`（由 `.` 入口匯出、外面零消費者），⑤ 才刪                                     | **挪到 ⑤，與刪 `.vue` 同一支** |
+| **Q96** | 開了 `react` 外掛，`.semgrep/rules.ts`（semgrep 的反向測試夾具）自己宣告的 `useRoute` 被 `rules-of-hooks` 當成 React hook，3 條誤報、`vp lint` 紅                                      | **只對這一支關這一條**         |
+| **Q97** | SAST 規則 `tainted-route-input-to-dom-sink` 的汙點來源是 vue-router 的寫法，react-router 的 `useParams`／`useSearchParams`／`useLocation` 一個都命不中（樹上今天零處讀它們，沒有漏網） | **這一批補上**                 |
+
+- **Q94 的依據**：oxlint 的探針（repo 外一支 `.tsx`，外掛與四條明寫開啟、`no-console` 當對照）四條全中；接進 `vite.scaffold.ts` 之後 `vp lint --print-config` 讀得到四條 `deny`。另一條路要多 `@babel/core`、`@babel/parser`、`hermes-parser`、`zod` 等相依，而它管的是對錯不是安全，放進 Tier 2 會稀釋那一軌（`index.js` 檔頭「與 oxlint 零重疊」）。
+- **Q95 是 C232 §六 與 §七 自己的矛盾**：§六 把退場排在 ④，§七 把退場的理由寫成「輸入不存在」，而輸入在 ⑤ 才刪。照 ④ 退場等於拿掉一道還有輸入的閘門（AGENTS.md 規則二的方向），所以停下來問，不是自己挑一邊。
+- **Q96 改的是豁免的射程，所以問**：同 Q63／Q65／Q93，列檔名、只關一條。
+
+#### 二、做了什麼
+
+1. **`vite.scaffold.ts`**：`plugins` 加 `react`；`rules` 加 `react/rules-of-hooks`、`react/exhaustive-deps`、`react/no-danger`、`react/jsx-no-target-blank` 四條 `error`（hook 那兩條寫 `react/` 不寫 `react-hooks/`，見 §三）。`scaffoldOverrides` 加一條 `files: [".semgrep/rules.ts"]`、只關 `react/rules-of-hooks`（Q96）。
+2. **`.semgrep/rules.yml`**：`pattern-sources` 加 `useParams()`、`useSearchParams()`、`useLocation()` —— 三個 hook 回傳的整包都是使用者可控的，所以來源是呼叫本身、不挑欄位。Vue 那四條留到 ⑤。**`rules.ts`** 補三條 `ruleid`（`useParams` → `innerHTML`、`useSearchParams` → `location.href`、`useLocation` → `window.open`）與一條 `ok`（`useSearchParams` → `textContent`），兩個方向都有。
+3. **散文**：`platform/eslint-config/src/index.js` 檔頭補一句「React 那一格在 oxlint、別在這一軌加外掛」；`tools/compliance/src/map.ts` 的 `eslint-security` 那一列補同一件事（交付文件重產）—— 不補的話，讀交付文件的人會以為 React 的 XSS 入口沒人擋。`platform/slice-kit/src/contract.ts` 註解與 `tools/conformance/src/rules/layering.ts` 的**修法訊息**把 `eslint-plugin-react-hooks` 換成 oxlint 的 `react/rules-of-hooks`（掃字串找到的，import 搜尋看不到訊息）；`tools/exit-drill/tests/plugin-accounting.test.ts` 那段自稱「真正的內容」的樣本跟著加 `react`。
+4. **沒動的**：`vue-typecheck` 與它的七個消費端、`eslint-config` 的 Vue 那一格與 `eslint-plugin-vue`／`vue-eslint-parser`、a11y 的 `.vue` 軌與 `a11y-violations.vue`、`compliance` 的 `vue-typecheck` 那一列 —— 全部照 Q95 到 ⑤。
+
+#### 三、量測
+
+- **探針**：在 `features/order/src/views/` 暫放一支四種違規各一的 `.tsx`，跑 `vp lint`，還原後工作區零改動。
+
+| 情境                                     | error | warning | 開火的規則                             |
+| ---------------------------------------- | ----- | ------- | -------------------------------------- |
+| 本支（探針檔在場）                       | 4     | 16      | 四條各 1                               |
+| 對照：`plugins` 拿掉 `react`             | 0     | 11      | —                                      |
+| 本支拿掉 `.semgrep/rules.ts` 的 override | 7     | 16      | 全是 `rules-of-hooks`、全在 `rules.ts` |
+| 本支（無探針檔）                         | 0     | 16      | —                                      |
+
+- **`vp lint` 的 warning 11 → 16**：開了外掛，它 correctness 類的規則以 warning 一起生效（`--print-config` 讀得到 34 條 `react/*`，只有四條是這裡點名的 `deny`）。多出來的五則：`platform/ui` 兩支測試用 `createElement(UiField, { children })` 傳 render prop（`no-children-prop` ×4 —— 在 `.ts` 裡沒有 JSX，第三個參數收不了函式型別）、`DevSession.tsx` 的 effect 裡呼叫非同步的 `refresh()`（`set-state-in-effect` ×1，setState 在 `await` 之後）。**沒有改碼、也沒有關掉那些預設**：warning 不擋 PR，關掉是改設定，改碼是為了讓一則不擋的訊息安靜。
+- **semgrep 在本機沒有跑**：本機沒裝，CI 用的是釘死 digest 的 docker image，拉它是下載。四條新夾具的驗證在 CI 的 `gate`（`tier2-security.yml` 的 `semgrep --test`）：`ruleid` 那一行沒命中、或 `ok` 那一行被命中，都會紅。來源寫成呼叫本身而不是 `searchParams.get(...)`，是因為 semgrep 文件只寫到「taint 經過賦值、運算子、函式呼叫傳播」，沒寫解構 —— `useSearchParams` 那兩條夾具正好走解構，CI 會回答它。
+- **`rules.ts` 檔頭「不在 eslint 的掃描範圍」是對的**：ESLint 經 `@org/eslint-config/scaffold` 排除 `.semgrep/`；oxlint 本來就掃它（`.semgrep/**` 那一條 override 關掉的是 `no-eval` 那三條），所以 Q96 的誤報是 oxlint 報的，不是那句話失效。
+- **`scaffold-stamp` 抓到規則名的寫法**：hook 那兩條第一版寫成 `react-hooks/rules-of-hooks`／`react-hooks/exhaustive-deps` —— oxlint 收這個寫法、規則照樣開火（§三 的探針就是量在這一版上），但 `--print-config` 把它們登記成 `react/rules-of-hooks`／`react/exhaustive-deps`，而章比對的是 `vite.scaffold.ts` 的字面（只換嚴重度的寫法，不換規則名）。於是 `scaffold-stamp` 自己的 CLI 測試兩條紅：「腳手架的規則被蓋掉了 …… 生效的是（沒有）」加上 Q96 那一條 override「不在最後，或被改了」。**修的是這裡的寫法，不是閘門**：改成 `--print-config` 的名字，比對就對得上；閘門那一側若學會別名，等於讓它認得兩種寫法、而 fork 可以拿另一種寫法蓋掉腳手架那一條而不被發現。改名後探針重跑，結果同上表。
+
+#### 四、交給 ⑤ 的，以及還沒量的
+
+- **⑤（Q95）**：`vue-typecheck` 退場要同一支 PR 一起改 —— `package.json` 的 `gate:upstream`／`gate:fork`／`vue-typecheck` 別名、`tools/gate-roster/src/gates.ts`、`.github/workflows/tier1-quality.yml` 那一步、`README.md` 的目錄樹與〈兩層檢查〉那張表（漏一處 `gate-roster` 會紅，C232 §六）、`tools/compliance/src/map.ts` 那一列、`.gitignore`、`pnpm-workspace.yaml` 的 `catalogs.vue-typecheck`、`stryker.config.mjs`、`tools/gate-kit`、`tools/slice-gen` 的覆蓋率測試。同一支還有 `eslint-config` 的 Vue 那一格與兩支相依、a11y 的 `.vue` 軌（`a11y-violations.vue` 是那一軌的對照組，軌道一起走才能刪）、`vite.scaffold.ts` 的 `vue` 外掛與兩格 `vue/max-props`、`.semgrep/rules.yml` 的四條 vue-router 來源與 `rules.ts` 的 `useRoute` 夾具。
+- **C232 §六 ④ 的「`compliance` 的對照表」**：跟著 `vue-typecheck` 那一列到 ⑤；這一批只補了 `eslint-security` 那一列的 React 說明。
+- **沒量的**：`exhaustive-deps` 開成 `error` 對日後的切片有多吵 —— 今天樹上零命中，分母只有兩片切片與一個應用殼。
+
+#### 五、C154 §三
+
+| 新增的檢查                                            | 交付軸                                                     | 迭代軸（① 對象在外、② 壞法安靜）                                                  | 級別                         |
+| ----------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------- |
+| oxlint `react/rules-of-hooks`、`exhaustive-deps`      | 畫面照 React 的規則寫（D14 的 hook 那一層）                | ① 切片與應用殼的 `.tsx`；② 條件式呼叫 hook 在多數 render 下照常、某一條路徑才錯亂 | 探針（§三）                  |
+| oxlint `react/no-danger`、`react/jsx-no-target-blank` | XSS 與 tabnabbing（D5 的安全那一半，React 那一格）         | ① 同上；② 畫面照常、零報錯，漏洞只在惡意輸入到的那一刻現形                        | 探針（§三）                  |
+| semgrep 的 react-router 三個來源                      | 路由參數流進 DOM sink 與開放重導向（`tier2-security.yml`） | ① 切片讀路由的寫法；② 規則對 React 畫面零命中而步驟照樣綠                         | 自我防護（`semgrep --test`） |
+
+**豁免**：`.semgrep/rules.ts` 關 `rules-of-hooks`（Q96），拿掉它 7 條紅（§三）。
+
+#### 六、實測
+
+- 本機 `vpr ready`：**READY_RC 0**，量在 `b71c817` 上（rebase 到 `b37b8de` 之後；rebase 之前在 `f6b9223` 也是 0）；之後只改了這一行。更早紅過兩趟：第一趟在 `decision-ids`（本則開頭寫了 #374 那個編號的字面，這條分支上指不到 —— C240 踩過同一個），第二趟在 `scaffold-stamp` 自己的 CLI 測試（§三 最後一段）。
+- semgrep 的新夾具在 CI 的 `gate` 才跑得到（§三）。
+- ⚠️ **推錯過一次基底**：壓 commit 時用了 `reset --soft origin/main`，而 `origin/main` 剛好移到 #374 合併後的 `b37b8de` —— 工作區是從 `c911cb8` 開的，那支 commit 因此把 #374 整批倒回（`DECISIONS-2.md` 刪 81 行、C239 整則消失），而且推上去了。抓到它的是推之前印的 `--numstat` 刪除欄（應該是 0）。處置：同一棵樹重新提交在 `c911cb8` 上（樹逐位元組相同），再 rebase 到 `b37b8de`（無衝突），驗 C239／C240／C241 三則都在、兩份紀錄的刪除欄是 0，然後重跑 `vpr ready`；遠端那支用 `--force-with-lease` 蓋掉，PR 在那之後才開。
+
+#### 七、與既有裁決的關係
+
+| 裁決                 | 關係                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| **C232**             | §五「lint／a11y」那一列的 hook 外掛以 Q94 為準；§六 ④ 的 `vue-typecheck` 退場以 Q95 為準，挪到 ⑤ |
+| **C234**             | a11y 的 `.tsx` 軌照舊；`jsx-a11y-x` 不動                                                         |
+| **C240**             | §四 交來的「`eslint-plugin-react-hooks` 還沒裝」由 Q94 答掉（不裝，改用 oxlint）                 |
+| **D11**              | `no-eval` 那一條是先例：安全規則在 oxlint 有對應時住在 `vite.scaffold.ts`，不是只能住 Tier 2     |
+| **C210**             | `tainted-route-input-to-dom-sink` 的判讀照舊；只補來源，sink 不動                                |
+| **AGENTS.md 規則二** | **遵守** —— 退場時機與豁免射程都交人裁（Q95、Q96）；外掛預設的五則 warning 沒有關掉              |
+| **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                   |

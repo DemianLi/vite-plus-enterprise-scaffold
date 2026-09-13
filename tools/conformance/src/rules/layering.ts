@@ -53,7 +53,7 @@ export function checkSliceLayering(slicePath: string, slice: string): Finding[] 
             "hook 命名",
             `${HOOKS_DIR}/${entry} 不符合 useXxx.ts`,
             "React 的慣例：hook 以 use 開頭、駝峰命名。" +
-              "命名一致，eslint-plugin-react-hooks 與 code review 才認得出哪些函式只能在元件頂層呼叫",
+              "命名一致，oxlint 的 react/rules-of-hooks 與 code review 才認得出哪些函式只能在元件頂層呼叫",
           );
           continue;
         }

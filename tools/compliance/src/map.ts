@@ -191,7 +191,7 @@ export const GATES: readonly Gate[] = [
     command: "./node_modules/.bin/eslint . --max-warnings=0",
     evidence: null,
     negativeTest: null,
-    note: "存在的首要理由是 oxlint 沒有 vue/no-v-html —— Vue 專案最主要的 XSS 入口。",
+    note: '存在的首要理由是 oxlint 沒有 vue/no-v-html —— Vue 專案最主要的 XSS 入口。⚠️ React 那一格（`dangerouslySetInnerHTML`）**不在這道閘門**：oxlint 有 `react/no-danger`，所以它和 `target="_blank"` 那條一起在 `vite.scaffold.ts`，由 `vp check` 擋（C241）。',
   },
   {
     id: "a11y-lint",

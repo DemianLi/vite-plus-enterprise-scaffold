@@ -21,7 +21,7 @@
 type Severity = "allow" | "off" | "warn" | "error" | "deny";
 type Rule = Severity | [Severity, ...unknown[]];
 type Rules = Record<string, Rule>;
-type Plugin = "import" | "typescript" | "unicorn" | "oxc" | "vue" | "promise";
+type Plugin = "import" | "typescript" | "unicorn" | "oxc" | "vue" | "react" | "promise";
 
 interface Override {
   files: string[];
@@ -34,7 +34,7 @@ export const scaffoldLint: {
   rules: Rules;
   options: { typeAware: boolean; typeCheck: boolean };
 } = {
-  plugins: ["import", "typescript", "unicorn", "oxc", "vue", "promise"],
+  plugins: ["import", "typescript", "unicorn", "oxc", "vue", "react", "promise"],
 
   rules: {
     // D11 — CSP 無 unsafe-eval 的前提：執行期不得有任何 eval 語意。
@@ -42,6 +42,18 @@ export const scaffoldLint: {
     "no-implied-eval": "error",
     // 循環依賴會讓切片邊界在執行期失效，且使 SAST 的資料流分析失準。
     "import/no-cycle": "error",
+
+    // React 那一套用 oxlint 內建的，不另裝 eslint-plugin-react-hooks（C241，Q94）。
+    // `no-danger` 是 `vue/no-v-html` 的對應：Vue 那條住在 Tier 2 ESLint，是因為 oxlint
+    // 沒有它；React 這條 oxlint 有，所以不必為它另開一軌。
+    // ⚠️ 開了 `react` 外掛，它 correctness 類的規則會以 warning 一起生效 —— 那是外掛的
+    // 預設，不是這裡點名的；擋 PR 的只有下面四條。
+    // ⚠️ hook 那兩條寫 `react/` 不寫 `react-hooks/`：後者 oxlint 也收，但 `--print-config`
+    // 登記成前者，`scaffold-stamp` 拿這裡的字面去比就判成「被蓋掉了」（C241 §三）。
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    "react/no-danger": "error",
+    "react/jsx-no-target-blank": "error",
   },
 
   options: {
@@ -213,6 +225,14 @@ export const scaffoldOverrides: Override[] = [
       // ⚠️ 只有這一條有 typescript/ 版本；寫 `typescript/no-eval` 會讓
       // 整個 lint 設定建不起來（Rule not found），連掃都不會開始。
       "typescript/no-implied-eval": "off",
+    },
+  },
+  {
+    // `rules.ts` 自己宣告的 `useRoute`／`useParams`… 是 semgrep 規則的汙點來源，
+    // 故意在一般函式裡呼叫，不是 React hook（C241，Q96）。只關這一條、只列這一支。
+    files: [".semgrep/rules.ts"],
+    rules: {
+      "react/rules-of-hooks": "off",
     },
   },
   {
