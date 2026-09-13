@@ -405,7 +405,7 @@ file	d23640a1e39bd21ea6a60a6d5dd727636c609959f3617f25546cc9345d0a93f2	tools/vue-
 file	01fdcbf8666a4b8281c694345c957a5d2ed677e26ad34207927a7699c884b5df	tools/vue-typecheck/tests/programs.test.ts
 file	cbc6b6c2ea6890065ebe4ed48187ee1eba2ee30093f05b431a18cebc61d42a5a	tools/vue-typecheck/tsconfig.json
 file	3eb7002122053b2d5d3e8a3260c44776063b91e39b0eace8df7a587f2b40a887	tools/vue-typecheck/vite.config.ts
-file	4b8dea332059680ad0a483853160db8b2a70f748ccce16c89c73cb841cb4bb0d	vite.scaffold.ts
+file	9dcd53b0057ad79edc6b13a6a3c6bdc77dc5ac4463abfb8a9cb641ba6eedc3a2	vite.scaffold.ts
 script	airgap	node tools/supply-chain/src/cli.ts --airgap
 script	api-surface	node tools/api-surface/src/cli.ts
 script	capture-health	node tools/supply-chain/src/cli.ts --capture-health
