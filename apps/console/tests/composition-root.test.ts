@@ -120,14 +120,24 @@ describe("切片路由接到 react-router", () => {
   });
 
   it("路由的 name 成為 react-router 的 id，畫面照樣懶載入", async () => {
-    const [first] = registered.routes;
-    if (first === undefined) throw new Error("沒有任何路由可驗");
-    const converted = toRouteObject(first);
+    // 替身畫面，不載入真的切片畫面：冷轉譯 OrderList.tsx 連同 @org/ui/react，
+    // CI 上一支就超過 5 秒逾時（C240）。這裡問的是轉換，不是畫面。
+    const View = () => null;
+    let loads = 0;
+    const converted = toRouteObject({
+      path: "/demo",
+      name: "demo/list",
+      component: () => {
+        loads += 1;
+        return Promise.resolve({ default: View });
+      },
+    });
 
-    expect(converted.id).toBe(first.name);
-    expect(converted.path).toBe(first.path);
-    expect(typeof converted.lazy).toBe("function");
+    expect(converted.id).toBe("demo/list");
+    expect(converted.path).toBe("/demo");
+    expect(loads, "轉換的當下就載入了畫面 —— 那就不是懶載入").toBe(0);
     const lazy = converted.lazy as () => Promise<{ Component?: unknown }>;
-    expect((await lazy()).Component).toBe((await first.component()).default);
+    expect((await lazy()).Component).toBe(View);
+    expect(loads).toBe(1);
   });
 });
