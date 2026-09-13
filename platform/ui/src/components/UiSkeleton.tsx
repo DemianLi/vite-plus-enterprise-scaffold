@@ -44,15 +44,15 @@ import type { UiSkeletonSlot } from "../theme.ts";
  *     </div>
  *
  * ⚠️ **這是「刻意不提供」**：上面那個容器 `platform/` 不生成、也守不到。
- * 閘門能證明的只有「骨架自己是 `aria-hidden`」（`tests/a11y.test.ts`）；
- * 「使用端有沒有送 busy」不在任何閘門的射程內。`aria-hidden` 不收成 prop：
+ * 元件能保證的只有「骨架自己是 `aria-hidden`」；
+ * 「使用端有沒有送 busy」不在它的射程內。`aria-hidden` 不收成 prop：
  * 單一骨架要自己當訊號的情形，包一層容器就是出口。
  *
  * ── 動畫用 `animate-pulse` 而不是自訂 keyframes ───────────────────
  *
  * 自訂 keyframes 要寫進 `styles/index.css`，而那份檔案是**代幣**的家。
  * 一個只有一個元件在用的動畫住進去，下一個人就會照做，那份檔案會變成
- * 「所有 CSS 的家」—— 而它現在能被 `theme-verify` 逐格驗，正是因為它只有代幣。
+ * 「所有 CSS 的家」—— 而它現在能逐格核對，正是因為它只有代幣。
  *
  * ⚠️ **`animate-pulse` 不自帶 `prefers-reduced-motion` 保護，所以要自己加。**
  * 實測 `tailwindcss@4.3.3`：`index.css`／`theme.css`／`preflight.css`／
@@ -63,12 +63,11 @@ import type { UiSkeletonSlot } from "../theme.ts";
  * 那一條真的有產出規則 —— 建置實測到的字串是
  * `@media (prefers-reduced-motion:reduce){.motion-reduce\:animate-none{animation:none}}`。
  * 這句話要有證據，是因為「class 寫了而執行期被丟掉」正是本 repo 栽過的坑，
- * 所以守它的斷言驗的是**產物裡的那段 CSS**，不是原始碼裡有沒有那個字。
+ * 所以驗的是**產物裡的那段 CSS**，不是原始碼裡有沒有那個字。
  *
  * ⚠️ 它放在 `DEFAULT_PARTS` 裡，於是**走 `UiThemeOverride` 整條替換掉這一格
  * 的案子會連保護一起換掉**。這是「整條替換」那個設計的代價，不是疏漏：
- * 閘門守的是預設表，覆寫在它的射程之外（同 `theme-verify` README 那句
- * 「綠燈的意思是配色與形狀實測可換，不是設計系統可換」）。
+ * 預設表之外的覆寫，是各案自己的責任。
  */
 export function UiSkeleton({ className }: { className?: string }): ReactNode {
   const theme = useUiTheme();

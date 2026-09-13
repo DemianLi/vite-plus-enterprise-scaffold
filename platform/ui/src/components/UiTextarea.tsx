@@ -26,7 +26,7 @@ import type { UiTextareaSlot } from "../theme.ts";
  * 與 `field-sizing-content`（跟著內容長高，Baseline 2025，不支援時退回
  * 固定高度 —— 退化是「不會自己長高」，不是壞掉）。
  *
- * ── ⚠️ 代幣對照是人工核對的，沒有閘門在守（見 UiBadge、#57）────────
+ * ── ⚠️ 代幣對照是人工核對的（見 UiBadge）────────────────────────────
  *
  *   border-input                → border-line
  *   focus-visible:border-ring   → focus-visible:border-focus

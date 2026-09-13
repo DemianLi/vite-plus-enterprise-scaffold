@@ -16,10 +16,10 @@ import type { UiSwitchSlot } from "../theme.ts";
  *
  * 所以「同意條款」永遠是 checkbox，「深色模式」永遠是 switch。
  * 把設定頁做成 checkbox 的話使用者會找送出鈕；把表單做成 switch 的話
- * 使用者會以為已經存檔了。這一條沒有閘門，只有這段話。
+ * 使用者會以為已經存檔了。這一條只有這段話在守。
  * `role="switch"` 與 `aria-checked` 就是那個語意差別在輔具那一端的樣子。
  *
- * ── ⚠️ 代幣對照是人工核對的，沒有閘門在守（見 UiBadge、#57）────────
+ * ── ⚠️ 代幣對照是人工核對的（見 UiBadge）────────────────────────────
  *
  *   data-[state=checked]:bg-primary    → data-checked:bg-accent
  *   data-[state=unchecked]:bg-input    → data-unchecked:bg-surface-hover
@@ -34,7 +34,7 @@ import type { UiSwitchSlot } from "../theme.ts";
  * ── ⚠️ 這個元件**沒有內建標籤**（`UiCheckbox` 與 `UiRadioItem` 有）──────
  *
  * 名字只能從外面來：`<UiLabel htmlFor>` ＋ 同一個 `id`，或 `aria-label`。
- * 兩個都不給的話開關是沒有名字的 —— 沒有閘門守得住，只有這句話。`id` 落在
+ * 兩個都不給的話開關是沒有名字的 —— 元件守不住，只有這句話。`id` 落在
  * Base UI 的隱藏 input 上，名字接回 `role="switch"` 那個 span 的路徑同 `UiCheckbox.tsx` 檔頭。
  * `id` 是選填而不是必填：`<UiSwitch aria-label="深色模式" />` 是完全合法、
  * 無障礙也正確的寫法，必填會讓它過不了型別檢查。

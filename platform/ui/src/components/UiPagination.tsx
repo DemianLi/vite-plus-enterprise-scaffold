@@ -10,7 +10,7 @@ import type { UiPaginationSlot } from "../theme.ts";
  * ── ⚠️ 頁碼是 1-based，而 API 多半是 0-based ──────────────────
  *
  * `onPageChange` 出來的第一頁是 `1`。送去後端如果是 `offset` 或 0-based 的 `page`，
- * **要自己減一** —— 這一格沒有閘門，而錯了的症狀是「永遠少一頁」或
+ * **要自己減一** —— 這一格元件幫不了你，而錯了的症狀是「永遠少一頁」或
  * 「第一頁看到第二頁的資料」。刻意不在這裡幫忙轉：轉了之後
  * 回傳的值與畫面上顯示的數字就不一樣，那更難查。
  *
@@ -26,8 +26,7 @@ import type { UiPaginationSlot } from "../theme.ts";
  * Base UI 沒有分頁基元：`<nav>` 包一層 `<div>`，頁碼是帶 `data-type="page"`／
  * `aria-label="Page N"`／`aria-current` 的按鈕（連 reka 的 `value` prop 穿透成
  * `<button value>` 那一格都照抄），上下頁是 `aria-label="Previous Page"`／`"Next Page"`、
- * 在頭尾時 `disabled`。C236 逐組對 reka 版比對過完整產出；reka 退場後那份產出凍結在
- * `tests/ssr-expected.json`（C243）。
+ * 在頭尾時 `disabled`。逐組對 reka 版比對過完整產出。
  *
  * ⚠️ 那幾個 `aria-label` 是英文，**照 reka-ui 的原樣**。它們是輔具唸出來的字，
  * 翻不翻是 i18n 的決定；改的時候凍結表要一起重產。

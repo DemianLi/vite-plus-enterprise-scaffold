@@ -91,6 +91,6 @@ describe("formatStaticCspViolations", () => {
     // 這條訊息的價值全在這裡：讀的人要知道修不掉的話會多花什麼。
     expect(message).toContain("nonce");
     expect(message).toContain("CDN");
-    expect(message).toContain("R6");
+    expect(message).toContain("會改寫 HTML 內容的中間層");
   });
 });

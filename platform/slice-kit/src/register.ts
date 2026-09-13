@@ -9,7 +9,7 @@ export interface RegisteredFeatures {
 }
 
 /**
- * apps/ 的 composition root（D4）。
+ * apps/ 的 composition root。
  *
  * 這是**唯一**知道系統裡有哪些切片的地方。切片本身彼此不可見 ——
  * 這正是 features/* 禁止互相依賴那條規則想保住的性質。

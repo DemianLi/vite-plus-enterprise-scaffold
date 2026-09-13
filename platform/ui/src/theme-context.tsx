@@ -2,7 +2,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { checkedOverride, NO_OVERRIDE, type UiThemeOverride } from "./theme.ts";
 
 /**
- * 把覆寫表交給元件的那條線（C235）。型別、槽名、兩道防線都在 `theme.ts`。
+ * 把覆寫表交給元件的那條線。型別、槽名、兩道防線都在 `theme.ts`。
  *
  * ⚠️ context 物件**刻意不匯出**：直接 `<UiThemeContext value={…}>` 會繞過
  * `checkedOverride()` 那兩道防線。

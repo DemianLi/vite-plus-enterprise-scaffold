@@ -17,9 +17,8 @@ import { buildSecurityHeaders } from "./policy.ts";
 // 它同時要被 BFF（Node，無 Vite）消費。用結構型別描述所需的最小介面即可。
 //
 // 這兩個型別出現在 `securityHeaders` 的公開簽章裡，所以必須 export ——
-// 不是為了給人用，是因為 tools/api-surface 記錄型別形狀時對具名型別只印名字，
-// 而沒有 export 的名字它追蹤不到：改名一次形狀就漂一次，閘門只能判成
-// 破壞性變更。理由與實測寫在 tools/api-surface/src/shape.ts。
+// 不是為了給人用，是因為公開簽章裡的型別要有名字可以稱呼：沒有 export 的話，
+// 內部改一次名字，公開面的形狀就跟著變一次，對使用端就是一次破壞性變更。
 export interface DevServerLike {
   readonly middlewares: {
     use(handler: (req: unknown, res: ResponseLike, next: () => void) => void): void;
@@ -47,7 +46,7 @@ export function securityHeaders(options: SecurityHeadersPluginOptions = {}): {
     // dev 不注入 nonce。而且 production 目前**也不需要** nonce ——
     // 實測建置產物零個 inline script，因此 CSP 可以是一行靜態回應標頭，
     // 任何反向代理都設得出來。這個前提由 assertStaticCspCompatible()
-    // 在每次建置守住（見 static-csp.ts 與 DECISIONS.md 的 R6）。
+    // 在每次建置守住（見 static-csp.ts）。
     //
     // 一旦那個檢查開始報錯，就代表需要 per-request nonce，
     // 也就是需要一個會改寫 HTML 內容的中間層 —— 那是完全不同量級的組織需求。

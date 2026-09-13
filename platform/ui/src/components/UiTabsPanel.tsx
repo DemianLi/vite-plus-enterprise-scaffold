@@ -13,7 +13,7 @@ import type { UiTabsPanelSlot } from "../theme.ts";
  * Item 的**數量與內容**都在使用端，Root 只提供上下文。
  *
  * ⚠️ 放在 `UiTabs` 外面、或 `value` 對不上，都不會報錯，只會**什麼都不渲染**。
- * 執行期才知道，沒有閘門守得住，所以寫在這裡。
+ * 執行期才知道，元件守不住，所以寫在這裡。
  */
 export function UiTabsPanel({
   value,

@@ -1,11 +1,10 @@
 /**
- * CSP 與安全標頭的**單一事實來源**（D11）。
+ * CSP 與安全標頭的**單一事實來源**。
  *
- * 這份定義同時被三個地方消費：
+ * 這份定義同時被兩個地方消費：
  *
  *   1. BFF / gateway —— 產生實際下發的回應標頭（含 per-request nonce）
  *   2. `vite dev` 的中介層 —— 讓 violation 在**開發當下**就出現，而不是等到 staging
- *   3. 本 package 的測試 —— 把「不得放寬」的性質釘住
  *
  * 政策散在 nginx 設定檔、Helmet 呼叫、與文件三處的話，三者會在半年內各說各話，
  * 而且沒有人會發現 —— CSP 放寬是靜默的，症狀只有「某天被滲透測試開單」。
@@ -21,15 +20,12 @@ export interface CspDirectives {
  *
  * 每一條放寬都必須在這裡留下註解說明為什麼，否則下一個人只會看到一串字串，
  * 無從判斷哪些是必要的、哪些是當年趕上線加的。
- *
- * 加減指令要同步改 `tests/policy.test.ts` 的具名清單 —— 減的方向沒有別的東西在守，
- * 那份清單就是釘子。
  */
 export const BASE_DIRECTIVES: CspDirectives = {
   "default-src": ["'self'"],
 
   // 無 'unsafe-eval'：畫面在建置期就編好了 —— JSX 由 Vite 編成函式呼叫，執行期沒有
-  // 樣板編譯器。C240 換掉 Vue 時重量過：正式產物 `eval(`／`new Function` 0 處，
+  // 樣板編譯器。換成 React 時重量過：正式產物 `eval(`／`new Function` 0 處，
   // enforce 模式下打開對話框零違規。代價是執行期不得動態求值字串 —— 一旦有人用了，
   // 整份 CSP 就得放寬，所以那條由 oxlint 的 no-eval / no-implied-eval 擋。
   // ⚠️ dev 會多一條 report-only 的 violation：@vitejs/plugin-react 在 index.html 注入
@@ -40,9 +36,9 @@ export const BASE_DIRECTIVES: CspDirectives = {
 
   // 注意 style-src 與 style-src-attr 是**分開的兩條**。
   //
-  // style-src-attr 從 D11 起一直放行 'unsafe-inline'，理由是 Vue 的 `:style` 產生 inline
+  // style-src-attr 原本放行 'unsafe-inline'，理由是 Vue 的 `:style` 產生 inline
   // style **屬性**。換成 React 之後那個理由沒了：React 的 `style={{…}}`、Base UI 的定位與
-  // 捲動鎖定都走 CSSOM（`element.style.x = …`），CSP 不管那條路。C245 在 enforce 下把
+  // 捲動鎖定都走 CSSOM（`element.style.x = …`），CSP 不管那條路。收緊前在 enforce 下把
   // 會彈出的五支（Select／DropdownMenu／DatePicker／Dialog／AlertDialog）逐一打開，
   // 收成 'none' 與原本的 'unsafe-inline' 兩邊的位置、捲動鎖定、違規逐項相同。
   //
@@ -55,7 +51,7 @@ export const BASE_DIRECTIVES: CspDirectives = {
   "img-src": ["'self'", "data:"],
   "font-src": ["'self'"],
 
-  // 同源 BFF（D8）。跨源請求會讓 SameSite cookie 失效，
+  // 同源 BFF。跨源請求會讓 SameSite cookie 失效，
   // 也是資料外洩到第三方端點最常見的途徑。
   "connect-src": ["'self'"],
 
@@ -67,11 +63,11 @@ export const BASE_DIRECTIVES: CspDirectives = {
   "manifest-src": ["'self'"],
 };
 
-/** 絕不允許出現在任何指令中的值。測試會逐一驗證。 */
+/** 絕不允許出現在任何指令中的值。 */
 export const FORBIDDEN_VALUES = ["'unsafe-eval'", "'unsafe-hashes'", "*"] as const;
 
 /**
- * 允許使用 `'unsafe-inline'` 的指令。**C245 起是空的**。
+ * 允許使用 `'unsafe-inline'` 的指令。**目前是空的**。
  *
  * 這個清單存在的意義是讓「再加一條例外」變成必須修改本檔、
  * 因而必然出現在 code review 的動作 —— 而不是某人在 nginx 設定裡悄悄加一個字。

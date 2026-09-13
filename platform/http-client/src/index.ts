@@ -2,15 +2,15 @@ import { config } from "@org/config";
 import { CSRF_COOKIE, CSRF_HEADER, SAFE_METHODS } from "@org/bff-contract";
 
 /**
- * 唯一允許的對外請求出口（D8）。
+ * 唯一允許的對外請求出口。
  *
  * 設計前提：**沒有 token 存在於 JS 裡**。
  * 認證憑證是 BFF 設的 httpOnly cookie，瀏覽器自動帶上，前端程式碼碰不到也偷不走。
  * 因此本模組沒有、也不應該有任何 setToken / getToken / localStorage 的介面 ——
- * 那類 API 一旦存在，就會有人拿來存 token，D8 的保證當場失效。
+ * 那類 API 一旦存在，就會有人拿來存 token，「JS 裡沒有 token」的保證當場失效。
  *
- * 切片被禁止直接 import axios/fetch（見 vite.config.ts 的 no-restricted-imports），
- * 否則 CSRF 標頭與錯誤處理會每片各做一套，稽核時無從證明一致性。
+ * 切片不得直接 import axios/fetch，否則 CSRF 標頭與錯誤處理會每片各做一套，
+ * 稽核時無從證明一致性。
  */
 
 export class HttpError extends Error {
@@ -82,7 +82,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   // 相對於同源的 BFF 前綴。絕不接受完整 URL —— 跨源請求會讓 SameSite 失效，
   // 且是資料外洩到第三方端點最常見的途徑。
   if (/^[a-z]+:\/\//i.test(path)) {
-    throw new Error(`[http-client] 不接受絕對 URL："${path}"。所有請求必須經由同源的 BFF（D8）。`);
+    throw new Error(`[http-client] 不接受絕對 URL："${path}"。所有請求必須經由同源的 BFF。`);
   }
 
   const headers = new Headers(options.headers);

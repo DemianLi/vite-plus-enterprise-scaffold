@@ -1,22 +1,20 @@
 /**
- * BFF 契約：D8 對「同源中間層」的**可執行規格**（R6）。
+ * BFF 契約：「同源中間層」的**可執行規格**。
  *
  * ── 這個 package 為什麼存在 ──────────────────────────────────────────
  *
- * D8 選了 BFF + httpOnly cookie，但腳手架本身沒有 BFF —— 那一層是組織既有的
- * gateway（Kong／nginx＋auth service／APISIX／自建）。R6 因此一直卡在
- * 「你們到底有沒有那一層」這個**組織問題**上，而組織問題無法用程式碼回答。
+ * 前端的認證走 BFF + httpOnly cookie，但那一層不在本 repo —— 它是組織既有的
+ * gateway（Kong／nginx＋auth service／APISIX／自建）。「你們到底有沒有那一層」
+ * 是**組織問題**，而組織問題無法用程式碼回答。
  *
- * 可以用程式碼回答的是**另一個問題**：那一層必須做到什麼，才算滿足 D8。
+ * 可以用程式碼回答的是**另一個問題**：那一層必須做到什麼，才算合格。
  *
- * 所以這裡不寫實作，寫規格 —— 而且是可以跑的規格：
+ * 所以這裡不寫實作，寫規格：
  *
- *   有 gateway  → `BFF_ORIGIN=https://gw.internal vp run -F @org/bff-contract test`
- *                 全綠 ＝ R6 關閉，不需要任何新程式碼
- *   沒有 gateway → 這份規格就是那個 BFF 的驗收條件，
- *                 `@org/bff-mock` 是已經通過它的參考實作
+ *   有 gateway  → 用下面的 env 把驗收指向它，全部通過 ＝ 不需要任何新程式碼
+ *   沒有 gateway → 這份規格就是那個 BFF 的驗收條件
  *
- * 兩條路徑共用同一套斷言。這正是 C17 的教訓：規格寫在文件裡，半年後與實作
+ * 規格寫成程式碼而不是文件，是因為只寫在文件裡的規格，半年後會與實作
  * 各說各話，而且沒有人會發現。
  *
  * ── 哪些是硬性的、哪些可以換 ────────────────────────────────────────
@@ -30,7 +28,7 @@
  * 不可換的是 session cookie 的**屬性**與 CSRF 的語意。
  */
 
-/** 同源路徑前綴。BFF 必須與 SPA 同源，否則 SameSite 形同虛設（D8）。 */
+/** 同源路徑前綴。BFF 必須與 SPA 同源，否則 SameSite 形同虛設。 */
 export const API_PREFIX = "/api";
 
 /**
@@ -51,7 +49,7 @@ export const DEFAULT_SESSION_COOKIE = "org_session";
 /**
  * session cookie **必須**具備的屬性。
  *
- * - `HttpOnly`：D8 的全部意義。少了它，XSS 就偷得走 session，
+ * - `HttpOnly`：這整套設計的全部意義。少了它，XSS 就偷得走 session，
  *   前面所有的 CSP 與掃描都只是在拖延時間
  * - `Secure`：明文通道上的 session cookie 等於沒有 session。
  *   localhost 被瀏覽器視為 trustworthy origin，因此本機開發不受影響
@@ -111,8 +109,8 @@ export const DEFAULT_ENDPOINTS: BffEndpoints = {
 /**
  * 從環境變數解析端點設定，讓同一套測試能指向組織既有的 gateway。
  *
- * 這是 R6 的關鍵：驗收既有 gateway 時，改的是 env，不是測試程式碼。
- * 一旦要改測試才能過，那份測試就不再是契約，而是實作的鏡子。
+ * 驗收既有 gateway 時，改的是 env，不是驗收程式碼。
+ * 一旦要改驗收程式碼才能過，那份驗收就不再是契約，而是實作的鏡子。
  */
 export function endpointsFromEnv(env: Record<string, string | undefined>): BffEndpoints {
   return {
@@ -139,8 +137,7 @@ export interface ParsedSetCookie {
  * 解析單一 `Set-Cookie` 標頭。
  *
  * 刻意用 `split` 而非正則：cookie 屬性的文法有夠多角落案例，而任何足以涵蓋
- * 它們的正則都會長成 Tier 2 的 `security/detect-unsafe-regex` 會擋下的形狀
- *（實測過兩次，見 tools/codemods 的紀錄）。字串切割沒有回溯問題。
+ * 它們的正則都會長出巢狀量詞，遇到惡意輸入會災難性回溯。字串切割沒有回溯問題。
  */
 export function parseSetCookie(raw: string): ParsedSetCookie {
   const parts = raw.split(";");
@@ -227,7 +224,7 @@ export const CONTRACT_ITEMS: readonly { readonly id: string; readonly requiremen
   { id: "security-headers", requirement: "回應帶 @org/security-headers 定義的安全標頭" },
   {
     id: "csp-on-document",
-    requirement: "HTML 文件回應帶 CSP 標頭（靜態即可，見 R6 的 nonce 結論）",
+    requirement: "HTML 文件回應帶 CSP 標頭（靜態即可，建置產物不需要 nonce）",
   },
 ];
 

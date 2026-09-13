@@ -1,17 +1,15 @@
 /**
- * 切片契約 —— **單一事實來源**（D9）。
+ * 切片契約 —— **單一事實來源**。
  *
- * 這個檔案刻意零依賴、純資料，因為它同時被三個地方 import：
+ * 這個檔案刻意零依賴、純資料：建立新切片的範本、檢查既有切片的結構、
+ * 以及 define-feature.ts 的執行期驗證都讀這同一份宣告（檢查要能在沒有
+ * bundler 的 Node 下直接 import）。
  *
- *   1. tools/conformance  — CI 每次都跑的一致性檢查（在 bare node 下執行）
- *   2. tools/slice-gen    — 產生器（bingo，程式化產生 → 讀得到這份資料）
- *   3. define-feature.ts  — 執行期驗證
- *
- * 產生器產出的東西 ＝ 一致性檢查會驗的東西，因為兩者讀同一份宣告。
- * 分成兩份手動同步的定義，半年內必定漂移 —— 這正是 D9 要避免的。
+ * 範本產出的東西 ＝ 檢查會驗的東西，因為兩者讀同一份宣告。
+ * 分成兩份手動同步的定義，半年內必定漂移。
  */
 
-/** 三層架構的目錄名（D4）。依賴方向只准 apps → features → platform。 */
+/** 三層架構的目錄名。依賴方向只准 apps → features → platform。 */
 export const LAYERS = {
   apps: "apps",
   features: "features",
@@ -28,12 +26,11 @@ export const REQUIRED_FILES = [
 ] as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 切片**內部**的分層（D14）
+// 切片**內部**的分層
 //
 // 上面那些規則管的是「切片之間」。這一段管的是「切片之內」——
-// 而它原本是空白的：REQUIRED_FILES 驗完四個檔案就結束，
-// api.ts / store.ts / routes.ts / views/ 那套結構只存在於產生器的模板裡，
-// 沒有任何檢查在守。誰手寫一個切片、或改了產生器，那套慣例就消失，而閘門全綠。
+// REQUIRED_FILES 驗完四個檔案就結束，而 api.ts / store.ts / routes.ts / views/
+// 那套結構若只存在於範本裡，誰手寫一個切片、或改了範本，那套慣例就安靜地消失。
 //
 // **有狀態的邏輯住在 `useXxx()` hook 裡，元件只負責呈現。**
 // ─────────────────────────────────────────────────────────────────────────────
@@ -41,7 +38,7 @@ export const REQUIRED_FILES = [
 /**
  * 切片內放 hook 的目錄。
  *
- * 原本叫 `src/composables`（Vue 的慣例位置），C240 Q91 隨切片改寫成 React 一起改名 ——
+ * 原本叫 `src/composables`（Vue 的慣例位置），隨切片改寫成 React 一起改名 ——
  * 目錄名是讀程式碼的人第一眼看到的東西，React 的人找的是 `hooks/`。
  */
 export const HOOKS_DIR = "src/hooks";
@@ -55,8 +52,7 @@ export const VIEWS_DIR = "src/views";
  * `use` 開頭不只是風格：React 的 hook 規則與 oxlint 的 `react/rules-of-hooks` 都靠這個前綴
  * 認出「這支只能在元件頂層呼叫」。
  *
- * 與切片名的規則同理，刻意避開巢狀量詞（見本檔案末尾 SLICE_DIR_CHARSET 的說明）——
- * Tier 2 的 `security/detect-unsafe-regex` 會擋，而且它是對的。
+ * 與切片名的規則同理，刻意避開巢狀量詞（見本檔案末尾 SLICE_DIR_CHARSET 的說明）。
  */
 const HOOK_FILE_CHARSET = /^use[A-Z][A-Za-z0-9]*\.ts$/;
 
@@ -72,13 +68,14 @@ export function hookFunctionName(fileName: string): string {
 /**
  * **元件不得直接碰資料層。**
  *
- * 這是 D14 三條有牙齒的規則裡的第一條（另兩條在 `STORE_FORBIDDEN_IMPORTS` 與
+ * 這是切片內分層三條規則裡的第一條（另兩條在 `STORE_FORBIDDEN_IMPORTS` 與
  * `USECASE_FORBIDDEN_IMPORTS`，同一把尺、同樣放行 `import type`）；
  * 只有 hook 的命名那條是純命名規則。禁的兩樣東西合起來
  * 恰好就是「在元件裡抓資料」：查詢的執行器，以及本切片的資料存取模組。
  *
  * 為什麼是禁「元件 import 它們」而不是禁「元件裡有 useQuery」：
- * 前者是可精確判定的靜態事實，後者要語意分析。同樣的取捨見 D4 第 3 層。
+ * 前者是可精確判定的靜態事實，後者要語意分析。同樣的取捨見相對路徑逃逸的判定
+ *（`IMPORT_SPECIFIER_PATTERN`）。
  *
  * ⚠️ 這條不禁 `@tanstack/react-query` 出現在切片裡 —— hook 就是要用它。
  * 禁的是**位置**，不是相依。
@@ -92,7 +89,7 @@ export const VIEW_FORBIDDEN_IMPORTS = [
 /** 元件也不得直接 import 同切片的資料存取模組（相對路徑，需另外判定）。 */
 export const VIEW_FORBIDDEN_LOCAL_MODULES = ["api"] as const;
 
-/** 切片內的 store（zustand；C240 之前是 Pinia）。 */
+/** 切片內的 store（zustand）。 */
 export const STORE_FILE = "src/store.ts";
 
 /**
@@ -108,7 +105,7 @@ export const STORE_FILE = "src/store.ts";
  *
  * 第三類是這條界線真正要擋的東西。把 join 出來的結果存進 store，等於做了第二份
  * 快取 —— 它與 TanStack Query 那份的失效時機不同，而且**不會有任何測試變紅**。
- * 這跟 D14 上半段要防的 queryKey 漂移是同一種病，只是換個位置發作。
+ * 這跟 queryKey 漂移是同一種病，只是換個位置發作。
  *
  * ⚠️ 禁的是 **value import**，`import type` 完全允許：
  *
@@ -135,7 +132,7 @@ export const STORE_FORBIDDEN_IMPORTS = [
 /** store 也不得 value import 同切片的資料存取模組。 */
 export const STORE_FORBIDDEN_LOCAL_MODULES = ["api"] as const;
 
-/** 只認 `import type` / `export type` 開頭 —— 單層量詞，不會被 detect-unsafe-regex 擋。 */
+/** 只認 `import type` / `export type` 開頭 —— 單層量詞，沒有回溯問題。 */
 const TYPE_ONLY_HEAD = /^(?:import|export)\s+type\b/;
 
 /**
@@ -154,7 +151,7 @@ const TYPE_ONLY_HEAD = /^(?:import|export)\s+type\b/;
  *   `import("…")`（動態）           → false。動態載入一定是執行期
  *
  * ⚠️ 已知限制：被註解掉的 import 也會被算進來（`// import { x } from "./api.ts"`）。
- * 這與 D4 第 3 層的相對路徑檢查行為一致 —— 兩者都偏向嚴格，而偏嚴的代價是
+ * 這與相對路徑逃逸的判定行為一致 —— 兩者都偏向嚴格，而偏嚴的代價是
  * 偶爾要把註解改寫，偏鬆的代價是規則失效。
  */
 export function isTypeOnlyImportAt(source: string, matchIndex: number): boolean {
@@ -170,14 +167,13 @@ export function isTypeOnlyImportAt(source: string, matchIndex: number): boolean 
 export const TEST_GLOB = "tests/**/*.test.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 驗收規格與 usecase 層 —— 「業務功能完成率」的落點（TESTING.md 層 3）
+// 驗收規格與 usecase 層 —— 「業務功能完成率」的落點
 //
 // 上面那些規則回答的是「這個切片長得對不對」。這一段回答的是**另一個問題**：
-// 「這個功能做完了沒有」—— 而在這一段出現之前，沒有任何東西在回答它
-// （覆蓋率量的是程式碼被跑過，那不是同一件事）。
+// 「這個功能做完了沒有」（覆蓋率量的是程式碼被跑過，那不是同一件事）。
 //
-// 分工是這一段的全部：**腳手架交付設施與範本，規格的內容由專案組自己寫。**
-// 只有他們知道自己的生意認為什麼叫正確。經過見 TESTING.md 第四節與 C109。
+// 分工是這一段的全部：**這裡提供設施與範本，規格的內容由專案組自己寫。**
+// 只有他們知道自己的生意認為什麼叫正確。
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -197,7 +193,7 @@ export const SPECS_DIR = "specs";
  * **沒人用就等於不存在**。這是整個設計的關鍵取捨。
  *
  * ⚠️ 但這一層**必須在活的路徑上**，否則規格驗的東西與畫面跑的東西是兩條路，
- * 規格全綠而畫面壞掉，沒有任何閘門看得見。所以模板產出的鏈是：
+ * 規格全綠而畫面壞掉，不會有任何東西變紅。所以範本產出的鏈是：
  *
  *     views → hooks → usecases → ports（介面）→ api.ts（真實作）
  *                              ↑
@@ -213,9 +209,9 @@ export const USECASES_DIR = "src/usecases";
  * ⚠️ 這裡**沒有列 `@org/http-client`**，那不是遺漏：usecase 拿的是 `ports.ts`
  * 的介面，真實作住在 `api.ts`。禁的是框架，不是資料存取本身。
  *
- * ⚠️ 前五項是 Vue 那一套，C244 之後這棵樹不再安裝它們；照留，擋的是「把框架帶回
- * usecase」。React 那一套取自 C232 §五 的選型，必須在第一行 React usecase 出現**之前**
- * 就在這裡 —— 少一項的症狀不是紅，是那一項安靜地放行（C234 §二）。
+ * ⚠️ 前五項是 Vue 那一套，這棵樹已經不再安裝它們；照留，擋的是「把框架帶回
+ * usecase」。React 那一套必須在第一行 React usecase 出現**之前**就在這裡 ——
+ * 少一項的症狀不是紅，是那一項安靜地放行。
  */
 export const USECASE_FORBIDDEN_IMPORTS = [
   "vue",
@@ -233,25 +229,23 @@ export const USECASE_FORBIDDEN_IMPORTS = [
 ] as const;
 
 /**
- * usecase 層的覆蓋率下限 —— `TESTING.md` 層 2 的第二類那一半（C120）。
+ * usecase 層的覆蓋率下限。
  *
  * 這不是「測試寫夠了沒」的通用門檻，那種東西量的是紀律。這一條量的是
  * **上面那條鏈有沒有接上**：規格打 usecase，所以一行沒被走過的 usecase
- * 就是一個沒有規格在驗的 usecase —— 而那正是 C114 花整個設計去避免的
- * 「規格驗的東西與畫面跑的東西是兩條路」。
+ * 就是一個沒有規格在驗的 usecase —— 也就是「規格驗的東西與畫面跑的東西
+ * 是兩條路」。
  *
- * ⚠️ **100 是量出來的，不是喊出來的。** 產生器輸出的切片在這一層四個維度
+ * ⚠️ **100 是量出來的，不是喊出來的。** 範本產出的切片在這一層四個維度
  * 都是滿的（行 5/5、分支 5/5、函式 2/2、敘述 7/7，2026-08-23 實測）。
- * 取 100 而不是 100 − N 的理由與 C119 取觀測最大值同一條：**任何 −N 都是
- * 沒有論證的數字，而觀測值有。**
+ * 取 100 而不是 100 − N：**任何 −N 都是沒有論證的數字，而觀測值有。**
  *
  * ⚠️ **代價是明知而選的**：先寫 usecase、後寫規格的那段時間它必定紅。
- * 那不是缺陷，那就是這條線第一次擋下的東西 —— 照〈校準〉的規矩，
- * 它是下一則 C 編號的內容，不是要繞過的東西。
+ * 那不是缺陷，那就是這條線要擋下的東西，不是要繞過的東西。
  *
  * ⚠️ 這個下限**只套在 usecase 那一層**。切片整體不設數字：`src/views/**`
  * 佔行分母的 33%、函式分母的 42%（2026-09-13 量 `features/invoice`），
- * 一個套在整包上的數字會被畫面那一半帶著走（#130 §六）。
+ * 一個套在整包上的數字會被畫面那一半帶著走。
  */
 export const USECASE_COVERAGE_MIN = 100;
 
@@ -261,13 +255,12 @@ export const USECASE_COVERAGE_GLOB = `${USECASES_DIR}/**`;
 /**
  * 規格接線檔的位置與副檔名。
  *
- * ⚠️ **`.spec.ts` 不是可以換的**。vitest 的預設 include 是
- * `**\/*.{test,spec}.?(c|m)[jt]s?(x)`，而這條線的根層沒有覆寫 `test.include`。
- * 取名 `.steps.ts`（草稿原本的寫法）會讓整份規格**一條都不被收集**：
- * runner 靜默不跑、既有的 `tests/*.test.ts` 繼續全綠、完成率讀的是一個
+ * ⚠️ **`.spec.ts` 不是可以換的**。測試執行器預設只收集 `.test.*` 與 `.spec.*`，
+ * 而根層沒有覆寫這條規則。取名 `.steps.ts`（草稿原本的寫法）會讓整份規格
+ * **一條都不被收集**：靜默不跑、既有的測試繼續全綠、完成率讀的是一個
  * 從來沒有被執行過的檔案。
  *
- * 實測過（2026-08-23，C114）：同時放 `probe.steps.ts` 與 `probe.spec.ts`
+ * 實測過（2026-08-23）：同時放 `probe.steps.ts` 與 `probe.spec.ts`
  * 兩支必紅的檔案進切片，只有後者紅，前者連出現在輸出裡都沒有。
  */
 export const STEPS_GLOB = "tests/specs/**/*.spec.ts";
@@ -278,16 +271,16 @@ export const STEPS_GLOB = "tests/specs/**/*.spec.ts";
  * ⚠️ 這個標籤**只有人能拿掉**。拿掉的那一刻就是在說「這條該做了」，
  * 於是它進入解析結果、找不到接線、紅燈。
  *
- * ⚠️ 而這條規則**沒有機制在守** —— agent 做不出來時大可自己標上一個
- * `@待辦` 讓 CI 轉綠。擋它的是 `AGENTS.md` 的契約與人讀規格 diff，
- * 不是閘門。這件事寫在這裡，是為了讓下一個讀到的人知道它是敞著的。
+ * ⚠️ 而這條規則**沒有機制在守** —— 做不出來的人大可自己標上一個
+ * `@待辦` 讓它轉綠。擋它的只有人讀規格的 diff。
+ * 這件事寫在這裡，是為了讓下一個讀到的人知道它是敞著的。
  */
 export const TODO_TAG = "待辦";
 
 /**
- * D4 硬規則：切片之間一律禁止互相依賴。
+ * 硬規則：切片之間一律禁止互相依賴。
  * 這是第 1 層防護（讀 manifest），擋宣告出來的依賴。
- * 第 2、3 層（oxlint）在 vite.config.ts，擋裸模組名與相對路徑逃逸。
+ * 第 2、3 層（oxlint）擋裸模組名與相對路徑逃逸。
  *
  * ⚠️ 實作注意：一致性檢查**不以正則判斷**某個依賴是不是切片，而是直接讀
  * `features/` 目錄的實際內容來建立名單。
@@ -300,7 +293,7 @@ export const TODO_TAG = "待辦";
 export const SLICE_PACKAGE_PREFIX = "@org/feature-";
 
 /**
- * D8：切片不得直接使用 HTTP 客戶端。
+ * 切片不得直接使用 HTTP 客戶端。
  * 一律走 @org/http-client，否則 CSRF 標頭與錯誤處理會每片各做一套。
  */
 export const BANNED_DIRECT_DEPENDENCIES = [
@@ -312,7 +305,7 @@ export const BANNED_DIRECT_DEPENDENCIES = [
 ] as const;
 
 /**
- * D15：**全 repo 禁止 import reka-ui 的 Splitter。**
+ * **全 repo 禁止 import reka-ui 的 Splitter。**
  *
  * ── 為什麼是這一個元件、而且是硬規則 ────────────────────────────────
  *
@@ -326,12 +319,12 @@ export const BANNED_DIRECT_DEPENDENCIES = [
  *
  * 那段程式碼本身**支援 nonce**（`if (nonce) styleElement.nonce = nonce`），
  * 所以理論上可以放行。但要供應 per-request nonce 就需要一個會改寫 HTML 的
- * 中間層 —— 而 R6 的整個成本論證正是建立在「建置產物零 inline script，
+ * 中間層 —— 而部署的整個成本論證正是建立在「建置產物零 inline script，
  * 靜態 CSP 標頭就夠」上面。為了一個分隔面板把那個級距推上去，不划算。
  *
  * 要用它的話，這條規則的改動就是那場討論的入口。
  *
- * ── Radix：同一個形狀，射程是所有會鎖捲動的彈出層（C233 §三、C234 §三）──
+ * ── Radix：同一個形狀，射程是所有會鎖捲動的彈出層 ──────────────────
  *
  * Radix 的捲動鎖定經 `react-remove-scroll` → `react-style-singleton` 注入 `<style>`，
  * nonce 向 `__webpack_nonce__` 要 —— Vite 底下沒有這個變數，所以**永遠不帶**。
@@ -353,8 +346,8 @@ export interface CspIncompatibleModule {
 
 const RADIX_SCROLL_LOCK_REASON =
   "Radix 的捲動鎖定會注入不帶 nonce 的 <style>，被 style-src 'self' 擋掉，" +
-  "彈出層打開時頁面照樣能捲、零報錯（C233 §三）。hash 放行量過不可行，" +
-  "per-request nonce 會推翻 R6；這棵樹的彈出層走 @base-ui/react（Q53）";
+  "彈出層打開時頁面照樣能捲、零報錯。hash 放行量過不可行，" +
+  "per-request nonce 會推翻「靜態 CSP 標頭就夠」的前提；這棵樹的彈出層走 @base-ui/react";
 
 const RADIX_SCROLL_LOCK_MODULES = [
   ["AlertDialog", "alert-dialog"],
@@ -372,7 +365,7 @@ export const CSP_INCOMPATIBLE_MODULES: readonly CspIncompatibleModule[] = [
     names: ["SplitterGroup", "SplitterPanel", "SplitterResizeHandle"],
     reason:
       "Splitter 在拖曳時會注入 <style> 元素，被 style-src 'self' 擋掉。" +
-      "要放行需要 per-request nonce，而那會推翻 R6「靜態 CSP 標頭就夠」的成本論證",
+      "要放行需要 per-request nonce，而那會推翻「靜態 CSP 標頭就夠」的成本論證",
   },
   {
     specifier: "radix-ui",
@@ -391,7 +384,7 @@ export const CSP_INCOMPATIBLE_MODULES: readonly CspIncompatibleModule[] = [
 ];
 
 /**
- * D15：切片不得直接使用設計系統的底層 —— 一律走 `@org/ui`。
+ * 切片不得直接使用設計系統的底層 —— 一律走 `@org/ui`。
  *
  * ── 為什麼擋的是 import 而不是 `src/components/` 目錄 ───────────────
  *
@@ -401,15 +394,15 @@ export const CSP_INCOMPATIBLE_MODULES: readonly CspIncompatibleModule[] = [
  *
  * 真正要防的是**切片自己長出一套設計系統**。判準很精確：
  * 有沒有直接碰基元或 `cn()` 的底層。碰了就表示這個團隊在自己
- * 拼元件，而 D4 禁止切片互依 —— 於是第二個團隊會再拼一次，
+ * 拼元件，而切片之間禁止互依 —— 於是第二個團隊會再拼一次，
  * 兩套永遠不會收斂，而且**兩邊各自看起來都是對的**。
  *
- * 這條與 D14 的 view 禁令是同一個形狀：擋的是「繞過既有的那一層」，
+ * 這條與「元件不得直接碰資料層」是同一個形狀：擋的是「繞過既有的那一層」，
  * 不是「不准有那個檔案」。
  *
  * ⚠️ 後三項是 React 那一套的基元與 `cn()` 底層：shadcn CLI 的 Base UI 那一套實測
- * `init` 產出的就是這三支（C234 §三）。前三項是 Vue 那一套的，C244 之後沒有安裝來源，
- * 照 Q105 同一個理由留著 —— 擋的是重新引入。
+ * `init` 產出的就是這三支。前三項是 Vue 那一套的，已經沒有安裝來源，
+ * 照樣留著 —— 擋的是重新引入。
  */
 export const SLICE_DESIGN_SYSTEM_IMPORTS = [
   "reka-ui",
@@ -420,18 +413,18 @@ export const SLICE_DESIGN_SYSTEM_IMPORTS = [
   "class-variance-authority",
 ] as const;
 
-/** D15：設計系統的唯一入口。切片要用元件只能從這裡拿。 */
+/** 設計系統的唯一入口。切片要用元件只能從這裡拿。 */
 export const DESIGN_SYSTEM_PACKAGE = "@org/ui";
 
 /**
- * D15 的另一半：切片**有沒有真的用**設計系統。
+ * 上一條的另一半：切片**有沒有真的用**設計系統。
  *
  * ── 為什麼上面那條不夠 ──────────────────────────────────────────────
  *
  * `SLICE_DESIGN_SYSTEM_IMPORTS` 擋的是「繞過 `@org/ui` 自己拼基元」。
  * 但它擋不住更常見、也更安靜的那條路：**根本不用**。
  * 一個切片全用裸 `<h1>`、`<table>`、自己寫的 `<style scoped>`，
- * 一條規則都不會violate —— 而 D15 想避免的「每個團隊各長一套」
+ * 一條規則都不會violate —— 而「每個團隊各長一套」
  * 就是這樣發生的，不是靠有人偷偷 import reka-ui。
  *
  * 這條規則就是在講：**沒有 import 也是一種發散。**
@@ -441,7 +434,7 @@ export const DESIGN_SYSTEM_PACKAGE = "@org/ui";
  * 不限定 `src/views/`。上面那段註解已經承認切片本來就該有自己的呈現元件
  * （一張只有訂單用得到的表格），那種元件很可能住在 `src/components/`，
  * 而 view 只是把它擺上去。只掃 views 會把那個完全正確的結構判成違規 ——
- * 而一道會誤報的閘門最後只會被加上 skip。
+ * 而一條會誤報的規則最後只會被加上例外。
  *
  * 要證明的命題其實很小：**這個切片碰過設計系統**。碰過就不會有
  * 「整片沒有人知道 `@org/ui` 存在」的情況，而那才是真正要防的事。
@@ -452,14 +445,12 @@ export const DESIGN_SYSTEM_PACKAGE = "@org/ui";
  * 下會被完全抹除，執行期一個位元組都不剩 —— 畫面上不會有任何東西來自
  * 設計系統。放行它等於讓這條規則變成一行就能滿足的形式。
  *
- * 這個判定式由兩處共用（理由同 `IMPORT_SPECIFIER_PATTERN`）：
- *   - `tools/conformance` 用它檢查既有切片
- *   - `tools/slice-gen` 的測試用它檢查**產生器的輸出**
- * 各持一份副本的話，產生器改了模板就會安靜地產出過不了 Tier 2 的切片。
+ * 這個判定式由檢查既有切片與檢查範本輸出兩處共用（理由同
+ * `IMPORT_SPECIFIER_PATTERN`）：各持一份副本的話，範本一改就會安靜地產出不合規的切片。
  *
- * ⚠️ 比的是**套件**不是整串（`importedPackage`），同上面那幾份禁用清單（C234 §二）。
- * 整串相等的話 `@org/ui/react`（Q57 的 React 入口，C244 收回）不算用過 —— C240 切片第一次從
- * 那裡取元件時，三片（含產生器的輸出）全部被判成「沒用設計系統」。
+ * ⚠️ 比的是**套件**不是整串（`importedPackage`），同上面那幾份禁用清單。
+ * 整串相等的話 `@org/ui/react`（過渡期的 React 入口）不算用過 —— 切片第一次從
+ * 那裡取元件時，三片（含範本的輸出）全部被判成「沒用設計系統」。
  */
 export function usesDesignSystem(source: string): boolean {
   for (const match of source.matchAll(IMPORT_SPECIFIER_PATTERN)) {
@@ -472,27 +463,26 @@ export function usesDesignSystem(source: string): boolean {
   return false;
 }
 
-/** D6：所有版本必須走 catalog，否則共用 lockfile 下的 CVE 同步升級會有漏網。 */
+/** 所有版本必須走 catalog，否則共用 lockfile 下的 CVE 同步升級會有漏網。 */
 export const REQUIRE_CATALOG_PROTOCOL = true;
 
 /** 允許不走 catalog 的依賴協定（workspace 內部連結）。 */
 export const ALLOWED_VERSION_PROTOCOLS = ["workspace:", "catalog:"] as const;
 
-/** 切片必須有 CODEOWNERS 條目。沒有 owner 的切片＝沒人負責的切片（D12）。 */
+/** 切片必須有 CODEOWNERS 條目。沒有 owner 的切片＝沒人負責的切片。 */
 export const REQUIRE_CODEOWNERS_ENTRY = true;
 
-/** 一致性檢查會掃描的原始碼副檔名（D4 第 3 層）。 */
+/** 一致性檢查會掃描的原始碼副檔名。 */
 export const SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".mjs", ".vue"] as const;
 
 /**
- * 抽出 import 指定字串的樣式（D4 第 3 層）。
+ * 抽出 import 指定字串的樣式。
  *
- * 由兩處共用，這正是它住在契約裡的原因：
- *   - `tools/conformance` 用它找出逃逸切片根目錄的相對路徑
- *   - `tools/slice-gen` 的測試用它驗證**產生器自己的輸出**不會被上面那條擋下
+ * 由兩處共用，這正是它住在契約裡的原因：一處用它找出逃逸切片根目錄的
+ * 相對路徑，另一處用它驗證**範本自己的輸出**不會被那條擋下。
  *
- * 兩邊各持一份副本的話，產生器改了目錄結構（例如多一層 src/views/detail/）
- * 就會安靜地產出過不了 Tier 2 的切片，而兩邊的測試全綠。
+ * 兩邊各持一份副本的話，範本改了目錄結構（例如多一層 src/views/detail/）
+ * 就會安靜地產出不合規的切片，而兩邊都不會報錯。
  */
 export const IMPORT_SPECIFIER_PATTERN =
   /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*)["']([^"']+)["']/g;
@@ -502,7 +492,7 @@ export const IMPORT_SPECIFIER_PATTERN =
  *
  * ⚠️ 禁用清單列的是**套件**，而比對原本是整串相等。Vue 那一套大多是單一入口，
  * 所以那個差別一直量不到；React 那一套不是 —— shadcn CLI 產出的就是
- * `@base-ui/react/button` 這種子路徑，整串相等會讓它整批繞過清單（C234 §二）。
+ * `@base-ui/react/button` 這種子路徑，整串相等會讓它整批繞過清單。
  *
  * 相對路徑與含冒號的（`node:fs`、`virtual:*`）原樣回傳：它們不是套件，
  * 也不會與清單裡的任何一項相等。
@@ -519,8 +509,7 @@ export function importedPackage(specifier: string): string {
  * 切片命名規則：目錄名 kebab-case，套件名 `@org/feature-<目錄名>`。
  *
  * 這裡刻意**不用**直覺的 `/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/`。
- * 那個寫法有巢狀量詞（star height 2），Tier 2 的 `security/detect-unsafe-regex`
- * 會判定為 ReDoS 風險 —— 而且它是對的：巢狀量詞在特定輸入下會退化成
+ * 那個寫法有巢狀量詞（star height 2），是 ReDoS 風險：巢狀量詞在特定輸入下會退化成
  * 指數級回溯。切片名雖然來自開發者而非使用者輸入，風險實際很低，
  * 但「這條路徑碰不到不可信輸入」的假設會隨時間失效，而規則例外不會。
  *
@@ -535,8 +524,8 @@ export function isValidSliceDir(dir: string): boolean {
 export const slicePackageName = (dir: string): string => `${SLICE_PACKAGE_PREFIX}${dir}`;
 
 /**
- * D11：CSP 無 unsafe-eval 的前提是畫面在建置期就編好（JSX 由 Vite 編譯；C240 之前是
- * Vue 的 runtime-only build）。執行期動態求值字串會需要放寬，一旦有人用了，整份 CSP 就得放寬。
- * 這條由 oxlint 的 no-eval / no-implied-eval 擋，此處記錄理由供檢查腳本引用。
+ * CSP 無 unsafe-eval 的前提是畫面在建置期就編好（JSX 由 Vite 編譯）。
+ * 執行期動態求值字串會需要放寬，一旦有人用了，整份 CSP 就得放寬。
+ * 這條由 oxlint 的 no-eval / no-implied-eval 擋。
  */
 export const RUNTIME_TEMPLATE_FORBIDDEN = true;

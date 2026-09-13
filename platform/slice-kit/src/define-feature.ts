@@ -3,13 +3,13 @@ import type { ComponentType } from "react";
 import { isValidSliceDir } from "./contract.ts";
 
 /**
- * 切片對外的**唯一**公開契約（D7）。
+ * 切片對外的**唯一**公開契約。
  *
  * 新增一個切片 ＝ 在 apps/<app>/src/features.ts 加一行 import 與一個陣列項目。
  * 全靜態 import：SAST 追得到進入點、bundler tree-shake 得掉、CODEOWNERS 管得住。
  *
  * 刻意**不**使用 import.meta.glob 自動掛載 —— 動態 glob 會讓 Sonar/Checkmarx
- * 的資料流分析在切片進入點斷掉，且 tree-shaking 失效（D7）。
+ * 的資料流分析在切片進入點斷掉，且 tree-shaking 失效。
  */
 
 export interface FeatureMenuItem {
@@ -26,9 +26,9 @@ export interface FeatureMenuItem {
 /**
  * 切片的一條路由。
  *
- * ⚠️ 契約自己定這個型別，不直接用 react-router 的 `RouteObject`（C240，Q89）：
+ * ⚠️ 契約自己定這個型別，不直接用 react-router 的 `RouteObject`：
  * react-router 的路由沒有 `name`，而命名空間檢查、選單的 `routeName`、composition
- * root 那條 ★ 測試都掛在 name 上。轉成 react-router 的格式是應用殼的事。
+ * root 都掛在 name 上。轉成 react-router 的格式是應用殼的事。
  * 附帶的好處是 react-router 升大版時，這個公開型別不跟著變。
  */
 export interface SliceRoute {

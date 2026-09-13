@@ -17,7 +17,7 @@ import type { UiSeparatorSlot } from "../theme.ts";
  * （`separator/Separator.js`）。照 shadcn 用它的話，預設就從「裝飾」翻成「語意」，
  * 每一條排版用的線都會被唸出來 —— 而畫面一個像素都不會變。這裡照 reka-ui 的
  * `BaseSeparator` 自己送屬性（裝飾 → `role="none"`；語意 → `role="separator"`，
- * 只有垂直時才帶 `aria-orientation`）；產出凍結在 `tests/ssr-expected.json`（C243）。
+ * 只有垂直時才帶 `aria-orientation`）。
  *
  * 垂直的要有明確高度（外面給），否則畫不出來。
  */

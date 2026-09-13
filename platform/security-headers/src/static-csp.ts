@@ -1,9 +1,9 @@
 /**
- * 「靜態 CSP 標頭就夠」這個前提的守門人（D11 / R6）。
+ * 「靜態 CSP 標頭就夠」這個前提的守門人。
  *
  * ── 為什麼這件事值得一個檢查 ────────────────────────────────────────
  *
- * R6 原本的問法是「組織有沒有能設 cookie 的同源中間層」。但 CSP 這半邊還有
+ * 部署前要問組織的是「有沒有能設 cookie 的同源中間層」。但 CSP 這半邊還有
  * 一個更貴的隱藏需求：**只要建置產物裡有任何 inline script，CSP 就需要 nonce**，
  * 而 nonce 是 per-request 的，代表必須有東西**逐次請求改寫 index.html**。
  *
@@ -13,7 +13,7 @@
  *
  * 實測本專案的 `dist/index.html`：**零個 inline script**（React + Vite 的
  * 產物只有 `<script type="module" src>` 與 `<link rel=stylesheet>`；Vue 版時也是，
- * C240 換框架後重量過）。
+ * 換框架後重量過）。
  * 所以 nonce 不需要，CSP 可以是一行靜態回應標頭，任何反向代理都設得出來。
  *
  * 但那是一個**會靜默消失的性質**：有人貼一段分析工具的 inline snippet、
@@ -31,9 +31,8 @@ export interface StaticCspViolation {
   readonly reason: string;
 }
 
-// 全部刻意寫成單層量詞的字面 regex。
-// 巢狀量詞會被 Tier 2 的 security/detect-unsafe-regex 擋下，而那條規則是對的
-//（本專案已經因此改過三次程式碼，見 DECISIONS.md 的 C19）。
+// 全部刻意寫成單層量詞的字面 regex：巢狀量詞遇到惡意輸入會災難性回溯（ReDoS），
+// 而這裡吃的是整份 HTML。
 const SCRIPT_TAG = /<script\b([^>]*)>/gi;
 const HAS_SRC = /\bsrc\s*=/i;
 const STYLE_TAG = /<style\b/gi;
@@ -49,7 +48,7 @@ function excerpt(text: string, at: number): string {
  * 掃描 HTML，回傳所有會逼出 nonce（或逼出 `'unsafe-inline'`）的東西。
  *
  * 不解析 DOM 是刻意的：這支要在建置流程裡跑，不該為了一個守門檢查引入
- * 一個 HTML parser 相依（D2 的同一條理由）。詞法比對在這裡夠用 ——
+ * 一個 HTML parser 相依。詞法比對在這裡夠用 ——
  * 我們找的是「有沒有」，不是「在哪個節點下」。
  */
 export function findStaticCspViolations(html: string): StaticCspViolation[] {
@@ -81,7 +80,7 @@ export function findStaticCspViolations(html: string): StaticCspViolation[] {
       kind: "inline-style-attribute",
       excerpt: excerpt(html, match.index),
       reason:
-        "policy 的 style-src-attr 是 'none'（C245），style 屬性會被擋掉，而且 nonce 救不了 —— " +
+        "policy 的 style-src-attr 是 'none'，style 屬性會被擋掉，而且 nonce 救不了 —— " +
         "屬性不吃 nonce。改用 class；動態值在 JS 裡寫 element.style（CSSOM 不受 CSP 管）。",
     });
   }
@@ -121,7 +120,7 @@ export function formatStaticCspViolations(
     "  這不只是一條 lint。它改變的是**組織端要準備什麼**：\n\n" +
     "    修掉之前：CSP 是一行靜態回應標頭 —— nginx / CDN / gateway 都設得出來\n" +
     "    修掉之後：需要 per-request nonce，也就是需要一個會改寫 HTML 內容的中間層\n" +
-    "              （靜態檔案伺服器與 CDN 做不到，見 DECISIONS.md 的 R6）\n\n" +
+    "              （靜態檔案伺服器與 CDN 做不到）\n\n" +
     "  所以請優先改掉這段 inline 內容，而不是放寬 CSP。\n" +
     "  真的無法避免時，改的是 @org/security-headers 的 policy 與部署架構，\n" +
     "  兩者都會出現在 code review —— 這正是本檢查存在的目的。\n"
@@ -131,8 +130,7 @@ export function formatStaticCspViolations(
 // Vite 的 Plugin 型別由 `vite` 提供，但本 package 刻意不依賴 vite ——
 // 它同時要被 BFF（Node，無 Vite）消費。用結構型別描述所需的最小介面即可。
 //
-// export 的理由同 vite-plugin.ts 的 DevServerLike：它出現在公開簽章裡，
-// tools/api-surface 追蹤不到沒有 export 的名字。
+// export 的理由同 vite-plugin.ts 的 DevServerLike：它出現在公開簽章裡。
 export interface OutputAssetLike {
   readonly type?: string;
   readonly fileName?: string;
