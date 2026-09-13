@@ -38,7 +38,8 @@ rules:
       - pattern: useRoute().params
       # react-router（C241，Q97）：上面四條是 vue-router 的寫法，對 React 畫面一條都命不中。
       # 三個 hook 回傳的整包都是使用者可控的（路徑參數、查詢字串、hash、state），
-      # 所以來源是呼叫本身，不挑欄位。Vue 那四條隨 C232 §六 ⑤ 退場。
+      # 所以來源是呼叫本身，不挑欄位。Vue 那四條 C244 刻意留著：`$ROUTE.query` 不挑物件的來源，
+      # 拿掉是縮窄偵測，而 fixture 自己宣告 `useRoute`、不依賴 Vue。
       - pattern: useParams()
       - pattern: useSearchParams()
       - pattern: useLocation()
@@ -62,7 +63,7 @@ rules:
 
   # ⚠️⚠️ **這一條的三個 pattern 全部被 oxlint `no-implied-eval` 蓋掉**，而且 oxlint
   # 那一側是**嚴格超集**：路徑更寬（全樹，只關掉 `.semgrep/**`）、語言更多
-  # （`.vue` 的 `<script setup>` 也掃）、一樣擋 PR（Tier 1，`vp check`）。
+  # （`.tsx` 也掃）、一樣擋 PR（Tier 1，`vp check`）。
   # C210／#241 三個 pattern 逐條實測，三條全中。
   #
   # **那它為什麼留著？抑制註解。** 兩向探針（2026-09-09 重驗）：

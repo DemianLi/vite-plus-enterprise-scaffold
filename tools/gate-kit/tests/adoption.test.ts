@@ -21,9 +21,9 @@ import { repoRoot, runCli } from "../src/testing.ts";
  * 這份名冊曾經從 `scripts.gate` ＋ `scripts.ready` ＋ 根 `vite.config.ts` 的
  * **文字**推導 —— 問的是「哪幾支 CLI 出現在執行路徑上」。那個問法每多一種
  * 接線形狀就要多讀一處（`spec-report` 只在 `ready`、`release-distance` 只在
- * `vite.config.ts` 的 task），而 `UNGATED` 裡帶 CLI 的兩支（`csp-verify`、
- * `ui-survey`）**永遠不在任何執行路徑上**，於是永遠在絆線外，兩支檔頭各自
- * 寫著「這幾行沒有東西在守」。
+ * `vite.config.ts` 的 task），而 `UNGATED` 裡帶 CLI 的那一支（`csp-verify`；C244 之前還有
+ * `ui-survey`）**永遠不在任何執行路徑上**，於是永遠在絆線外，檔頭寫著
+ * 「這幾行沒有東西在守」。
  *
  * 檔頭那句主張是「這條線上**每一支** CLI」。每一支就是磁碟上每一支：
  * `gate-roster` 的 ① 守著「`tools/*` 每一個目錄都登記在 `GATES ∪ UNGATED`」，

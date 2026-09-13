@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import i18next from "i18next";
 import { useTranslation } from "react-i18next";
-import { UiButton } from "@org/ui/react";
+import { UiButton } from "@org/ui";
 import { config } from "@org/config";
 
 /**

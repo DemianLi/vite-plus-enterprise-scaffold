@@ -196,7 +196,7 @@ describe("D15：設計系統的兩條規則", () => {
   it("根本不用 @org/ui → 紅（C41）", () => {
     const root = makeSandbox();
     // 把整個 import 拿掉，等於「這個切片自己刻 UI」。
-    patch(root, VIEW, 'import { UiButton, UiDialog } from "@org/ui/react";\n', "");
+    patch(root, VIEW, 'import { UiButton, UiDialog } from "@org/ui";\n', "");
 
     const result = runConformance(root);
     expect(result.red, result.output).toBe(true);

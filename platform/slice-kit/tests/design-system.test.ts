@@ -25,7 +25,7 @@ describe("usesDesignSystem —— 認得出真的用了", () => {
     expect(usesDesignSystem(`import { UiButton } from "${DESIGN_SYSTEM_PACKAGE}";`)).toBe(true);
   });
 
-  it(".vue 的 <script setup> 區塊（這才是實際會被掃到的形狀）", () => {
+  it(".vue 的 <script setup> 區塊（Vue 版時實際會被掃到的形狀）", () => {
     const sfc = `<script setup lang="ts">
 import { computed } from "vue";
 import { UiButton, UiDialog } from "${DESIGN_SYSTEM_PACKAGE}";

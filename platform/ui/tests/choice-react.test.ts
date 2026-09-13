@@ -16,7 +16,7 @@ import { createUiTheme } from "../src/theme-context.tsx";
  * 經過 Base UI 基元的那幾支，React 版的行為（C236）。
  *
  * 這幾支的 DOM 與 Vue 版不同（reka 的勾選類是 `<button>`，Base UI 是 `<span>` ＋ 隱藏的
- * `<input>`），所以 `react-parity.test.ts` 的 SSR 比對對它們沒有意義 —— Vue 版檔頭寫下的
+ * `<input>`），所以凍結 SSR 產出（`ssr-expected.test.ts`）對它們沒有意義 —— Vue 版檔頭寫下的
  * 那幾條保證（標籤接得上、點標籤會切換、沒給值時選第一個分頁）要在 Base UI 上**重新量**，
  * 不能從 Vue 版繼承。
  *
@@ -65,7 +65,7 @@ describe("UiCheckbox（React）", () => {
     expect(screen.getByRole("checkbox").querySelector("svg")).toBeNull();
   });
 
-  it("children 取代 label —— 同 Vue 版的預設 slot", () => {
+  it("children 取代 label", () => {
     render(createElement(UiCheckbox, { label: "不會出現" }, "我已閱讀"));
     expect(labelledText(screen.getByRole("checkbox"))).toBe("我已閱讀");
   });
@@ -113,7 +113,7 @@ describe("UiRadioGroup ＋ UiRadioItem（React）", () => {
     expect(onValueChange.mock.calls[0]?.[0]).toBe("b");
   });
 
-  it("沒給 value 時一開始沒有選中 —— 同 Vue 版的空字串預設", () => {
+  it("沒給 value 時一開始沒有選中", () => {
     group();
     expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("aria-checked"))).toEqual(
       ["false", "false"],
@@ -139,7 +139,7 @@ describe("UiSwitch（React）", () => {
     expect(labelledText(screen.getByRole("switch"))).toBe("深色模式");
   });
 
-  it("aria-label 落在 role=switch 那個元素上 —— Vue 版靠 fallthrough 的那一格", () => {
+  it("aria-label 落在 role=switch 那個元素上", () => {
     render(createElement(UiSwitch, { "aria-label": "通知" }));
     expect(screen.getByRole("switch").getAttribute("aria-label")).toBe("通知");
   });
@@ -179,7 +179,7 @@ describe("UiTabs ＋ UiTabsPanel（React）", () => {
     expect(screen.queryByText("訂單內容")).not.toBeNull();
   });
 
-  it("⭐ value 給空字串也選第一個 —— 同 Vue 版的 current", () => {
+  it("⭐ value 給空字串也選第一個", () => {
     tabs({ value: "" });
     expect(selected()).toEqual(["true", "false"]);
   });

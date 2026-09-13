@@ -75,9 +75,7 @@
         "eslint",
         "eslint-plugin-security",
         "eslint-plugin-no-unsanitized",
-        "eslint-plugin-vue",
-        "typescript-eslint",
-        "vue-eslint-parser"
+        "typescript-eslint"
       ],
       "labels": ["dependencies", "security"]
     }

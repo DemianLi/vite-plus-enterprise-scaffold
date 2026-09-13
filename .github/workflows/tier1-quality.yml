@@ -70,7 +70,7 @@ jobs:
 
           | 層 | 這一層問什麼 | Tier 1 有沒有東西在守 |
           | --- | --- | --- |
-          | 層 1 約束 | 程式碼有沒有纏成一團 | ✅ 三步：格式／lint／型別、`.vue` 型別、無障礙靜態 |
+          | 層 1 約束 | 程式碼有沒有纏成一團 | ✅ 兩步：格式／lint／型別、無障礙靜態 |
           | 層 2 單元 | 實作細節對不對 | ✅ 一步：全 workspace 測試 |
           | 層 3 驗收 | **什麼叫做對** | ✅ 一步：驗收規格完成率。⚠️ 分母自 `#188` 起非零（1 片切片），⚠️⚠️ 而那份規格今天仍是 `vp create slice` 的**範本** —— 報表上的百分比是範本的示範場景，不是業務完成率 |
           | 層 4 QA | 怎麼驗它真的能用 | ❌ **無（刻意）** —— 人做的事，下發不了 |
@@ -192,24 +192,6 @@ jobs:
         if: steps.tree.outputs.side == 'upstream'
         run: node tools/threshold-check/src/cli.ts
 
-      # ── 上一步看不到的那一半（HANDOFF #26 / C68）──────────────────────
-      #
-      # `vp check` 的型別段是 tsgolint，**它不看 `.vue`**。實測：同一行
-      # `const broken: number = "顯然是字串"` 放進 SFC 是 0 errors、
-      # 放進 `.ts` 是 1 error。所以設計系統的元件原始碼在 2026-08-17 之前
-      # 一行型別檢查都沒跑過。
-      #
-      # ⚠️ 這一步用的是**另一個 TypeScript**（`catalog:vue-typecheck` 的 JS 版
-      # 5.x）。catalog 主線的 `typescript: ^7.0.2` 是原生 Go 版，已經沒有
-      # vue-tsc 需要的 compiler API。
-      #
-      # ⚠️ 那第二份 TypeScript 不只是成本：`.ts` 檔消費 `.vue` 時，上一步看的是
-      # `declare module "*.vue"` 的萬用宣告（任何 prop 都合法），這一步解析真的
-      # SFC。所以**這一步紅、上一步綠，多半是真陽性**，不是兩支工具在吵架。
-      # 見 DECISIONS 的 C68〈九〉。
-      - name: 層 1 約束 · .vue 型別檢查
-        run: node tools/vue-typecheck/src/cli.ts
-
       # ⚠️ 兩條測試步驟，由辨別子分流（C217 §五）：上游那條在 fork 會跑到上游專用工具的
       # 測試（`gate-roster` 讀真樹的那一條，團隊一加 `tools/*` 就紅）；fork 那條在上游會
       # 安靜地少跑那幾支。fork 那條的篩選與 `ready:fork` 逐字相同，由 `gate-roster` 守。
@@ -247,9 +229,8 @@ jobs:
       #
       # ⚠️ 綠燈的意思是「配色與形狀兩條軸實測可換」，**不是**「設計系統可換」。
       # 第三條軸（互動方式）不在這裡，而且不該在這裡 —— 互動是結構不是值，
-      # 代幣換不了它。守它的是上面的 api-surface（slot／emit 必須宣告，C67）
-      # 與 `.vue` 型別檢查（slot payload 的型別，C68）。三列的強度不一樣，
-      # 差在哪寫在 platform/ui/README.md 那張表。
+      # 代幣換不了它。守它的是上面的 api-surface（元件的簽章，C67）；Vue 版時還有
+      # `.vue` 型別檢查（slot payload 的型別，C68），隨 Vue 退場（C244）。
       - name: 五層答不出 · 設計系統接縫
         run: node tools/theme-verify/src/cli.ts
       # ── 無障礙靜態檢查（HANDOFF 第 22 項）─────────────────────────────
@@ -261,14 +242,14 @@ jobs:
       #
       # ⚠️ **這一步對本 repo 的正常結果是零個發現，而模板是有缺陷的。**
       # 它比對的是原生元素與屬性，而本 repo 的互動幾乎都包在元件裡
-      #（UiButton、RouterLink、DialogRoot）—— 元件對這 23 條規則是透明的。
-      # 實測：同一批 .vue 用人眼讀出四個真缺陷，這 23 條一個都沒報。
+      #（UiButton、Link、Dialog.Root）—— 元件對這批規則是透明的。
+      # 實測（Vue 版時）：同一批 .vue 用人眼讀出四個真缺陷，那 23 條一個都沒報。
       # 綠燈的意思是「靜態可查的那一半沒問題」，不是「頁面可用」。
       # 看不見的那一類具名列在 HANDOFF 第 22 項。
       #
       # 「掃到零個」與「什麼都沒掃到」在這裡長得一模一樣，所以有一條測試
       #（platform/eslint-config/tests/a11y.test.ts）在比對「repo 裡有幾個
-      # .vue」與「閘門掃到幾個」。那條測試跑在上面的「測試」步驟裡。
+      # .tsx」與「閘門掃到幾個」。那條測試跑在上面的「測試」步驟裡。
       - name: 層 1 約束 · 無障礙靜態檢查
         if: steps.tree.outputs.side == 'upstream'
         run: ./node_modules/.bin/eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0

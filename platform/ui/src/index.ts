@@ -17,52 +17,62 @@
  * 必須登記在 `removes` 裡並附 codemod —— 因為所有切片都依賴這個 package，
  * 一個沒登記的改名會同時打斷所有團隊。
  *
- * ── 不要從這裡轉出 reka-ui ─────────────────────────────────────────
+ * ── 不要從這裡轉出基元 ─────────────────────────────────────────────
  *
- * 使用端只該看到我們包裝過的元件。直接轉出 reka-ui 的基元等於把
- * 「哪些基元可以用」這件事交給每個團隊各自決定 —— 而其中 **Splitter
- * 會在執行期注入 `<style>`，被本 repo 的 `style-src 'self'` 擋掉**。
- * 那條限制由 `tools/conformance` 強制，這裡不開後門。
+ * 使用端只該看到我們包裝過的元件。直接轉出 `@base-ui/react` 或
+ * `react-day-picker` 等於把「哪些基元可以用」這件事交給每個團隊各自決定 ——
+ * 而基元庫哪一版開始在執行期注入 `<style>`，就會被本 repo 的
+ * `style-src 'self'` 安靜擋掉（Radix 的捲動鎖定就是這樣出局的，C233）。
+ * 不轉出由 `tests/styles.test.ts` 守，名單上的基元由 `tools/conformance` 擋。
+ *
+ * ── 這一份在 C235–C243 期間叫 `./react` ─────────────────────────────
+ *
+ * 遷移期間 `.` 仍是 Vue 版；Vue 退場時收回來（C244），使用端的 import
+ * 由 codemod `ui-react-entry-to-root` 改寫。
  */
 
-export { default as UiButton } from "./components/UiButton.vue";
-export { default as UiDialog } from "./components/UiDialog.vue";
-export { default as UiAlertDialog } from "./components/UiAlertDialog.vue";
-export { default as UiInput } from "./components/UiInput.vue";
-export { default as UiBadge } from "./components/UiBadge.vue";
-export { default as UiCheckbox } from "./components/UiCheckbox.vue";
-export { default as UiSkeleton } from "./components/UiSkeleton.vue";
-export { default as UiTabs } from "./components/UiTabs.vue";
-export { default as UiTabsPanel } from "./components/UiTabsPanel.vue";
-export { default as UiDatePicker } from "./components/UiDatePicker.vue";
-export { default as UiAlert } from "./components/UiAlert.vue";
-export { default as UiPagination } from "./components/UiPagination.vue";
-export { default as UiSeparator } from "./components/UiSeparator.vue";
-export { default as UiTable } from "./components/UiTable.vue";
-export { default as UiTableBody } from "./components/UiTableBody.vue";
-export { default as UiTableCell } from "./components/UiTableCell.vue";
-export { default as UiTableHead } from "./components/UiTableHead.vue";
-export { default as UiTableHeadCell } from "./components/UiTableHeadCell.vue";
-export { default as UiTableRow } from "./components/UiTableRow.vue";
-export { default as UiLabel } from "./components/UiLabel.vue";
-export { default as UiField } from "./components/UiField.vue";
-export { default as UiRadioGroup } from "./components/UiRadioGroup.vue";
-export { default as UiRadioItem } from "./components/UiRadioItem.vue";
-export { default as UiSelect } from "./components/UiSelect.vue";
-export { default as UiDropdownMenu } from "./components/UiDropdownMenu.vue";
-export { default as UiSwitch } from "./components/UiSwitch.vue";
-export { default as UiTextarea } from "./components/UiTextarea.vue";
+export { UiButton } from "./components/UiButton.tsx";
+export { UiInput } from "./components/UiInput.tsx";
+export { UiBadge } from "./components/UiBadge.tsx";
+export { UiCheckbox } from "./components/UiCheckbox.tsx";
+export { UiSkeleton } from "./components/UiSkeleton.tsx";
+export { UiTabs } from "./components/UiTabs.tsx";
+export { UiTabsPanel } from "./components/UiTabsPanel.tsx";
+export { UiAlert } from "./components/UiAlert.tsx";
+export { UiPagination } from "./components/UiPagination.tsx";
+export { UiSeparator } from "./components/UiSeparator.tsx";
+export { UiTable } from "./components/UiTable.tsx";
+export { UiTableBody } from "./components/UiTableBody.tsx";
+export { UiTableCell } from "./components/UiTableCell.tsx";
+export { UiTableHead } from "./components/UiTableHead.tsx";
+export { UiTableHeadCell } from "./components/UiTableHeadCell.tsx";
+export { UiTableRow } from "./components/UiTableRow.tsx";
+export { UiLabel } from "./components/UiLabel.tsx";
+export { UiField } from "./components/UiField.tsx";
+export { UiRadioGroup } from "./components/UiRadioGroup.tsx";
+export { UiRadioItem } from "./components/UiRadioItem.tsx";
+export { UiSwitch } from "./components/UiSwitch.tsx";
+export { UiTextarea } from "./components/UiTextarea.tsx";
+export { UiDialog } from "./components/UiDialog.tsx";
+export { UiAlertDialog } from "./components/UiAlertDialog.tsx";
+export { UiSelect } from "./components/UiSelect.tsx";
+export { UiDropdownMenu } from "./components/UiDropdownMenu.tsx";
+export { UiDatePicker } from "./components/UiDatePicker.tsx";
 export { cn } from "./utils/cn.ts";
 
 /**
  * 各案客製的擴充點（HANDOFF #24）。
  *
- * ⚠️ `UI_THEME` 這個 injection key **刻意不在這裡匯出**：唯一的入口是
- * `createUiTheme()`，因為只有它擋得掉空覆寫與空字串（見 theme.ts）。
- * 直接 `app.provide(UI_THEME, …)` 會繞過那兩條，而繞過去的症狀是
- * 「按鈕變成一個看不見但點得到的方塊」。
+ * ⚠️ context 物件**刻意不在這裡匯出**：唯一的入口是 `createUiTheme()`，因為只有它
+ * 擋得掉空覆寫與空字串（見 theme.ts 的 `checkedOverride`）。直接把表塞進 context
+ * 會繞過那兩條，而繞過去的症狀是「按鈕變成一個看不見但點得到的方塊」。
  */
-export { createUiTheme } from "./theme.ts";
+export { createUiTheme } from "./theme-context.tsx";
+export type { UiThemeProvider } from "./theme-context.tsx";
+/**
+ * 型別清單要涵蓋每一支元件的槽型別：`UiThemeOverride` 引用了全部，而 `api-surface`
+ * 要求公開簽章裡出現的型別都要有名字可以稱呼（C235 §三）。
+ */
 export type {
   UiAlertDialogSlot,
   UiAlertSlot,

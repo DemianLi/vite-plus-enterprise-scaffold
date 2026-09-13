@@ -1,4 +1,3 @@
-import vue from "@vitejs/plugin-vue";
 import { configDefaults, defineConfig } from "vitest/config";
 
 /**
@@ -40,7 +39,6 @@ export const REAL_TREE_OBSERVERS = [
 ] as const;
 
 export default defineConfig({
-  plugins: [vue()],
   test: {
     exclude: [...configDefaults.exclude, "**/fixtures/**", ...REAL_TREE_OBSERVERS],
   },

@@ -139,7 +139,7 @@ describe("UiDatePicker（React）", () => {
     expect(document.activeElement).toBe(dayButton("0050-03-01"));
   });
 
-  it("🔴 不支援的 locale 丟例外，不是安靜退回英文 —— 同 Vue 版檔頭那一句", () => {
+  it("🔴 不支援的 locale 丟例外，不是安靜退回英文", () => {
     const silence = vi.spyOn(console, "error").mockImplementation(() => undefined);
     try {
       expect(() => mountPicker({ locale: "ja-JP" })).toThrow(/不支援 locale "ja-JP"/);

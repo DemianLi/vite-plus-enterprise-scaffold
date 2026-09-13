@@ -48,7 +48,7 @@ describe("UiSelect（React）", () => {
     expect(triggerEl().hasAttribute("data-placeholder")).toBe(true);
   });
 
-  it("value 給空字串也是「沒選」—— 同 Vue 版", () => {
+  it("value 給空字串也是「沒選」", () => {
     // ⚠️ 拿掉元件裡「空字串 → null」那一行，這條照樣綠（C237 M12）：Base UI 對不在 items 裡的值
     // 也顯示 placeholder。所以這條守的是對外行為，不是那一行 —— 那一行為什麼留著見 `UiSelect.tsx`。
     mountSelect({ value: "" });

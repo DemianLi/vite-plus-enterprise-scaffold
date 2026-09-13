@@ -18,44 +18,28 @@ const jsxA11y = jsxA11yPlugin as unknown as {
  *
  * ── 這幾條測試在防的是什麼 ─────────────────────────────────────────
  *
- * `src/a11y.js` 對本 repo 的 `.vue` 檔實測是**零命中**。零命中有兩種：
+ * `src/a11y.js` 對本 repo 實測是**零命中**。零命中有兩種：
  * 一種是「看過了，沒問題」，一種是「什麼都沒看」。這個 repo 已經在
  * 第二種上栽過很多次（見 tier2-security.yml 對 SBOM 與 semgrep 的註解），
  * 而兩者在 CI 上長得一模一樣：綠燈。
  *
  * 所以這裡不驗「repo 是乾淨的」—— 那件事閘門自己每次都在驗。
- * 這裡驗的是**閘門自己還活著**：每一軌拿一份故意寫壞的 fixture，
+ * 這裡驗的是**閘門自己還活著**：拿一份故意寫壞的 fixture，
  * 要求每一條規則都確實對它開火。
  *
  * ⚠️ 斷言的是**規則 ID 的集合**，不是數量、也不是 exit code。
  *   - 用數量：換一條規則、數量不變，測試照樣綠
- *   - 用 exit code：只要有任何一條紅就綠，其餘 22 條全壞掉也看不出來
+ *   - 用 exit code：只要有任何一條紅就綠，其餘全壞掉也看不出來
+ *
+ * ⚠️ C244 之前有兩軌（`.vue` 與 `.tsx`），Vue 那一軌隨 `.vue` 退場（Q104）。
  */
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const CONFIG = fileURLToPath(new URL("../src/a11y.js", import.meta.url));
 const ROOT_CONFIG = fileURLToPath(new URL("../../../eslint.config.js", import.meta.url));
-
-/**
- * 兩軌，各一份 fixture（C234）。
- *
- * ⚠️ **`.tsx` 那一軌接上這天，樹上零支 `.tsx`。** 下面「每一個檔都被掃到」那條
- * 對它是空集合比空集合 —— 保證成立，什麼都證明不了。這一軌活著的證據只有
- * fixture 那一組，加上「射程涵蓋切片與應用裡的 `.tsx`」那條問設定的斷言。
- */
-const TRACKS = {
-  ".vue": {
-    fixture: fileURLToPath(new URL("./fixtures/a11y-violations.vue", import.meta.url)),
-    prefix: "vuejs-accessibility/",
-  },
-  ".tsx": {
-    fixture: fileURLToPath(new URL("./fixtures/a11y-violations.tsx", import.meta.url)),
-    prefix: "jsx-a11y/",
-  },
-} as const;
-
-type Track = (typeof TRACKS)[keyof typeof TRACKS];
+const FIXTURE = fileURLToPath(new URL("./fixtures/a11y-violations.tsx", import.meta.url));
+const PREFIX = "jsx-a11y/";
 
 /**
  * 刻意不涵蓋的規則：規則 ID → 為什麼 fixture 觸發不了它。
@@ -67,31 +51,31 @@ type Track = (typeof TRACKS)[keyof typeof TRACKS];
 const UNCOVERED: Readonly<Record<string, string>> = {};
 
 /** 用閘門自己的設定跑 ESLint。`ignore: false` 才碰得到刻意被排除的 fixture。 */
-async function lintFixture(track: Track): Promise<ESLint.LintResult> {
+async function lintFixture(): Promise<ESLint.LintResult> {
   const eslint = new ESLint({
     overrideConfigFile: CONFIG,
     // flat config 的 `ignores` 會把 fixture 擋在外面（不擋的話閘門永遠是紅的）。
     // 這一行是唯一繞過它的地方，而且只在測試裡。
     ignore: false,
   });
-  const [result] = await eslint.lintFiles([track.fixture]);
+  const [result] = await eslint.lintFiles([FIXTURE]);
   if (result === undefined) throw new Error("fixture 沒有被 lint 到");
   return result;
 }
 
 /** 這份設定實際啟用了哪些 a11y 規則 —— 問 ESLint，不重新推導一次。 */
-async function enabledRules(track: Track): Promise<Set<string>> {
+async function enabledRules(path: string = FIXTURE): Promise<Set<string>> {
   const eslint = new ESLint({ overrideConfigFile: CONFIG, ignore: false });
-  const calculated = (await eslint.calculateConfigForFile(track.fixture)) as {
+  const calculated = (await eslint.calculateConfigForFile(path)) as {
     rules: Record<string, unknown>;
   };
-  return new Set(Object.keys(calculated.rules).filter((rule) => rule.startsWith(track.prefix)));
+  return new Set(Object.keys(calculated.rules).filter((rule) => rule.startsWith(PREFIX)));
 }
 
-describe.each(Object.entries(TRACKS))("無障礙閘門的規則確實會開火（%s）", (_, track) => {
+describe("無障礙閘門的規則確實會開火", () => {
   it("★ fixture 觸發了每一條被啟用的規則", async () => {
-    const enabled = await enabledRules(track);
-    const fired = new Set((await lintFixture(track)).messages.map((message) => message.ruleId));
+    const enabled = await enabledRules();
+    const fired = new Set((await lintFixture()).messages.map((message) => message.ruleId));
 
     const silent = [...enabled].filter((rule) => !fired.has(rule) && !(rule in UNCOVERED));
 
@@ -102,20 +86,16 @@ describe.each(Object.entries(TRACKS))("無障礙閘門的規則確實會開火�
   });
 
   it("★ 沒有多出來的規則 —— fixture 只該踩到被啟用的那些", async () => {
-    const enabled = await enabledRules(track);
-    const fired = [
-      ...new Set((await lintFixture(track)).messages.map((message) => message.ruleId)),
-    ];
+    const enabled = await enabledRules();
+    const fired = [...new Set((await lintFixture()).messages.map((message) => message.ruleId))];
 
     expect(fired.filter((rule) => rule !== null && !enabled.has(rule))).toEqual([]);
   });
 
   it("★ 沒有剖析錯誤 —— 一個剖析不了的檔案，所有規則會一起安靜", async () => {
-    // 兩份 fixture 都寫了 TS 專屬語法。`.vue` 那一軌設了 `parser: false`（不剖析
-    // `<script>`），那個選項失效、掉回 espree 的話整個檔剖析失敗；`.tsx` 那一軌
-    // 靠 typescript-eslint 讀型別註記，換成 espree 同樣整個檔剖析失敗。
-    // 兩者都與「沒有問題」在 CI 上長得一模一樣，這條就是擋那個。
-    const result = await lintFixture(track);
+    // fixture 寫了 TS 專屬語法：這一軌靠 typescript-eslint 讀型別註記，換成 espree
+    // 整個檔剖析失敗 —— 與「沒有問題」在 CI 上長得一模一樣，這條就是擋那個。
+    const result = await lintFixture();
     const fatal = result.messages.filter((message) => message.fatal === true);
     expect(fatal.map((message) => message.message)).toEqual([]);
   });
@@ -124,27 +104,27 @@ describe.each(Object.entries(TRACKS))("無障礙閘門的規則確實會開火�
     // CI 跑的是 `eslint --max-warnings=0`，所以 warning 也會擋。
     // 但本機直接跑 eslint 時 warning 不會讓人停下來，
     // 而一條沒有人會停下來看的無障礙告警等於沒有這條規則。
-    const result = await lintFixture(track);
+    const result = await lintFixture();
     expect(result.messages.every((message) => message.severity === 2)).toBe(true);
   });
 });
 
 /**
- * `.tsx` 那一軌開的是「上游沒標淘汰的全部」—— 推導出來的，所以要守「推導」本身。
+ * 開的是「上游沒標淘汰的全部」—— 推導出來的，所以要守「推導」本身。
  *
  * 上面那組問的是「開了的有沒有開火」，接不住**少開**：有人在 `src/a11y.js` 多
  * filter 掉一條，那條就從 enabled 與 fired 兩邊一起消失，集合照樣相等。
  * 期望值直接從外掛讀，不抄一份清單。
  */
-describe("`.tsx` 那一軌的規則集合", () => {
+describe("規則集合", () => {
   it("★ 開的正好是上游沒標淘汰的那些 —— 多排除一條會紅", async () => {
     const expected = Object.entries(jsxA11y.rules)
       .filter(([, rule]) => rule.meta?.deprecated !== true)
-      .map(([name]) => `jsx-a11y/${name}`)
+      .map(([name]) => `${PREFIX}${name}`)
       .sort();
 
     expect(expected.length).toBeGreaterThan(0);
-    expect([...(await enabledRules(TRACKS[".tsx"]))].sort()).toEqual(expected);
+    expect([...(await enabledRules())].sort()).toEqual(expected);
   });
 });
 
@@ -162,7 +142,7 @@ describe("`.tsx` 那一軌的規則集合", () => {
  *
  * ⚠️ **那個紅是這條斷言自己判準下的真紅，不是被設定改出來的**：它在
  * `src/a11y.js` 一個字都還沒動的時候就量得到。壞的是它問的**對象** ——
- * 「磁碟上每一個 `.vue`」而不是「這個 checkout 裡每一個 `.vue`」。所以這裡換的
+ * 「磁碟上每一個檔」而不是「這個 checkout 裡每一個檔」。所以這裡換的
  * 是對象，判準（「每一個都要被掃到」）一個字沒動，AGENTS.md 規則二 管的是後者。
  *
  * ⚠️ **而它同時是 `src/worktrees.js` 那條黑名單的守衛。** 那一列只擋得住
@@ -176,13 +156,13 @@ describe("`.tsx` 那一軌的規則集合", () => {
  * 它 —— 跨工具相依要過 `conformance` 的邊界規則，而三支問 git 的問題不一樣。
  */
 function filesInCheckout(root: string, extension: string): string[] {
-  const fixtures = new Set(Object.values(TRACKS).map((track) => relative(root, track.fixture)));
+  const fixture = relative(root, FIXTURE);
   const listed = new Set([
     ...gitLines(root, ["ls-files", "-z"]),
     ...gitLines(root, ["ls-files", "-z", "--others", "--exclude-standard"]),
   ]);
 
-  return [...listed].filter((path) => path.endsWith(extension) && !fixtures.has(path));
+  return [...listed].filter((path) => path.endsWith(extension) && path !== fixture);
 }
 
 /**
@@ -216,33 +196,34 @@ describe("閘門的掃描範圍", () => {
     return (await eslint.lintFiles([ROOT])).map((result) => relative(ROOT, result.filePath));
   })();
 
-  it.each(Object.keys(TRACKS))("★ 這個 checkout 裡每一個 %s 都被掃到了", async (extension) => {
-    const scanned = (await linted).filter((path) => path.endsWith(extension)).sort();
-    expect(scanned).toEqual(filesInCheckout(ROOT, extension).sort());
+  it("★ 這個 checkout 裡每一個 .tsx 都被掃到了", async () => {
+    const scanned = (await linted).filter((path) => path.endsWith(".tsx")).sort();
+    expect(scanned).toEqual(filesInCheckout(ROOT, ".tsx").sort());
   });
 
-  it("★ `.vue` 那一軌掃到的不是空集合 —— 上面那條在兩邊都空時也會過", async () => {
-    expect((await linted).filter((path) => path.endsWith(".vue")).length).toBeGreaterThan(0);
+  it("★ 掃到的不是空集合 —— 上面那條在兩邊都空時也會過", async () => {
+    // C234 接上這一軌那天樹上零支 `.tsx`，這一條當時問不出來，改問設定（下面那組）；
+    // C244 起它是唯一的一軌，而樹上有元件、切片與應用殼。
+    expect((await linted).filter((path) => path.endsWith(".tsx")).length).toBeGreaterThan(0);
   });
 
   /**
-   * `.tsx` 沒有對應的「不是空集合」可以問（樹上還沒有 `.tsx`），所以改問**設定**：
-   * 第一批 React 畫面會落在哪幾個位置，那幾個位置有沒有被這一軌涵蓋。
+   * 問**設定**：切片、應用殼、元件那三個位置有沒有被這一軌涵蓋。
    * 路徑不必真的存在 —— `calculateConfigForFile` 問的是樣式。
    */
   it.each([
     "features/order/src/views/OrderList.tsx",
     "apps/console/src/App.tsx",
     "platform/ui/src/components/UiButton.tsx",
-  ])("★ `.tsx` 那一軌的射程涵蓋 %s", async (path) => {
+  ])("★ 射程涵蓋 %s", async (path) => {
     const eslint = new ESLint({ overrideConfigFile: CONFIG, cwd: ROOT });
     const calculated = (await eslint.calculateConfigForFile(`${ROOT}${path}`)) as {
       rules: Record<string, unknown>;
     };
 
     expect(await eslint.isPathIgnored(`${ROOT}${path}`)).toBe(false);
-    expect(Object.keys(calculated.rules).filter((rule) => rule.startsWith("jsx-a11y/"))).toEqual(
-      [...(await enabledRules(TRACKS[".tsx"]))].sort(),
+    expect(Object.keys(calculated.rules).filter((rule) => rule.startsWith(PREFIX))).toEqual(
+      [...(await enabledRules())].sort(),
     );
   });
 });
@@ -259,17 +240,15 @@ describe("fixture 的排除範圍", () => {
   };
 
   for (const [label, cwd] of Object.entries(BASE_PATHS)) {
-    for (const [extension, track] of Object.entries(TRACKS)) {
-      it(`★ ${label}：排除的是那一個 ${extension}，不是整個目錄`, async () => {
-        const eslint = new ESLint({ overrideConfigFile: CONFIG, cwd });
+    it(`★ ${label}：排除的是那一個 fixture，不是整個目錄`, async () => {
+      const eslint = new ESLint({ overrideConfigFile: CONFIG, cwd });
 
-        expect(await eslint.isPathIgnored(track.fixture)).toBe(true);
+      expect(await eslint.isPathIgnored(FIXTURE)).toBe(true);
 
-        // 排除範圍寫成目錄的話，之後任何人在 fixtures/ 下新增的檔
-        // 都會安靜地不被檢查 —— 而那正是這道閘門要防的事情本身。
-        expect(await eslint.isPathIgnored(`${HERE}fixtures/some-other${extension}`)).toBe(false);
-      });
-    }
+      // 排除範圍寫成目錄的話，之後任何人在 fixtures/ 下新增的檔
+      // 都會安靜地不被檢查 —— 而那正是這道閘門要防的事情本身。
+      expect(await eslint.isPathIgnored(`${HERE}fixtures/some-other.tsx`)).toBe(false);
+    });
   }
 });
 
@@ -295,7 +274,7 @@ describe("巢狀工作樹不算這個 checkout 的一部分", () => {
    * `platform/ui/**` 一起吃掉的樣式會讓上面那條斷言全綠。
    *
    * ⚠️ **兩個 cwd 的對照組不是同一個檔案，而那件事本身就是證據。** 實測：
-   * 從本 package 跑時，主樹那份逐位元組相同的 `UiTextarea.vue`（在 repo 根底下、
+   * 從本 package 跑時，主樹那份逐位元組相同的元件檔（在 repo 根底下、
    * basePath 之外）也回 `true` —— 也就是說這一格連「主樹的檔案」都排除，
    * 它排除的是**整個 basePath 之外**，跟樣式無關。所以這一格的對照只能挑
    * package 裡面的檔案，而挑不到 package 外面的這件事，正是 C190 §二 3 說的
@@ -305,21 +284,25 @@ describe("巢狀工作樹不算這個 checkout 的一部分", () => {
    * （漏掉一個副本位置，那是上面那條射程斷言在守），接得住「樣式太寬」：
    * 實測把 `src/worktrees.js` 改成 `ignores: ["**"]`，四格全紅，因為那時
    * 連 package 裡面的對照檔都被排除了。
+   *
+   * ⚠️ 副檔名是 `.tsx`：C244 之前這幾格用 `.vue`，而 Vue 那一軌拿掉之後，
+   * 沒有任何一格 `files` 配得到 `.vue` —— flat config 把「沒有設定配到」也算成
+   * 「被排除」，對照組會因此紅在與樣式無關的地方。
    */
   const CWDS = {
     "從 repo 根跑（閘門）": {
       cwd: ROOT,
-      inScope: `${ROOT}platform/ui/src/components/UiTextarea.vue`,
+      inScope: `${ROOT}platform/ui/src/components/UiTextarea.tsx`,
     },
     "從本 package 跑（測試）": {
       cwd: fileURLToPath(new URL("..", import.meta.url)),
-      inScope: `${HERE}fixtures/some-other.vue`,
+      inScope: `${HERE}fixtures/some-other.tsx`,
     },
   };
 
   // 並行 session 的工作樹開在這裡（`.gitignore:33`）。路徑不必真的存在 ——
-  // `isPathIgnored` 問的是樣式，而挑這一支是因為它就是 #282 命中的那一個檔。
-  const NEIGHBOUR = `${ROOT}.claude/worktrees/probe/platform/ui/src/components/UiTextarea.vue`;
+  // `isPathIgnored` 問的是樣式；#282 命中的是這一支檔的 `.vue` 版。
+  const NEIGHBOUR = `${ROOT}.claude/worktrees/probe/platform/ui/src/components/UiTextarea.tsx`;
 
   for (const [configLabel, configFile] of Object.entries(CONFIGS)) {
     for (const [cwdLabel, { cwd, inScope }] of Object.entries(CWDS)) {

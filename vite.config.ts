@@ -1,5 +1,4 @@
 import { defineConfig } from "vite-plus";
-import vue from "@vitejs/plugin-vue";
 
 import { scaffoldLint, scaffoldOverrides } from "./vite.scaffold.ts";
 
@@ -34,10 +33,6 @@ export default defineConfig({
       },
     ],
   },
-  // ⚠️ vite 的 plugin 留在本檔：退出演練的 plugin 帳目只讀退出面設定檔的文字
-  // （`tools/exit-drill/src/plugins.ts`），搬走的 plugin 在演練裡等於不存在（C219）。
-  plugins: [vue()],
-
   fmt: {},
 
   lint: {
@@ -60,7 +55,6 @@ export default defineConfig({
       "max-depth": ["error", { max: 5 }],
       "max-params": ["error", { max: 6 }],
       complexity: ["error", { max: 39 }],
-      "vue/max-props": ["error", { maxProps: 5 }],
     },
 
     overrides: [
@@ -75,7 +69,6 @@ export default defineConfig({
           "max-depth": ["error", { max: 3 }],
           "max-params": ["error", { max: 4 }],
           complexity: ["error", { max: 15 }],
-          "vue/max-props": ["error", { maxProps: 2 }],
         },
       },
 

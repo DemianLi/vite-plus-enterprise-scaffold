@@ -105,7 +105,7 @@ describe("UiDropdownMenu（React）", () => {
     expect((named?.textContent ?? "").trim()).toBe("");
   });
 
-  it("★ 名字的載體還在 DOM 裡 —— 上面那兩條 ⭐ 的前置條件（同 Vue 版）", async () => {
+  it("★ 名字的載體還在 DOM 裡 —— 上面那兩條 ⭐ 的前置條件", async () => {
     mountMenu();
     await settle();
     const trigger = triggerEl();
@@ -114,7 +114,7 @@ describe("UiDropdownMenu（React）", () => {
     expect(trigger.querySelector("span")?.getAttribute("class")).toBe("sr-only");
   });
 
-  it("★ 觸發器今天沒有可見文字 —— WCAG 2.5.3 那條理由還沒上膛（同 Vue 版）", async () => {
+  it("★ 觸發器今天沒有可見文字 —— WCAG 2.5.3 那條理由還沒上膛", async () => {
     mountMenu();
     await settle();
     const clone = triggerEl().cloneNode(true) as HTMLElement;
@@ -207,7 +207,7 @@ describe("UiDropdownMenu（React）", () => {
   });
 
   it("⚠️ 首字母的緩衝區是連續的 —— 一秒內的第二個鍵會接在後面", async () => {
-    // 防止上一條被誤讀成「每按一個字都會跳到那個字」（同 Vue 版那一條）。
+    // 防止上一條被誤讀成「每按一個字都會跳到那個字」。
     await openByKeyboard();
     await pressKey(document.activeElement, "刪");
     expect(activeText()).toBe("刪除");
@@ -261,7 +261,7 @@ describe("UiDropdownMenu（React）", () => {
     expect(contentEl(), "點不動的項目不該把選單關掉").not.toBeNull();
   });
 
-  it("danger 那一項疊上紅色那一格，其他項目沒有（對照組寫法，同 Vue 版）", async () => {
+  it("danger 那一項疊上紅色那一格，其他項目沒有（對照組寫法）", async () => {
     mountMenu({ open: true });
     await settle();
     const classOf = (index: number): string => menuItems()[index]?.getAttribute("class") ?? "";

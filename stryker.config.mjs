@@ -34,9 +34,6 @@ const require = createRequire(import.meta.url);
  * ⚠️ 2026-09-02 實測是 **16 個**（原本這裡寫「九支」）—— 這裡刻意不再釘死支數，
  * 它會隨 `tools/` 增減而變，而沒有東西在守這個數字。
  * 沒有任何閘門在看檔案模式。`git checkout -- tools/` 還原得掉。
- * ⚠️ **紅掉的那一趟還會留東西**：乾跑在 bail 時殺掉 worker，`vue-typecheck` 反向測試的
- * `afterAll` 沒跑，`tools/vue-typecheck/tests/fixtures/.tmp-*` 就留下來（gitignore 掉的），而 C190 那條
- * 「這個 checkout 裡每一個 `.vue` 都被掃到了」會因此紅。綠的一趟留 0 個。`rm -rf` 那些目錄。
  *
  * ── 怎麼讀那份清單 ──────────────────────────────────────────────────
  *
@@ -166,10 +163,10 @@ export default {
   vitest: { configFile: "vitest.stryker.config.ts" },
 
   /**
-   * ⚠️ 預設是 `true`，意思是往**每一個**匹配到的檔（含 `tests/fixtures/` 底下的 `.vue`）插
-   * `// @ts-nocheck`，而那正好關掉 `vue-typecheck` 反向測試存在的理由（它斷言 fixture 會吐
-   * `TS2322`）。這裡沒有型別檢查器在跑（`tsconfigFile` 指向不存在的路徑、沒有 `checkers`），
-   * 那行註解一個用途都沒有 —— 關掉它，fixture 原封不動，那六條回綠。
+   * ⚠️ 預設是 `true`，意思是往**每一個**匹配到的檔插 `// @ts-nocheck`。這裡沒有型別檢查器在跑
+   * （`tsconfigFile` 指向不存在的路徑、沒有 `checkers`），那行註解一個用途都沒有，只會改掉被測的
+   * 原始碼。關它的那一天，是因為它讓 `vue-typecheck` 的反向測試紅（它斷言 fixture 會吐 `TS2322`）；
+   * 那支工具 C244 退場，關著的理由剩上面這一句。
    * ⚠️ 上一版檔頭寫「`false` 試過：跑超過十分鐘沒跑完」；2026-09-07 實測乾跑 **49 秒**，
    * 整趟乾跑（1,353 條）1 分 25 秒。那句話的量測條件已經不可考，不要再抄。
    */
@@ -217,8 +214,8 @@ export default {
    * 136 − 8 ＝ 128 而沒有任何東西在守這一句 —— **這個數只在跑的那天對**，讀到時
    * 先用 `git ls-files` 照七條 glob 重數，不要拿它當現況。
    *
-   * ⚠️ `.vue` 不在射程裡，而**這是這份清單的效果，不是驗過工具尊重那則裁決** ——
-   * 設計系統那個 package 因此只被量到一小角（27 個 SFC 一個 mutant 都沒有）。
+   * ⚠️ `.tsx` 不在射程裡（`*.ts` 不含它）—— 設計系統那個 package 因此只被量到一小角
+   * （27 支元件一個 mutant 都沒有）。Vue 版時在射程外的是 `.vue`，換成 React 形狀不變（C244）。
    */
   mutate: [
     "platform/*/src/**/*.ts",

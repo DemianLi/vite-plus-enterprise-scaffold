@@ -50,12 +50,6 @@ describe("sandbox · 建樹", () => {
   it("預設的目錄名前綴是 gate-kit-sandbox-，清理失敗時認得出是誰的", () => {
     expect(basename(sandbox().root).startsWith("gate-kit-sandbox-")).toBe(true);
   });
-
-  it("within：沙盒建在指定目錄底下（vue-typecheck 那條例外的入口）", () => {
-    const parent = sandbox().root;
-    const box = sandbox({ within: parent, prefix: "inner-" });
-    expect(box.root.startsWith(join(parent, "inner-"))).toBe(true);
-  });
 });
 
 /**

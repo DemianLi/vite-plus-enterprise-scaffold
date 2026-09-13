@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { compile } from "tailwindcss";
 
-import { defaultSlotValues, jsxBlock, stripComments } from "./contract.ts";
+import { defaultSlotValues, jsxBlock } from "./contract.ts";
 
 /**
  * 無障礙的驗收（C82）。
@@ -16,23 +16,19 @@ import { defaultSlotValues, jsxBlock, stripComments } from "./contract.ts";
  *
  * ── 為什麼沒有一條是 mount 出來的 ────────────────────────────────────
  *
- * ⚠️ 這一段原本的理由是「本 package 沒有 `happy-dom`／`@vue/test-utils`」。
- * **C86（#80）之後那句話就是假的** —— 兩個相依都在 `package.json` 裡，同
- * package 的 `alert-dialog.test.ts` 與 `dropdown-menu.test.ts` 都 mount。
- *
- * 今天的理由是**形狀**：這一支掃目錄（`readdirSync(COMPONENTS_DIR)`，27 個
+ * 理由是**形狀**：這一支掃目錄（`readdirSync(COMPONENTS_DIR)`，27 個
  * 元件），一組條文套在每一個上面。mount 做不到這件事 —— 每個元件要各自的
- * 必填 props（`UiField` 的 `label`），還有各自的父層上下文：`UiTableCell`、
- * `UiTabsPanel`、`UiRadioItem` 都 `inject`，⚠️ 而 `UiRadioItem` 自己的檔頭
- * 記著「放在外面不會報錯，只會點了沒反應」——**掛得起來但驗到的是錯的東西**。
+ * 必填 props（`UiField` 的 `label`），還有各自的父層上下文：`UiTabsPanel`、
+ * `UiRadioItem` 都要包在自己的根底下。同 package 的 `*-react.test.ts` 會 mount，
+ * 那是逐支的行為測試，不是掃目錄。
  *
  * 改成 mount 就是把掃目錄換回一份寫死的清單，而那正是
  * `component-contract.test.ts` 檔頭記的、上一版被換掉的原因：**它守的不是
  * 一條規則，是一個檔案。**
  *
  * 代價要說清楚：**這裡證明的是「屬性寫在模板裡」，不是「瀏覽器算出來的
- * 無障礙樹長那樣」。** 前者擋得住「有人把它刪掉」，擋不住「Vue 改變
- * fallthrough 語意」。後者要真的開瀏覽器，不在本 repo 現有的閘門形狀裡。
+ * 無障礙樹長那樣」。** 前者擋得住「有人把它刪掉」，擋不住「基元把屬性落在
+ * 另一個元素上」。後者要真的開瀏覽器，不在本 repo 現有的閘門形狀裡。
  *
  * 產物那一條是例外：它**真的編譯**，因為那條問的正是「原始碼裡的字有沒有
  * 變成執行期的規則」——「class 寫了但被丟掉」是本 repo 栽過的坑（C77／C80），
@@ -45,15 +41,11 @@ const PACKAGE_ROOT = join(import.meta.dirname, "..");
 const COMPONENTS_DIR = join(PACKAGE_ROOT, "src/components");
 
 const COMPONENTS = readdirSync(COMPONENTS_DIR)
-  .filter((name) => name.endsWith(".vue"))
+  .filter((name) => name.endsWith(".tsx"))
   .map((name) => ({
-    name: name.replace(/\.vue$/, ""),
+    name: name.replace(/\.tsx$/, ""),
     source: readFileSync(join(COMPONENTS_DIR, name), "utf8"),
   }));
-
-const REACT_COMPONENTS = readdirSync(COMPONENTS_DIR)
-  .filter((name) => name.endsWith(".tsx"))
-  .map((name) => ({ name, source: readFileSync(join(COMPONENTS_DIR, name), "utf8") }));
 
 /** 預設表裡帶動畫的那幾格。`animate-none` 本身是「關掉」，不是動畫。 */
 function animatedSlots(source: string): readonly (readonly [string, string])[] {
@@ -103,9 +95,7 @@ describe("動畫必須關得掉", () => {
     expect(animated.map(({ name }) => name)).not.toEqual([]);
   });
 
-  // React 那一半同一條（C235）：這條只讀預設表，兩種寫法的表是同一個慣例。
-  // 「骨架對輔具隱藏」與「模板不留 HTML 註解」讀的是 Vue 模板，不在這裡擴。
-  describe.each([...COMPONENTS, ...REACT_COMPONENTS])("$name", ({ source }) => {
+  describe.each(COMPONENTS)("$name", ({ source }) => {
     it("預設表裡每一格動畫都配了 motion-reduce:animate-none", () => {
       // 前庭障礙使用者關不掉的閃動（C81 §六 的第二條）。Tailwind v4.3.3
       // 不自帶這層保護 —— 由下面「Tailwind 不自帶保護」那條實測證明。
@@ -134,50 +124,17 @@ describe("骨架對輔具隱藏", () => {
   const skeleton = COMPONENTS.find(({ name }) => name === "UiSkeleton");
 
   it("★ UiSkeleton 還在（具名條文的保險）", () => {
-    expect(skeleton, "找不到 UiSkeleton.vue —— 具名條文會零執行然後全綠").toBeDefined();
-  });
-
-  it('模板上有 aria-hidden="true"', () => {
-    // WAI-ARIA：aria-busy 標在**容器**上（MUST），骨架自己是要被藏起來的
-    // 雜訊 —— 它沒有無障礙名稱，role="status" 會註冊一個永遠沒東西可唸的
-    // live region，而且並排時是 N 個。詳見元件檔頭。
-    const template = stripComments(skeleton?.source ?? "").split("<template>")[1] ?? "";
-    expect(template, "UiSkeleton 模板沒有 aria-hidden —— 載入期間輔具完全靜默").toContain(
-      'aria-hidden="true"',
-    );
-  });
-});
-
-describe("「⋯」選單的名字載體（React）", () => {
-  /**
-   * 下面「產物」那一組拿 `UiDropdownMenu.vue` 的 `sr-only` 去編 CSS。React 版寫的是同一個
-   * 字串（C237），但沒有這一條的話，`.tsx` 換掉那個 class 時兩邊不會有任何一條紅 ——
-   * 名字還在、那行字卻顯示在按鈕上。
-   */
-  const menu = REACT_COMPONENTS.find(({ name }) => name === "UiDropdownMenu.tsx");
-
-  it("★ UiDropdownMenu.tsx 還在（具名條文的保險）", () => {
-    expect(menu, "找不到 UiDropdownMenu.tsx —— 具名條文會零執行然後全綠").toBeDefined();
-  });
-
-  it("包著 label 的那個 span 是 sr-only —— 與 Vue 版編 CSS 的那一個字串相同", () => {
-    const candidate = /<span className="([^"]+)">\{label\}<\/span>/.exec(
-      jsxBlock(menu?.source ?? ""),
-    )?.[1];
-    expect(candidate).toBe("sr-only");
-  });
-});
-
-describe("骨架對輔具隱藏（React）", () => {
-  // 同上一組，讀的是 `return (` 那段 JSX（C236）。具名的理由與保險同上。
-  const skeleton = REACT_COMPONENTS.find(({ name }) => name === "UiSkeleton.tsx");
-
-  it("★ UiSkeleton.tsx 還在（具名條文的保險）", () => {
     expect(skeleton, "找不到 UiSkeleton.tsx —— 具名條文會零執行然後全綠").toBeDefined();
   });
 
   it('JSX 上有 aria-hidden="true"', () => {
-    expect(jsxBlock(skeleton?.source ?? "")).toContain('aria-hidden="true"');
+    // WAI-ARIA：aria-busy 標在**容器**上（MUST），骨架自己是要被藏起來的
+    // 雜訊 —— 它沒有無障礙名稱，role="status" 會註冊一個永遠沒東西可唸的
+    // live region，而且並排時是 N 個。詳見元件檔頭。
+    expect(
+      jsxBlock(skeleton?.source ?? ""),
+      "UiSkeleton 沒有 aria-hidden —— 載入期間輔具完全靜默",
+    ).toContain('aria-hidden="true"');
   });
 });
 
@@ -189,7 +146,7 @@ describe("★ 產物實測：原始碼裡的那個字真的變成規則", () => 
    * 一條與本 repo 無關的上游事實，把元件裡的 class 刪光它照樣綠。
    * 從預設表取，才串得起「**元件真的寫了那個字** → 產物真的有那條規則」。
    *
-   * ⚠️ 而這條**還是沒有**覆蓋最後一環：Tailwind 自己掃 `.vue` 檔把 candidate
+   * ⚠️ 而這條**還是沒有**覆蓋最後一環：Tailwind 自己掃 `.tsx` 檔把 candidate
    * 抽出來的那一步。這裡是把字串直接餵給 `compile()` 的。那一環由兩個東西
    * 守著 —— `styles.test.ts` 守 `@source` 宣告，`theme-verify` 的 fixture
    * 建置真的掃全 repo；落地時也在 `apps/console` 的產物裡實測過那條規則
@@ -231,20 +188,21 @@ describe("★ 產物實測：原始碼裡的那個字真的變成規則", () => 
    * 把它讀成「名字的保險」是反的 —— 元件檔頭有同一段說明，而那個方向
    * 正是選 `sr-only` 而不選 `aria-label` 的理由之一（壞得吵）。
    *
-   * ⚠️ **下面那個正則釘住的形狀不只這裡在用。** `<span class="sr-only">`
-   * 直接包住 `{{ label }}`、而且 class 只有一個 token —— 同一個形狀被
-   * `dropdown-menu.test.ts` 的「★ 名字的載體還在 DOM 裡」釘著。改成
+   * ⚠️ **下面那個正則釘住的形狀不只這裡在用。** `<span className="sr-only">`
+   * 直接包住 `{label}`、而且 class 只有一個 token —— 同一個形狀被
+   * `dropdown-menu-react.test.ts` 的「★ 名字的載體還在 DOM 裡」釘著。改成
    * `sr-only shrink-0` 這種寫法，兩個檔案會**同時紅**，而那是一件事不是兩件。
-   * 誰依賴這個形狀寫在元件檔頭（`UiDropdownMenu.vue`），動它之前先看那裡。
+   * 誰依賴這個形狀寫在元件檔頭（`UiDropdownMenu.tsx`），動它之前先看那裡。
    */
   const srOnlyCandidate = ((): string => {
-    const source = COMPONENTS.find(({ name }) => name === "UiDropdownMenu")?.source ?? "";
-    const template = stripComments(source).split("<template>")[1] ?? "";
+    const menu = COMPONENTS.find(({ name }) => name === "UiDropdownMenu");
     // 取的是**真的包著 `label` 的那個 span**，不是任何一個 sr-only。
-    return /<span class="([^"]+)">\{\{ label \}\}<\/span>/.exec(template)?.[1] ?? "";
+    return (
+      /<span className="([^"]+)">\{label\}<\/span>/.exec(jsxBlock(menu?.source ?? ""))?.[1] ?? ""
+    );
   })();
 
-  it("★ candidate 真的是從元件模板取來的", () => {
+  it("★ candidate 真的是從元件 JSX 取來的", () => {
     // 抓不到時 candidate 是空字串，下面那條會在空清單上跑 —— 它仍然會紅
     // （空清單編不出 `.sr-only`），但訊息會指向 Tailwind 而不是這個正則。
     expect(srOnlyCandidate).toBe("sr-only");
@@ -368,18 +326,22 @@ const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = {
     expect(animatedSlots(component)).toEqual([]);
   });
 
-  it("模板沒有 aria-hidden", () => {
-    const template =
-      '<template>\n  <div data-slot="skeleton" :class="parts.skeleton" />\n</template>';
-    expect(template.split("<template>")[1]).not.toContain('aria-hidden="true"');
+  it("JSX 沒有 aria-hidden", () => {
+    const component = `export function UiFake(): ReactNode {
+  return <div data-slot="skeleton" className={parts.skeleton} />;
+}
+`;
+    expect(jsxBlock(component)).not.toContain('aria-hidden="true"');
   });
 
   it("aria-hidden 被寫成 false 也要抓得到", () => {
-    // 實測過：Vue 對**非 class** 屬性是「使用端覆蓋」，所以 false 是真的會生效
-    // 的值，不是寫錯就沒事的字。條文比對整個 `aria-hidden="true"`，不是屬性名。
-    const template =
-      '<template>\n  <div aria-hidden="false" :class="parts.skeleton" />\n</template>';
-    expect(template.split("<template>")[1]).not.toContain('aria-hidden="true"');
+    // `"false"` 是真的會生效的值，不是寫錯就沒事的字。條文比對整個 `aria-hidden="true"`，
+    // 不是屬性名。
+    const component = `export function UiFake(): ReactNode {
+  return <div aria-hidden="false" className={parts.skeleton} />;
+}
+`;
+    expect(jsxBlock(component)).not.toContain('aria-hidden="true"');
   });
 
   it("motion-safe 不會滿足產物那條規則", async () => {
@@ -387,54 +349,4 @@ const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = {
     const css = await buildCss(["motion-safe:animate-none"]);
     expect(css).not.toMatch(REDUCED_MOTION_RULE);
   });
-});
-
-/**
- * ── 模板裡不得留 HTML 註解（C85）─────────────────────────────────────
- *
- * `renderToString` **不移除**註解 —— 用戶端的 production build 會，SSR 不會。
- * 所以寫在 `<template>` 裡的中文論證會出現在使用 Nuxt 那類 SSR 的專案
- * **下載的 HTML 裡**。⚠️ 同 C83 的形狀：寫在原始碼裡的東西進了交付物。
- *
- * 實測（C84，`UiField` 的 SSR 產出）：
- *
- *     <input id="v-0" aria-describedby="v-1 v-2" aria-invalid="true">
- *     <!-- ⚠️ 刻意**沒有** role="alert"：錯誤透過 aria-describedby 在聚焦時… -->
- *
- * ⚠️ **這一條驗的是原始碼，不是產物。** 它擋得住「有人往模板裡寫註解」，
- * 擋不住「Vue 改變註解的處理方式」。同 `theme-verify` README 那句
- * 「綠燈的意思是配色與形狀實測可換，不是設計系統可換」：邊界要自己說出來。
- *
- * ⚠️ **而對包在 portal 裡的模板，產物那一側不是「成本高」，是「做不到」**（C86 實測）。
- * reka-ui 的 `Teleport.vue` 是 `isMounted || forceMount` 才渲染，
- * `useMounted()` 在伺服器端是 false —— `UiDialog` 在 `renderToString` 下的
- * 完整產出是 `<!--[--><!--v-if--><!--]-->`，連 `ctx.teleports` 都是 undefined。
- * 再多的 fixture 也變不出東西來。這一版寫的是「成本遠大於換到的」，
- * **那句話對渲染得出來的模板為真，對包在 `Teleport` 裡的為假**。
- *
- * ⚠️ 界線是 `Teleport` 不是「元件」：`UiSelect` 的箭頭在 `SelectTrigger` 裡、
- * `SelectPortal` **外面**，所以它的註解當年是真的洩漏到 SSR 的（C85 量過）。
- *
- * ⚠️ 產物那一側現在有兩條，各自只涵蓋一個元件：
- * `field-wiring.test.ts` 用 SSR 驗 `UiField`、`alert-dialog.test.ts` 用 DOM
- * 驗 `UiAlertDialog`（整個包在 portal 裡的元件只有後面那條路走得通）。
- * 加上這條掃全目錄的，才是完整的：兩條深、一條廣。
- *
- * ⚠️ 別跟 SSR 的 fragment 標記搞混：產物裡的 `<!--[-->` 與 `<!---->` 是 Vue
- * 自己插的，不是作者寫的。這一條讀的是**原始碼**，碰不到它們。
- *
- * ⚠️ **React 那一半刻意沒有這一條（C236）**：JSX 的 `{/* … *\/}` 在 SSR 與用戶端都不輸出，
- * 寫在 JSX 裡的論證進不了任何產物 —— 這條要擋的東西在 `.tsx` 上不存在，不是漏掃。
- */
-describe("模板不留 HTML 註解", () => {
-  for (const { name, source } of COMPONENTS) {
-    it(`${name} 的 <template> 裡沒有註解`, () => {
-      const template = /<template>([\s\S]*)<\/template>/.exec(source)?.[1];
-
-      // ⚠️ 解析不到 <template> 就直接紅，不是跳過 —— 「沒有模板的元件」
-      // 在這個 repo 不存在，而 undefined 會讓下面那條斷言恆真。
-      expect(template, `${name} 解析不出 <template> 區塊`).toBeDefined();
-      expect(template).not.toContain("<!--");
-    });
-  }
 });

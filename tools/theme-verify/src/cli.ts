@@ -143,7 +143,7 @@ const componentClasses = new Set<string>(
 );
 
 /**
- * **消費端**的 `.vue`：切片與應用。
+ * **消費端**的畫面：切片與應用。
  *
  * ── 為什麼供應端守好了還不夠 ────────────────────────────────────────
  *
@@ -178,7 +178,7 @@ function collectViews(dir: string, out: Map<string, string>): void {
 const consumerSources = new Map<string, string>();
 for (const root of CONSUMER_ROOTS) {
   // 同 componentSources 那一格的理由：不存在就跳過，讓〈切片與應用底下
-  // 找不到任何 .vue〉那條紅燈說話。
+  // 找不到任何畫面〉那條紅燈說話。
   const dir = join(ROOT, root);
   if (existsSync(dir)) collectViews(dir, consumerSources);
 }

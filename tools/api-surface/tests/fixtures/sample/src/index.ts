@@ -15,8 +15,6 @@
  * 函式、class、純資料常數，以及一個**沒有出現在公開簽章裡**的私有型別。
  */
 
-export { default as SampleWidget } from "./SampleWidget.vue";
-
 /** 沒有出現在任何公開簽章裡 —— 改名不該讓任何形狀漂移。 */
 interface InternalOnly {
   readonly scratch: string;

@@ -12945,3 +12945,111 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 | **C241 Q95**         | 照舊：`vue-typecheck` 退場與刪 `.vue` 同一支（⑤b）                                                             |
 | **AGENTS.md 規則二** | **遵守** —— 拿掉規則、換對照、刪工具四件都問過；本支沒有拿掉任何檢查                                           |
 | **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                                 |
+
+### C244 — 第 ⑤ 批之二：Vue 退場 —— 27 支 `.vue`、四支 Vue 測試、`vue-typecheck` 與 `ui-survey` 刪掉，`@org/ui/react` 收回 `.`（附 codemod）；lint 的 Vue 半邊與 SFC 解析一起走，掃描器的 `.vue` 照讀（2026-09-13，Q102–Q106）
+
+> C232 §六 ⑤ 的第二支（C243 §二 的 ⑤b）。文件的框架敘述在 ⑤c；本支只改閘門守著的那幾格，以及指向已刪路徑的指路。
+
+#### 一、五題由人裁
+
+| #        | 問題                                                                                                                                        | 裁決                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| **Q102** | `api-surface` 解析 `.vue` 的 slot／emit（`shape.ts` 的 SFC 那一段、`SampleWidget.vue` 夾具、負向測試那一組）：`.vue` 刪光後沒有東西可讀     | **刪掉**                                 |
+| **Q103** | `gate-kit` 的 `sandbox({ within })`：唯一的使用者是 `vue-typecheck` 的夾具                                                                  | **刪掉**                                 |
+| **Q104** | `eslint-config` 的 Vue 半邊：Tier 2 的 `.vue` 區塊（`vue/no-v-html` 等三條）與 a11y 的 `.vue` 軌（含夾具與「`.vue` 也掃到了」★）            | **整半刪掉**，三個相依一起走             |
+| **Q105** | 契約 `CSP_INCOMPATIBLE_MODULES` 的 reka-ui Splitter：reka-ui 走了之後沒有現行對象                                                           | **留著**，擋的是重新引入                 |
+| **Q106** | 根層 `vite.config.ts`（AGENTS.md 規則二「團隊那一半」）的 `vue()` 外掛與業務碼那兩格 `vue/max-props`：Q100 只問了 `vite.scaffold.ts` 那兩格 | **授權改**：拿掉外掛與兩格，其餘一格不動 |
+
+- **五題都是在拿掉東西，或要動 agent 不准動的那一半**，所以全問（AGENTS.md 規則二的方向）。
+- ⚠️ **Q106 是做到一半才發現的**：C243 §二 把 ⑤b 的範疇寫成「`vite.scaffold.ts` 的 `vue` 外掛（Q100）」，沒有看到根層也有 `vue()` 與兩格 `vue/max-props`。
+
+#### 二、做了什麼
+
+1. **`platform/ui`**：刪 27 支 `.vue`、`env.d.ts` 與四支 Vue 測試（`alert-dialog`／`dropdown-menu`／`field-wiring`／`react-parity`，C243 §二）；`./react` 收回 `.` —— `index.ts` 換成 React 版的匯出、`react.ts` 刪掉；`theme.ts` 拿掉 Vue plugin 那一半（`UI_THEME`、Vue 版 `createUiTheme`），`checkedOverride`／`NO_OVERRIDE` 留給 `theme-context.tsx`；`vue`、`reka-ui`、`@vue/test-utils` 相依拿掉；`@source` 從 `{vue,ts,tsx}` 收成 `{ts,tsx}`。
+2. **入口收回的 codemod**（C235 Q57）：`tools/codemods/ui-react-entry-to-root.ts` ＋ 七條測試，跑完全 repo 改七個檔（兩支應用殼、兩片切片的畫面、`slice-gen` 的範本、`conformance` 兩支測試）。`surface.json` 的登記**先量再寫**：`api-surface` 報的是 `@org/ui/react#*` 60 筆「不見了」＋ `@org/ui#*` 28 筆「形狀變了」（27 支元件 `component` → `function`、`createUiTheme` 的 `Plugin` → `UiThemeProvider`），`removes`／`changes` 照那 88 筆寫。
+   - ⚠️ **C240 的赦免陷阱查過**：負向測試裡拿真基準當樣本的只剩 `anyOfKind`／`anyShaped` 那幾支，量過的是兩件：動態挑樣本的那六種 kind／形狀逐一解析，落在 `@org/bff-contract`／`@org/config`／`@org/http-client`；再把 88 筆登記逐筆拿去掃 `tools/`、`platform/` 底下全部 105 支測試檔的字面，0 筆（對照：同一支掃描拿 `@org/slice-kit#Feature` 掃到 `negative.test.ts` 那 1 筆）。沒有一筆被這次的登記赦免。唯一拿 `@org/ui#UiButton` 當樣本的那一條是 SFC 那一條，隨 Q102 刪。
+3. **測試改寫**：`tests/contract.ts` 拿掉 Vue 的判定式，① 的樣式換成具名 `.tsx`；`component-contract`／`a11y` 只掃 `.tsx`；約十五處「同 Vue 版」措辭改掉（C243 §五）；`base-ui-no-style` 的 reka 對照刪（Q99 的 react-dom 接手）；`styles.test` 公開契約兩條併一條。
+   - `a11y.test.ts` 的「模板不留 HTML 註解」**整組刪，這是我決定的**：它掃 `.vue` 的 `<template>`，對象走了；React 那一半 C236 刻意沒有（JSX 註解不進任何產物）。
+4. **`vue-typecheck` 退場**（C241 Q95）：工具、`gate:upstream`／`gate:fork`、別名、名冊、`COMPLIANCE.md`、CI 那一步、具名 catalog（第二個 TypeScript）、`.gitignore`、`stryker` 那幾段註解。
+   - ⚠️ **fork 預設接的閘門從六道變五道**（C215 的「6 道」）：那是 Q95 的後果，不是另一個決定；README 已改。
+5. **Q101**：`tools/ui-survey` 刪；`UI-SURVEY.md` 加一段凍結說明；HANDOFF #14 那兩條重跑指令拿掉；`csp-verify`、`gate-kit`、`CODEOWNERS`、`compliance` 裡指向它的幾處改寫。
+   - ⚠️ **「凍結」與閘門衝突了一格**：`UI-SURVEY.md` 的套件總數由 `doc-facts` 守（708 → 625），照閘門改，凍結說明寫明這一格是例外。它從來就沒有真的凍結 —— 那個數字一路跟著 lockfile 在改。
+6. **Q102／Q103／Q104／Q100＋Q106**：`api-surface` 的 SFC 那一段（`shape.ts` 約 640 行、夾具、負向測試那組 456 行）；`gate-kit` 的 `within` 與它那條測試；`eslint-config` 的 Vue 半邊；`vue/max-props` 四格與 `vue` 外掛。
+7. **catalog 與 lockfile**：`vue`、`@vitejs/plugin-vue`、`reka-ui`、`@vue/test-utils`、`eslint-plugin-vue`、`vue-eslint-parser`、`eslint-plugin-vuejs-accessibility`、`vue-tsc`、具名 catalog 的 `typescript` 5.x 拿掉；純 JS 套件 562 → 479（總數 708 → 625）。`@internationalized/date` 的註解重寫（C238 §二 6）。
+   - ⚠️ **`allowBuilds` 的 vue-demi 記錯了來源**：註解寫它由 `@tanstack/vue-query` 帶進來，而 C240 拿掉 vue-query 之後它還在 lockfile —— 真正的來源是 reka-ui → `@floating-ui/vue`。這次隨 reka-ui 一起走，`allowBuilds` 變成零筆（寫成 `{}`）。
+8. **`exit-drill`**：`DRILL_PLUGINS` 的 `vue`、`DRILL_TEST_DEPENDENCIES` 的 `@vue/test-utils` 拿掉 —— 它們是演練要安裝的東西，不是掃描範圍。
+
+#### 三、刻意沒動的
+
+| 項目                                                                                                                         | 為什麼                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 掃描器的副檔名清單照讀 `.vue`（`conformance` 的 `SOURCE_EXTENSIONS`、`theme-verify`、`exit-drill`、`codemods`、`pii-check`） | C182 §五：「今天 N=0」不是拿掉掃描範圍的理由。`pii-check` 的清單上方就寫著這一句；一度照「簿記」拿掉三支，讀到這句之後還原                                      |
+| 契約裡 Vue 那幾項禁用名單（`USECASE_FORBIDDEN_IMPORTS` 前五項、`SLICE_DESIGN_SYSTEM_IMPORTS` 的 `reka-ui`）                  | 同 Q105：擋的是重新引入；註解改成講這件事                                                                                                                       |
+| semgrep 的 vue-router 四個來源                                                                                               | **撤回 C241 那句「隨 ⑤ 退場」**：`$ROUTE.query` 不挑物件的來源，拿掉是縮窄偵測，而 fixture 自己宣告 `useRoute`、不依賴 Vue；CI 的 `semgrep --test` 本機也量不到 |
+| `security-headers` 裡「Vue 的 `:style`」那幾句                                                                               | 與待裁的 CSP `style-src-attr 'unsafe-inline'` 是同一件事（C240 §五），交人                                                                                      |
+| 根層 `vite.config.ts` 業務碼的其餘門檻                                                                                       | 不入棘輪（C219 §四）；Q106 只授權拿掉 `vue` 的東西                                                                                                              |
+| `reports/research/**`                                                                                                        | 凍結的量測稿，指著 `vue-typecheck`／`ui-survey` 是當時的事實，不是漏改                                                                                          |
+| README／HANDOFF／TESTING／API.md／`platform/ui/README.md` 的框架敘述                                                         | ⑤c。本支只改閘門守著的幾格（README 目錄樹、兩層檢查表、fork 閘門數、套件數；HANDOFF 的進入點數與套件數）                                                        |
+
+#### 四、閘門跟著動的（逐道跑出來的，不是先猜的）
+
+逐步跑（不是 `&&` 串起來的 `gate`）第一趟紅六道：`gate-roster`、`scaffold-stamp`、`supply-chain`、`compliance`、`doc-facts`、`threshold-check`（`promise-check` 紅在它）。
+
+- **`threshold-check`：兩格過期，降**（收緊，C147 §二）—— 腳手架產品碼 `max-params` 6 → 5、腳手架測試碼 `max-lines-per-function` 455 → 219。455 是 `api-surface` 負向測試 `.vue` 那一組的 `describe`，隨 Q102 刪。根層業務碼那一組不入棘輪，沒動。
+- **`threshold-check` 的「排名地板」測試（C223）拿 `vue/max-props` 當樣本**：換成 `max-depth` —— 同一個形狀（兩格、測試碼那格的真最大值等於門檻）。「今天這棵樹有幾格門檻」那條 21 → 17（根層 8、腳手架 9）。
+- **`doc-facts` 的元件數原本數 `.vue`**：刪完回 0 —— 紅在「HANDOFF 寫 27」，不是恆真；改數 `.tsx`。
+- **`compliance` 的 a11y 測試前置條件「多於一軌」→「至少一軌」**：只剩一軌，「第二軌被誤判成覆寫」那個前提暫時不存在；判法沒動。
+- **`renovate.test` 的「不會撈到 catalog 之外的鍵」原本比 `allowBuilds` 的 vue-demi**：那一筆拿掉之後對任何實作都恆真，換成 `overrides` 的 `qs`（N6 證明它還會紅）。
+- **`theme-verify` 的「登記表不得有死掉的那一筆」自己抓到 `--reka-select-trigger-width`**：從 `RUNTIME_PROVIDED` 刪（收緊），測試加一條「拿掉的那一筆不得偷偷還在」。
+- `exit-drill` 兩條帳目測試拿 `vue()` 當「已登記」的樣本 → 換 `react()`；`slice-gen` 的 catalog 解析斷言 `vue` → `react`；`promise-check`／`theme-verify` 讀元件的兩支測試改指 `.tsx`。
+- `supply-chain --update` ＋ `--capture-health`（35 筆，連 registry）；`compliance --update`；`api-surface --update`；`scaffold-stamp --update`。
+
+#### 五、量測
+
+- **變異**（先 commit，還原走 `git checkout`）：
+
+| #   | 改法                                         | 該紅的那支                                                           | RC  |
+| --- | -------------------------------------------- | -------------------------------------------------------------------- | --- |
+| —   | 都不改（對照）                               | 下面六支                                                             | 0   |
+| N1  | `index.ts` 少匯出一支（`UiBadge`）           | `component-contract` ①（1 條）                                       | 1   |
+| N2  | ① 的樣式退回 Vue 的 `default as … .vue` 寫法 | `component-contract` ①（27 條全紅，不是恆真）                        | 1   |
+| N3  | a11y 那一軌的 `files` 改成 `**/*.jsx`        | `eslint-config`（11 條，含「每一個 `.tsx` 都被掃到了」）             | 1   |
+| N4  | 花名冊少一支（`UiDialog`）                   | `ssr-expected` ★                                                     | 1   |
+| N5  | `doc-facts` 的元件數退回數 `.vue`            | `doc-facts` 閘門（27 vs 0）                                          | 1   |
+| N6  | catalog 解析不在下一個頂層鍵停下             | `renovate.test`「不會撈到 catalog 之外」                             | 1   |
+| N7  | `UiSkeleton` 拿掉 `aria-hidden`              | `a11y`「骨架對輔具隱藏」                                             | 1   |
+| N8  | codemod 的 `PATTERN` 拿掉收尾那組引號        | `ui-react-entry-to-root`「不誤傷以舊路徑為前綴的其他子路徑」（4 條） | 1   |
+
+- ⚠️ **N3 裡「掃到的不是空集合」那條沒有紅**：那一軌的 `files` 改掉之後，下面兩格覆寫（`platform/ui/src/components/**/*.tsx` 與三支具名檔）的 `files` 仍配得到 28 支，ESLint 照樣把它們算進掃描、只是沒有規則。它守的是「兩邊都空」，這一顆變異打不到那個形狀；紅的是「每一個都被掃到」（應用殼與切片那幾支掉出去）。
+- N1–N3、N6 第一趟的替換腳本用 perl，樣式裡的斜線把指令弄壞 —— 四顆都印了 perl 的錯、**沒有跑測試**（沒有算成綠）；換成 node 重跑。
+- ⚠️ **C243 的凍結檔現在是元件標記唯一的對照**：`react-parity.test.ts` 刪掉之後，SSR 那 25 組只剩 `ssr-expected.json`；N4 與 C243 的 M4／M7 是同一張檔的三個方向。
+
+#### 六、C154 §三
+
+| 新增的檢查                                 | 交付軸                        | 迭代軸（① 對象在外、② 壞法安靜）                               | 級別           |
+| ------------------------------------------ | ----------------------------- | -------------------------------------------------------------- | -------------- |
+| `ui-react-entry-to-root` 的七條測試        | 升級的人跑 codemod 不被誤傷   | ① 使用端的 import；② 過度熱心的改寫要一行行看才找得回來（D12） | 自我防護（N8） |
+| `component-contract`「① 換了寫法是零筆」   | 入口改寫法時 ① 全紅而不是恆真 | ① `index.ts` 的寫法；② 對空清單比對讀起來是綠的                | 自我防護（N2） |
+| `theme-verify`「拿掉的那一筆不得偷偷還在」 | 放行清單只縮不漲              | ① 第三方的變數名；② 登記表多一筆沒人發現                       | 自我防護       |
+
+**拿掉的檢查**（每一條都有人裁過或是 C243 §二 揭露過的範疇）：`vue-typecheck`（Q95）、`api-surface` 的 SFC 解析與它的負向測試（Q102）、`gate-kit` 的 `within` 那一條（Q103）、Tier 2 的 `.vue` 區塊與 a11y 的 `.vue` 軌（Q104）、`vue/max-props` 四格（Q100、Q106）、`react-parity.test.ts`（Q98 的凍結接手）、reka 對照（Q99）、`ui-survey`（Q101）、四支 Vue 行為測試（React 版各有一支）。**唯一沒問的**是 `a11y.test.ts` 的「模板不留 HTML 註解」—— 對象走了、React 那一半 C236 裁過不需要（§二 3）。
+
+#### 七、實測
+
+- 本機 `vpr ready`：READY_RC 0。量在 squash 前的 WIP commit `3c42410` 上，一路跑到 `gate` 的最後一步 `release-distance`。之後只改了本則的文字（§二 2 的量法、§五 的 N8、§六、§七、§八）；N8 改完已經還原，程式碼一行沒動。
+
+#### 八、與既有裁決的關係
+
+| 裁決                 | 關係                                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| **C232 §六 ⑤**       | 本則是它的第二支；⑤c（文件）在後                                                          |
+| **C243 §二／§五**    | 那一列的範疇做完，除了 §三 列的刻意不動；Q106 是那一列漏看的                              |
+| **C243 §二（⑤c）**   | 那一列的清單**不要當成完整的**：⑤b 已經漏看一格（Q106），⑤c 開工時先掃全樹，再照清單做    |
+| **C235 Q57**         | `./react` 收回 `.`，codemod 附上                                                          |
+| **C241 Q95**         | 照舊：`vue-typecheck` 與刪 `.vue` 同一支                                                  |
+| **C241 §三**         | 「semgrep 的 Vue 那四條隨 ⑤ 退場」**撤回**，理由見 §三                                    |
+| **C215**             | fork 預設閘門 6 → 5，Q95 的後果                                                           |
+| **C182 §五**         | **遵守** —— 掃描器的 `.vue` 照讀                                                          |
+| **C238 §二 6**       | `@internationalized/date` 的 catalog 註解重寫                                             |
+| **AGENTS.md 規則二** | **遵守** —— 拿掉的東西都問過或已揭露；團隊那一半（根層 `vite.config.ts`）經 Q106 授權才動 |
+| **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                            |

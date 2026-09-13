@@ -2,11 +2,10 @@ import { createContext, useContext, type ReactNode } from "react";
 import { checkedOverride, NO_OVERRIDE, type UiThemeOverride } from "./theme.ts";
 
 /**
- * `theme.ts` 的 React 版接線（C235）。型別、槽名、兩道防線都在 `theme.ts`，
- * 這裡只換掉「怎麼把覆寫表交給元件」—— Vue 用 `provide`／`inject`，React 用 context。
+ * 把覆寫表交給元件的那條線（C235）。型別、槽名、兩道防線都在 `theme.ts`。
  *
- * ⚠️ context 物件**刻意不匯出**，同 `UI_THEME` 不從 `index.ts` 匯出的理由：
- * 直接 `<UiThemeContext value={…}>` 會繞過 `checkedOverride()` 那兩道防線。
+ * ⚠️ context 物件**刻意不匯出**：直接 `<UiThemeContext value={…}>` 會繞過
+ * `checkedOverride()` 那兩道防線。
  */
 const UiThemeContext = createContext<UiThemeOverride>(NO_OVERRIDE);
 

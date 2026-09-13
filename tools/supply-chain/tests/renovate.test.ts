@@ -72,9 +72,10 @@ describe("catalog 解析", () => {
   });
 
   it("★ 不會撈到 catalog 之外的鍵", () => {
-    // overrides: 底下也有 vite，allowBuilds: 底下有 vue-demi。
-    // 撈過頭的話，下面「每個 matchDepName 都要在 catalog 裡」那條會失去意義。
-    expect(catalogEntries()).not.toContain("vue-demi");
+    // overrides: 底下有 vite 與 qs，qs 只在那裡。撈過頭的話，下面「每個 matchDepName
+    // 都要在 catalog 裡」那條會失去意義。⚠️ C244 之前這裡比的是 allowBuilds 的 vue-demi；
+    // 那一筆拿掉之後它對任何實作都恆真，所以換成 overrides 那一格。
+    expect(catalogEntries()).not.toContain("qs");
   });
 });
 

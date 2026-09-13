@@ -643,7 +643,7 @@ export function use${Pascal}List(query: Query${Pascal}Input = {}): Use${Pascal}L
       views: {
         [`${Pascal}List.tsx`]: `import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { UiButton, UiDialog } from "@org/ui/react";
+import { UiButton, UiDialog } from "@org/ui";
 
 import { use${Pascal}List } from "../hooks/use${Pascal}List.ts";
 import { use${Pascal}FilterStore } from "../store.ts";

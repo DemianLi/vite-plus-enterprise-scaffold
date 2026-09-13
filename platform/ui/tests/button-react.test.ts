@@ -7,7 +7,7 @@ import { UiButton } from "../src/components/UiButton.tsx";
 import { createUiTheme } from "../src/theme-context.tsx";
 
 /**
- * React 版 `UiButton` 的行為（C235）。對照的是 `UiButton.vue` 的語意，不是 shadcn 的 ——
+ * `UiButton` 的行為（C235）。對照的是 Vue 版（C244 退場）的語意，不是 shadcn 的 ——
  * 產出是素材，契約照舊（Q58）。
  *
  * 用 `createElement` 而不寫 JSX：測試檔若是 `.tsx`，`styles/index.css` 的
@@ -49,7 +49,7 @@ describe("UiButton（React）", () => {
 });
 
 describe("createUiTheme（React）", () => {
-  it("覆寫是整條替換，不是附加 —— 同 UiButton.vue", () => {
+  it("覆寫是整條替換，不是附加", () => {
     const UiTheme = createUiTheme({ UiButton: { secondary: "bg-accent text-on-accent" } });
     render(createElement(UiTheme, null, createElement(UiButton, null, "存檔")));
     expect(button().className).toContain("bg-accent");
@@ -68,7 +68,7 @@ describe("createUiTheme（React）", () => {
     expect(button().className).toContain("bg-danger");
   });
 
-  it("🔴 兩道防線與 Vue 版是同一份", () => {
+  it("🔴 兩道防線是 theme.ts 那一份（checkedOverride）", () => {
     expect(() => createUiTheme({})).toThrow(/沒有收到任何覆寫/);
     expect(() => createUiTheme({ UiButton: { primary: " " } })).toThrow(/UiButton\.primary/);
   });

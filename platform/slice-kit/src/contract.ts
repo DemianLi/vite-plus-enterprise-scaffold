@@ -213,9 +213,9 @@ export const USECASES_DIR = "src/usecases";
  * ⚠️ 這裡**沒有列 `@org/http-client`**，那不是遺漏：usecase 拿的是 `ports.ts`
  * 的介面，真實作住在 `api.ts`。禁的是框架，不是資料存取本身。
  *
- * ⚠️ 遷移期間（C232 §六 ⑤ 之前）兩套並列：React 那一套取自 C232 §五 的選型。
- * 它們必須在第一行 React usecase 出現**之前**就在這裡 —— 少一項的症狀不是紅，
- * 是那一項安靜地放行（C234 §二）。
+ * ⚠️ 前五項是 Vue 那一套，C244 之後這棵樹不再安裝它們；照留，擋的是「把框架帶回
+ * usecase」。React 那一套取自 C232 §五 的選型，必須在第一行 React usecase 出現**之前**
+ * 就在這裡 —— 少一項的症狀不是紅，是那一項安靜地放行（C234 §二）。
  */
 export const USECASE_FORBIDDEN_IMPORTS = [
   "vue",
@@ -400,7 +400,7 @@ export const CSP_INCOMPATIBLE_MODULES: readonly CspIncompatibleModule[] = [
  * 塞進 `views/`，規則變成純粹的騷擾。
  *
  * 真正要防的是**切片自己長出一套設計系統**。判準很精確：
- * 有沒有直接碰 reka-ui 基元或 `cn()` 的底層。碰了就表示這個團隊在自己
+ * 有沒有直接碰基元或 `cn()` 的底層。碰了就表示這個團隊在自己
  * 拼元件，而 D4 禁止切片互依 —— 於是第二個團隊會再拼一次，
  * 兩套永遠不會收斂，而且**兩邊各自看起來都是對的**。
  *
@@ -408,7 +408,8 @@ export const CSP_INCOMPATIBLE_MODULES: readonly CspIncompatibleModule[] = [
  * 不是「不准有那個檔案」。
  *
  * ⚠️ 後三項是 React 那一套的基元與 `cn()` 底層：shadcn CLI 的 Base UI 那一套實測
- * `init` 產出的就是這三支（C234 §三）。遷移期間與 Vue 那三支並列。
+ * `init` 產出的就是這三支（C234 §三）。前三項是 Vue 那一套的，C244 之後沒有安裝來源，
+ * 照 Q105 同一個理由留著 —— 擋的是重新引入。
  */
 export const SLICE_DESIGN_SYSTEM_IMPORTS = [
   "reka-ui",
@@ -457,7 +458,7 @@ export const DESIGN_SYSTEM_PACKAGE = "@org/ui";
  * 各持一份副本的話，產生器改了模板就會安靜地產出過不了 Tier 2 的切片。
  *
  * ⚠️ 比的是**套件**不是整串（`importedPackage`），同上面那幾份禁用清單（C234 §二）。
- * 整串相等的話 `@org/ui/react`（Q57 的 React 入口）不算用過 —— C240 切片第一次從
+ * 整串相等的話 `@org/ui/react`（Q57 的 React 入口，C244 收回）不算用過 —— C240 切片第一次從
  * 那裡取元件時，三片（含產生器的輸出）全部被判成「沒用設計系統」。
  */
 export function usesDesignSystem(source: string): boolean {

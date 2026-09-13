@@ -307,18 +307,6 @@ export const GATES: readonly Gate[] = [
     },
   },
   {
-    id: "vue-typecheck",
-    label: ".vue 型別檢查",
-    pkg: "vue-typecheck",
-    command: "node tools/vue-typecheck/src/cli.ts",
-    tiers: ["tier1"],
-    why: "vp check 的 tsgolint 不看 SFC，設計系統的元件原始碼會整片沒被型別檢查（C68）。",
-    ship: {
-      to: "fork",
-      why: "C215 下發的一道：它補的是 `vp check` 看不到 SFC 的盲區（C68），量型別對不對，不規定寫法。",
-    },
-  },
-  {
     id: "theme-verify",
     label: "設計系統接縫",
     pkg: "theme-verify",
@@ -692,12 +680,5 @@ export const UNGATED: readonly Ungated[] = [
       "升 reka-ui／vue／tailwindcss 就紅，而修復要人開瀏覽器跑一次，" +
       "那是所有閘門裡每次成本最高的一道。留著它零摩擦，要驗時隨時跑得起來；" +
       "失去的是「有沒有人真的驗過」這個問題的機器答案。",
-  },
-  {
-    pkg: "ui-survey",
-    why:
-      "**選型市調，不是判定**（D15 / #49）。它算的是候選 UI 方案的授權、維護狀態、" +
-      "供應鏈成本 —— 那些數字會過期，但過期不代表這個 repo 壞了。" +
-      "把它掛進閘門等於每次 PR 都因為別人的專案改了授權而紅。重新評估時重跑，不要重讀。",
   },
 ];

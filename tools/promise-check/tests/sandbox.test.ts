@@ -141,9 +141,9 @@ describe("沙盒契約", () => {
     expect(before.status, before.output).toBe(0);
     const dir = sandbox();
     const components = join(dir, "platform/ui/src/components");
-    const victim = readdirSync(components).find((file) => file.endsWith(".vue"));
+    const victim = readdirSync(components).find((file) => file.endsWith(".tsx"));
 
-    expect(victim, "副本裡一個 .vue 都沒有 —— 沙盒契約破了").toBeDefined();
+    expect(victim, "副本裡一個 .tsx 都沒有 —— 沙盒契約破了").toBeDefined();
     unlinkSync(join(components, victim as string));
 
     const after = runThemeVerify(dir);

@@ -111,7 +111,7 @@ describe("parseConfiguredPlugins —— 不可以誤報的", () => {
 describe("accountPlugins —— 閘門本身", () => {
   it("未登記的 plugin 一定會紅，訊息要指得出是哪個檔案的哪一個", () => {
     const errors = accountPlugins([
-      { path: "apps/console/vite.config.ts", source: "plugins: [vue(), unocss()]" },
+      { path: "apps/console/vite.config.ts", source: "plugins: [react(), unocss()]" },
     ]);
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain("unocss");
@@ -127,7 +127,7 @@ describe("accountPlugins —— 閘門本身", () => {
   });
 
   it("兩張表都登記過的 plugin 全部放行", () => {
-    const source = "plugins: [vue(), securityHeaders({}), assertStaticCspCompatible()]";
+    const source = "plugins: [react(), securityHeaders({}), assertStaticCspCompatible()]";
     expect(accountPlugins([{ path: "a.ts", source }])).toEqual([]);
   });
 

@@ -134,11 +134,12 @@ describe("floorSource", () => {
    * C219 之前是 11 格、一份檔；拆成業務碼（根層，只數不量）與腳手架自己的碼
    * （`vite.scaffold.ts`，被量的那一份）之後，腳手架那一半多出產品碼與測試碼各一組。
    */
-  it("今天這棵樹有 21 格門檻：根層 10 格只數不量，腳手架 11 格被量", () => {
+  it("今天這棵樹有 17 格門檻：根層 8 格只數不量，腳手架 9 格被量", () => {
+    // C244 各少兩格：`vue/max-props` 的產品碼與測試碼那兩格隨 Vue 退場（Q100、Q106）。
     const counts = CONFIG_FILES.map(
       (file) => floorSource(readFileSync(join(repoRoot(), file), "utf8")).count,
     );
-    expect(counts).toEqual([10, 11]);
+    expect(counts).toEqual([8, 9]);
   });
 });
 
@@ -427,11 +428,14 @@ describe("--root 換的是被驗的那份設定", () => {
    * ⚠️ **排名地板的盲區（C223）。** 同一條規則的第 n 格拿到地板值 n；真最大值掉到 ≤ n 時
    * 那一格在探針裡一條都不報 —— 與「範圍裡什麼都沒有」同讀數，而後者的修法叫人拿掉這一格。
    *
-   * 在產品碼那一格前面插一格指向不存在目錄的 `vue/max-props`，把測試碼那格擠到地板 2，
-   * 再把它的門檻抬到 3。真最大值是 2（兩支 fixture `.vue`）：正確答案是「過期，降成 2」。
+   * 在產品碼那一格前面插一格指向不存在目錄的 `max-depth`，把測試碼那格擠到地板 3，
+   * 再把它的門檻抬到 4。真最大值是 3：正確答案是「過期，降成 3」。
    * 插進去的那一格是對照組 —— 它**真的**量不到，補量之後仍然要報「量不到」。
    *
-   * ⚠️ 設定只放在沙盒裡，不進被 lint 的樹：放一支 fixture 進 `tools/**` 會改掉那 11 格的母體。
+   * ⚠️ C244 之前這條用的是 `vue/max-props`（測試碼那格由兩支 fixture `.vue` 撐著，真最大值 2）；
+   * 那條規則隨 Vue 退場拿掉（Q100），換成同樣有兩格、測試碼那格真最大值等於門檻的 `max-depth`。
+   *
+   * ⚠️ 設定只放在沙盒裡，不進被 lint 的樹：放一支 fixture 進 `tools/**` 會改掉那幾格的母體。
    */
   it("★ 被排名地板吃掉的過期，要報成過期，不是量不到", () => {
     const root = repoRoot();
@@ -439,14 +443,13 @@ describe("--root 換的是被驗的那份設定", () => {
     const shifted = source
       .replace(
         'files: ["tools/**", "platform/**"],',
-        'files: ["no-such-dir/**"],\n    rules: { "vue/max-props": ["error", { maxProps: 5 }] },\n  },\n  {\n    files: ["tools/**", "platform/**"],',
+        'files: ["no-such-dir/**"],\n    rules: { "max-depth": ["error", { max: 5 }] },\n  },\n  {\n    files: ["tools/**", "platform/**"],',
       )
-      .replace(
-        '"vue/max-props": ["error", { maxProps: 2 }]',
-        '"vue/max-props": ["error", { maxProps: 3 }]',
-      );
-    expect(floorSource(shifted).count, "插進去的那一格沒有命中 —— 這裡什麼都沒改壞").toBe(12);
-    expect(shifted).toContain("maxProps: 3");
+      .replace('"max-depth": ["error", { max: 3 }]', '"max-depth": ["error", { max: 4 }]');
+    expect(floorSource(shifted).count, "插進去的那一格沒有命中 —— 這裡什麼都沒改壞").toBe(
+      floorSource(source).count + 1,
+    );
+    expect(shifted).toContain('"max-depth": ["error", { max: 4 }]');
 
     const config = readFileSync(join(root, "vite.config.ts"), "utf8");
     const dir = sandbox({
@@ -457,8 +460,8 @@ describe("--root 換的是被驗的那份設定", () => {
     const output = result.output;
 
     expect(result.status, output).not.toBe(0);
-    expect(output).toContain("設在 3，而這個範圍裡的實測最大值是 2");
-    expect(output).toContain("降成 2");
+    expect(output).toContain("設在 4，而這個範圍裡的實測最大值是 3");
+    expect(output).toContain("降成 3");
     expect(output.split("[門檻量不到]").length - 1, "只有插進去的那一格真的量不到").toBe(1);
   }, 60_000);
 });
