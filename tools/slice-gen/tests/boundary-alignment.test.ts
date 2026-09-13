@@ -13,10 +13,10 @@ import { flattenPaths } from "../src/contract-shape.ts";
  * `contract-alignment.test.ts` 驗的是產出的**檔案清單**與 **package.json**。
  * 它完全沒有檢查產出的**原始碼**。
  *
- * 但產生器會產出 `src/views/<Pascal>List.vue`，裡面寫著 `from "../api.ts"` ——
+ * 但產生器會產出 `src/hooks/use<Pascal>List.ts`，裡面寫著 `from "../api.ts"` ——
  * 正是「從巢狀目錄往上跳」的形狀，也正是第 3 層在解析的東西。
- * 今天它是安全的（`src/views/` → `src/` 仍在切片內），但沒有任何斷言釘住這件事：
- * 將來有人在產生器加一層 `src/views/detail/`，就會安靜地產出過不了 Tier 2 的切片，
+ * 今天它是安全的（`src/hooks/` → `src/` 仍在切片內），但沒有任何斷言釘住這件事：
+ * 將來有人在產生器加一層 `src/hooks/detail/`，就會安靜地產出過不了 Tier 2 的切片，
  * 而現有測試全綠。
  *
  * 這支測試用**與 tools/conformance 完全相同**的樣式與解析邏輯

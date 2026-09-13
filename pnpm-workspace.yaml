@@ -29,11 +29,10 @@ catalog:
   "@vitest/coverage-v8": 4.1.11
 
   # --- 應用層選型（D13）---
+  # vue-router／pinia／vue-i18n／vue-query 的消費者在批次 ③（C240）搬走了，catalog 列跟著
+  # 拿掉 —— 沒有消費者的列沒有東西在驗（C234 §二）。剩下這兩列是 platform/ui 的 .vue 元件與
+  # 根層測試設定還在用的，批次 ⑤ 刪 Vue 時一起收。React 那一套的對應在下面。
   vue: ^3.5.41
-  vue-router: ^5.2.0
-  pinia: ^4.0.3
-  vue-i18n: ^11.4.8
-  "@tanstack/vue-query": ^5.101.4
   "@vitejs/plugin-vue": ^6.0.8
 
   # --- 樣式與 UI（D15）---
@@ -75,6 +74,15 @@ catalog:
   # ⚠️ 只 import 它自己的 `react-day-picker/locale` 裡用得到的語系（C238 Q71）——
   # 全部照字串查的話約 95 個 date-fns 語系一起進 bundle（壓縮後約 1.6MB）。
   react-day-picker: ^10.0.1
+  # 切片與應用殼那一套（C232 §五 的選型、C240）。批次 ③ 才有消費者 —— 沒有消費者的
+  # catalog 列沒有東西在驗（C234 §二），所以不提早加。
+  react-router: ^8.3.1
+  react-i18next: ^17.0.13
+  i18next: ^26.4.2
+  zustand: ^5.0.15
+  "@tanstack/react-query": ^5.102.8
+  # ⚠️ 會改變建置產物 —— 同 @tailwindcss/vite，必須登記在 tools/exit-drill 的 DRILL_PLUGINS（C36）。
+  "@vitejs/plugin-react": ^6.1.1
 
   # --- 元件測試（§11 II ⑨ 的執行期那一層）---
   # ⚠️ C47 才剛以「會把瀏覽器二進位拉進供應鏈盤點範圍」為由拒絕 Playwright，

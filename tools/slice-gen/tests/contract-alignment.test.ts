@@ -7,11 +7,11 @@ import {
   BANNED_DIRECT_DEPENDENCIES,
   ALLOWED_VERSION_PROTOCOLS,
   slicePackageName,
-  COMPOSABLES_DIR,
+  HOOKS_DIR,
   VIEWS_DIR,
   VIEW_FORBIDDEN_IMPORTS,
-  isValidComposableFile,
-  composableFunctionName,
+  isValidHookFile,
+  hookFunctionName,
   usesDesignSystem,
   DESIGN_SYSTEM_PACKAGE,
   SLICE_DESIGN_SYSTEM_IMPORTS,
@@ -125,49 +125,10 @@ describe("產出的 package.json 符合一致性檢查", () => {
     expect(Object.keys(allDeps)).toContain("@org/http-client");
   });
 
-  /**
-   * ── 模板裡的 `$t` 是一個相依，而它不長得像相依（C68）──────────────
-   *
-   * 2026-08-17 之前，產生器產出的模板用 `$t`，而產出的 `package.json` 沒有
-   * `vue-i18n`、`env.d.ts` 也沒有匯入它。症狀是**切片單獨拿出來型別檢查
-   * 噴一整排 TS2339，而所有閘門全綠** —— 全域屬性不是 import，
-   * `tools/conformance` 的幽靈相依檢查看不見它。
-   *
-   * 這條斷言刻意從**產出的模板**推導，不是寫死一組 `$t` ↔ `vue-i18n`：
-   * 模板哪天不再用 `$t` 了，這條就自己失效，不會變成一條沒人敢刪的規則。
-   */
-  it("★ 模板用了 $t → 宣告與一句真的 import 兩處都要有（C68）", () => {
-    const views = flattenPaths(files).filter((path) => path.endsWith(".vue"));
-    expect(views.length).toBeGreaterThan(0);
-
-    const usesGlobalT = views.some((path) => fileAt(path).includes("$t("));
-    if (!usesGlobalT) return;
-
-    expect(Object.keys(allDeps)).toContain("vue-i18n");
-    // 只宣告是不夠的 —— 實測只加宣告仍然 10 條，要有一句真的 import 才會
-    // 把 augmentation 帶進 program。放哪個 .d.ts 不重要，有就好。
-    const declarations = flattenPaths(files).filter((path) => path.endsWith(".d.ts"));
-    expect(declarations.some((path) => fileAt(path).includes('from "vue-i18n"'))).toBe(true);
-  });
-
-  /**
-   * ⚠️ 上一條的陷阱：那句 import 放錯檔案會**把 `.vue` 的解析整個弄壞**。
-   *
-   * `env.d.ts` 一旦出現頂層 import／export 就從全域腳本變成模組，而模組裡的
-   * `declare module "*.vue"` 不再是環境宣告 —— `routes.ts` 的
-   * `import("./views/…​.vue")` 當場找不到模組。實作時就是這樣紅的。
-   *
-   * 而且它**只有 tsgolint 紅、vue-tsc 全綠**（vue-tsc 真的解析 `.vue`，
-   * 不需要那個 shim）。所以這條不是「多寫一條保險」，是釘住一個
-   * 兩支編譯器看法不同的位置 —— 那正是 C57 說會出事的地方。
-   */
-  it('★ env.d.ts 不得是模組 —— 否則 declare module "*.vue" 會失效', () => {
-    const source = fileAt("src/env.d.ts");
-    for (const line of source.split("\n")) {
-      expect(line, `env.d.ts 出現頂層 import／export：${line}`).not.toMatch(/^(import|export)\s/);
-    }
-    expect(source).toContain('declare module "*.vue"');
-  });
+  // ⚠️ 這裡原本有兩條 C68 的 ★（「模板用了 `$t` → 宣告 vue-i18n 並有一句真的 import」、
+  // 「env.d.ts 不得是模組，否則 `declare module "*.vue"` 失效」）。C240 模板換成 React 時
+  // 拿掉：`useTranslation` 是一句真的 import，幽靈相依檢查看得到；`.vue` 的 shim 也不存在了。
+  // 兩條守的對象都消失了，不是被放寬。
 });
 
 describe("產出的程式碼落在正確的命名空間", () => {
@@ -181,9 +142,7 @@ describe("產出的程式碼落在正確的命名空間", () => {
     expect(fileAt("src/index.ts")).toContain('"order-history:read"');
   });
 
-  it("Pinia store id 帶切片命名空間", () => {
-    expect(fileAt("src/store.ts")).toContain('defineStore("order-history/filter"');
-  });
+  // store id 帶切片前綴那條隨 C240 Q92 拿掉：zustand 的 store 沒有 id，也撞不到名。
 
   it("query key 第一段是切片名", () => {
     expect(fileAt("src/api.ts")).toContain('all: ["order-history"]');
@@ -198,10 +157,10 @@ describe("產出的程式碼落在正確的命名空間", () => {
     expect(fileAt("src/index.ts")).toContain('"order-history": {');
   });
 
-  it("產出的畫面不使用 v-html 指令（Tier 2 會擋，但產生器不該先犯）", () => {
-    // 比對「指令用法」而非字串出現：產出的檔案刻意在註解裡提到 vue/no-v-html
-    // 來說明為什麼錯誤訊息要用文字插值，單純 toContain("v-html") 會誤判。
-    expect(fileAt("src/views/OrderHistoryList.vue")).not.toMatch(/\sv-html\s*=/);
+  it("產出的畫面不使用 dangerouslySetInnerHTML（產生器不該先犯）", () => {
+    // 比對「屬性用法」而非字串出現：產出的檔案刻意在註解裡提到它，
+    // 來說明為什麼錯誤訊息要用文字輸出，單純 toContain 會誤判。
+    expect(fileAt("src/views/OrderHistoryList.tsx")).not.toMatch(/dangerouslySetInnerHTML\s*=/);
   });
 });
 
@@ -213,31 +172,29 @@ describe("產出的程式碼落在正確的命名空間", () => {
  * 於是每個新切片都從「取數混在呈現層」開始，而當時沒有任何檢查會說話。
  */
 describe("產出的切片符合 D14 內部分層", () => {
-  const composables = paths.filter((path) => path.startsWith(`${COMPOSABLES_DIR}/`));
+  const hooks = paths.filter((path) => path.startsWith(`${HOOKS_DIR}/`));
   const views = paths.filter((path) => path.startsWith(`${VIEWS_DIR}/`));
 
-  it("產出至少一個 composable —— 否則模板等於沒示範這一層", () => {
-    expect(composables.length).toBeGreaterThan(0);
+  it("產出至少一個 hook —— 否則模板等於沒示範這一層", () => {
+    expect(hooks.length).toBeGreaterThan(0);
   });
 
-  it("composable 檔名符合 useXxx.ts 且匯出同名函式", () => {
-    for (const path of composables) {
+  it("hook 檔名符合 useXxx.ts 且匯出同名函式", () => {
+    for (const path of hooks) {
       const fileName = path.split("/").pop() ?? "";
-      expect(isValidComposableFile(fileName), `${path} 不符合 useXxx.ts`).toBe(true);
+      expect(isValidHookFile(fileName), `${path} 不符合 useXxx.ts`).toBe(true);
 
       const source = fileAt(path);
-      expect(source, `${path} 沒有匯出 ${composableFunctionName(fileName)}`).toContain(
-        `export function ${composableFunctionName(fileName)}`,
+      expect(source, `${path} 沒有匯出 ${hookFunctionName(fileName)}`).toContain(
+        `export function ${hookFunctionName(fileName)}`,
       );
     }
   });
 
-  it("composable 照 Vue 官方慣例：toValue 正規化輸入、queryKey 包 computed", () => {
-    const source = composables.map((path) => fileAt(path)).join("\n");
-    // 少了 toValue，呼叫端就得自己解 .value，getter 傳進來會變成函式當成查詢條件。
-    expect(source).toContain("toValue(");
-    // queryKey 傳靜態值 → 條件變了不重新取數，畫面停在舊資料且不報錯。
-    expect(source).toMatch(/queryKey:\s*computed\(/);
+  it("hook 的 queryKey 由輸入算出來", () => {
+    const source = hooks.map((path) => fileAt(path)).join("\n");
+    // queryKey 寫成固定值 → 條件變了不重新取數，畫面停在舊資料且不報錯。
+    expect(source).toMatch(/queryKey:\s*\w+Keys\.list\(query\)/);
   });
 
   it("產出的元件不直接 import 資料層（這條由一致性檢查強制）", () => {
@@ -251,10 +208,10 @@ describe("產出的切片符合 D14 內部分層", () => {
     }
   });
 
-  it("產出的元件確實透過 composable 取數（不是單純把邏輯刪掉）", () => {
+  it("產出的元件確實透過 hook 取數（不是單純把邏輯刪掉）", () => {
     // 少了這一條，上面那條「不 import 資料層」可以靠產出一個空元件通過。
     const source = views.map((path) => fileAt(path)).join("\n");
-    expect(source).toMatch(/from "\.\.\/composables\/use[A-Z]/);
+    expect(source).toMatch(/from "\.\.\/hooks\/use[A-Z]/);
   });
 });
 
@@ -276,7 +233,7 @@ describe("產出的切片符合 D14 內部分層", () => {
  */
 describe("產出的切片符合 D15 設計系統規則", () => {
   const sources = paths
-    .filter((path) => path.endsWith(".vue") || path.endsWith(".ts"))
+    .filter((path) => path.endsWith(".tsx") || path.endsWith(".ts"))
     .map((path) => fileAt(path));
 
   it("整個切片至少一處使用 @org/ui —— 與 tools/conformance 同一個判定式", () => {
@@ -296,7 +253,7 @@ describe("產出的切片符合 D15 設計系統規則", () => {
   it("元件真的被渲染，不是只 import 不用", () => {
     // 只 import 不用會被 Tier 1 的 no-unused-vars 擋，但那是另一道閘門的事；
     // 這裡直接驗模板有沒有真的示範用法 —— 產生器是教學品。
-    const view = fileAt(`${VIEWS_DIR}/OrderHistoryList.vue`);
+    const view = fileAt(`${VIEWS_DIR}/OrderHistoryList.tsx`);
     expect(view).toMatch(/<UiButton[\s>]/);
   });
 
@@ -335,7 +292,7 @@ describe("產出的切片符合 D15 設計系統規則", () => {
     // 讀不到代幣時下面兩條會恆真 —— 先擋掉那種綠燈。
     expect(tokens.size).toBeGreaterThan(10);
 
-    const view = fileAt(`${VIEWS_DIR}/OrderHistoryList.vue`);
+    const view = fileAt(`${VIEWS_DIR}/OrderHistoryList.tsx`);
     expect(tokens.has("--color-fg-muted")).toBe(true);
     expect(view).toContain("text-fg-muted");
   });
@@ -351,7 +308,7 @@ describe("產出的切片符合 D15 設計系統規則", () => {
    * 各持一份的話，閘門那邊收緊而模板沒跟上，兩邊測試全綠。
    */
   it("★ 模板產出的畫面沒有任何原始顏色（與 theme-verify 同一支判定式）", () => {
-    const views = flattenPaths(files).filter((path) => path.endsWith(".vue"));
+    const views = flattenPaths(files).filter((path) => path.endsWith(".tsx"));
     expect(views.length).toBeGreaterThan(0);
 
     // 第三類（未翻譯的 shadcn 代幣）需要「我們宣告過的名字」當減數。
@@ -395,11 +352,11 @@ describe("產出的切片符合 D15 設計系統規則", () => {
   it("判定式對「沒用設計系統的 view」確實回傳 false（否則上面全是空轉）", () => {
     // 這是 D15 落地前模板長的樣子。少了這一條，`usesDesignSystem` 只要
     // 永遠回傳 true，這個 describe 的每一條都會通過。
-    const before = `<script setup lang="ts">
-import { useOrderHistoryList } from "../composables/useOrderHistoryList.ts";
-</script>
+    const before = `import { useOrderHistoryList } from "../hooks/useOrderHistoryList.ts";
 
-<template><section><h1>{{ $t("order-history.title") }}</h1></section></template>
+export default function OrderHistoryList() {
+  return <section><h1>訂單紀錄</h1></section>;
+}
 `;
     expect(usesDesignSystem(before)).toBe(false);
   });
@@ -420,18 +377,18 @@ describe("產出的 store 示範了它自己註解裡宣稱的模式", () => {
   });
 
   it("沒有把 entity 整個存進 store", () => {
-    // 比對的是**實際形狀**（一個持有 entity 的 ref），不是名字有沒有出現 ——
+    // 比對的是**實際形狀**（一個型別是 entity 的欄位），不是名字有沒有出現 ——
     // 第一版寫成 `.not.toMatch(/OrderHistoryItem/)`，當場被自己的模板打臉：
-    // store 的註解裡就寫著「這裡刻意不放 OrderHistoryItem 物件」。
+    // store 的註解裡就寫著「這裡刻意不放 selectedOrderHistoryItem 物件」。
     // 提到一個名字和使用它是兩回事，這正是 conformance 的 importClauseBefore
     // 在處理的同一件事（見 tools/conformance/src/cli.ts 的註解）。
-    expect(store).not.toMatch(/ref<[^>]*Item/);
-    expect(store).toContain("ref<string | null>(null)");
+    expect(store).not.toMatch(/readonly \w+: [^;\n]*Item\b/);
+    expect(store).toContain("readonly selectedId: string | null;");
   });
 
-  it("view 用 computed 從列表推導那筆物件，而不是從 store 讀", () => {
-    const view = fileAt(`${VIEWS_DIR}/OrderHistoryList.vue`);
-    expect(view).toMatch(/computed\(\(\) =>\s*items\.value\.find/);
+  it("view 從列表推導那筆物件，而不是從 store 讀", () => {
+    const view = fileAt(`${VIEWS_DIR}/OrderHistoryList.tsx`);
+    expect(view).toMatch(/items\.find\(\(item\) => item\.id === selectedId\)/);
   });
 });
 
@@ -525,11 +482,11 @@ describe("驗收規格的設施", () => {
    * 實測（C114）：把 usecase 裡的篩選拿掉 → 規格紅 5 條，而既有的
    * `tests/<切片>.test.ts` 那 5 條照樣全綠。
    */
-  it("composable 呼叫 usecase 而不是直接呼叫資料存取層", () => {
-    const composable = fileAt(`${COMPOSABLES_DIR}/useOrderHistoryList.ts`);
-    expect(composable).toContain(`from "../usecases/query-${options.name}.ts"`);
-    expect(composable).toMatch(/queryFn:\s*\(\)\s*=>\s*queryOrderHistory\(/);
-    expect(composable, "queryFn 不得繞過 usecase 直接取數").not.toMatch(
+  it("hook 呼叫 usecase 而不是直接呼叫資料存取層", () => {
+    const hook = fileAt(`${HOOKS_DIR}/useOrderHistoryList.ts`);
+    expect(hook).toContain(`from "../usecases/query-${options.name}.ts"`);
+    expect(hook).toMatch(/queryFn:\s*\(\)\s*=>\s*queryOrderHistory\(/);
+    expect(hook, "queryFn 不得繞過 usecase 直接取數").not.toMatch(
       /queryFn:\s*\(\)\s*=>\s*fetchOrderHistoryList\(/,
     );
   });

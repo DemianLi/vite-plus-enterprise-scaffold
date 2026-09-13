@@ -19,19 +19,19 @@
 
 ## 結構
 
-| 檔案               | 職責                                                                            |
-| ------------------ | ------------------------------------------------------------------------------- |
-| `src/index.ts`     | 對外的唯一公開契約（`defineFeature`）                                           |
-| `src/routes.ts`    | 本切片的路由樹，`/order` 之下、name 以 `order/` 開頭                            |
-| `src/api.ts`       | 資料存取。一律走 `@org/http-client`，禁止直接用 fetch/axios                     |
-| `src/composables/` | `useXxx()` —— 取數、快取 key、後備值。**有狀態的邏輯住這裡**（D14）             |
-| `src/store.ts`     | Pinia。只放**客戶端才是權威**的東西：篩選條件、選取的 id。**存 id 不存 entity** |
-| `src/views/`       | 畫面元件，**只負責呈現**。不得直接 import `@tanstack/vue-query` 或 `api.ts`     |
-| `tests/`           | 本切片的測試。一致性檢查要求至少一支                                            |
+| 檔案            | 職責                                                                              |
+| --------------- | --------------------------------------------------------------------------------- |
+| `src/index.ts`  | 對外的唯一公開契約（`defineFeature`）                                             |
+| `src/routes.ts` | 本切片的路由樹，`/order` 之下、name 以 `order/` 開頭                              |
+| `src/api.ts`    | 資料存取。一律走 `@org/http-client`，禁止直接用 fetch/axios                       |
+| `src/hooks/`    | `useXxx()` —— 取數、快取 key、後備值。**有狀態的邏輯住這裡**（D14）               |
+| `src/store.ts`  | zustand。只放**客戶端才是權威**的東西：篩選條件、選取的 id。**存 id 不存 entity** |
+| `src/views/`    | 畫面元件，**只負責呈現**。不得直接 import `@tanstack/react-query` 或 `api.ts`     |
+| `tests/`        | 本切片的測試。一致性檢查要求至少一支                                              |
 
 > 「這份資料如果和伺服器不一致，誰是錯的？」
-> 伺服器是權威 → `composables/`；客戶端是權威 → `store.ts`；
-> 兩者都不是（例如「選取的那幾筆 Order 物件」）→ 哪裡都不放，用 `computed` 推導。
+> 伺服器是權威 → `hooks/`；客戶端是權威 → `store.ts`；
+> 兩者都不是（例如「選取的那幾筆 Order 物件」）→ 哪裡都不放，render 時從列表推導。
 
 ## ⚠️ 這一片扛的四樣示範 —— 逐項查過，全樹只有這裡有
 
@@ -42,8 +42,8 @@
 | 示範                               | 落點                                                               | 別處有嗎                                               |
 | ---------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------ |
 | **D14 判準「客戶端是權威」那一半** | `src/store.ts` 的 `status` 篩選驅動 `query`                        | 沒有 —— `invoice` 的 store 只有 `page` 與 `selectedId` |
-| **個資遮蔽在真畫面裡的樣子**       | `src/views/OrderList.vue:109,135` 的 `maskName()`                  | 沒有 —— `maskName` 全樹只在這支 `.vue` 裡被用          |
-| **貨幣格式化**                     | `OrderList.vue:110,137` 的 `Intl.NumberFormat`                     | 沒有                                                   |
+| **個資遮蔽在真畫面裡的樣子**       | `src/views/OrderList.tsx:104,141` 的 `maskName()`                  | 沒有 —— `maskName` 全樹只在這支畫面裡被用              |
+| **貨幣格式化**                     | `OrderList.tsx:106,143` 的 `Intl.NumberFormat`                     | 沒有                                                   |
 | **非唯讀的權限碼**                 | `order:write`／取消 —— `apps/console/bff-routes.ts:85` 的 403 路徑 | 沒有 —— 另外兩片都只有 `:read`                         |
 
 ⚠️ **所以 `Order` 的欄位是示範用的詞彙，不是業務需求。** 採用團隊 fork 之後換掉它們是預期的動作。
@@ -55,8 +55,8 @@
 元件測試**」，指的就是它。`platform/pii` 刻意零框架相依（沒有 `vite.config.ts`、沒有
 happy-dom、零 runtime deps），接不住這支測試。
 
-⚠️ 而它掛的是**自己定義的替身元件**，不是 `OrderList.vue`（檔頭自陳）。
-「`OrderList.vue` 有沒有繼續呼叫 `maskName()`」仍然靠 review，登記在 `HANDOFF.md:1290`。
+⚠️ 而它掛的是**自己定義的替身元件**，不是 `OrderList.tsx`（檔頭自陳）。
+「`OrderList.tsx` 有沒有繼續呼叫 `maskName()`」仍然靠 review，登記在 `HANDOFF.md`〈20. 法遵／資安〉那張表。
 
 ## 命名空間
 

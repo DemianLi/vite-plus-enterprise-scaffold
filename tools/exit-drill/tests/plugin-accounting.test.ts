@@ -152,7 +152,7 @@ describe("退出面設定檔的實際內容", () => {
     // 它會在 CI 上一直綠，而閘門在真檔案上早就瞎了。
     const source = readFileSync(join(ROOT, "apps/console/vite.config.ts"), "utf8");
     expect(parseConfiguredPlugins(source)).toEqual([
-      "vue",
+      "react",
       "tailwindcss",
       "securityHeaders",
       "assertStaticCspCompatible",
@@ -161,10 +161,10 @@ describe("退出面設定檔的實際內容", () => {
 
   it("加一個未登記的 plugin 進去，一定會被抓到", () => {
     // 這就是這道閘門存在的理由，用真檔案演一次。
-    const source = readFileSync(join(ROOT, "apps/console/vite.config.ts"), "utf8").replace(
-      "plugins: [\n      vue(),",
-      "plugins: [\n      vue(),\n      unocss(),",
-    );
+    const original = readFileSync(join(ROOT, "apps/console/vite.config.ts"), "utf8");
+    const source = original.replace("      react(),", "      react(),\n      unocss(),");
+    // 錨點對不上時 replace 什麼都不做，下面那條就在量一份沒被改過的設定。
+    expect(source).not.toBe(original);
     expect(parseConfiguredPlugins(source)).toContain("unocss");
   });
 });

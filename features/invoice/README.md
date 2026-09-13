@@ -22,10 +22,10 @@
 
 畫面元件一律從 `@org/ui` 取用。一致性檢查驗的是**兩個方向**：
 
-| 規則                                                | 防的是什麼                                     |
-| --------------------------------------------------- | ---------------------------------------------- |
-| 不得直接 import `reka-ui`／`clsx`／`tailwind-merge` | 繞過 `@org/ui` 自己拼基元                      |
-| 整個切片**至少一處**使用 `@org/ui`                  | 根本不用 —— 全部自己刻，一條規則都不會 violate |
+| 規則                                                                         | 防的是什麼                                     |
+| ---------------------------------------------------------------------------- | ---------------------------------------------- |
+| 不得直接 import 設計系統的底層（清單見契約的 `SLICE_DESIGN_SYSTEM_IMPORTS`） | 繞過 `@org/ui` 自己拼基元                      |
+| 整個切片**至少一處**使用 `@org/ui`                                           | 根本不用 —— 全部自己刻，一條規則都不會 violate |
 
 第二條才是實際上比較常發生的那一種。要的元件 `@org/ui` 沒有，
 就把它加進 `platform/ui` —— 那個 package 有 CODEOWNERS 與 api-surface 閘門，
@@ -33,23 +33,23 @@
 
 ## 結構
 
-| 檔案               | 職責                                                                            |
-| ------------------ | ------------------------------------------------------------------------------- |
-| `specs/`           | **驗收規格**（`.feature`）。人寫的需求，agent 讀它、用 TDD 實現                 |
-| `src/index.ts`     | 對外的唯一公開契約（`defineFeature`）                                           |
-| `src/ports.ts`     | 與外界之間的介面。usecase 只認得它，不認得 HTTP                                 |
-| `src/usecases/`    | **業務規則**，純 TS 零框架。規格打的就是這一層                                  |
-| `src/routes.ts`    | 本切片的路由樹，`/invoice` 之下、name 以 `invoice/` 開頭                        |
-| `src/api.ts`       | 資料存取。一律走 `@org/http-client`，禁止直接用 fetch/axios                     |
-| `src/composables/` | `useXxx()` —— 取數、快取 key、後備值。**有狀態的邏輯住這裡**（D14）             |
-| `src/store.ts`     | Pinia。只放**客戶端才是權威**的東西：篩選條件、選取的 id。**存 id 不存 entity** |
-| `src/views/`       | 畫面元件，**只負責呈現**。不得直接 import `@tanstack/vue-query` 或 `api.ts`     |
-| `tests/specs/`     | 規格的**接線**（`.spec.ts`）。把規格的中文句子接到 usecase 上，越薄越好         |
-| `tests/`           | 本切片的測試。一致性檢查要求至少一支                                            |
+| 檔案            | 職責                                                                              |
+| --------------- | --------------------------------------------------------------------------------- |
+| `specs/`        | **驗收規格**（`.feature`）。人寫的需求，agent 讀它、用 TDD 實現                   |
+| `src/index.ts`  | 對外的唯一公開契約（`defineFeature`）                                             |
+| `src/ports.ts`  | 與外界之間的介面。usecase 只認得它，不認得 HTTP                                   |
+| `src/usecases/` | **業務規則**，純 TS 零框架。規格打的就是這一層                                    |
+| `src/routes.ts` | 本切片的路由樹，`/invoice` 之下、name 以 `invoice/` 開頭                          |
+| `src/api.ts`    | 資料存取。一律走 `@org/http-client`，禁止直接用 fetch/axios                       |
+| `src/hooks/`    | `useXxx()` —— 取數、快取 key、後備值。**有狀態的邏輯住這裡**（D14）               |
+| `src/store.ts`  | zustand。只放**客戶端才是權威**的東西：篩選條件、選取的 id。**存 id 不存 entity** |
+| `src/views/`    | 畫面元件，**只負責呈現**。不得直接 import `@tanstack/react-query` 或 `api.ts`     |
+| `tests/specs/`  | 規格的**接線**（`.spec.ts`）。把規格的中文句子接到 usecase 上，越薄越好           |
+| `tests/`        | 本切片的測試。一致性檢查要求至少一支                                              |
 
 > 「這份資料如果和伺服器不一致，誰是錯的？」
-> 伺服器是權威 → `composables/`；客戶端是權威 → `store.ts`；
-> 兩者都不是（例如「選取的那幾筆物件」）→ 哪裡都不放，用 `computed` 推導。
+> 伺服器是權威 → `hooks/`；客戶端是權威 → `store.ts`；
+> 兩者都不是（例如「選取的那幾筆物件」）→ 哪裡都不放，render 時從列表推導。
 
 ## 命名空間
 
@@ -80,7 +80,7 @@
 ⚠️ **agent 不得修改 `specs/` 底下的檔案**（含不得自己加上 `@待辦`）。
 這條沒有閘門在守，靠的是人讀規格的 diff —— 見根目錄 `AGENTS.md` 的契約。
 
-規格打的是 `src/usecases/`（純 TS、零框架），而 composable 呼叫的也是它 ——
+規格打的是 `src/usecases/`（純 TS、零框架），而 hook 呼叫的也是它 ——
 **同一份業務規則**。規格餵 in-memory 的 gateway，畫面餵真的 HTTP，
 中間那層一模一樣；不這樣接的話，規格全綠而畫面壞掉，沒有閘門看得見。
 

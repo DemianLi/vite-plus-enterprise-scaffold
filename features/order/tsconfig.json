@@ -1,4 +1,7 @@
 {
   "extends": "@org/tsconfig/lib.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  },
   "include": ["src", "tests"]
 }

@@ -3,7 +3,9 @@
   "compilerOptions": {
     // vite.config.ts 在 Node 環境執行（讀 process.env、呼叫 loadEnv），
     // 因此這個 package 同時需要瀏覽器與 Node 的型別。
-    "types": ["vite/client", "node"]
+    "types": ["vite/client", "node"],
+    // app.json 的 `preserve` 是給 Vue 那一半的；這個殼從 C240 起是 React。
+    "jsx": "react-jsx"
   },
   "include": ["src", "vite.config.ts"]
 }

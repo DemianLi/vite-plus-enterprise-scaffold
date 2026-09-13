@@ -359,7 +359,7 @@
           "menu: readonly FeatureMenuItem[]",
           "name: string",
           "permissions: readonly string[]",
-          "routes: readonly RouteRecordRaw[]"
+          "routes: readonly SliceRoute[]"
         ]
       },
       "FeatureMenuItem": {
@@ -379,12 +379,22 @@
           "messages: Readonly<Record<string, Record<string, unknown>>>",
           "names: readonly string[]",
           "permissions: readonly string[]",
-          "routes: readonly RouteRecordRaw[]"
+          "routes: readonly SliceRoute[]"
         ]
       },
       "registerFeatures": {
         "kind": "function",
         "type": "(features: readonly Feature[]) => RegisteredFeatures"
+      },
+      "SliceRoute": {
+        "kind": "type",
+        "members": [
+          "children?: readonly SliceRoute[] | undefined",
+          "component: () => Promise<{ readonly default: ComponentType; }>",
+          "meta?: { readonly permissions?: readonly string[] | undefined; } | undefined",
+          "name?: string | undefined",
+          "path: string"
+        ]
       }
     },
     "@org/slice-kit/contract": {
@@ -395,14 +405,6 @@
       "BANNED_DIRECT_DEPENDENCIES": {
         "kind": "value",
         "type": "readonly [\"axios\", \"ky\", \"got\", \"superagent\", \"node-fetch\"]"
-      },
-      "composableFunctionName": {
-        "kind": "function",
-        "type": "(fileName: string) => string"
-      },
-      "COMPOSABLES_DIR": {
-        "kind": "value",
-        "type": "\"src/composables\""
       },
       "CSP_INCOMPATIBLE_MODULES": {
         "kind": "value",
@@ -416,6 +418,14 @@
         "kind": "value",
         "type": "\"@org/ui\""
       },
+      "hookFunctionName": {
+        "kind": "function",
+        "type": "(fileName: string) => string"
+      },
+      "HOOKS_DIR": {
+        "kind": "value",
+        "type": "\"src/hooks\""
+      },
       "IMPORT_SPECIFIER_PATTERN": {
         "kind": "value",
         "type": "RegExp"
@@ -428,7 +438,7 @@
         "kind": "function",
         "type": "(source: string, matchIndex: number) => boolean"
       },
-      "isValidComposableFile": {
+      "isValidHookFile": {
         "kind": "function",
         "type": "(fileName: string) => boolean"
       },
@@ -1156,6 +1166,16 @@
       "removes": [],
       "changes": ["@org/ui#UiThemeOverride"],
       "reason": "各案覆寫元件樣式的介面從 { variants, sizes }（按鈕的概念長在全域 API 上）改成 { 元件名: { 槽名: class 字串 } }。舊形狀讓第二個元件 UiDialog 沒有地方可放它的接縫，於是它的寬度與位置寫死在模板裡、任何案子都換不掉 —— 而沒有任何閘門說話。在 v1.0.0 tag 之前改，代價是一個呼叫端；tag 之後改，代價是每一個 fork、永遠。"
+    },
+    {
+      "name": "slice-routes-and-hooks",
+      "removes": [
+        "@org/slice-kit/contract#COMPOSABLES_DIR",
+        "@org/slice-kit/contract#isValidComposableFile",
+        "@org/slice-kit/contract#composableFunctionName"
+      ],
+      "changes": ["@org/slice-kit#Feature", "@org/slice-kit#RegisteredFeatures"],
+      "reason": "C240（Q89–Q91）：切片與應用殼從 Vue 換成 React。路由型別從 vue-router 的 RouteRecordRaw 換成契約自己的 SliceRoute —— react-router 的路由沒有 name，而命名空間檢查、選單 routeName 都掛在 name 上；hook 的目錄與兩支判定改名（composables → hooks）。codemod 遷移的是型別 import 與這三個名字；畫面從 .vue 換成 .tsx 是改寫不是改名，不在它的範圍，套完之後型別檢查會在每一條還指著 .vue 的路由上紅。沒有 fork（C232 Q49），遷移期間不發版。"
     }
   ]
 }

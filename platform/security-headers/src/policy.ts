@@ -28,19 +28,27 @@ export interface CspDirectives {
 export const BASE_DIRECTIVES: CspDirectives = {
   "default-src": ["'self'"],
 
-  // 無 'unsafe-eval'：Vue 3 的 runtime-only build 不含樣板編譯器。
-  // 代價是執行期不得使用 `template:` 字串 —— 一旦有人用了，
+  // 無 'unsafe-eval'：畫面在建置期就編好了 —— JSX 由 Vite 編成函式呼叫，執行期沒有
+  // 樣板編譯器。C240 換掉 Vue 時重量過：正式產物 `eval(`／`new Function` 0 處，
+  // enforce 模式下打開對話框零違規。代價是執行期不得動態求值字串 —— 一旦有人用了，
   // 整份 CSP 就得放寬，所以那條由 oxlint 的 no-eval / no-implied-eval 擋。
+  // ⚠️ dev 會多一條 report-only 的 violation：@vitejs/plugin-react 在 index.html 注入
+  // Fast Refresh 的 inline script。它只存在 dev server，建置產物沒有
+  // （assertStaticCspCompatible 每次建置都在守）。
   // nonce 由 buildCsp 在此之上加入。
   "script-src": ["'self'"],
 
   // 注意 style-src 與 style-src-attr 是**分開的兩條**。
   //
-  // Vue 的 `:style="{ width: w + 'px' }"` 產生的是 inline style **屬性**，
-  // 受 style-src-attr 管。只設 `style-src 'self'` 看起來很嚴格，
-  // 然後所有動態樣式會靜音失效 —— 這是最多團隊在上線當天才發現的事。
+  // 這一條原本的理由是 Vue 的 `:style` 產生 inline style **屬性**。C240 換成 React 後重量：
+  // React 的 `style={{…}}`、Base UI 的捲動鎖定與定位都走 CSSOM（`element.style.x = …`），
+  // CSP 不管那條路 —— 正式產物 `setAttribute("style"` 0 處、`.style.` 39 處；把這一條收成
+  // `'none'` 的對照組在 enforce 下打開對話框，零違規，捲動照樣鎖住。
   //
-  // 因此例外精準地縮在屬性上，**不放寬整個 style-src**。
+  // ⚠️ **放行照舊，而現在的理由是「沒有量完」**：只量了對話框那一條路徑，其他元件與
+  // 日後加進來的第三方元件沒有逐一點過。要不要收緊是人的決定（C240 §八）。
+  //
+  // 例外仍然精準地縮在屬性上，**不放寬整個 style-src**。
   "style-src": ["'self'"],
   "style-src-attr": ["'unsafe-inline'"],
 

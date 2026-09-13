@@ -418,6 +418,11 @@ describe("形狀變了（名稱一個都沒動）", () => {
       baseline.surface["@org/slice-kit"] = {
         Feature: { kind: "type", members: ["permissions?: readonly string[] | undefined"] },
       };
+      // 真基準裡若有 codemod 登記過 Feature 的形狀變更（C240 就登記了一次），
+      // 那一條會把這裡要問的紅燈赦免掉，測試變成在問「登記有沒有生效」。
+      for (const record of baseline.codemods) {
+        record.changes = record.changes?.filter((ref) => ref !== "@org/slice-kit#Feature");
+      }
     });
 
     const result = run(["--baseline", path]);

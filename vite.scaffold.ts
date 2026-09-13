@@ -189,10 +189,11 @@ export const scaffoldOverrides: Override[] = [
     //
     // 850 → 843（C172）：範本測試刪了十條 import 時就已經驗過的斷言。
     // 降是 `threshold-check` 的「門檻過期」規則要求的（C147 §二）。
+    // 843 → 803（C240）：範本換成 React，`i18n.d.ts` 與 Pinia 那幾段沒了。
     // ⚠️ 它必須排在「腳手架的產品碼」那一條之後，理由同上。
     files: ["tools/slice-gen/src/files.ts"],
     rules: {
-      "max-lines-per-function": ["error", { max: 843 }],
+      "max-lines-per-function": ["error", { max: 803 }],
     },
   },
   {
@@ -231,7 +232,7 @@ export const scaffoldOverrides: Override[] = [
       // ⚠️ 這裡**刻意不用** import/no-relative-parent-imports。
       //
       // 初版用了它來擋「相對路徑逃逸 package 根目錄」，實測後發現它太鈍：
-      // 它擋掉的是**所有** `../`，包含 src/views/OrderList.vue 匯入同一個
+      // 它擋掉的是**所有** `../`，包含 src/hooks/useOrderList.ts 匯入同一個
       // package 內的 `../api.ts` —— 那是完全合法的內部結構。
       // 開著它等於強迫每個切片變成扁平目錄，DX 代價高到大家會去關掉它，
       // 那才是真正的破口。

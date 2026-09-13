@@ -20,7 +20,7 @@ export default defineFeature({
       order: {
         title: "訂單管理",
         // ⚠️ loading／tableCaption／rowActions 這三個鍵只給輔具用，畫面上看不到
-        //（見 OrderList.vue）。它們**必須是翻譯字串**，不能寫死在模板裡 ——
+        //（見 OrderList.tsx）。它們**必須是翻譯字串**，不能寫死在畫面裡 ——
         // 一個只有中文的 aria-label 對切到英文的使用者就是一段噪音。
         loading: "載入訂單中",
         empty: "目前沒有符合條件的訂單",

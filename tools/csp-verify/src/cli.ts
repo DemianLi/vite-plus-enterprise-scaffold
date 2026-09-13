@@ -14,9 +14,10 @@ import { parseFlags } from "@org/gate-kit";
  *
  * ── 為什麼不能用 `vp dev` 驗 CSP ────────────────────────────────────
  *
- * dev 模式下 Vue 的 SFC 樣式是由 JS **在執行期注入 `<style>` 元素**的
- *（HMR 需要它）。也就是說 dev 一定會踩 `style-src 'self'` ——
- * 那些 violation **在 production 完全不存在**。
+ * dev 模式下樣式是由 JS **在執行期注入 `<style>` 元素**的（HMR 需要它），
+ * React 的 Fast Refresh 還會在 index.html 注入一段 inline script。也就是說 dev 一定會踩
+ * `style-src 'self'` 與 `script-src 'self'` —— 那些 violation **在 production 完全不存在**
+ *（C240 兩邊都實測過）。
  *
  * 拿 dev 驗 CSP 只會得到一堆假警報，然後第一件事就是有人把 securityHeaders
  * 外掛關掉。`securityHeaders()` 預設 report-only 正是為了這個。

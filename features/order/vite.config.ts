@@ -1,5 +1,5 @@
 import { defineConfig } from "vite-plus";
-import vue from "@vitejs/plugin-vue";
+import react from "@vitejs/plugin-react";
 import { USECASE_COVERAGE_GLOB, USECASE_COVERAGE_MIN } from "@org/slice-kit/contract";
 
 /**
@@ -12,12 +12,13 @@ import { USECASE_COVERAGE_GLOB, USECASE_COVERAGE_MIN } from "@org/slice-kit/cont
  * 照樣通過、exit 0 —— 沒有任何錯誤訊息。門檻放根層等於對「有自己設定的
  * package」直接失效，而失效的樣子是全綠。
  *
- * ⚠️ `plugins` 這一行也是同一件事，不是複製貼上的贅字：少了它 `.vue` 不會被
+ * ⚠️ `plugins` 這一行也是同一件事，不是複製貼上的贅字：Vue 版時少了它 `.vue` 不會被
  * 轉譯，畫面那支會整支從覆蓋率報表裡消失 —— `features/order` 實測，行覆蓋率
- * 從 **7.84% 變成 14.28%**，而程式碼一個字都沒改。
+ * 從 **7.84% 變成 14.28%**，而程式碼一個字都沒改。換成 React（C240）之後畫面是
+ * `.tsx`，少了它會怎樣沒有重量過 —— 留著它，建置與測試走的才是同一套轉譯。
  */
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [react()],
 
   // ── 覆蓋率的產物落在 package 底下，而 `vp run` 會把它算成輸入（C120）──
   //

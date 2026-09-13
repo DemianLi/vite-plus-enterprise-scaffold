@@ -126,9 +126,9 @@
 
 切片**之內**還有一層分層規則，由 `tools/conformance` 在 Tier 2 執行：
 畫面層與 store 不得直接 import 資料查詢函式庫、`@org/http-client` 或本切片的 `api.ts`
-（取數一律走 `src/composables/`），`src/usecases/` 不得 import 任何前端框架模組。
+（取數一律走 `src/hooks/`），`src/usecases/` 不得 import 任何前端框架模組。
 兩份禁用清單都定義在 `platform/slice-kit` 的契約裡。禁的是**位置**不是相依，
-composable 本來就要用它們；`import type` 一律放行。
+hook 本來就要用它們；`import type` 一律放行。
 
 ### `platform/` 與切片之間
 

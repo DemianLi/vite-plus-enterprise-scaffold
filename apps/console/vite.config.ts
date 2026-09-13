@@ -1,5 +1,5 @@
 import { defineConfig, loadEnv } from "vite-plus";
-import vue from "@vitejs/plugin-vue";
+import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { assertNoUndeclaredEnv } from "@org/config";
 import { assertStaticCspCompatible, securityHeaders } from "@org/security-headers";
@@ -28,7 +28,8 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [
-      vue(),
+      // ⚠️ 它把 JSX 編譯成建置產物，同下面的 tailwindcss 必須登記在 DRILL_PLUGINS（C240）。
+      react(),
 
       // D15 —— Tailwind v4。
       //
@@ -83,7 +84,8 @@ export default defineConfig(({ mode }) => {
         include: ["src/**", "bff-routes.ts"],
 
         // ⚠️ **刻意不設門檻，而這是裁決不是遺漏**（C120 §四）。這支 app 的
-        // 分母有 75% 來自 `main.ts` 與 `DevSession.vue`，兩支都是被
+        // 分母有 75% 來自 `main.ts` 與 `DevSession.vue`（Vue 版時量的；換成 `.tsx` 之後
+        // 形狀相同，沒有重量），兩支都是被
         // `dev-session-stripped.test.ts` **編譯**過、沒有被**執行**過 ——
         // 把線畫在一個量測產物上，一年後沒有人答得出「為什麼是這個數字」。
         // 切片那一半的門檻收在 `src/usecases/**`，而這支 app 沒有那一層。
