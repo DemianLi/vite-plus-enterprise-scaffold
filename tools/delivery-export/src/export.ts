@@ -3,14 +3,18 @@ import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } fro
 import { basename, dirname, join } from "node:path";
 
 import {
+  buildsItself,
   catalogReferences,
   GITIGNORE,
+  importsRelatively,
+  references,
   rewriteManifest,
   rewriteNpmrc,
   rewriteRootManifest,
   rewriteWorkspaceYaml,
   TEST_FILE,
   testOnlyDependencies,
+  VITE_CONFIG,
 } from "./rewrite.ts";
 import type { ScannedFile } from "./scan.ts";
 import {
@@ -26,11 +30,16 @@ import {
 // 程式碼檔，把它當成測試相依拿掉了 —— 建置照樣綠，因為 `apps/console` 自己也宣告了 tailwindcss。
 const CODE_FILE = /\.(?:[cm]?[jt]sx?|css)$/;
 
+/** devDep 那條邊算不算被引用：程式碼、樣式，加上設定檔（`tsconfig.json` 以 `extends` 引用 `@org/tsconfig`）。 */
+const REFERENCE_FILE = /\.(?:[cm]?[jt]sx?|css|json)$/;
+
 export interface Plan {
   readonly members: readonly Member[];
   readonly exported: readonly Member[];
   /** 相對 repo 根、原樣複製的檔（不含各成員的 `package.json`，那個另外改寫）。 */
   readonly files: readonly string[];
+  /** 出門的成員底下、不是測試卻不出門的檔：只剩測試在讀的設定、沒有出門的碼引用的子路徑。 */
+  readonly withheld: readonly string[];
   readonly manifests: ReadonlyMap<string, Manifest>;
   /** 成員目錄 → 拿掉的測試相依。 */
   readonly dropped: ReadonlyMap<string, readonly string[]>;
@@ -47,37 +56,139 @@ function concat(root: string, files: readonly string[]): string {
   return files.map((file) => readFileSync(join(root, file), "utf8")).join("\n");
 }
 
+/**
+ * 成員底下的這支檔出不出門。測試不出門；成員自己的 `package.json` 另外改寫；
+ * 自己不建置的成員，`vite.config.*` 只剩測試在讀，也不出門。
+ * 巢狀的 `package.json`（例如 fixture 裡的）已經被 `TEST_FILE` 擋掉。
+ */
+function shippable(member: Member, file: string): boolean {
+  if (!under(member.dir, file) || TEST_FILE.test(file) || basename(file) === "package.json") {
+    return false;
+  }
+  return !(VITE_CONFIG.test(file.slice(member.dir.length + 1)) && !buildsItself(member.manifest));
+}
+
+/**
+ * `exports` 裡除了 `.` 之外、沒有任何出門的碼引用的子路徑 —— 以「包名／子路徑」引用、或同一個
+ * package 裡以相對路徑 import，都算引用。它指的那支檔不出門，manifest 的那一條也拿掉（C250）。
+ * ⚠️ 今天命中的是 `@org/slice-kit/contract`：引用它的只有切片不出門的設定與 `tools/`。
+ */
+export function unusedSubpaths(
+  member: Member,
+  shipped: readonly string[],
+  read: (file: string) => string,
+): (readonly [string, string])[] {
+  const map = member.manifest["exports"];
+  if (typeof map !== "object" || map === null) return [];
+  const unused: (readonly [string, string])[] = [];
+  for (const [subpath, target] of Object.entries(map as Record<string, unknown>)) {
+    if (subpath === "." || typeof target !== "string") continue;
+    const file = `${member.dir}/${target.replace(/^\.\//, "")}`;
+    // ⚠️ 設定檔也算：`@org/tsconfig/lib.json` 只以 `extends` 被 `tsconfig.json` 引用 —— 第一版只看
+    // 程式碼檔，把 `platform/tsconfig` 的四支全判成沒人用，演練當場建不起來。
+    const others = shipped.filter((other) => other !== file && REFERENCE_FILE.test(other));
+    const source = others.map(read).join("\n");
+    const own = others
+      .filter((other) => under(member.dir, other))
+      .map(read)
+      .join("\n");
+    const specifier = `${member.manifest.name}/${subpath.replace(/^\.\//, "")}`;
+    if (!references(source, specifier) && !importsRelatively(own, file)) {
+      unused.push([subpath, file]);
+    }
+  }
+  return unused;
+}
+
+/** 沒出門的 workspace package 還寫在 devDep 裡的話，機關端 `pnpm install` 會找不到它。 */
+export function unexportedWorkspaceDevDependencies(
+  member: Member,
+  members: readonly Member[],
+  exported: readonly Member[],
+): string[] {
+  const workspace = new Set(members.map((other) => other.manifest.name));
+  const shipped = new Set(exported.map((other) => other.manifest.name));
+  return Object.keys(member.manifest.devDependencies ?? {}).filter(
+    (dependency) => workspace.has(dependency) && !shipped.has(dependency),
+  );
+}
+
+/** 出門的 manifest 要拿掉的 devDependencies：只有測試用到的，加上沒出門的 workspace package。 */
+export function devDependenciesToRemove(
+  member: Member,
+  members: readonly Member[],
+  exported: readonly Member[],
+  testOnly: readonly string[],
+): string[] {
+  return [
+    ...new Set([...testOnly, ...unexportedWorkspaceDevDependencies(member, members, exported)]),
+  ];
+}
+
 export function plan(root: string): Plan {
   const tracked = trackedFiles(root);
   const members = workspaceMembers(root, tracked);
-  const exported = closure(members);
+  const read = (file: string): string => readFileSync(join(root, file), "utf8");
+
+  const sources = new Map<string, string>();
+  const shippedSource = (member: Member): string => {
+    const cached = sources.get(member.dir);
+    if (cached !== undefined) return cached;
+    const source = concat(
+      root,
+      tracked.filter((file) => shippable(member, file) && REFERENCE_FILE.test(file)),
+    );
+    sources.set(member.dir, source);
+    return source;
+  };
+  const exported = closure(members, (member, dependency) =>
+    references(shippedSource(member), dependency),
+  );
   const dirs = exported.map((member) => member.dir);
 
-  const files = tracked.filter(
+  const candidates = tracked.filter((file) => exported.some((member) => shippable(member, file)));
+  const withheldExports = new Map<string, readonly string[]>();
+  const withheldFiles = new Set<string>();
+  for (const member of exported) {
+    const unused = unusedSubpaths(member, candidates, read);
+    withheldExports.set(
+      member.dir,
+      unused.map(([subpath]) => subpath),
+    );
+    for (const [, file] of unused) withheldFiles.add(file);
+  }
+  const files = candidates.filter((file) => !withheldFiles.has(file));
+  const shippedFiles = new Set(files);
+  const withheld = tracked.filter(
     (file) =>
       dirs.some((dir) => under(dir, file)) &&
       !TEST_FILE.test(file) &&
-      basename(file) !== "package.json",
+      basename(file) !== "package.json" &&
+      !shippedFiles.has(file),
   );
-  // 巢狀的 package.json（例如 fixture 裡的）已經被 TEST_FILE 擋掉；成員自己的那一支在下面改寫。
 
   const manifests = new Map<string, Manifest>();
   const dropped = new Map<string, readonly string[]>();
   for (const member of exported) {
     const code = tracked.filter((file) => under(member.dir, file) && CODE_FILE.test(file));
+    // 不出門的碼（測試、只剩測試在讀的設定）算在測試那一側。
     const testOnly = testOnlyDependencies(
       member.manifest,
       concat(
         root,
-        code.filter((file) => !TEST_FILE.test(file)),
+        code.filter((file) => shippedFiles.has(file)),
       ),
       concat(
         root,
-        code.filter((file) => TEST_FILE.test(file)),
+        code.filter((file) => !shippedFiles.has(file)),
       ),
     );
-    dropped.set(member.dir, testOnly);
-    manifests.set(member.dir, rewriteManifest(member.manifest, testOnly));
+    const removed = devDependenciesToRemove(member, members, exported, testOnly);
+    dropped.set(member.dir, removed);
+    manifests.set(
+      member.dir,
+      rewriteManifest(member.manifest, removed, withheldExports.get(member.dir) ?? []),
+    );
   }
 
   const yaml = readFileSync(join(root, "pnpm-workspace.yaml"), "utf8");
@@ -101,6 +212,7 @@ export function plan(root: string): Plan {
     members,
     exported,
     files,
+    withheld,
     manifests,
     dropped,
     rootFiles,

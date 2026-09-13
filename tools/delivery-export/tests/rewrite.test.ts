@@ -4,16 +4,24 @@ import { describe, expect, it } from "vitest";
 
 import { repoRoot } from "@org/gate-kit/testing";
 
-import { plan } from "../src/export.ts";
 import {
+  devDependenciesToRemove,
+  plan,
+  unexportedWorkspaceDevDependencies,
+  unusedSubpaths,
+} from "../src/export.ts";
+import {
+  buildsItself,
   catalogReferences,
   GITIGNORE,
+  importsRelatively,
   rewriteManifest,
   rewriteNpmrc,
   rewriteRootManifest,
   rewriteWorkspaceYaml,
   TEST_FILE,
   testOnlyDependencies,
+  VITE_CONFIG,
 } from "../src/rewrite.ts";
 import { scan, traceRules } from "../src/scan.ts";
 import type { Manifest } from "../src/workspace.ts";
@@ -28,13 +36,18 @@ describe("測試檔不出門（C231 §四.3）", () => {
     "src/a.test.ts",
     "src/a.spec.tsx",
     "features/x/specs/a.feature",
+    "apps/console/vitest.config.ts",
   ])("%s 是測試", (path) => expect(TEST_FILE.test(path)).toBe(true));
-  it.each(["src/contest.ts", "src/latest.tsx", "src/testing-utils.ts", "README.md"])(
-    "%s 不是",
-    (path) => {
-      expect(TEST_FILE.test(path)).toBe(false);
-    },
-  );
+  it.each([
+    "src/contest.ts",
+    "src/latest.tsx",
+    "src/testing-utils.ts",
+    "README.md",
+    "apps/console/vite.config.ts",
+    "src/myvitest.config.ts",
+  ])("%s 不是", (path) => {
+    expect(TEST_FILE.test(path)).toBe(false);
+  });
 });
 
 describe("只有測試用到的 devDependencies", () => {
@@ -84,6 +97,107 @@ describe("只有測試用到的 devDependencies", () => {
       ["vitest"],
     );
     expect(rewritten).toEqual({ name: "x" });
+  });
+});
+
+describe("出門的 package 裡、不是測試卻不出門的檔（C250）", () => {
+  it("自己不建置的成員，vite.config 只剩測試在讀", () => {
+    expect(buildsItself({ name: "x", scripts: { check: "vp check" } })).toBe(false);
+    expect(buildsItself({ name: "x", scripts: { dev: "vp dev" } })).toBe(true);
+    expect(VITE_CONFIG.test("vite.config.ts")).toBe(true);
+    expect(VITE_CONFIG.test("src/vite.config.helper.ts")).toBe(false);
+  });
+
+  // ⚠️ 讀真樹的斷言只問 fork 裡也成立的性質：切片會被增刪，而這兩條對任何一棵樹都該成立。
+  it("★ 真樹：出門的檔裡沒有「自己不建置的成員」的 vite.config", () => {
+    const planned = plan(ROOT);
+    for (const member of planned.exported) {
+      if (buildsItself(member.manifest)) continue;
+      expect(planned.files).not.toContain(`${member.dir}/vite.config.ts`);
+    }
+  });
+
+  it("★ 真樹：出門的 manifest 裡，exports 的每一條都指向一支出門的檔", () => {
+    const planned = plan(ROOT);
+    for (const [dir, manifest] of planned.manifests) {
+      const map = (manifest["exports"] ?? {}) as Record<string, string>;
+      for (const target of Object.values(map)) {
+        expect(planned.files).toContain(`${dir}/${target.replace(/^\.\//, "")}`);
+      }
+    }
+  });
+
+  const kit = {
+    dir: "platform/kit",
+    manifest: { name: "@org/kit", exports: { ".": "./src/index.ts", "./rules": "./src/rules.ts" } },
+  };
+  const tree = (files: Record<string, string>) => ({
+    shipped: Object.keys(files),
+    read: (file: string) => files[file] ?? "",
+  });
+
+  it("★ 沒有出門的碼引用的子路徑不出門；「.」永遠出門", () => {
+    const { shipped, read } = tree({
+      "platform/kit/src/index.ts": 'export { x } from "./name.ts";',
+      "platform/kit/src/rules.ts": "export const RULES = [];",
+      "apps/a/src/main.ts": 'import { x } from "@org/kit";',
+    });
+    expect(unusedSubpaths(kit, shipped, read)).toEqual([["./rules", "platform/kit/src/rules.ts"]]);
+  });
+
+  it("以包名／子路徑引用、或同一個 package 裡以相對路徑 import，都算用到", () => {
+    const byName = tree({
+      "platform/kit/src/rules.ts": "",
+      "apps/a/src/main.ts": 'import { RULES } from "@org/kit/rules";',
+    });
+    expect(unusedSubpaths(kit, byName.shipped, byName.read)).toEqual([]);
+    const relative = tree({
+      "platform/kit/src/rules.ts": "",
+      "platform/kit/src/index.ts": 'export { RULES } from "./rules.ts";',
+    });
+    expect(unusedSubpaths(kit, relative.shipped, relative.read)).toEqual([]);
+  });
+
+  it("★ 設定檔的 extends 也算引用 —— 第一版只看程式碼檔，把 @org/tsconfig 整包判成沒人用", () => {
+    const tsconfig = {
+      dir: "platform/tsconfig",
+      manifest: { name: "@org/tsconfig", exports: { "./lib.json": "./lib.json" } },
+    };
+    const { shipped, read } = tree({
+      "platform/tsconfig/lib.json": "{}",
+      "features/a/tsconfig.json": '{ "extends": "@org/tsconfig/lib.json" }',
+    });
+    expect(unusedSubpaths(tsconfig, shipped, read)).toEqual([]);
+  });
+
+  it("★ 沒出門的 workspace package 從 devDependencies 拿掉，出門的與外部套件照留", () => {
+    const x = {
+      dir: "apps/x",
+      manifest: {
+        name: "@org/x",
+        devDependencies: { "@org/mock": "workspace:*", "@org/cfg": "workspace:*", vite: "" },
+      },
+    };
+    const cfg = { dir: "platform/cfg", manifest: { name: "@org/cfg" } };
+    const mock = { dir: "platform/mock", manifest: { name: "@org/mock" } };
+    expect(unexportedWorkspaceDevDependencies(x, [x, cfg, mock], [x, cfg])).toEqual(["@org/mock"]);
+    // ⚠️ 單驗上面那支不夠：plan() 把它與測試相依合併的那一行，第一版沒有測試走過（C250 §五 M15）。
+    expect(devDependenciesToRemove(x, [x, cfg, mock], [x, cfg], ["vite"])).toEqual([
+      "vite",
+      "@org/mock",
+    ]);
+  });
+
+  it("相對 import 比對檔名，不比對包含它的字", () => {
+    expect(importsRelatively('from "./rules.ts"', "platform/kit/src/rules.ts")).toBe(true);
+    expect(importsRelatively("from '../src/rules'", "platform/kit/src/rules.ts")).toBe(true);
+    expect(importsRelatively('from "./my-rules.ts"', "platform/kit/src/rules.ts")).toBe(false);
+  });
+
+  it("rewriteManifest 拿掉不出門的子路徑，其餘照留", () => {
+    expect(rewriteManifest(kit.manifest, [], ["./rules"])).toMatchObject({
+      exports: { ".": "./src/index.ts" },
+    });
   });
 });
 

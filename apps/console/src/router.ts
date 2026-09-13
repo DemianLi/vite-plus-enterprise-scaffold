@@ -2,11 +2,11 @@ import type { RouteObject } from "react-router";
 import type { RegisteredFeatures, SliceRoute } from "@org/slice-kit";
 
 /**
- * 切片的路由 → react-router 的路由（C240，Q89）。
+ * 切片的路由 → react-router 的路由。
  *
  * 契約自己定路由型別、由這裡轉換，因為 react-router 的路由沒有 `name`，而命名空間
  * 檢查與選單都掛在 name 上。name 放進 `id`：react-router 要求 id 唯一，而切片契約
- * 保證 name 帶切片前綴、composition-root 的測試守著跨切片不重複。
+ * 保證 name 帶切片前綴、切片名重複註冊會當場丟錯 —— 跨切片撞不到。
  */
 export function toRouteObject(route: SliceRoute): RouteObject {
   return {

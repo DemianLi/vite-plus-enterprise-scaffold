@@ -11,7 +11,7 @@ import type {
  * 本切片的資料存取層 —— `ports.ts` 那個介面的**真實作**。
  *
  * 切片被禁止直接 import axios/fetch —— 一律走 @org/http-client，
- * CSRF 標頭與錯誤處理才會全 repo 一致，稽核時才證明得出來（D8）。
+ * CSRF 標頭與錯誤處理才會全 repo 一致，稽核時才證明得出來。
  */
 
 export function fetchInvoiceList(query: InvoiceListQuery = {}): Promise<InvoiceListResponse> {
@@ -23,8 +23,8 @@ export function fetchInvoiceList(query: InvoiceListQuery = {}): Promise<InvoiceL
  * 送進 usecase 的正式 gateway。
  *
  * ⚠️ 它必須是**畫面真的在用的那一個** —— hook 拿的就是它。
- * 規格跑的是同一份 usecase，只是換一個 gateway 進去；
- * 兩邊各走各的路的話，規格全綠而畫面壞掉，沒有閘門看得見。
+ * usecase 可以換一個 gateway 進去跑；畫面若不走這一個，兩邊各走各的路，
+ * 業務規則改了而畫面沒跟上，什麼都不會報錯。
  */
 export const invoiceGateway: InvoiceGateway = {
   list: fetchInvoiceList,

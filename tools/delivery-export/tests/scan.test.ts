@@ -20,6 +20,9 @@ const KNOWN_HITS: Record<string, string> = {
   "stryker／突變／變異／mutation": "突變測試會把這裡改壞",
   vpr: "跑 vpr ready",
   "腳手架／scaffold": "這是腳手架的碼",
+  "gate／drill": "the gate blocks it",
+  演練: "採用演練花了半天",
+  "issue 號 #＋數字": "登記在（#95）",
 };
 
 /** 「已知為零」那一半：像業務碼、而且故意長得接近詞表的字串。 */
@@ -30,7 +33,26 @@ const KNOWN_CLEAN = [
   "const DC1 = 1; const C1a = 2;",
   "發票查詢：依期別列出",
   "const checker = createPiiChecker(); // pii-checker 是業務元件，名字剛好包住一支工具名",
+  "// gateway 逾時就重試；navigate 與 aggregate 也不算",
+  "const DRILL_TIMEOUT = 3;",
+  'const muted = "#fff"; const entity = "&#123;";',
+  "訂單編號 1024 會被永久刪除",
 ];
+
+describe("C250 收進來的四個詞", () => {
+  const hits = (label: string, content: string): number | undefined =>
+    scan([{ path: "a", content }], RULES).rules.find((rule) => rule.label === label)?.hits;
+
+  it("gate／drill 各種大小寫與複數都算，前後是英數就不算", () => {
+    expect(hits("gate／drill", "Gates and DRILL, drills")).toBe(3);
+    expect(hits("gate／drill", "gateway drilling")).toBe(0);
+  });
+
+  it("issue 號前面是英數、& 或 # 就不算", () => {
+    expect(hits("issue 號 #＋數字", "（#130 §七）與 HANDOFF #24")).toBe(2);
+    expect(hits("issue 號 #＋數字", "a#1 &#123; ##2 #1D4ED8")).toBe(0);
+  });
+});
 
 describe("痕跡掃描的詞表（C231 §三，Q111）", () => {
   it("每一條規則都有一句會命中的樣本 —— 少一條，那條規則壞掉時沒人知道", () => {

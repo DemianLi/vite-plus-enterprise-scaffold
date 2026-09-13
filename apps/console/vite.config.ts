@@ -7,7 +7,7 @@ import { assertStaticCspCompatible, securityHeaders } from "@org/security-header
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
-  // ── D8：機密外洩的編譯期閘門 ────────────────────────────────────────
+  // ── 機密外洩的編譯期檢查 ────────────────────────────────────────────
   // VITE_ 前綴的值會被編譯進 bundle 明文。這行讓「有人在 .env 加了
   // VITE_API_SECRET」直接變成建置失敗，而不是上線後被 gitleaks 掃出來。
   assertNoUndeclaredEnv(env);
@@ -15,8 +15,8 @@ export default defineConfig(({ mode }) => {
   // ── dev proxy 的 BFF 目標 ───────────────────────────────────────────
   //
   // 兩邊都要讀。`.env.example` 教的是在 `.env` 寫 `BFF_ORIGIN`，而 `.env`
-  // 的值只會進到上面那個 `env` —— 這一行原本只讀 `process.env`，於是
-  // 照文件設定的人**什麼都不會發生，也不會有錯誤訊息**（#95 的 ②b）。
+  // 的值只會進到上面那個 `env` —— 只讀 `process.env` 的話，
+  // 照文件設定的人**什麼都不會發生，也不會有錯誤訊息**。
   //
   // 順序不能反：真的環境變數是 CI 與「臨時指去別的 gateway」用的，
   // `.env` 是躺在磁碟上的預設值。
@@ -28,18 +28,13 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [
-      // ⚠️ 它把 JSX 編譯成建置產物，同下面的 tailwindcss 必須登記在 DRILL_PLUGINS（C240）。
       react(),
 
-      // D15 —— Tailwind v4。
-      //
-      // ⚠️ 這個 plugin **會改變建置產物**，所以它必須登記在
-      // tools/exit-drill/src/plugins.ts 的 DRILL_PLUGINS。沒登記的話，
-      // 退出演練會產生一份沒有它的設定、建置成功、寫下 result: "pass" ——
-      // 而產物是一個完全沒有樣式的應用（C36）。
+      // Tailwind v4。它會改變建置產物：拿掉的話建置照樣成功，產出的是一個
+      // 完全沒有樣式的應用。
       tailwindcss(),
 
-      // D11 —— 在 dev 就套用安全標頭（report-only）。
+      // 在 dev 就套用安全標頭（report-only）。
       //
       // CSP violation 在 production 才發現，代價是回滾；在 staging 發現，
       // 代價是一輪部署；在寫的當下發現，代價是十秒鐘。
@@ -49,59 +44,32 @@ export default defineConfig(({ mode }) => {
       // 建置產物零個 inline script，靜態標頭就夠，見下面的 assertStaticCspCompatible。
       securityHeaders({ reportUri: "/api/csp-report" }),
 
-      // R6 —— 守住「靜態 CSP 標頭就夠」這個前提。
+      // 守住「靜態 CSP 標頭就夠」這個前提。
       //
       // 只要建置產物出現任何 inline script，CSP 就需要 per-request nonce，
       // 而那代表組織端必須有一個會**改寫 HTML 內容**的中間層 ——
       // nginx 的靜態檔案服務、CDN、S3+CloudFront 全都做不到。
-      // 換句話說，這個外掛守的不是一條 lint，是 R6 的成本級距。
+      // 換句話說，這個外掛守的不是一條 lint，是部署的成本級距。
       assertStaticCspCompatible(),
     ],
 
     build: {
-      // ── D11：sourcemap 產生但不部署 ──────────────────────────────
+      // ── sourcemap 產生但不部署 ──────────────────────────────────
       // 'hidden' 會產出 .map 卻不寫 sourceMappingURL 註解。
       // 部署流程只上傳 .map 到錯誤追蹤系統，不放上 web server ——
       // 掃描器與滲透測試撿不到原始碼，on-call 卻救得回線上錯誤。
       sourcemap: "hidden",
     },
 
-    test: {
-      coverage: {
-        // ── 覆蓋率的射程（C120）────────────────────────────────────
-        //
-        // ⚠️ 這一格**在此之前是錯的，而錯的樣子是滿分**。這支設定檔存在，
-        // 而根層刻意不放 `test` 區塊（就算放了，有自己設定檔的 package 也整塊
-        // 不繼承），於是覆蓋率退回 v8 的預設射程 —— 只有「測試載入過的檔案」
-        // 進分母。實測結果是
-        // 報表寫 **100%**（`bff-routes.ts` 與 `src/features.ts` 兩支），
-        // 而 `main.ts`／`App.vue`／`DevSession.vue` 連出現都沒有。
-        // 校正射程之後是 **13.20%**（#130）。
-        //
-        // ⚠️ `bff-routes.ts` 必須逐支列出來 —— 它住在 package 根目錄不在
-        // `src/`，而它有專屬測試。#130 第一版的射程漏了它，`apps/console`
-        // 因此低報成 2.12%。**射程寫錯不會報錯。**
-        include: ["src/**", "bff-routes.ts"],
-
-        // ⚠️ **刻意不設門檻，而這是裁決不是遺漏**（C120 §四）。這支 app 的
-        // 分母有 75% 來自 `main.ts` 與 `DevSession.vue`（Vue 版時量的；換成 `.tsx` 之後
-        // 形狀相同，沒有重量），兩支都是被
-        // `dev-session-stripped.test.ts` **編譯**過、沒有被**執行**過 ——
-        // 把線畫在一個量測產物上，一年後沒有人答得出「為什麼是這個數字」。
-        // 切片那一半的門檻收在 `src/usecases/**`，而這支 app 沒有那一層。
-      },
-    },
-
     server: {
       proxy: {
-        // ── D8：dev 必須鏡像 production 的來源配置 ────────────────
+        // ── dev 必須鏡像 production 的來源配置 ────────────────────
         // BFF 一定要與 SPA 同源（走 /api 路徑前綴），否則 SameSite cookie
         // 形同虛設。dev 若用不同 origin，會出現「本機好好的、上線就掛」——
         // 而且掛的是認證，最難查。
         //
-        // 另一端預設是 @org/bff-mock（`vpr bff` 啟動）。在它存在之前，
-        // 這個 proxy 指向一個沒有東西在聽的埠 —— D8 的整條路徑
-        //（登入 → 帶 cookie → 被 CSRF 擋 → 補標頭 → 通過）在本機從未被走過一次。
+        // 另一端是本機的 BFF（開發時用 mock）。沒有東西在聽的話，
+        // 「登入 → 帶 cookie → 被 CSRF 擋 → 補標頭 → 通過」這整條路徑在本機一次都走不到。
         "/api": {
           target: bffOrigin,
           changeOrigin: false,

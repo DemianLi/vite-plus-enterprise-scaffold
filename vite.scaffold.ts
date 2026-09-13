@@ -197,10 +197,11 @@ export const scaffoldOverrides: Override[] = [
     // 850 → 843（C172）：範本測試刪了十條 import 時就已經驗過的斷言。
     // 降是 `threshold-check` 的「門檻過期」規則要求的（C147 §二）。
     // 843 → 803（C240）：範本換成 React，`i18n.d.ts` 與 Pinia 那幾段沒了。
+    // 803 → 754（C250）：範本產出的 README 與註解拿掉測試與治理的說明（交付匯出不帶痕跡）。
     // ⚠️ 它必須排在「腳手架的產品碼」那一條之後，理由同上。
     files: ["tools/slice-gen/src/files.ts"],
     rules: {
-      "max-lines-per-function": ["error", { max: 803 }],
+      "max-lines-per-function": ["error", { max: 754 }],
     },
   },
   {

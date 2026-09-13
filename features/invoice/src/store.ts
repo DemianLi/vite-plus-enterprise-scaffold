@@ -1,12 +1,12 @@
 import { create } from "zustand";
 
 /**
- * 切片內的 store（D13 / D14）。
+ * 切片內的 store。
  *
  * 定義在切片內部 —— **不得有全域 store 目錄**，那是三層架構最常見的破口：
  * 一旦出現，兩個切片就會開始共用狀態，邊界當場失效。
  *
- * ⚠️ 沒有 store id：zustand 的 store 是這個模組裡的一個變數，撞不到名（C240 Q92）。
+ * ⚠️ 沒有 store id：zustand 的 store 是這個模組裡的一個變數，撞不到名。
  *
  * ── 這裡只放「客戶端才是權威」的東西 ───────────────────────────────────
  *
@@ -17,7 +17,7 @@ import { create } from "zustand";
  *   兩者都不是（選取的那幾筆物件）→ 哪裡都不放，render 時從列表推導
  *
  * 一句話：**存 id，不存 entity。**
- * 一致性檢查會擋下 value import `./api.ts` 與 `@tanstack/react-query`；
+ * 這裡不准 value import `./api.ts` 與 `@tanstack/react-query`；
  * `import type` 允許（在 verbatimModuleSyntax 下會被完全抹除，無執行期效果）。
  */
 interface InvoiceFilterState {
@@ -26,7 +26,7 @@ interface InvoiceFilterState {
    * 被選取的那一筆 —— 只存 id。
    *
    * 這裡刻意**不放** `selectedInvoiceItem` 物件。放了就是第二份快取：
-   * 列表重新整理之後對話框裡還是舊資料，而且不會有任何測試變紅。
+   * 列表重新整理之後對話框裡還是舊資料，而且什麼都不會報錯。
    * 要那筆物件的時候，在元件裡從列表推導（見 views/）。
    */
   readonly selectedId: string | null;

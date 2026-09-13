@@ -1,7 +1,11 @@
 import type { Manifest } from "./workspace.ts";
 
-/** 測試檔不出門（C231 §四.3）。`specs/` 在白名單外本來就不會被走到。 */
-export const TEST_FILE = /(^|\/)(tests|fixtures)\/|\.(test|spec)\.[^/]+$|\.feature$/;
+/**
+ * 測試檔不出門（C231 §四.3）。`specs/` 在白名單外本來就不會被走到。
+ * `vitest.config.*` 是與建置設定分開放的測試設定（C250，`apps/console` 那一支）。
+ */
+export const TEST_FILE =
+  /(^|\/)(tests|fixtures)\/|\.(test|spec)\.[^/]+$|\.feature$|(^|\/)vitest\.config\.[^/]+$/;
 
 /**
  * 不經 import、只在設定裡以名字出現的測試工具：vitest 以字串選 `happy-dom` 當環境、
@@ -13,12 +17,34 @@ export const CONFIG_REFERENCED_TEST_TOOLS: ReadonlySet<string> = new Set([
   "@vitest/coverage-v8",
 ]);
 
+const QUOTES = ['"', "'", "`"] as const;
+
 /** 以引號包住的模組名，或它的子路徑（`"vitest"`、`'vitest/config'`）。 */
-function references(source: string, dependency: string): boolean {
-  return ['"', "'", "`"].some(
+export function references(source: string, dependency: string): boolean {
+  return QUOTES.some(
     (quote) =>
       source.includes(`${quote}${dependency}${quote}`) || source.includes(`${quote}${dependency}/`),
   );
+}
+
+/** 以相對路徑 import 了這支檔（`"./contract.ts"`、`'../src/contract'`）。 */
+export function importsRelatively(source: string, file: string): boolean {
+  const name = file.slice(file.lastIndexOf("/") + 1);
+  const stem = name.replace(/\.[^.]+$/, "");
+  return QUOTES.some(
+    (quote) => source.includes(`/${name}${quote}`) || source.includes(`/${stem}${quote}`),
+  );
+}
+
+/**
+ * 成員自己建置得起來，才需要它的 `vite.config.*`。沒有 `build`／`dev` 的成員（切片以原始碼被
+ * 應用引用），那支設定只剩測試在讀 —— 不出門（C250 §三：拿掉之後產物逐位元組相同）。
+ */
+export const BUILD_SCRIPTS = ["build", "dev"] as const;
+export const VITE_CONFIG = /^vite\.config\.[cm]?[jt]s$/;
+
+export function buildsItself(manifest: Manifest): boolean {
+  return BUILD_SCRIPTS.some((script) => manifest.scripts?.[script] !== undefined);
 }
 
 /**
@@ -40,12 +66,24 @@ export function testOnlyDependencies(
   );
 }
 
-export function rewriteManifest(manifest: Manifest, dropped: readonly string[]): Manifest {
+/** `dropped` 是拿掉的 devDependencies，`withheldExports` 是不出門的子路徑（`./contract`）。 */
+export function rewriteManifest(
+  manifest: Manifest,
+  dropped: readonly string[],
+  withheldExports: readonly string[] = [],
+): Manifest {
   const { test: _test, ...scripts } = manifest.scripts ?? {};
   const devDependencies = Object.fromEntries(
     Object.entries(manifest.devDependencies ?? {}).filter(([name]) => !dropped.includes(name)),
   );
   const rewritten: Record<string, unknown> = { ...manifest, scripts, devDependencies };
+  if (withheldExports.length > 0 && typeof manifest["exports"] === "object") {
+    rewritten["exports"] = Object.fromEntries(
+      Object.entries(manifest["exports"] as Record<string, unknown>).filter(
+        ([subpath]) => !withheldExports.includes(subpath),
+      ),
+    );
+  }
   if (Object.keys(scripts).length === 0) delete rewritten["scripts"];
   if (Object.keys(devDependencies).length === 0) delete rewritten["devDependencies"];
   return rewritten as Manifest;

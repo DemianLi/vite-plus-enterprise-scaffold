@@ -1,9 +1,9 @@
 /**
  * 切片契約 —— **單一事實來源**。
  *
- * 這個檔案刻意零依賴、純資料：建立新切片的範本、檢查既有切片的結構、
- * 以及 define-feature.ts 的執行期驗證都讀這同一份宣告（檢查要能在沒有
- * bundler 的 Node 下直接 import）。
+ * 這個檔案刻意零依賴、純資料：建立新切片的範本與檢查既有切片的結構都讀這同一份
+ * 宣告（檢查要能在沒有 bundler 的 Node 下直接 import）。執行期只用得到切片命名那一條，
+ * 它住在 `slice-name.ts`，由這裡轉出去 —— 仍然只有一份。
  *
  * 範本產出的東西 ＝ 檢查會驗的東西，因為兩者讀同一份宣告。
  * 分成兩份手動同步的定義，半年內必定漂移。
@@ -52,7 +52,7 @@ export const VIEWS_DIR = "src/views";
  * `use` 開頭不只是風格：React 的 hook 規則與 oxlint 的 `react/rules-of-hooks` 都靠這個前綴
  * 認出「這支只能在元件頂層呼叫」。
  *
- * 與切片名的規則同理，刻意避開巢狀量詞（見本檔案末尾 SLICE_DIR_CHARSET 的說明）。
+ * 與切片名的規則同理，刻意避開巢狀量詞（見 `slice-name.ts` 的說明）。
  */
 const HOOK_FILE_CHARSET = /^use[A-Z][A-Za-z0-9]*\.ts$/;
 
@@ -506,20 +506,10 @@ export function importedPackage(specifier: string): string {
 }
 
 /**
- * 切片命名規則：目錄名 kebab-case，套件名 `@org/feature-<目錄名>`。
- *
- * 這裡刻意**不用**直覺的 `/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/`。
- * 那個寫法有巢狀量詞（star height 2），是 ReDoS 風險：巢狀量詞在特定輸入下會退化成
- * 指數級回溯。切片名雖然來自開發者而非使用者輸入，風險實際很低，
- * 但「這條路徑碰不到不可信輸入」的假設會隨時間失效，而規則例外不會。
- *
- * 改用單層量詞 + 明確的邊界檢查：可讀性更好，且是線性時間。
+ * 切片命名規則住在 `slice-name.ts`：`define-feature.ts` 在執行期要用它，而這份契約的其餘部分
+ * 執行期用不到 —— 分開放，應用引用的只有那一支。這裡照樣轉出去，讀契約的一方不用改。
  */
-const SLICE_DIR_CHARSET = /^[a-z][a-z0-9-]*$/;
-
-export function isValidSliceDir(dir: string): boolean {
-  return SLICE_DIR_CHARSET.test(dir) && !dir.includes("--") && !dir.endsWith("-");
-}
+export { isValidSliceDir } from "./slice-name.ts";
 
 export const slicePackageName = (dir: string): string => `${SLICE_PACKAGE_PREFIX}${dir}`;
 

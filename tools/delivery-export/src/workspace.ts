@@ -78,11 +78,13 @@ export function workspaceMembers(root: string, files: readonly string[]): Member
  *
  * ⚠️ 走 `devDependencies` 是必要的：`@org/tsconfig` 只以 devDep 被引用、`@org/security-headers`
  * 是 `apps/console` 建置期 import 的 devDep —— 只走 `dependencies` 會把兩個交付物本體留在門內。
- * 代價是同一條規則也會把「哪天被寫進某個 devDep 的純測試用 workspace package」帶出門
- * （C231 §四.2 的留白，本工具的裁決寫了為什麼不另設規則）。
+ * ⚠️ 但 devDep 那條邊要 `followsDevDependency` 點頭才走（C231 §四.2，C250）：只有測試寫進
+ * devDep 的 workspace package，出門的碼一處都沒引用它，走過去就把它帶出門了。
+ * 這個判斷刻意沒有預設值 —— 預設「全走」的話，漏傳就是規則安靜地關掉。
  */
 export function closure(
   members: readonly Member[],
+  followsDevDependency: (member: Member, dependency: string) => boolean,
   entries: readonly string[] = ENTRY_GROUPS,
 ): Member[] {
   const byName = new Map(members.map((member) => [member.manifest.name, member]));
@@ -95,9 +97,12 @@ export function closure(
     const name = queue.shift() as string;
     if (reached.has(name)) continue;
     reached.add(name);
-    const manifest = (byName.get(name) as Member).manifest;
-    for (const deps of [manifest.dependencies, manifest.devDependencies]) {
-      for (const dep of Object.keys(deps ?? {})) if (byName.has(dep)) queue.push(dep);
+    const member = byName.get(name) as Member;
+    for (const dep of Object.keys(member.manifest.dependencies ?? {})) {
+      if (byName.has(dep)) queue.push(dep);
+    }
+    for (const dep of Object.keys(member.manifest.devDependencies ?? {})) {
+      if (byName.has(dep) && followsDevDependency(member, dep)) queue.push(dep);
     }
   }
   return members.filter((member) => reached.has(member.manifest.name));
