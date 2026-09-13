@@ -13,7 +13,7 @@ import { defineConfig } from "vite-plus";
  *
  * ⚠️⚠️ **C165 —— 同一句話第三次被推翻，而這次的破法又不一樣。**
  * `tests/cli.test.ts` 對真樹跑 `spec-report --check`，而那支從
- * `features/invoice` 進版控起會讀 `features/*​/.vitest-results.json` ——
+ * `features/invoice` 進版控起會讀 `features/<name>/.vitest-results.json` ——
  * **一個 gitignore 掉的產物**（`.gitignore:51`）。在此之前報表是空的、
  * `--check` 恆綠，所以誰先跑無所謂；現在切片的測試沒先跑，它就回 1。
  * 事實來源是 `git ls-files` 那個論證擋不住這一種：它讀的不是版控。
