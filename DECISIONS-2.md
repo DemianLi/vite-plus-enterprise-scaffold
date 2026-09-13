@@ -12502,20 +12502,21 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 | **AGENTS.md 規則二** | **遵守** —— 放寬兩道測試的那個選項交人裁（Q70）；`no-autofocus` 改寫法、不改規則                        |
 | **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                          |
 
-### C240 — 第 ③ 批：切片契約、兩片示範切片與應用殼換成 React —— 路由型別由契約自訂、`composables/` 改名 `hooks/`、store id 前綴失去對象；驗收規格那條鏈一個位元組都沒動（2026-09-13，Q89–Q92）
+### C240 — 第 ③ 批：切片契約、兩片示範切片與應用殼換成 React —— 路由型別由契約自訂、`composables/` 改名 `hooks/`、store id 前綴失去對象；驗收規格那條鏈一個位元組都沒動（2026-09-13，Q89–Q93）
 
 > C232 §六 ③ 的實作。C234 §二 交來兩格（exit-drill 的 `DRILL_PLUGINS`、slice-gen 範本）、C234 §五 交來一格（設計系統被列舉成 Vue 那三支的三處文件），C232 §四 1（CSP 的理由）與 §四 4（`composables/` 要不要改名）也在這一批。
 >
 > ⚠️ **編號**：四題在對話裡以 Q74–Q77 問出。起草時另一支開著的 PR（#374，`docs/readme-rewrite`，2026-09-13 03:30 UTC 建立）已經用了下一個裁決編號與 Q74–Q88 —— 先開的留號（C141；#270／#271 的先例），本則改記 **C240、Q89–Q92**；讓號的這一支不寫對方那個編號的字面，因為在這條分支上它指不到任何一則，`decision-ids` 會紅（第一趟 `vpr ready` 就是紅在這裡）（Q74→Q89、Q75→Q90、Q76→Q91、Q77→Q92），程式碼註解裡的舊號一併改掉。
 
-#### 一、四題由人裁
+#### 一、五題由人裁（Q93 是實作後 a11y 那一軌紅了才問的）
 
-| #       | 問題                                                                                                                                    | 裁決                                                      |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| **Q89** | react-router 的路由物件沒有 `name`，而契約的命名空間檢查、選單的 `routeName`、composition root 那條 ★ 都掛在 name 上                    | **契約自訂 `SliceRoute`**，應用殼轉成 react-router 的格式 |
-| **Q90** | 路由型別一改，`api-surface` 判破壞性（`Feature.routes`、`RegisteredFeatures.routes` 都在基準裡）：就地改並登記 codemod／並列新 API 到 ⑤ | **就地改，登記 codemod**                                  |
-| **Q91** | 切片裡放取數邏輯的目錄 `composables/` 要不要改名 `hooks/`（C232 §四 4 說由示範切片定，而示範切片只有一支 `main.tsx`，這題一直沒答）     | **改成 `hooks/`**                                         |
-| **Q92** | D13 規定 store id 帶切片前綴 —— 因為 Pinia 的 id 全域登記、同名互相覆蓋；zustand 的 `create()` 沒有 id，也沒有全域登記表                | **拿掉，寫明理由**：規則失去對象，不是規則不重要          |
+| #       | 問題                                                                                                                                                              | 裁決                                                      |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Q89** | react-router 的路由物件沒有 `name`，而契約的命名空間檢查、選單的 `routeName`、composition root 那條 ★ 都掛在 name 上                                              | **契約自訂 `SliceRoute`**，應用殼轉成 react-router 的格式 |
+| **Q90** | 路由型別一改，`api-surface` 判破壞性（`Feature.routes`、`RegisteredFeatures.routes` 都在基準裡）：就地改並登記 codemod／並列新 API 到 ⑤                           | **就地改，登記 codemod**                                  |
+| **Q91** | 切片裡放取數邏輯的目錄 `composables/` 要不要改名 `hooks/`（C232 §四 4 說由示範切片定，而示範切片只有一支 `main.tsx`，這題一直沒答）                               | **改成 `hooks/`**                                         |
+| **Q92** | D13 規定 store id 帶切片前綴 —— 因為 Pinia 的 id 全域登記、同名互相覆蓋；zustand 的 `create()` 沒有 id，也沒有全域登記表                                          | **拿掉，寫明理由**：規則失去對象，不是規則不重要          |
+| **Q93** | `jsx-a11y/prefer-tag-over-role` 要 `OrderList.tsx` 的 `<p role="status">` 改成 `<output>`；Q65（C236）對 `UiAlert` 的同一格判過規則比標準嚴，但例外只開給兩個檔名 | **例外擴到 `OrderList.tsx`**，只開這一條、只開這一支      |
 
 - **Q90 的另一個出口是什麼、為什麼沒選它**：工具自己的修法訊息寫「做不到 codemod 的改動 … 請改為新增 export」。這一支做得到：codemod 遷移的是**契約的型別與名字**（`import type { RouteRecordRaw } from "vue-router"` → `SliceRoute`、三個 hook 名字），畫面從 `.vue` 換成 `.tsx` 是改寫不是改名、不在它的範圍 —— 套完之後型別檢查在每一條還指著 `.vue` 的路由上紅，那一紅指的正是還沒改寫的畫面。**沒有動 `BASELINE_VERSION`**：它的適用範圍是「`platform/` 沒變、變的是工具」，這裡 `platform/` 真的變了。先例是 `flatten-ui-theme-to-components`。
 - **Q92 拿掉的是慣例不是閘門**：量過，沒有任何檢查在守 store id（`defineStore` 只出現在反向測試的錨點與 type-only 判定的樣本字串裡）。`slice-gen` 的「Pinia store id 帶切片命名空間」那條隨之拿掉，原位留一句理由。
@@ -12596,7 +12597,7 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 零紅三顆，各自的讀法：M12 沒有機制（只多一則 console 警告）；M16 是 C52 起的慣例；**M18 是新看到的缺口** —— 範本那一份有 M15 守，真切片那一份沒有，Vue 版的 `useOrderList` 同樣沒有測試，不是這一批退步的（§四）。每顆還原後逐檔比對內容相同，量完工作區零改動。
 
 - **閘門**：沒有逐支分開跑，量的是整條 `vpr ready` 與中途單支重跑。途中紅過的：`api-surface`（5 筆破壞性 → 登記 codemod、`--update`）、`supply-chain`（套件數與健康度 → `--update`／`--capture-health`）、`scaffold-stamp`（重蓋）、`doc-facts`（8 處數字）；第一趟 `vpr ready` 紅在 `decision-ids`（上面那段讓號）。**第二趟紅在 `api-surface` 自己的負向測試**「★ 必填 → 選填也算破壞性」：它拿真基準的副本，把 `@org/slice-kit#Feature` 改成選填，而真基準裡這一批的 codemod 在 `changes` 登記了 `Feature`，於是那個紅燈被赦免、測試改成在問「登記有沒有生效」。修法是在那支測試的副本裡拿掉對 `Feature` 的登記，問的仍是原來那一題；閘門本身與門檻沒動（自己決定的，列在這裡讓人看）。
-- **a11y 的 `.tsx` 那一軌**：第一次掃到真畫面（`App.tsx`、`DevSession.tsx`、`main.tsx`、`OrderList.tsx`、`InvoiceList.tsx`），**紅一條**：`OrderList.tsx` 的 `<p role="status">` 被 `jsx-a11y/prefer-tag-over-role` 要求改成 `<output>`。這與 Q65（C236）裁過的 `UiAlert` 是同一格 —— 當時判定規則比標準嚴，但例外只開給那兩支元件；把它擴到切片的畫面是改門檻的設定，交人裁（待裁）。
+- **a11y 的 `.tsx` 那一軌**：第一次掃到真畫面（`App.tsx`、`DevSession.tsx`、`main.tsx`、`OrderList.tsx`、`InvoiceList.tsx`），**紅一條**：`OrderList.tsx` 的 `<p role="status">` 被 `jsx-a11y/prefer-tag-over-role` 要求改成 `<output>`。這與 Q65（C236）裁過的 `UiAlert` 是同一格 —— 當時判定規則比標準嚴，但例外只開給那兩支元件；把它擴到切片的畫面是改門檻的設定，所以停下來問（Q93），人裁擴到這一支。`a11y.js` 那一格仍然列檔名、不列目錄；範本的 view 只有 `role="alert"`，沒有對應的標籤可換，不受這一條管，所以不必擴。
 - **`vp check`**：0 錯、11 warning（`main` 13；少的兩則是刪掉的舊註解裡的零寬空白 —— 產生器範本與它的對齊測試各一）。
 
 #### 四、交給後面的，以及還沒量的
