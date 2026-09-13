@@ -91,6 +91,7 @@
 | **C242** | lint 警告 16 → 7：`cn.ts` 的全形空格、一個多餘的展開、`promise-check` 註解裡的 ZWSP 換成 `features/<name>/`；C241 那五則與刻意的兩則照留                       |
 | **C243** | 第 ⑤ 批之一（Q98–Q101）：27 支元件與四支行為測試的論證搬進 React 版；分頁 210 組與 SSR 25 組由 reka／Vue 算好凍結；注入絆線加 react-dom 對照；不刪 `.vue`      |
 | **C244** | 第 ⑤ 批之二（Q102–Q106）：刪 27 支 `.vue` 與四支 Vue 測試；`@org/ui/react` 收回 `.` 附 codemod；`vue-typecheck`、`ui-survey`、lint 的 Vue 半邊退場             |
+| **C245** | CSP 的 `style-src-attr` 收成 `'none'`：五個彈出層在 enforce 下與舊政策逐項相同；建置期檢查改抓 style 屬性；Base UI 的 inline `<style>` 另案                    |
 
 ---
 

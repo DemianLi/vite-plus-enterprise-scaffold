@@ -23,7 +23,7 @@ describe("絕不允許的值", () => {
     expect(allValues).not.toContain(forbidden);
   });
 
-  it("沒有 'unsafe-eval'：Vue runtime-only build 不需要它（D11）", () => {
+  it("沒有 'unsafe-eval'：畫面在建置期就編好，執行期不求值字串（D11）", () => {
     expect(buildCsp()).not.toContain("unsafe-eval");
   });
 
@@ -34,7 +34,16 @@ describe("絕不允許的值", () => {
   });
 });
 
-describe("'unsafe-inline' 的例外精準縮在 style 屬性上", () => {
+describe("'unsafe-inline' 一條都沒有（C245）", () => {
+  it("★ 政策裡找不到 'unsafe-inline'", () => {
+    // 下一條的迴圈在白名單清空之後只會在有人加回例外時才走得進去；這一條不靠它。
+    expect(allValues).not.toContain("'unsafe-inline'");
+  });
+
+  it("★ 白名單是空的 —— 加回一條例外必須改這裡，review 看得到", () => {
+    expect(UNSAFE_INLINE_ALLOWED_IN).toEqual([]);
+  });
+
   it("只有白名單內的指令可以用 'unsafe-inline'", () => {
     for (const [directive, values] of Object.entries(BASE_DIRECTIVES)) {
       if (values.includes("'unsafe-inline'")) {
@@ -47,13 +56,13 @@ describe("'unsafe-inline' 的例外精準縮在 style 屬性上", () => {
   });
 
   it("style-src 本身**不含** 'unsafe-inline'", () => {
-    // 這是關鍵區別：放寬整個 style-src 等於允許任意 <style> 注入，
-    // 只放寬 style-src-attr 則僅允許 Vue 的 :style 綁定。
+    // 放寬整個 style-src 等於允許任意 <style> 注入 —— 比屬性那條大得多的洞。
     expect(BASE_DIRECTIVES["style-src"]).not.toContain("'unsafe-inline'");
   });
 
-  it("style-src-attr 有 'unsafe-inline'，否則 Vue 的 :style 綁定會靜音失效", () => {
-    expect(BASE_DIRECTIVES["style-src-attr"]).toContain("'unsafe-inline'");
+  it("style-src-attr 是 'none'：React 與 Base UI 寫樣式走 CSSOM，不需要屬性（C245 實測）", () => {
+    // 刪掉這一條不會變寬鬆（它退回 style-src 'self'，屬性同樣被擋），但下面的 13 條清單會紅。
+    expect(BASE_DIRECTIVES["style-src-attr"]).toEqual(["'none'"]);
   });
 
   it("script-src 絕不含 'unsafe-inline'", () => {
@@ -84,9 +93,7 @@ describe("nonce", () => {
     const csp = buildCsp();
     expect(csp).toContain("script-src 'self';");
 
-    // 斷言只針對 script-src 這一段：整份政策本來就含
-    // `style-src-attr 'unsafe-inline'`，那是 D11 設計好的例外（見上面的測試）。
-    // 拿 not.toContain("unsafe") 掃全字串會把那個例外也當成違規。
+    // 只看 script-src 這一段：nonce 只加在這一條，全字串的 unsafe 由上面那組管。
     const scriptSrc = /script-src ([^;]+)/.exec(csp)?.[1] ?? "";
     expect(scriptSrc).not.toContain("unsafe");
   });

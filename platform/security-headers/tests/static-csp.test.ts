@@ -45,10 +45,15 @@ describe("findStaticCspViolations", () => {
     expect(violations.map((v) => v.kind)).toEqual(["inline-style-block"]);
   });
 
-  it("style **屬性**不算違規（style-src-attr 已明確放行）", () => {
-    // 這是刻意保留的例外：Vue 的 :style 產生的就是這個形狀。
-    // 若這裡誤報，所有動態樣式都會被判違規，沒有人會忍受這個外掛。
-    expect(findStaticCspViolations(`<div style="width: 10px"></div>`)).toEqual([]);
+  it("抓到 style **屬性**（style-src-attr 是 'none'，C245）", () => {
+    const violations = findStaticCspViolations(`<div style="width: 10px"></div>`);
+    expect(violations.map((v) => v.kind)).toEqual(["inline-style-attribute"]);
+  });
+
+  it("不把名字裡帶 style 的屬性誤判成 style 屬性", () => {
+    // 誤報一次，這個外掛就會被關掉 —— 與事件處理器那條同一個理由。
+    const html = `<div data-style="x" class="style" aria-label="style = x"></div>`;
+    expect(findStaticCspViolations(html)).toEqual([]);
   });
 
   it("抓到 inline 事件處理屬性", () => {

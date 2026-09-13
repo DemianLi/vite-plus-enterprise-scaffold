@@ -54,7 +54,7 @@ export function buildProbeScript(): string {
   styleEl.textContent = '#csp-probe-host { color: ${INJECTED_STYLE_COLOR}; }';
   document.head.appendChild(styleEl);
 
-  // ── 探針 2：style 屬性（對照組）─────────────────────────────────
+  // ── 探針 2：style 屬性（C245 起期望被擋）───────────────────────
   const attrTarget = document.createElement('div');
   attrTarget.setAttribute('style', 'color: ${STYLE_ATTRIBUTE_COLOR};');
   document.body.appendChild(attrTarget);

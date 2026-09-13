@@ -344,7 +344,7 @@
       },
       "UNSAFE_INLINE_ALLOWED_IN": {
         "kind": "value",
-        "type": "readonly [\"style-src-attr\"]"
+        "type": "readonly []"
       }
     },
     "@org/slice-kit": {
