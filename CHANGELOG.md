@@ -4,18 +4,50 @@
 版號遵循 [Semantic Versioning](https://semver.org/lang/zh-TW/)。
 
 > ⚠️ **這個 repo 的 SemVer 承諾對象是 `platform/*` 的型別形狀。**
-> `tools/api-surface` 每次 CI 比對每個進入點的 props／slot／emit／成員形狀，
+> `tools/api-surface` 每次 CI 比對每個進入點 export 的型別形狀（元件的 props、其餘的成員或型別），
 > **移除、改名、或改變形狀就讓閘門失敗**，而且必須附一份可執行的 codemod。
 > 也就是說：major 版號不是宣告，是**閘門強制出來的**。
 
 ---
 
-## [未發布]
+## [2.0.0] — 2026-09-13
 
-> 這一節照檔頭引的 Keep a Changelog 體例，收 `v1.17.0` 之後、還沒發版的裁決。
-> **只有一張決策紀錄表** —— 檔數、commit 數、破壞面那些欄位是發版當天量的，
-> 這裡不預先寫（C169 §七：不動 CHANGELOG 的體例與寫法）。下一版發出去時，
-> 這一節整段併進那一版的條目，標題換成版號與日期。
+**前端整棵從 Vue 換成 React —— 而 major 不是宣告，是閘門逼出來的：這一版登記了兩支新
+codemod，涵蓋 63 筆移除、30 筆形狀變更。**
+
+相對於 `v1.17.0` 的樹：**332 個檔（77 新增／176 修改／69 刪除／10 改名）、+27,015 / −14,287**。
+工具 21 → 21，但組成換過（−`vue-typecheck`、−`ui-survey`、＋`scaffold-stamp`、＋`fork-select`）。
+決策紀錄 C175 → C247（73 則）。第一父鏈 90 支 commit、8.2 天。
+
+### ⚠️ 拉 v1 的團隊：先讀這一段
+
+**今天沒有任何團隊拉過 Vue 版去做案子**（C232 Q49）—— 這一版換得乾淨，靠的就是這個前提。
+下面這張表寫給**之後**才 fork 的人，說明 `v2.0.0` 與 `v1.17.0` 差在哪。
+
+| 你的樹上如果…                                  | 會發生什麼                                                                                                                                                 |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| import `@org/ui` 的元件                        | 全部換成 React 函式；`@org/ui/react` 子路徑收回 `.`，附 codemod `ui-react-entry-to-root`（C244）                                                           |
+| 寫了切片（`features/<name>/`）                 | 路由型別改成契約的 `SliceRoute`、`composables/` 改名 `hooks/`，附 codemod `slice-routes-and-hooks`（C240）；畫面 `.vue` → `.tsx` 是改寫，不在 codemod 範圍 |
+| 跑 `vpr gate`                                  | 變成選擇器：上游跑全部，fork 放標記檔後預設只跑 5 支（`scaffold-stamp`、`conformance`、`api-surface`、`theme-verify`、`exit-drill`）（C215–C218）          |
+| 改了 `tools/`、`platform/`、`vite.scaffold.ts` | fork 裡 `vpr gate` 會紅 —— 腳手架那一半有章在守（`.scaffold-stamp`，C220）                                                                                 |
+| 讀根層 `specs/`                                | 承諾五條改四條，承諾五原地標「已退出」（C221）                                                                                                             |
+| CSP                                            | `style-src-attr` 從 `'unsafe-inline'` 收成 `'none'`（C245）                                                                                                |
+| 跑退出演練                                     | 證據換成 React 的樹：上游 Vite 8.3.0、853 個測試全過、9 條登記在案的預期失敗（C247）                                                                       |
+| 讀 CI 的步驟名或分支保護                       | 四個 workflow 的 `jobs:` key 一個沒動                                                                                                                      |
+
+### 為什麼是 major
+
+這棵樹的 major **是閘門逼出來的**（見本檔開頭）：`tools/api-surface/surface.json` 的
+codemod 登記 3 → 5 筆。
+
+| codemod                  | removes | changes | 出處 |
+| ------------------------ | ------- | ------- | ---- |
+| `slice-routes-and-hooks` | 3       | 2       | C240 |
+| `ui-react-entry-to-root` | 60      | 28      | C244 |
+
+進入點 11 → 13（＋`@org/eslint-config/scaffold`、＋`@org/eslint-config/worktrees`）。
+本檔開頭那句「比對每個進入點的 props／slot／emit」隨這一版改掉 —— `slot`／`emit` 是 Vue 的詞，
+C244 之後比的是元件的 props 與其餘 export 的成員或型別。
 
 ### 決策紀錄
 
@@ -94,6 +126,14 @@
 | **C245** | CSP 的 `style-src-attr` 收成 `'none'`：五個彈出層在 enforce 下與舊政策逐項相同；建置期檢查改抓 style 屬性；Base UI 的 inline `<style>` 另案                    |
 | **C246** | 第 ⑤ 批之三：文件與註解的框架敘述改成現況（全樹掃三輪、分五桶）；Vue 版的兩個缺口實測已關；`exit-drill` 漏刪的 Vue 三筆拿掉                                    |
 | **C247** | 發版前重跑退出演練是紅的：四條問的是演練換掉的東西（登記，Q109），一條是 happy-dom 的 `^` 範圍解到新版讓同步斷言晚一拍（改測試）                               |
+
+### ⚠️ 這一版沒有答的
+
+- **交付給機關的匯出工具還沒做**（C231 ①–④）：這一版的樹仍然帶著測試與治理機制，還不能直接交出去。
+- **「props 個數」那一格空著**：oxlint 沒有 React 的對應規則（Q100）。
+- **Base UI 的 inline `<style>`** 另案（C245）。
+- **退出演練的證據只 warn**：這一版的證據過期八天、跨過整段框架遷移而沒有東西紅，發版前才重跑（C247 §七）。
+  happy-dom 的範圍照舊是 `^`，演練每一趟解到的版本都可能不同。
 
 ---
 
