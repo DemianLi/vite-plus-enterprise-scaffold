@@ -74,7 +74,7 @@ export function hookFunctionName(fileName: string): string {
  *
  * 這是 D14 三條有牙齒的規則裡的第一條（另兩條在 `STORE_FORBIDDEN_IMPORTS` 與
  * `USECASE_FORBIDDEN_IMPORTS`，同一把尺、同樣放行 `import type`）；
- * 只有 composable 的命名那條是純命名規則。禁的兩樣東西合起來
+ * 只有 hook 的命名那條是純命名規則。禁的兩樣東西合起來
  * 恰好就是「在元件裡抓資料」：查詢的執行器，以及本切片的資料存取模組。
  *
  * 為什麼是禁「元件 import 它們」而不是禁「元件裡有 useQuery」：
@@ -250,8 +250,8 @@ export const USECASE_FORBIDDEN_IMPORTS = [
  * 它是下一則 C 編號的內容，不是要繞過的東西。
  *
  * ⚠️ 這個下限**只套在 usecase 那一層**。切片整體不設數字：`src/views/**`
- * 佔行分母的 40%、函式分母的 45%，而 `.vue` 的分母只算 `<script setup>`
- * （template 一行都不進），一個套在整包上的數字會被那件事帶著走（#130 §六）。
+ * 佔行分母的 33%、函式分母的 42%（2026-09-13 量 `features/invoice`），
+ * 一個套在整包上的數字會被畫面那一半帶著走（#130 §六）。
  */
 export const USECASE_COVERAGE_MIN = 100;
 

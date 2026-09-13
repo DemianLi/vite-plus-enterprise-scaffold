@@ -223,14 +223,15 @@ describe(
       expect(existsSync(a11yPath)).toBe(true);
 
       const before = readFileSync(a11yPath, "utf8");
-      expect(before).toContain("vuejs-accessibility/");
 
       // 刪一行規則，形狀等於「上游升版拿掉一條、有人直接 --update 之後再手改回去」。
+      // ⚠️ 比對行首：C244 之後 `vuejs-accessibility/` 只剩在一格說明文字裡，這條刪的其實是
+      // 說明而不是規則；只寫 `includes("jsx-a11y/")` 會重演一次（2.4.3 那格排在清單前面）。
       const lines = before.split("\n");
-      const a11yLineIndex = lines.findIndex((line) => line.includes("vuejs-accessibility/"));
+      const a11yLineIndex = lines.findIndex((line) => line.startsWith("- `jsx-a11y/"));
       expect(
         a11yLineIndex,
-        "沙盒裡的 ACCESSIBILITY.md 應該包含 vuejs-accessibility/ 規則",
+        "沙盒裡的 ACCESSIBILITY.md 應該有 jsx-a11y/ 的規則清單",
       ).toBeGreaterThanOrEqual(0);
 
       lines.splice(a11yLineIndex, 1);

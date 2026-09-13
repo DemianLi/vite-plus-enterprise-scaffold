@@ -1,6 +1,6 @@
 # @org/ui
 
-設計系統：**reka-ui 基元 ＋ Tailwind v4 樣式，元件原始碼由本 repo 擁有**（D15）。
+設計系統：**Base UI 基元 ＋ Tailwind v4 樣式，元件原始碼由本 repo 擁有**（D15；基元在 C233 從 reka-ui 換成 Base UI）。
 
 ## 為什麼元件住在這裡
 
@@ -29,7 +29,7 @@ shadcn 的模型是「你擁有原始碼」，所以「複製到哪」是一個�
 
 C62 的產品要求是「一套基礎版型，各案可以換配色／形狀／互動」。**三條軸都在
 2026-08-17 接起來了**（HANDOFF #24）。前兩條靠代幣與 `createUiTheme`（下面），
-第三條靠 slot —— 互動是結構不是值，代幣換不了它（見文末）。
+第三條靠組合 —— 互動是結構不是值，代幣換不了它（見文末）。
 
 ```css
 /* apps/<你的案子>/src/styles.css */
@@ -42,16 +42,22 @@ C62 的產品要求是「一套基礎版型，各案可以換配色／形狀／�
 }
 ```
 
-```ts
-// apps/<你的案子>/src/main.ts —— 換整條 variant，代幣做不到的那一半
-createApp(App).use(createUiTheme({ variants: { secondary: "bg-surface-hover text-fg" } }));
+```tsx
+// apps/<你的案子>/src/main.tsx —— 換整條 class 字串，代幣做不到的那一半
+const UiTheme = createUiTheme({ UiButton: { secondary: "bg-surface-hover text-fg" } });
+
+createRoot(mountPoint).render(
+  <UiTheme>
+    <App />
+  </UiTheme>,
+);
 ```
 
 | 層   | 例                                                   | 覆寫它會影響                      |
 | ---- | ---------------------------------------------------- | --------------------------------- |
 | 色票 | `--color-brand-600`、`--color-danger-500`            | 所有指向它的語意代幣一起變        |
 | 語意 | `--color-accent`、`--color-line`、`--radius-control` | 只有那一個用途                    |
-| 組合 | `createUiTheme({ variants })`                        | 整條 class 字串，代幣換不掉的部分 |
+| 組合 | `createUiTheme({ 元件: { 槽: class } })`             | 整條 class 字串，代幣換不掉的部分 |
 
 兩層之間的間接是**活的**（實測：Tailwind 把 `var(--color-brand-600)` 原樣寫進
 `:root`，不在建置期求值）。這件事由 `tools/theme-verify` 真的建置兩次去比對 ——
@@ -63,7 +69,7 @@ createApp(App).use(createUiTheme({ variants: { secondary: "bg-surface-hover text
 乾跑當場撞到 4 處（含**產生器模板裡的一處**，也就是每個新切片天生帶著
 一個換不掉的顏色）。見 C68〈十〉。
 
-⚠️ **覆寫的 class 字串必須寫在 `.ts`、`.tsx` 或 `.vue` 裡。** `@source` 只掃這三種副檔名，
+⚠️ **覆寫的 class 字串必須寫在 `.ts` 或 `.tsx` 裡。** `@source` 只掃這兩種副檔名，
 搬進 JSON 或環境變數的話 Tailwind 掃不到、**也不會報錯**，產出的 CSS 少掉那些
 類別而建置全綠 —— 與下面第一個坑同一種症狀。
 
@@ -97,7 +103,7 @@ Tailwind v4 的自動來源偵測**刻意跳過 node_modules**，而 monorepo �
 ### 三、去 CSS 註解時會把 glob 吃掉
 
 ```
-@source "../../../../**/*.{vue,ts,tsx}";
+@source "../../../../**/*.{ts,tsx}";
                      ↑ 這裡的 /**/ 是一個合法的 CSS 空註解
 ```
 
@@ -106,12 +112,12 @@ Tailwind v4 的自動來源偵測**刻意跳過 node_modules**，而 monorepo �
 
 ## 禁止事項（由閘門強制）
 
-| 規則                                                                             | 在哪強制                                      | 為什麼                                                                       |
-| -------------------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------- |
-| 不得 import reka-ui 的 **Splitter**                                              | `tools/conformance`                           | 它是 reka-ui 唯一會在執行期注入 `<style>` 的地方，被 `style-src 'self'` 擋掉 |
-| 切片不得直接 import 設計系統的底層（清單見契約的 `SLICE_DESIGN_SYSTEM_IMPORTS`） | `tools/conformance`                           | 一律走 `@org/ui`，否則每個團隊各長一套設計系統                               |
-| 切片**至少一處**使用 `@org/ui`                                                   | `tools/conformance`                           | 上一條擋「繞過」，這條擋「根本不用」——**沒有 import 也是一種發散**（C41）    |
-| `index.ts` 不得 `export *`、不得轉出 reka-ui                                     | `tests/styles.test.ts` ＋ `tools/api-surface` | API 表面必須可枚舉，否則破壞性變更閘門看不見它守的東西                       |
+| 規則                                                                             | 在哪強制                                      | 為什麼                                                                                                 |
+| -------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 不得 import reka-ui 的 **Splitter**                                              | `tools/conformance`                           | 它在執行期注入 `<style>`，被 `style-src 'self'` 擋掉；reka-ui 已不在樹上，這一條擋的是重新引入（Q105） |
+| 切片不得直接 import 設計系統的底層（清單見契約的 `SLICE_DESIGN_SYSTEM_IMPORTS`） | `tools/conformance`                           | 一律走 `@org/ui`，否則每個團隊各長一套設計系統                                                         |
+| 切片**至少一處**使用 `@org/ui`                                                   | `tools/conformance`                           | 上一條擋「繞過」，這條擋「根本不用」——**沒有 import 也是一種發散**（C41）                              |
+| `index.ts` 不得 `export *`、不得轉出基元（`@base-ui/react` 等）                  | `tests/styles.test.ts` ＋ `tools/api-surface` | API 表面必須可枚舉，否則破壞性變更閘門看不見它守的東西                                                 |
 
 「至少一處使用」那條的判定式是 `@org/slice-kit/contract` 的 `usesDesignSystem()`，
 由 `tools/conformance` 與 `tools/slice-gen` 的測試**共用同一份實作** ——
@@ -134,49 +140,24 @@ Tailwind v4 的自動來源偵測**刻意跳過 node_modules**，而 monorepo �
 
 ✅ **三條軸都接上了**（HANDOFF #24，2026-08-17）：
 
-| 軸       | 接縫                                            | 守它的                           | 守到什麼程度                     |
-| -------- | ----------------------------------------------- | -------------------------------- | -------------------------------- |
-| 配色     | 兩層 `@theme` 代幣                              | `theme-verify`                   | **實測可換**（真的建置兩次比對） |
-| 形狀     | `createUiTheme({ variants, sizes })` ＋ 代幣    | `theme-verify`                   | **實測可換**（同上）             |
-| 互動方式 | `UiDialog` 的 `default`／`footer`／`close` slot | `api-surface` ＋ `vue-typecheck` | 名單會漂移就紅、型別不符也紅     |
+| 軸       | 接縫                                                   | 守它的                               | 守到什麼程度                     |
+| -------- | ------------------------------------------------------ | ------------------------------------ | -------------------------------- |
+| 配色     | 兩層 `@theme` 代幣                                     | `theme-verify`                       | **實測可換**（真的建置兩次比對） |
+| 形狀     | `createUiTheme({ 元件: { 槽: class } })` ＋ 代幣       | `theme-verify`                       | **實測可換**（同上）             |
+| 互動方式 | `UiDialog` 的 `children`／`footer`／`close` 三個 props | `api-surface` ＋ `vp check` 的型別段 | 形狀改了就紅、消費端型別不符也紅 |
 
 ⚠️ **第三列仍然比前兩列薄，不要把三列讀成同一件事。** `theme-verify` 是真的
 建置兩次去證明「換得掉」；第三列證明的是「這幾格是公開面，改了會被看到，
 而且消費端接錯型別會紅」—— **沒有任何東西證明某個案子真的能不 fork 就換掉
 `UiDialog` 的互動**。會不會夠用，第二個案子提出需求時才知道。
 
-第三列分兩道閘門，分工不同：`api-surface` 比對 slot／emit 的**名單**
-（宣告與模板必須一致，C67），`tools/vue-typecheck` 比對 slot payload 的
-**型別**（宣告與消費端必須相符，C68）。
-
-⚠️ 兩道都抓不到的：**消費端寫了一個不存在的 slot 名**（`<template #typo>`）。
-`@vue/language-core` 沒有 unknown slot 的旋鈕，而 `api-surface` 看的是元件
-自己那一側。目前靠 code review。
+第三列分兩道閘門，分工不同：`api-surface` 記 props 的**型別形狀**（改了就是破壞性
+變更，C67），`vp check` 的型別段檢查**消費端**（`.tsx` 直接進型別檢查；C244 之前
+`.vue` 要另一支 `vue-typecheck`，C68）。消費端傳了元件沒有的 prop 也是型別錯誤 ——
+實測 `<UiAlert variant="danger">`（它的 prop 叫 `tone`）報 `TS2322`（2026-09-13）。
 
 互動那條不是靠代幣換的，是靠**組合**：`footer` 換整組收尾動作、`close` 只換
-那顆按鈕（外層仍是 reka-ui 的 `DialogClose`，鍵盤與焦點行為不變）。
-
-⚠️ **那三個 slot 從落地那天就存在，但到 2026-08-17 為止沒有被記錄過。**
-當時的限制寫著「加 `defineEmits`／`defineSlots`／`defineExpose` 會讓
-`api-surface` 直接丟例外」，而那道絆線絆的是**巨集的名字**，不是公開面 ——
-實測往模板加一個具名 slot、加一個 `$emit`，閘門兩次都全綠。現在 slot 與 emit
-都要宣告，宣告與模板不一致會直接紅。只剩 `defineExpose` 仍然擋著
-（`<script setup>` 預設封閉，那道絆線是真的）。見 C67。
-
-✅ **`.vue` 的型別檢查已於 2026-08-17 接上**（HANDOFF #26／C68）。
-在此之前 `vp check` 的型別段（tsgolint）不看 `.vue` —— 實測
-`const broken: number = "字串"` 放在 SFC 裡是 0 errors、放在 `.ts` 裡是 1 error，
-也就是這個 package 的元件原始碼一行型別檢查都沒跑過。
-
-現在由 `tools/vue-typecheck` 守（`vpr gate` 與 Tier 1 都跑）。
-
-⚠️ **代價：這個 repo 因此有兩個 TypeScript。** catalog 主線的
-`typescript: ^7.0.2` 是原生 Go 版，已經沒有 `vue-tsc` 需要的 compiler API，
-所以那支工具用具名 catalog 拉一份 JS 版的 TS 5.x。兩支編譯器的分歧風險
-而那第二份 TypeScript **不只是成本**：`.ts` 檔消費 `.vue` 時，`vp check`
-看的是 `declare module "*.vue"` 的萬用宣告（任何 prop 都合法），vue-tsc 解析
-真的 SFC。實測 `h(UiButton, { variant: "根本不是 variant" })` → `vp check`
-0 errors、`vue-typecheck` 紅。**「一邊紅一邊綠」多半是真陽性**，見 C68 的〈九〉。
+那顆按鈕（外層是 Base UI 的 `Dialog.Close`，鍵盤與焦點行為不變）。
 
 ## 開發
 

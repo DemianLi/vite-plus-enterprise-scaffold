@@ -281,8 +281,8 @@ jobs:
         run: node tools/promise-check/src/cli.ts
 
       # ── 安全 lint（D5）─────────────────────────────────────────────
-      # 只裝安全規則，與 oxlint 零重疊。存在的首要理由是 oxlint 沒有
-      # vue/no-v-html —— Vue 專案最主要的 XSS 入口。
+      # 只裝安全規則，與 oxlint 零重疊。存在的理由是 DOM sink（no-unsanitized）
+      # 與 eslint-plugin-security 那幾條，oxlint 沒有（C244 之前首要理由是 vue/no-v-html）。
       - name: 五層答不出 · ESLint 安全規則
         if: steps.tree.outputs.side == 'upstream'
         run: ./node_modules/.bin/eslint . --max-warnings=0
@@ -304,7 +304,7 @@ jobs:
       # 同一份 fixture 下面這兩條自寫規則命中 2。
       #
       # 原因不神秘：公開規則集的重心在伺服器端樣板與框架，
-      # Vue SPA 的瀏覽器端 DOM 汙點流是它們覆蓋得最薄的一塊。
+      # SPA 的瀏覽器端 DOM 汙點流是它們覆蓋得最薄的一塊。
       #
       # 所以規則留在 repo 裡。附帶好處是它們是**釘住的** —— 註冊表的
       # `p/xxx` 是會移動的指標，規則變了不需要任何 commit，

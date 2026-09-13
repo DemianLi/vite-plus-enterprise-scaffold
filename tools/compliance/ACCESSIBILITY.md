@@ -40,7 +40,7 @@
 
 - **1.4.1 顏色的使用（A）** 開發期**擋不掉**，而且是量出來的：axe 的對應規則 `link-in-text-block` 在模擬 DOM（happy-dom）下落在 `incomplete` —— 規則跑了但判定不了。天真的 `expect(violations).toHaveLength(0)` 會在這種情況下亮綠燈，也就是「什麼都沒檢查」與「沒有問題」印出來一樣。
 - **1.4.3 對比（最低）（AA）** 文字至少 4.5:1、大尺寸文字至少 3:1。開發期**擋不掉**：axe 的 `color-contrast` 需要 computed style 與文字節點幾何，而模擬 DOM 沒有排版。實測 happy-dom 有 `document.createRange()`，但 `getBoundingClientRect()` 回傳全零 —— **API 在、數字是假的**，這比直接沒有更難察覺。實測一段對比 1.1:1 的文字：落在 `incomplete`，不是 `violations`。
-- **2.4.3 焦點順序（A）** ⚠️ **這一條連 Freego 都判定不了，是人工檢測項目。** 開發期只擋得到最粗的那一種：正 tabindex（`vuejs-accessibility/tabindex-no-positive`、`.tsx` 那一軌的 `jsx-a11y/tabindex-no-positive`）。真正的失效方式 ——「DOM 順序與視覺順序不一致」「對話框的焦點沒有真的鎖住」—— 需要真瀏覽器跑鍵盤，**任何靜態或模擬 DOM 的做法都買不到**。
+- **2.4.3 焦點順序（A）** ⚠️ **這一條連 Freego 都判定不了，是人工檢測項目。** 開發期只擋得到最粗的那一種：正 tabindex（`jsx-a11y/tabindex-no-positive`）。真正的失效方式 ——「DOM 順序與視覺順序不一致」「對話框的焦點沒有真的鎖住」—— 需要真瀏覽器跑鍵盤，**任何靜態或模擬 DOM 的做法都買不到**。
 - **2.4.6 標題和標籤（AA）** 標籤那一半開發期擋得到（`label-has-associated-control`、`control-has-associated-label`、`heading-has-content`）。**標題階層那一半擋不到**：階層是頁面級性質，而開發期的檢查單位是元件與畫面 —— 實測 repo 裡每個畫面只有一個 `<h1>`，axe 的 `heading-order` 掃孤立畫面時永遠不適用。
 
 ## 開發期的前置過濾器實際檢查什麼

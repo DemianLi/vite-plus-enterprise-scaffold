@@ -5,7 +5,7 @@ D15 的最後一項驗收，也是 R6 那條「靜態 CSP 標頭就夠」的實�
 
 ## 為什麼不能用 `vp dev` 驗 CSP
 
-dev 模式下 Vue 的 SFC 樣式是由 JS **在執行期注入 `<style>` 元素**的（HMR 需要它）。
+dev 模式下 Vite 把 CSS 交給 JS **在執行期注入 `<style>` 元素**（HMR 需要它）。
 也就是說 dev 一定會踩 `style-src 'self'` —— 而那些 violation
 **在 production 完全不存在**。
 
@@ -51,9 +51,9 @@ CI 守它的**指紋**有效期（改 `policy.ts` 或升 `reka-ui`／`vue`／`ta
 | 探針的設計與判定邏輯（下面整份說明）              | `evidence.json` 與守它的 CI 步驟   |
 | 政策字串本身的單元測試（`@org/security-headers`） | 「相依升版時自動要求重驗」         |
 
-也就是說：**「CSP 在 enforce 下實測過」是一份 2026-08-15 的紀錄
-（Chrome 148），不是一個持續成立的保證。** 升過 `reka-ui`／`vue`／
-`tailwindcss` 或改過政策之後要不要重驗，現在靠人記得 ——
+也就是說：**「CSP 在 enforce 下實測過」是一份紀錄，不是一個持續成立的保證。**
+最近一次是 2026-09-13（`style-src-attr` 收成 `'none'` 那一次，桌面 app 內建的 Chromium，C245）；
+升過 `@base-ui/react`／`react-dom`／`tailwindcss` 或改過政策之後要不要重驗，現在靠人記得 ——
 這一點寫進了 `HANDOFF.md` 第 14 項的註。
 
 ⚠️ 順帶一提，原本那套機制也有一個沒補的洞：**瀏覽器自己改版時指紋不會動。**

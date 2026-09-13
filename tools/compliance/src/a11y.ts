@@ -113,8 +113,7 @@ export const CRITERIA: readonly Criterion[] = [
     gates: ["a11y-lint"],
     note:
       "⚠️ **這一條連 Freego 都判定不了，是人工檢測項目。** 開發期只擋得到" +
-      "最粗的那一種：正 tabindex（`vuejs-accessibility/tabindex-no-positive`、" +
-      "`.tsx` 那一軌的 `jsx-a11y/tabindex-no-positive`）。" +
+      "最粗的那一種：正 tabindex（`jsx-a11y/tabindex-no-positive`）。" +
       "真正的失效方式 ——「DOM 順序與視覺順序不一致」「對話框的焦點沒有真的鎖住」" +
       "—— 需要真瀏覽器跑鍵盤，**任何靜態或模擬 DOM 的做法都買不到**。",
   },
@@ -190,8 +189,8 @@ export interface LanguageTrack {
 /**
  * ⚠️ 前綴與套件名可以不同：`.tsx` 那一軌裝的是分支 `eslint-plugin-jsx-a11y-x`，
  * 前綴刻意留 `jsx-a11y`（C234）。只印前綴，交付文件就會宣稱檢查的是一支沒裝的套件。
- * `eslint-plugin-vuejs-accessibility` 沒有自報 `meta.name`，照 ESLint 的命名慣例補 ——
- * 兩條路徑都由測試對 `platform/eslint-config/package.json` 的相依逐軌核對。
+ * 沒自報 `meta.name` 的外掛照 ESLint 的命名慣例補（C244 之前的 `vuejs-accessibility` 就是）；
+ * 今天唯一那一軌走 `meta.name`，由測試對 `platform/eslint-config/package.json` 的相依核對。
  */
 function pluginPackage(prefix: string, plugin: unknown): string {
   const name = (plugin as { meta?: { name?: unknown } } | undefined)?.meta?.name;

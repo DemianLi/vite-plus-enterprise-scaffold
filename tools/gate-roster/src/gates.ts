@@ -577,7 +577,9 @@ export const GATES: readonly Gate[] = [
     command: "eslint . --max-warnings=0",
     ciCommand: "./node_modules/.bin/eslint . --max-warnings=0",
     tiers: ["tier2"],
-    why: "只裝安全規則，與 oxlint 零重疊。存在的首要理由是 oxlint 沒有 vue/no-v-html（D5）。",
+    why:
+      "只裝安全規則，與 oxlint 零重疊。存在的理由是 DOM sink（no-unsanitized）與 " +
+      "eslint-plugin-security 那幾條，oxlint 沒有（D5；C244 之前首要理由是 vue/no-v-html）。",
     ship: {
       to: "upstream-only",
       why:
