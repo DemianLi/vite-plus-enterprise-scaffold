@@ -12595,7 +12595,8 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 
 零紅三顆，各自的讀法：M12 沒有機制（只多一則 console 警告）；M16 是 C52 起的慣例；**M18 是新看到的缺口** —— 範本那一份有 M15 守，真切片那一份沒有，Vue 版的 `useOrderList` 同樣沒有測試，不是這一批退步的（§四）。每顆還原後逐檔比對內容相同，量完工作區零改動。
 
-- **閘門**：（待填：逐支跑的結果）
+- **閘門**：沒有逐支分開跑，量的是整條 `vpr ready` 與中途單支重跑。途中紅過的：`api-surface`（5 筆破壞性 → 登記 codemod、`--update`）、`supply-chain`（套件數與健康度 → `--update`／`--capture-health`）、`scaffold-stamp`（重蓋）、`doc-facts`（8 處數字）；第一趟 `vpr ready` 紅在 `decision-ids`（上面那段讓號）。**第二趟紅在 `api-surface` 自己的負向測試**「★ 必填 → 選填也算破壞性」：它拿真基準的副本，把 `@org/slice-kit#Feature` 改成選填，而真基準裡這一批的 codemod 在 `changes` 登記了 `Feature`，於是那個紅燈被赦免、測試改成在問「登記有沒有生效」。修法是在那支測試的副本裡拿掉對 `Feature` 的登記，問的仍是原來那一題；閘門本身與門檻沒動（自己決定的，列在這裡讓人看）。
+- **a11y 的 `.tsx` 那一軌**：第一次掃到真畫面（`App.tsx`、`DevSession.tsx`、`main.tsx`、`OrderList.tsx`、`InvoiceList.tsx`），**紅一條**：`OrderList.tsx` 的 `<p role="status">` 被 `jsx-a11y/prefer-tag-over-role` 要求改成 `<output>`。這與 Q65（C236）裁過的 `UiAlert` 是同一格 —— 當時判定規則比標準嚴，但例外只開給那兩支元件；把它擴到切片的畫面是改門檻的設定，交人裁（待裁）。
 - **`vp check`**：0 錯、11 warning（`main` 13；少的兩則是刪掉的舊註解裡的零寬空白 —— 產生器範本與它的對齊測試各一）。
 
 #### 四、交給後面的，以及還沒量的
@@ -12604,8 +12605,8 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 - **④**：`eslint-plugin-react-hooks` 還沒裝 —— hook 規則現在只靠命名（`hook 命名`）與 React 的執行期報錯。`vue-typecheck` 從這一批起只看 `platform/ui`（`apps`／`features` 零支 `.vue`）。
 - **⑤**：`README.md` 第 4 行「Vue 3 為應用層」與 HANDOFF／TESTING 的改寫；catalog 的 `vue`／`@vitejs/plugin-vue` 兩列、`DRILL_PLUGINS` 的 `vue`、`@vue/test-utils` 那一筆測試相依；`@org/tsconfig/app.json` 的 `jsx: preserve`（應用殼先在自己的 `tsconfig` 覆寫）；契約三份禁用清單裡 Vue 那一半。
 - **刻意不動的**：`features/invoice/src/usecases/query-invoice.ts` 的檔頭仍寫「不 import vue／pinia …」—— 規則三的基準線要它零差異，範本那一份已改。
-- **沒有機制在守的**：`HydrateFallback`（M12：拿掉它，所有測試照綠，只有 console 多一則警告）；`OrderList.tsx` 有沒有繼續呼叫 `maskName`（M16，C52 起就是慣例不是機制，`HANDOFF.md:1354` 登記著）；**兩片真切片的 hook 的 queryKey 由不由輸入算出來**（M18）—— 補它要一支掛 `QueryClientProvider` 的 hook 測試，不在這一批的範圍。
-- **#374 同時改 `README.md`**：兩支會在 D14 那一段相撞，後合的那支 rebase。
+- **沒有機制在守的**：`HydrateFallback`（M12：拿掉它，所有測試照綠，只有 console 多一則警告）；`OrderList.tsx` 有沒有繼續呼叫 `maskName`（M16，C52 起就是慣例不是機制，`HANDOFF.md`〈20. 法遵／資安〉那張表登記著）；**兩片真切片的 hook 的 queryKey 由不由輸入算出來**（M18）—— 補它要一支掛 `QueryClientProvider` 的 hook 測試，不在這一批的範圍。
+- **#374 與這一支重疊五個檔**：`README.md`、`tools/doc-facts/src/facts.ts`、`DECISIONS-2.md`、`CHANGELOG.md`、`.scaffold-stamp`。#374 把 README 改成無程式碼，D14 那段範例會整段消失，並刪掉 `facts.ts` 六條樣式，其中「N 個套件，其中」正是這一支把 737 改成 708 的那一句。後合的那一支要照意圖重做，不能照行合：README 以先合的版本為準，數字另外再同步；`.scaffold-stamp` 用 `--update` 重算，不手合；合完之後，`git show <sha> --numstat -- DECISIONS-2.md` 的刪除欄要是 0。
 
 #### 五、C154 §三
 

@@ -56,7 +56,7 @@
 happy-dom、零 runtime deps），接不住這支測試。
 
 ⚠️ 而它掛的是**自己定義的替身元件**，不是 `OrderList.tsx`（檔頭自陳）。
-「`OrderList.tsx` 有沒有繼續呼叫 `maskName()`」仍然靠 review，登記在 `HANDOFF.md:1354`。
+「`OrderList.tsx` 有沒有繼續呼叫 `maskName()`」仍然靠 review，登記在 `HANDOFF.md`〈20. 法遵／資安〉那張表。
 
 ## 命名空間
 
