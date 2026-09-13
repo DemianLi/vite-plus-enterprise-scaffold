@@ -28,7 +28,7 @@ import type { UiSelectSlot } from "../theme.ts";
  * 箭頭是內嵌 SVG（少一個圖示套件就是少一筆 SCA 範圍），帶 `aria-hidden` ——
  * 觸發鈕自己就有 role 與可及名稱，箭頭再被唸一次只是噪音。
  *
- * ── ⚠️ 代幣對照是人工核對的，沒有閘門在守（見 UiBadge、#57）────────
+ * ── ⚠️ 代幣對照是人工核對的（見 UiBadge）────────────────────────────
  *
  *   border-input                     → border-line
  *   bg-popover / text-popover-fg     → bg-surface / text-fg
@@ -40,19 +40,19 @@ import type { UiSelectSlot } from "../theme.ts";
  *
  * ⚠️ `focus:bg-accent` 那一條**不能直譯**：上游的 `accent` 是「淺色強調底」，
  * 本 repo 的 `--color-accent` 是**品牌主色**（深色）。直譯會讓 hover 的
- * 選項變成深色底配深色字。這是 #57 那條判準說的「名字剛好一樣但意思不同」
- * 的實例 —— 而那道檢查**認不出它**（`accent` 在我們的 `@theme` 裡有宣告）。只有人讀得出來。
+ * 選項變成深色底配深色字。這是「名字剛好一樣但意思不同」的實例 ——
+ * `accent` 在我們的 `@theme` 裡有宣告，所以看起來完全合法。只有人讀得出來。
  *
- * ── 名字與接線：明列的 prop 落在觸發鈕上（C101）──────────────────────
+ * ── 名字與接線：明列的 prop 落在觸發鈕上 ─────────────────────────────
  *
  * 這個元件沒有內建標籤，名字只能來自 `<UiLabel htmlFor>` ＋ 同一個 `id`、或 `aria-label`；
- * 兩個都不給就是一個沒有名字的 combobox。C101 的採用演練在瀏覽器裡量到過這一格斷掉的樣子：
+ * 兩個都不給就是一個沒有名字的 combobox。在瀏覽器裡量到過這一格斷掉的樣子：
  * 畫面上看得到標籤，而 `<label for>` **指向一個不存在的元素**，滑鼠使用者完全看不出來。
  *
  * 所以 `UiField` 交出的三格（`id`／`aria-describedby`／`aria-invalid`）與 `aria-label` 明列在
  * 下面，全部交給 `Select.Trigger`。實測 Base UI 把 `id` 留在觸發鈕（`role="combobox"` 的
  * `<button>`，可被標籤），隱藏的表單 `<input>` 另取 `…-hidden-input` —— 所以
- * `<label for>` 指到的是使用者操作的那一顆。`tests/field-wiring-react.test.ts` 守著。
+ * `<label for>` 指到的是使用者操作的那一顆。
  *
  * `placeholder` 必填：選填時未選取的觸發器會變成一個只有箭頭的空框 ——
  * 套著淡色文字的樣式卻什麼都沒顯示，使用者看不出那是一個選單。
@@ -60,11 +60,11 @@ import type { UiSelectSlot } from "../theme.ts";
  * ── 對 Base UI 量過的 ─────────────────────────────────────────────
  *
  * - 值：對外用空字串表示「沒選」，Base UI 用 `null`，在這裡互轉。
- *   ⚠️ 拿掉 `"" → null` 那一半零條紅（C237 M12）：Base UI 對不在 `items` 裡的值也顯示
+ *   ⚠️ 拿掉 `"" → null` 那一半，行為不變：Base UI 對不在 `items` 裡的值也顯示
  *   placeholder。留著是因為 `null` 才是它文件上的「沒選」，不靠那個巧合；而沒有任何選項
  *   能合法地以 `""` 為值，所以找不到分得出兩者的輸入。
  * - `alignItemWithTrigger={false}`：Base UI 預設把選中項對齊觸發器，面板會蓋住它。
- * - 面板寬度的變數是 Base UI 的 `--anchor-width`（`theme-verify` 登記過，C237 Q69）。
+ * - 面板寬度的變數是 Base UI 的 `--anchor-width`。
  * - `Positioner` 上的 `z-50` 不在預設表裡：定位的是 `Positioner`，`z-index` 寫在 `Popup`
  *   上沒有效果（reka 會把 content 的 `z-index` 抄到外層定位元素，Base UI 不會）。
  */
@@ -173,6 +173,6 @@ const DEFAULT_PARTS: Readonly<Record<UiSelectSlot, string>> = {
   ),
   indicator: "absolute right-3 flex items-center text-accent",
   // ⚠️ 這一格是 review 補的：第一版把 `text-fg-muted` 寫死在 `<svg>` 上，於是各案換得掉
-  // 觸發器、**換不掉箭頭**（元素自己的 class 贏）。與 C76 在 `UiBadge` 上抓到的是同一個形狀。
+  // 觸發器、**換不掉箭頭**（元素自己的 class 贏）。與 `UiBadge` 上抓到的是同一個形狀。
   chevron: "size-4 text-fg-muted",
 };

@@ -1,7 +1,7 @@
 {
   "extends": "@org/tsconfig/lib.json",
   "compilerOptions": {
-    // 元件本身只需要瀏覽器型別，但 tests/ 要讀檔驗證樣式入口的宣告。
+    // 元件本身只需要瀏覽器型別；node 型別給同一個 package 裡讀檔的程式用。
     "types": ["vite/client", "node"],
     "jsx": "react-jsx"
   },

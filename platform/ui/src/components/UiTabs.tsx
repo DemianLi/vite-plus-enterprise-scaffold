@@ -31,9 +31,9 @@ import type { UiTabsSlot } from "../theme.ts";
  * 那個的值域是設計系統定的，所以它必須是 union（少一個成員要紅）。
  *
  * ⚠️ `items[].value` 要與 `UiTabsPanel` 的 `value` 對上。對不上不會有錯誤，只會是
- * **一個永遠不顯示的 panel** —— 沒有閘門守得住這個（值是執行期的）。
+ * **一個永遠不顯示的 panel** —— 元件守不住這個（值是執行期的）。
  *
- * ── ⚠️ 代幣對照是人工核對的，沒有閘門在守（見 UiBadge 的說明、#57）──
+ * ── ⚠️ 代幣對照是人工核對的（見 UiBadge 的說明）──────────────────────
  *
  *   bg-muted / text-muted-foreground        → bg-surface-hover / text-fg-muted
  *   data-[state=active]:bg-background       → data-active:bg-surface

@@ -9,22 +9,22 @@
  *
  * ── 為什麼不照 shadcn 的做法 ────────────────────────────────────────
  *
- * ⚠️ **不是因為它要人改原始碼 —— 那個說法是錯的，這裡更正。** C68 量的
+ * ⚠️ **不是因為它要人改原始碼 —— 那個說法是錯的，這裡更正。** 量過
  * shadcn-vue 的 cva 表裡沒有任何 utility，只有語意 class 名
- * （`cn-button-variant-default`），真正的樣式住在 `style-*.css`。React 那一側 C233
+ * （`cn-button-variant-default`），真正的樣式住在 `style-*.css`。React 那一側也
  * 量過：`new-york-v4` 已經是 utility，Base UI 對應的 nova 系列還留一個語意 class
- * （`cn-font-heading`），C235 照同一條理由改寫成 utility。各案換樣式
+ * （`cn-font-heading`），這裡照同一條理由改寫成 utility。各案換樣式
  * ＝ 換一份 preset CSS，**元件原始碼完全不動**。官方的客製順序是
  * 「內建 variant → `class` → 改原始碼加 variant → wrapper」，改原始碼排第三。
  *
- * 不照它的真正理由只有一句：**CSS preset 沒有任何閘門在守。**
+ * 不照它的真正理由只有一句：**CSS preset 打錯字不會有任何東西報錯。**
  * `.cn-button-variant-defualt` 打錯一個字，產生一個永遠不匹配的 class，
  * 畫面安靜地少一塊樣式 —— 那正是這個 repo 被騙過六次的形狀。
  *
  * 兩邊的失敗輪廓是相反的：CSS preset 打錯字**安靜失效**、但不用逐元件接線；
- * 具名槽打錯字**編譯失敗**、但每個元件都要接線（而那條線由檢查器守著）。
- * 它的架構對它的散佈模型是對的（下游是任意專案，沒有共用閘門），
- * 我們的對「把架構決策寫成閘門」這個命題是對的。不是同一題的兩個答案。
+ * 具名槽打錯字**編譯失敗**、但每個元件都要接線。
+ * 它的架構對它的散佈模型是對的（下游是任意專案，沒有共用的型別），
+ * 我們的對「打錯字要在編譯期失敗」這個命題是對的。不是同一題的兩個答案。
  *
  * ── 為什麼是「元件 → 具名槽」而不是平鋪的 variants／sizes ────────────
  *
@@ -32,7 +32,7 @@
  * 長在一個全域 API 上 —— 第二個元件（`UiDialog`）需要覆寫它的遮罩與內容框時
  * 沒有地方可去，於是它就**沒有接縫**，而沒有任何東西為此說話。
  *
- * 改形狀是破壞性變更（附 codemod `flatten-ui-theme-to-components`）。之所以
+ * 改形狀是破壞性變更。之所以
  * 在 v1.0.0 tag 之前做，是因為當時的成本是**一個呼叫端**，tag 之後是每一個
  * fork、永遠。同一個判準見 `styles/index.css` 對 `--color-muted` 改名的說明。
  *
@@ -45,11 +45,11 @@
  *
  * ⚠️ 下面各型別註解寫的「名稱沿用 Vue 版的基元名」是槽名的來歷：當時槽名與 import 的
  * reka-ui 基元同名。Base UI 的基元叫 `Backdrop`／`Popup`，**槽名不跟著改** ——
- * 改槽名是 `UiThemeOverride` 的破壞性變更，而設計稿那一側的名字沒有變（C244）。
+ * 改槽名是 `UiThemeOverride` 的破壞性變更，而設計稿那一側的名字沒有變。
  *
  * ⚠️ 但 variant 的名字**刻意不跟** shadcn（它叫 `default`／`destructive`）。
  * `primary`／`danger` 是設計稿上的通用語彙，而改 variant 名會動到 prop union ——
- * 那是 api-surface 的破壞性變更加上每個使用端。槽是新的、沒有使用端，所以免費；
+ * 那是公開簽章的破壞性變更加上每個使用端。槽是新的、沒有使用端，所以免費；
  * variant 不是。
  *
  * ── 只能替換，不能新增，這是刻意的 ──────────────────────────────────
@@ -75,8 +75,8 @@ export type UiSize = "sm" | "md";
  * `UiButton` 的可覆寫槽 —— 四個 variant ＋ 兩個 size 在同一個平面。
  *
  * 不分成 `{ variant: {…}, size: {…} }` 兩層是因為兩組名稱不會相撞，
- * 而多一層巢狀只是讓覆寫的人多打一次字。相撞的那天由檢查器說話：
- * 兩個 union 有共同成員的話，`Record` 的鍵會少一格，測試會紅。
+ * 而多一層巢狀只是讓覆寫的人多打一次字。
+ * 兩個 union 有共同成員的話，`Record` 的鍵會少一格 —— 加名字時要避開。
  */
 export type UiButtonSlot = UiVariant | UiSize;
 
@@ -86,7 +86,7 @@ export type UiDialogSlot = "overlay" | "content" | "title" | "description";
 /**
  * `UiAlertDialog` 的可覆寫部位。前四格與 `UiDialogSlot` 同名同義。
  *
- * ⚠️ **刻意重複而不共用**（同 C78 §3 對 `UiTextarea` 的處置）：共用一個型別
+ * ⚠️ **刻意重複而不共用**（同 `UiTextarea` 的處置）：共用一個型別
  * 別名的話，日後幫對話框加一格會逼確認框跟著長一格，而兩者的結構沒有理由
  * 永遠一致。**代價寫在這裡**：覆寫了 `UiDialog.content`（例如手機版改成
  * 底部滑出）的案子**不會**套到確認框，兩個框會長得不一樣 —— 要一致就兩格都寫。
@@ -170,13 +170,12 @@ export type UiSelectSlot = "trigger" | "content" | "item" | "indicator" | "chevr
  * **而畫面一個像素都不會變**。同 `UiAlertDialog` 不給 `footer` 槽的形狀：
  * 覆寫是整條替換，所以能被覆寫的東西不能是保護。
  *
- * ⚠️ **「唯一」是量過的，不是推的**（C89）：使用端寫
+ * ⚠️ **「唯一」是量過的，不是推的**：使用端寫
  * `<UiDropdownMenu aria-label="…">`，那個屬性會被**安靜吃掉** —— 元件的
  * 根節點鏈是 `DropdownMenuRoot → MenuRoot → PopperRoot`，最後渲染的是
  * `<slot/>`，而這裡的 slot 內容是「觸發器 ＋ portal」兩個節點的 fragment，
  * fallthrough 落不到任何元素上，**連警告都沒有**。所以外面也塞不進第二個
- * 名字來源。⚠️ 同一句話在 `UiSwitch` 上是**會動的**（單根元件），
- * 這個不一致記在 `DECISIONS.md` C89。
+ * 名字來源。⚠️ 同一句話在 `UiSwitch` 上是**會動的**（單根元件）。
  *
  * ⚠️ `danger` 這一格是**加在 `item` 之上**的，不是取代它（模板寫成
  * `[parts.item, parts.danger]`）。所以覆寫 `danger` 只該寫顏色；把版型也寫進去

@@ -8,7 +8,7 @@ import type { UiAlertSlot } from "../theme.ts";
  *
  * ── 為什麼是 Alert 而不是 Toast ────────────────────────────────
  *
- * C78 把 `Toast` 排除在範圍外，理由是它需要一組**全域的 `Provider` ＋
+ * `Toast` 刻意不在範圍內，理由是它需要一組**全域的 `Provider` ＋
  * `Viewport` 接線**，而「掛在哪、疊在哪、同時最多幾個」是**應用外殼的決定**，
  * 不是一個元件。把那個決定放進 `platform/ui` 等於替每個案子決定它。
  *
@@ -23,10 +23,10 @@ import type { UiAlertSlot } from "../theme.ts";
  * （`aria-live="polite"`）—— 等使用者停下來再唸。
  *
  * ⚠️ 全部都用 `alert` 的話，每一個「已儲存」都會打斷正在唸的東西；
- * 全部都用 `status` 的話，錯誤訊息會被排在後面。這個對應沒有閘門在守，
- * 而它錯了在畫面上完全看不出來。
+ * 全部都用 `status` 的話，錯誤訊息會被排在後面。這個對應錯了，
+ * 在畫面上完全看不出來。
  *
- * ── ⚠️ 代幣對照是人工核對的，沒有閘門在守（見 UiBadge、#57）────────
+ * ── ⚠️ 代幣對照是人工核對的（見 UiBadge）────────────────────────────
  *
  *   bg-destructive/10 / text-destructive  → bg-danger/10 / text-danger
  *   bg-muted / text-muted-foreground      → bg-surface-hover / text-fg-muted

@@ -14,7 +14,7 @@ import type { UiCheckboxSlot } from "../theme.ts";
  * 而那一步就把鍵盤操作、`aria-checked`、以及與 `<label>` 的關聯全部
  * 變成自己的責任 —— 那正是 `UiDialog` 用基元的同一條理由。
  *
- * ── ⚠️ 代幣對照是人工核對的，沒有閘門在守（見 UiBadge 的說明、#57）──
+ * ── ⚠️ 代幣對照是人工核對的（見 UiBadge 的說明）──────────────────────
  *
  *   border-primary / bg-primary        → border-line / bg-accent
  *   text-primary-foreground            → text-on-accent
@@ -34,10 +34,10 @@ import type { UiCheckboxSlot } from "../theme.ts";
  * ── 三態（indeterminate）刻意不做 ────────────────────────────────
  *
  * 基元支援它，但它要多一組受控的值，而目前沒有任何切片需要「部分選取」。
- * 真的需要時再加是一筆 minor（新增選填 prop）—— 現在先做是 D16 說的那種過度設計。
+ * 真的需要時再加是一筆 minor（新增選填 prop）—— 現在先做是過度設計。
  *
  * ⚠️ **`label` 與 `children` 兩個都不給，這個方塊就沒有名字**（螢幕閱讀器會報
- * 「未命名的核取方塊」）。沒有閘門守得住 —— `children` 有沒有內容是執行期才知道的，
+ * 「未命名的核取方塊」）。元件守不住 —— `children` 有沒有內容是執行期才知道的，
  * 而 `label` 必填會逼使用端為了「只想在標籤裡放一個連結」傳一個永遠不會顯示的字串
  * （第一版就是必填）。給了 `children` 就完全取代 `label`。
  *
@@ -54,7 +54,7 @@ import type { UiCheckboxSlot } from "../theme.ts";
  * **input** 上（span 不是可標籤的元素，`<label for>` 指到它什麼都不會發生）；
  * 點標籤 → 瀏覽器點 input → 切換。span 的名字由 Base UI 的 `useAriaLabelledBy`
  * 從 input 的 `labels` 找回標籤、把它的 id 接成 `aria-labelledby`。
- * 兩件事都由 `tests/choice-react.test.ts` 在 DOM 上量。
+ * 兩件事都在 DOM 上量過。
  */
 export function UiCheckbox({
   checked,

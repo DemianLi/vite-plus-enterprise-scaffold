@@ -1,43 +1,29 @@
 # @org/bff-contract
 
-D8 那一層同源中間層的**可執行契約**。這個 package 是 R6 的答案。
+同源中間層（BFF）的**可執行契約**：拿來驗收組織既有的 gateway，或當作新建 BFF 的規格。
 
-## R6 原本卡在哪
+## 為什麼是契約，不是實作
 
-D8 選了 BFF + httpOnly cookie，但腳手架裡沒有 BFF —— 那一層是組織既有的
-gateway。R6 因此一直卡在一個**組織問題**上：
+前端的認證走 BFF + httpOnly cookie，但那一層不在本 repo —— 它是組織既有的
+gateway。這就帶出一個**組織問題**：
 
 > 你們到底有沒有一個能設 cookie 的同源中間層？
 
-程式碼回答不了這個問題。但它能回答另一個：**那一層必須做到什麼，才算滿足 D8。**
+程式碼回答不了這個問題。但它能回答另一個：**那一層必須做到什麼，才算合格。**
 
-所以這裡不寫實作，寫規格 —— 而且是跑得起來的規格。兩條路徑共用同一套斷言：
+| 情況         | 做法                               | 結果                           |
+| ------------ | ---------------------------------- | ------------------------------ |
+| 已有 gateway | 用下面的 env 把驗收指向它          | 全部通過 ＝ **不需要新程式碼** |
+| 沒有 gateway | 這份契約就是要蓋的那一層的驗收條件 | 知道要蓋什麼，以及蓋完怎麼證明 |
 
-| 情況         | 做法                                                       | 結果                                |
-| ------------ | ---------------------------------------------------------- | ----------------------------------- |
-| 已有 gateway | 把測試指向它                                               | 全綠 ＝ R6 關閉，**不需要新程式碼** |
-| 沒有 gateway | 這份規格就是驗收條件，`@org/bff-mock` 是已通過它的參考實作 | 知道要蓋什麼，以及蓋完怎麼證明      |
-
-## 跑法
-
-對參考實作（CI 每次都跑，證明這份契約是可實現的）：
-
-```bash
-vpr bff-check
-```
-
-對組織既有的 gateway：
-
-```bash
-BFF_ORIGIN=https://gateway.internal BFF_SESSION_COOKIE=SESSIONID vpr bff-check
-```
+## 指向既有的 gateway
 
 可覆寫的 env：`BFF_ORIGIN`、`BFF_SESSION_COOKIE`、`BFF_LOGIN_PATH`、`BFF_LOGOUT_PATH`、
 `BFF_SESSION_PATH`、`BFF_PROBE_PATH`、`BFF_ADMIN_PROBE_PATH`、`BFF_SESSION_VALUE`、
 `BFF_CSRF_VALUE`、`BFF_SET_COOKIE_FILE`。
 
-**驗收既有 gateway 時改的是 env，不是測試程式碼。** 一旦要改測試才能過，
-那份測試就不再是契約，而是實作的鏡子。
+**驗收既有 gateway 時改的是 env，不是驗收程式碼。** 一旦要改驗收程式碼才能過，
+那份驗收就不再是契約，而是實作的鏡子。
 
 ## 契約條目
 
@@ -60,10 +46,10 @@ BFF_ORIGIN=https://gateway.internal BFF_SESSION_COOKIE=SESSIONID vpr bff-check
 三條最容易被實作漏掉的：
 
 **`csrf-cookie-readable`** —— 有人出於直覺給 `XSRF-TOKEN` 加上 `HttpOnly`，
-前端就再也讀不到值，所有寫入請求全部失敗。這條斷言存在的唯一理由就是攔下這個直覺。
+前端就再也讀不到值，所有寫入請求全部失敗。這一條存在的唯一理由就是攔下這個直覺。
 double-submit 的原理是「前端讀得到、跨站的攻擊者讀不到」，可讀是設計的一部分。
 
-**`logout-server-side`** —— 測試會拿**登出後的舊 cookie 再打一次**。
+**`logout-server-side`** —— 驗收會拿**登出後的舊 cookie 再打一次**。
 只清 cookie 的實作在這裡會被抓到：瀏覽器會乖乖忘記，攻擊者不會。
 
 **`401-unauthenticated`** —— fetch 預設會跟隨轉址，所以「回了 302 登入頁」
@@ -81,22 +67,12 @@ double-submit 的原理是「前端讀得到、跨站的攻擊者讀不到」，
 
 ## 對真實 gateway 的誠實限制
 
-`POST /api/session` 在真實環境是 OIDC 授權碼流程的終點，**無法**用一支測試自動走完。
+`POST /api/session` 在真實環境是 OIDC 授權碼流程的終點，**無法**自動走完。
 所以驗收既有 gateway 時分兩半：
 
 - **行為面**（401／403／CSRF／登出失效）：用 `BFF_SESSION_VALUE` 帶一組真實 session 跑
 - **屬性面**（HttpOnly／Secure／SameSite）：用 `BFF_SET_COOKIE_FILE` 指向一個文字檔，
   貼上 gateway 登入時實際回的 `Set-Cookie` 標頭（每行一條）
 
-把限制寫成兩個 env，比假裝測試能自動化整條 OIDC 流程要誠實得多 ——
-後者的結果是那份測試永遠是紅的，然後被人加上 skip。
-
-## 這份契約有牙齒嗎
-
-有實測過。逐一破壞 `@org/bff-mock` 的七個地方，**每一個都讓對應條目變紅**：
-
-拿掉 session 的 `HttpOnly` ／ `SameSite` 改成 `None` ／ 給 CSRF cookie 加上 `HttpOnly` ／
-不檢查 CSRF 標頭 ／ 登出只清 cookie 不刪伺服器端 session ／ 權限不足回 401 而非 403 ／
-不送安全標頭。
-
-綠燈不證明機制有效，只有「該紅的時候會紅」才證明。
+把限制寫成兩個 env，比假裝能自動化整條 OIDC 流程要誠實得多 ——
+後者的結果是那份驗收永遠過不了，然後被人跳過。

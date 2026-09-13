@@ -14,13 +14,13 @@ import type { UiDialogSlot } from "../theme.ts";
  * 以及螢幕閱讀器的朗讀順序。每一項做錯都不會壞掉，只會讓鍵盤與輔具使用者
  * 用不了 —— 而那種 bug 沒有人會回報，只會在無障礙稽核時一次全部出現。
  * 基元把這些做完了，而且**不帶任何樣式**，所以外觀仍然是我們的。
- * 點遮罩會關、Esc 會關、開啟時焦點落在內容裡第一個可聚焦元素 —— 見 `tests/dialog-react.test.ts`。
+ * 點遮罩會關、Esc 會關、開啟時焦點落在內容裡第一個可聚焦元素。
  *
  * ── CSP：捲動鎖定只寫 `element.style` ─────────────────────────────
  *
  * Radix 的捲動鎖定注入不帶 nonce 的 `<style>`，被 `style-src 'self'` 安靜擋掉，
- * 這是換成 Base UI 的理由（C233）。Base UI 零處 `createElement('style')` 由
- * `tests/base-ui-no-style.test.ts` 對裝上去的那一版逐檔重量。
+ * 這是換成 Base UI 的理由。Base UI 零處 `createElement('style')`，對裝上去的那一版
+ * 逐檔量過。
  *
  * ── 遮罩：色相在代幣、不透明度留在元件 ────────────────────────────
  *
@@ -28,7 +28,7 @@ import type { UiDialogSlot } from "../theme.ts";
  * `--color-overlay-40` 代幣 —— 那會讓**每換一次濃淡就多一格**，而濃淡是
  * 逐案調的東西。`styles/index.css` 對這一條有更完整的說明。
  *
- * ── 這三個 prop 就是 C62 那句「各案可以更換互動方式」的接縫 ────────────
+ * ── 這三個 prop 就是「各案可以更換互動方式」的接縫 ─────────────────
  *
  * 配色與形狀是靠代幣換的（`createUiTheme`）；**互動換不了代幣，只能靠組合**。
  *
@@ -42,7 +42,7 @@ import type { UiDialogSlot } from "../theme.ts";
  * 值走代幣、結構走 prop，形狀走 `content` 這一格。一個要把對話框改成手機版底部滑出的案子，
  * 代幣換不掉（那不是值）、prop 換不掉（那不是結構），只能覆寫這一格。
  *
- * ⚠️ **不要新增 `UiSheet`：它就是 `content` 槽（C81）。** shadcn 的 `Sheet`（從側邊滑出的
+ * ⚠️ **不要新增 `UiSheet`：它就是 `content` 槽。** shadcn 的 `Sheet`（從側邊滑出的
  * 對話框）是這一格的覆寫：`fixed inset-y-0 right-0 h-full w-96` 取代下面那串
  * `top-1/2 left-1/2 -translate-*`，焦點鎖定、Esc、外側點擊、`aria-modal` 全部原封不動。
  * 新增一個 `UiSheet` 的代價是**兩份無障礙接線從此各自漂移** —— 而其中一份壞掉的時候
@@ -55,8 +55,8 @@ import type { UiDialogSlot } from "../theme.ts";
  *
  * ⚠️ 刻意**沒有**給那兩個排版用的 `<div>`（`mt-4` 與 `mt-6 flex …`）槽。
  * 規則若是「每一塊 class 都要有槽」，那兩格會被逼出沒有人會覆寫的槽名 ——
- * 形式主義的閘門第一天就會被加例外，而例外永遠不會拿掉（C41）。
- * 「接縫夠不夠」是 review 的職責，不是靜態檢查的。
+ * 形式主義的規則第一天就會被加例外，而例外永遠不會拿掉。
+ * 「接縫夠不夠」是 review 的職責。
  *
  * `description` 必填 —— 沒有它的對話框對輔具使用者是一個無名的框。
  */

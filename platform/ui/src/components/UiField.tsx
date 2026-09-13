@@ -8,8 +8,8 @@ import type { UiFieldSlot } from "../theme.ts";
  *
  * ── 它補的是兩個已經寫在別的檔頭裡的洞 ────────────────────────────
  *
- *   `UiLabel`      「`htmlFor` 是**使用端的責任**，而這裡沒有任何閘門守得住它」
- *   `UiDatePicker` 那三條 `aria-invalid:*` 要有東西去設（C79）
+ *   `UiLabel`      「`htmlFor` 是**使用端的責任**，而這裡守不住它」
+ *   `UiDatePicker` 那三條 `aria-invalid:*` 要有東西去設
  *
  * 兩個的症狀是同一種：**畫面完全正常，而鍵盤與輔具那一半是壞的**。
  * `htmlFor` 對不到 id 就是沒有標籤；`aria-invalid` 沒人設，紅框樣式就沒有機會生效。
@@ -25,8 +25,8 @@ import type { UiFieldSlot } from "../theme.ts";
  *       <FieldError>…</FieldError>
  *     </Field>
  *
- * 照抄的話這個元件就只是一個 `flex flex-col gap-2` —— **缺了看得出來**
- * （C81 的層 2），而上面那兩個洞一個都沒補到。
+ * 照抄的話這個元件就只是一個 `flex flex-col gap-2` —— **缺了看得出來**，
+ * 而上面那兩個洞一個都沒補到。
  *
  * ── 為什麼是 render prop 而不是 context ─────────────────────────
  *
@@ -39,7 +39,7 @@ import type { UiFieldSlot } from "../theme.ts";
  *     </UiField>
  *
  * ⚠️ **使用端沒把 `control` 展開上去，接線還是斷的** —— 而且畫面正常。
- * 這裡沒有閘門守得住，只有這句話。換到的是「該有哪些值」不用再想：
+ * 這裡守不住，只有這句話。換到的是「該有哪些值」不用再想：
  * 一個物件、一次展開，不必記得錯誤訊息要有 id、要進 `aria-describedby`、
  * 控制項要 `aria-invalid`。能收下這三格的控制項把那三個 prop 明列出來，見 `UiInput.tsx`。
  *
@@ -53,7 +53,7 @@ import type { UiFieldSlot } from "../theme.ts";
  *
  * 用 `UiLabel` 而不是自己再寫一個 `<label>`，理由是**行為會漂移**：`UiLabel` 帶著
  * 「按兩下不反白」那件事（`select-none`），自己再寫一份的話兩份哪天不一樣了沒有人會發現。
- * 這與 C78 §3 的「`UiTextarea` 刻意重複不抽共用」不衝突 —— 那一條講的是
+ * 這與「`UiTextarea` 刻意重複不抽共用」不衝突 —— 那一條講的是
  * **樣式**（具名槽的語意是整條替換），這裡是**行為**。所以標籤的樣式仍然走
  * `UiLabel` 的那一格，這個元件不再開一格 `label`。
  *

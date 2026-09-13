@@ -1,5 +1,5 @@
 /**
- * 公開設定的**唯一**出口（D8）。
+ * 公開設定的**唯一**出口。
  *
  * 要解決的問題：`import.meta.env.VITE_*` 的值會被編譯進 production bundle 的明文。
  * 很多團隊把 API key 塞進 VITE_API_KEY，以為 .env 沒進 git 就安全 ——
@@ -10,7 +10,7 @@
  *   1. 只有下面白名單裡的 key 可以被讀取，型別擋住其餘存取
  *   2. 建置期若偵測到未宣告的 VITE_ 變數，直接讓建置失敗（見 assertNoUndeclaredEnv）
  *
- * 機密一律不進前端。需要機密的呼叫走 BFF（D8），由伺服器端持有。
+ * 機密一律不進前端。需要機密的呼叫走同源的 BFF，由伺服器端持有。
  */
 
 /**
@@ -27,7 +27,7 @@ type PublicEnvKey = (typeof PUBLIC_ENV_KEYS)[number];
 const SECRET_LOOKING = /(SECRET|TOKEN|KEY|PASSWORD|CREDENTIAL|PRIVATE|APIKEY)/i;
 
 /**
- * 建置期閘門。在 apps 的 vite.config.ts 裡呼叫。
+ * 建置期檢查。在 apps 的 vite.config.ts 裡呼叫。
  *
  * 白名單本身只能擋住「讀」；這個函式擋住「寫」——
  * 有人在 .env 加了 VITE_API_SECRET 卻沒改這個檔案時，建置直接失敗。
@@ -43,7 +43,7 @@ export function assertNoUndeclaredEnv(env: Record<string, string>): void {
       problems.push(
         `  ✗ ${key}\n` +
           `      命名顯示這是機密。VITE_ 前綴的值會被編譯進 bundle 明文，任何人都看得到。\n` +
-          `      機密不得進入前端 —— 請改由 BFF 持有，前端透過 /api 呼叫（D8）。`,
+          `      機密不得進入前端 —— 請改由 BFF 持有，前端透過 /api 呼叫。`,
       );
       continue;
     }
@@ -82,7 +82,7 @@ export const config = {
   get appTitle(): string {
     return read("VITE_APP_TITLE");
   },
-  /** BFF 的同源路徑前綴。必須同源，否則 SameSite cookie 形同虛設（D8）。 */
+  /** BFF 的同源路徑前綴。必須同源，否則 SameSite cookie 形同虛設。 */
   get apiBasePath(): string {
     return read("VITE_API_BASE_PATH");
   },

@@ -2,7 +2,7 @@
 export const ELLIPSIS = "ellipsis";
 
 /**
- * 「1 … 4 5 6 … 20」的那條清單（C236）。
+ * 「1 … 4 5 6 … 20」的那條清單。
  *
  * ⚠️ **不要自己重新設計這支。** 「1 … 4 5 6 … 20」看起來是十行 for 迴圈，實際上邊界很多：
  * 前三頁與後三頁不該出現省略號、`siblingCount` 要對稱、頁數少時要全部列出。
@@ -12,9 +12,8 @@ export const ELLIPSIS = "ellipsis";
  * reka-ui `Pagination/utils.ts` 的 `getRange` 在 `showEdges: true` 那一支的**逐行移植**
  * （`siblingCount` 預設 2），不是重新設計。
  *
- * 守它的是 `tests/page-range.test.ts` 的固定期望值：總頁數 1–20 × 每一個目前頁，
- * 211 組答案是 reka 退場前由 reka 算出來凍結的（C243，Q98）。改這支之前，先想清楚
- * 是不是真的要偏離 reka 的答案 —— 要的話先改表。
+ * 總頁數 1–20 × 每一個目前頁，211 組答案是 reka 退場前由 reka 算出來凍結的。
+ * 改這支之前，先想清楚是不是真的要偏離 reka 的答案。
  */
 export function pageRange(
   current: number,
