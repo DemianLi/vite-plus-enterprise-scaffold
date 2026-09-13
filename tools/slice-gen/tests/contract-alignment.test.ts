@@ -531,7 +531,7 @@ describe("模板宣告的 catalog: 相依都真的登記在 catalog 裡", () => 
 
   it("catalog 區塊解析得出東西 —— 解不出來就不要給判決", () => {
     expect(catalogNames.size).toBeGreaterThan(10);
-    expect(catalogNames).toContain("vue");
+    expect(catalogNames).toContain("react");
   });
 
   it("每個 catalog: 相依都找得到對應的 catalog 條目", () => {

@@ -28,37 +28,25 @@ catalog:
   # 不同的 provider，而症狀不是報錯，是覆蓋率數字看起來像那麼一回事。
   "@vitest/coverage-v8": 4.1.11
 
-  # --- 應用層選型（D13）---
-  # vue-router／pinia／vue-i18n／vue-query 的消費者在批次 ③（C240）搬走了，catalog 列跟著
-  # 拿掉 —— 沒有消費者的列沒有東西在驗（C234 §二）。剩下這兩列是 platform/ui 的 .vue 元件與
-  # 根層測試設定還在用的，批次 ⑤ 刪 Vue 時一起收。React 那一套的對應在下面。
-  vue: ^3.5.41
-  "@vitejs/plugin-vue": ^6.0.8
-
   # --- 樣式與 UI（D15）---
-  # reka-ui 是 headless 基元，Tailwind 負責樣式，元件原始碼在 platform/ui。
+  # Base UI 是 headless 基元（下面 React 那一套），Tailwind 負責樣式，元件原始碼在 platform/ui。
   # ⚠️ @tailwindcss/vite 會改變建置產物 —— 它必須登記在 tools/exit-drill 的
   # DRILL_PLUGINS，否則退出演練會產出一個沒有樣式的應用然後回報 pass（C36）。
-  reka-ui: ^2.10.3
   tailwindcss: ^4.3.3
   "@tailwindcss/vite": ^4.3.3
   # cn() 用。刻意不裝 class-variance-authority —— 變體用純物件查表就夠，
   # 少一個相依就是少一筆 SCA 範圍（與 D2 對 YAML parser 的同一條理由）。
   clsx: ^2.1.1
   tailwind-merge: ^3.4.1
-  # UiDatePicker 用。⚠️ **這不是一筆新的供應鏈範圍**：它從第一天就在樹裡
-  # （reka-ui 自己相依它），這裡做的只是把「本來就在用」寫成明的 ——
-  # platform/ui 要直接 import CalendarDate 才建得出 DateValue。
-  # ⚠️ 版本**逐字跟著 reka-ui 自己宣告的範圍**（^3.5.0），不是抄目前解到的
-  # 3.12.3。寫得比它窄的話，reka-ui 哪天需要一個更舊的 3.x 就會產生第二份 ——
-  # 那正是 D15 記過的 lightningcss 兩個版本、MPL-2.0 範圍翻倍的形狀。
-  # ⚠️ **上面「不是新的範圍」只到批次 ⑤ 為止**（C237 Q68、C238）：React 版 UiDatePicker
-  # 在執行期用它（CalendarDate、getDayOfWeek），刪 reka-ui 之後它就是 platform/ui 自己的
-  # 直接相依，而「跟著 reka-ui 的範圍」那句也跟著失去對象 —— 那天要重寫這一段。
+  # UiDatePicker 用：值型別是 `CalendarDate`（C237 Q68），執行期用 CalendarDate 與
+  # getDayOfWeek。它原本是跟著 reka-ui 進來的傳遞相依；reka-ui 隨 Vue 退場（C244）之後，
+  # 它是 platform/ui 自己的一筆直接相依、自己的一筆供應鏈範圍。
+  # ⚠️ 範圍 ^3.5.0 是當年逐字抄 reka-ui 宣告的（為了不產生第二份），那個理由隨 reka-ui
+  # 失去對象；範圍沒有跟著收窄 —— 收窄是一次沒有人要求的升級決定，不是清理。
   "@internationalized/date": ^3.5.0
 
   # --- React 那一套（C232 §五、C233 Q53、C235）---
-  # 遷移期間與上面 Vue 那一套並列，批次 ⑤ 刪 Vue 時一起收。元件由 shadcn CLI 的
+  # 元件由 shadcn CLI 的
   # Base UI 那一套產出再改寫（Q58）；**不是 radix-ui** —— Radix 的捲動鎖定會注入
   # 不帶 nonce 的 `<style>`，被 `style-src 'self'` 安靜擋掉（C233 §三）。
   # ⚠️ 「Base UI 不注入 `<style>`」由 `platform/ui/tests/base-ui-no-style.test.ts`
@@ -92,7 +80,6 @@ catalog:
   #
   # happy-dom 而不是 jsdom：兩者都**沒有實作 CSP**（所以 csp-verify 那一層
   # 換不掉），但 happy-dom 快得多，而這裡要的只是一個能算 textContent 的 DOM。
-  "@vue/test-utils": ^2.4.11
   happy-dom: ^20.11.2
   # React 那一半的對應（C232 §五）。同樣是純 JS。
   "@testing-library/react": ^16.3.3
@@ -113,14 +100,11 @@ catalog:
   eslint: ^10.8.1
   eslint-plugin-security: ^4.0.1
   eslint-plugin-no-unsanitized: ^4.1.5
-  eslint-plugin-vue: ^10.10.0
   typescript-eslint: ^8.67.0
-  vue-eslint-parser: ^10.4.1
 
   # --- Tier 1 無障礙閘門（HANDOFF 第 22 項／C60）。同樣僅 CI 與本機使用 ---
   # ⚠️ 它跑在 Tier 1 而不是 Tier 2：無障礙的檢查結果不會隨時間失效，
   # 而那正是 Tier 2「不快取、不過濾、每日排程」三條規則的**唯一**理由。
-  eslint-plugin-vuejs-accessibility: ^2.6.0
   # `.tsx` 那一軌（C234，Q56）。**是分支不是上游，而那是量過之後人裁的**：上游
   # eslint-plugin-jsx-a11y 6.10.2 的 peer 只宣告到 ESLint 9、最後一版 2024-10（相依健康度
   # 會紅），而且多拉 112 支套件；這個分支開的是同一份 36 條規則（上游標淘汰的 3 條
@@ -129,10 +113,6 @@ catalog:
   # `jsx-a11y`，規則 ID、fixture 與交付文件都不必跟著改。
   eslint-plugin-jsx-a11y-x: ^0.2.0
 
-  # --- `.vue` 的型別檢查（HANDOFF #26／C68）。僅 CI 與本機使用 ---
-  # ⚠️ 它的 typescript 在下面的具名 catalog，不在這裡 —— 那不是筆誤。
-  vue-tsc: ^3.3.10
-
   # --- 突變測試（TESTING.md 的元層）。僅本機與手動使用，不擋任何東西 ---
   # ⚠️ **兩支釘死在精確版本，不用 `^`。** 它的產出是一份「哪些程式碼被改壞了而
   # 測試沒說話」的清單，而**變異運算子的集合是隨版本改的** —— minor 升上去，
@@ -140,32 +120,6 @@ catalog:
   # ⚠️ runner 的 peer 是 `vitest >=2.0.0`，涵蓋上面釘死的 4.1.11。
   "@stryker-mutator/core": 10.0.0
   "@stryker-mutator/vitest-runner": 10.0.0
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 具名 catalog：這個 repo 裡有**兩個 TypeScript**（C68）
-# ─────────────────────────────────────────────────────────────────────────────
-#
-# 上面的 `typescript: ^7.0.2` 是**原生 Go 版**，`vp check` 的型別段（tsgolint）
-# 用它。實測它不再提供 JS 版的 compiler API：
-#
-#     Object.keys(require("typescript")).length  → 2
-#     typeof ts.createProgram                    → undefined
-#
-# 而 `vue-tsc` → `@volar/typescript` 需要那組 API。所以要檢查 `.vue`，
-# 就必須讓 `tools/vue-typecheck` 這一個 package 解析到 JS 版的 TypeScript。
-#
-# ⚠️ **兩支編譯器對同一份 `.ts` 可能給出不一樣的診斷，而那種閘門會被關掉（C57）。**
-# 這個風險是量過的，不是賭的：接上當天 vue-tsc 把四個程式裡的每一支 `.ts`
-# 都檢查了，**產出 0 條 tsgolint 沒有的診斷**。範圍也刻意收窄 ——
-# `tools/vue-typecheck` 只對含 `.vue` 的 package 跑，`.ts` 的判決仍然只有
-# `vp check` 一個來源。
-#
-# ⚠️ 但**分歧不是要管理的風險，是那道閘門的能力**：`.ts` 檔消費 `.vue` 時
-# tsgolint 看的是 `declare module "*.vue"` 的萬用宣告，vue-tsc 解析真的 SFC。
-# 實測「vue-typecheck 紅、vp check 綠」多半是真陽性。見 C68 的〈九〉。
-catalogs:
-  vue-typecheck:
-    typescript: ^5.9.3
 
 overrides:
   vite: "catalog:"
@@ -217,9 +171,6 @@ peerDependencyRules:
 #   pnpm why <pkg>              # 誰把它拉進來的
 #   vp pm why <pkg>             # 同上，經 vp 抽象層
 #
-allowBuilds:
-  # vue-demi：由 @tanstack/vue-query 間接引入。
-  # 其 postinstall 僅在自身 package 目錄內切換 Vue 2 / Vue 3 的進入點檔案，
-  # 不觸網、不寫 package 目錄外的檔案。不執行則 import 會解析失敗。
-  # 審查人：@org/platform-maintainers｜審查日：2026-08-15
-  vue-demi: true
+# C244 起零筆：最後一筆 vue-demi 原本記成 @tanstack/vue-query 帶進來的，C240 拿掉 vue-query
+# 之後它還在 —— 真正的來源是 reka-ui → @floating-ui/vue，隨 reka-ui 一起退場。
+allowBuilds: { vue-demi: set this to true or false }

@@ -60,10 +60,6 @@ export const DRILL_TEST_DEPENDENCIES: readonly string[] = [
   // `features/order/tests/masking.test.ts` 的 `// @vitest-environment happy-dom`。
   // 少了它 vitest 連 worker 都起不來，錯誤訊息是 ERR_MODULE_NOT_FOUND。
   "happy-dom",
-  // `platform/ui` 的 `.vue` 測試用它掛載元件（批次 ⑤ 之前）。純 JS，與工具鏈無關。
-  // ⚠️ 當初隨 masking.test.ts 進來；那支 C240 改成 @testing-library/react，這一筆的
-  // 消費者換成了 platform/ui。
-  "@vue/test-utils",
   // `features/invoice/tests/specs/invoice.spec.ts` 的 `describeFeature`——
   // 業務功能完成率那條線的接線檔（C114／C115）。純 JS，peer 只有 vitest，
   // 而 vitest 由 UPSTREAM 提供，所以它不是「被替換掉的工具鏈本身」。

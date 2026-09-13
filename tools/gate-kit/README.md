@@ -66,19 +66,18 @@ parseFlags(argv, spec): { ok: true; flags } | { ok: false; message }
 
 ## 現在的狀態：這棵樹上每一支自寫 CLI 都接上了
 
-| 工具                                                                        | 旗標                                                                                                                                              |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `supply-chain`                                                              | `--update` `--capture` `--capture-health` `--recapture-safe` `--manifest` `--dossier` `--airgap` `--split-lockfile <目錄>` `--verify-sbom <檔案>` |
-| `compliance`                                                                | `--file <路徑>` `--evidence` `--update`                                                                                                           |
-| `api-surface`                                                               | `--baseline` `--update` `--platform`                                                                                                              |
-| `exit-drill`                                                                | `--full` `--require-fresh`                                                                                                                        |
-| `conformance`                                                               | `--root`                                                                                                                                          |
-| `pii-check`                                                                 | `--root`                                                                                                                                          |
-| `theme-verify`                                                              | `--root`                                                                                                                                          |
-| `spec-report`                                                               | `--check`                                                                                                                                         |
-| `csp-verify`                                                                | `--print-probe`                                                                                                                                   |
-| `ui-survey`                                                                 | `--csp` `--sca`                                                                                                                                   |
-| `gate-roster`／`doc-facts`／`vue-typecheck`／`promise-check`／`scope-check` | （空 spec ＝ **拒絕所有旗標**）                                                                                                                   |
+| 工具                                                       | 旗標                                                                                                                                              |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supply-chain`                                             | `--update` `--capture` `--capture-health` `--recapture-safe` `--manifest` `--dossier` `--airgap` `--split-lockfile <目錄>` `--verify-sbom <檔案>` |
+| `compliance`                                               | `--file <路徑>` `--evidence` `--update`                                                                                                           |
+| `api-surface`                                              | `--baseline` `--update` `--platform`                                                                                                              |
+| `exit-drill`                                               | `--full` `--require-fresh`                                                                                                                        |
+| `conformance`                                              | `--root`                                                                                                                                          |
+| `pii-check`                                                | `--root`                                                                                                                                          |
+| `theme-verify`                                             | `--root`                                                                                                                                          |
+| `spec-report`                                              | `--check`                                                                                                                                         |
+| `csp-verify`                                               | `--print-probe`                                                                                                                                   |
+| `gate-roster`／`doc-facts`／`promise-check`／`scope-check` | （空 spec ＝ **拒絕所有旗標**）                                                                                                                   |
 
 ⚠️ **這張表是手抄的，也就是會過期** —— 它是接下一支時的起點，不是事實來源。
 真正的來源是上面那四個地方。
@@ -86,7 +85,7 @@ parseFlags(argv, spec): { ok: true; flags } | { ok: false; message }
 ⚠️ **而「全部接上了」這件事只有一半有絆線在守。**
 `tests/adoption.test.ts` 的名冊是從 `scripts.gate` ＋ `scripts.ready` **推導**的
 （不是寫死清單），所以閘門鏈上那 12 支少一支就會紅。
-**`scope-check`／`csp-verify`／`ui-survey` 不在那條鏈上**（名冊的 `UNGATED`），
+**`scope-check`／`csp-verify` 不在那條鏈上**（名冊的 `UNGATED`），
 它們的那幾行沒有東西在守 —— 拿掉不會有人說話。
 ⚠️ 那不是「所以不重要」：它是這條絆線寫明的射程邊界。
 

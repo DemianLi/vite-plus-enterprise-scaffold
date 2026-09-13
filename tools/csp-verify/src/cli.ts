@@ -34,7 +34,8 @@ import { parseFlags } from "@org/gate-kit";
  *
  * 驗得到：載入、渲染、以及你在瀏覽器裡實際點過的互動路徑。
  * **驗不到沒被點到的元件** —— UiDialog 的 violation 只有在對話框真的打開時
- * 才會出現。`tools/ui-survey --csp` 的靜態探測與這支是互補的，不是重複的。
+ * 才會出現。靜態那一半（`platform/ui/tests/base-ui-no-style.test.ts`，C244 之前是
+ * `tools/ui-survey --csp`）與這支是互補的，不是重複的。
  *
  * ⚠️ 需要先建置：`vp run -F @org/console build`。
  *

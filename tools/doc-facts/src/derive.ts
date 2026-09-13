@@ -107,14 +107,14 @@ export function workspacePackageCount(root: string): number {
  * ⚠️ **不退回去掃磁碟。** 讀不到 git 就丟例外，理由同 `scope-check`：
  * 有 fallback 的話，「今天走的是哪一條」就沒有人知道了。
  *
- * ⚠️ 數的是 `.vue` 檔，不是 `index.ts` 的 export 數 —— 兩者不相等
+ * ⚠️ 數的是 `.tsx` 檔（C244 之前是 `.vue`），不是 `index.ts` 的 export 數 —— 兩者不相等
  *（`index.ts` 還匯出 `cn`、`createUiTheme` 與一堆型別），而句子講的是元件。
  * 「元件有沒有被匯出」是另一條規則，由 `platform/ui/tests` 的契約測試守。
  */
 export function uiComponentCount(root: string): number {
   const directory = "platform/ui/src/components";
   // ⚠️ `-z`：不加的話含非 ASCII 的路徑會被 git 加引號並八進位轉義，
-  //    數出來的 `.vue` 數會少掉那些檔案（C112）。NUL 分隔完全不轉義。
+  //    數出來的元件數會少掉那些檔案（C112）。NUL 分隔完全不轉義。
   const result = spawnSync("git", ["ls-files", "-z", "--", `${directory}/`], {
     cwd: root,
     encoding: "utf8",
@@ -129,7 +129,7 @@ export function uiComponentCount(root: string): number {
     );
   }
 
-  return result.stdout.split("\0").filter((path) => path.endsWith(".vue")).length;
+  return result.stdout.split("\0").filter((path) => path.endsWith(".tsx")).length;
 }
 
 const USES = /^\s*-?\s*uses:\s*(\S+)/gm;

@@ -41,7 +41,7 @@
 - **1.4.1 顏色的使用（A）** 開發期**擋不掉**，而且是量出來的：axe 的對應規則 `link-in-text-block` 在模擬 DOM（happy-dom）下落在 `incomplete` —— 規則跑了但判定不了。天真的 `expect(violations).toHaveLength(0)` 會在這種情況下亮綠燈，也就是「什麼都沒檢查」與「沒有問題」印出來一樣。
 - **1.4.3 對比（最低）（AA）** 文字至少 4.5:1、大尺寸文字至少 3:1。開發期**擋不掉**：axe 的 `color-contrast` 需要 computed style 與文字節點幾何，而模擬 DOM 沒有排版。實測 happy-dom 有 `document.createRange()`，但 `getBoundingClientRect()` 回傳全零 —— **API 在、數字是假的**，這比直接沒有更難察覺。實測一段對比 1.1:1 的文字：落在 `incomplete`，不是 `violations`。
 - **2.4.3 焦點順序（A）** ⚠️ **這一條連 Freego 都判定不了，是人工檢測項目。** 開發期只擋得到最粗的那一種：正 tabindex（`vuejs-accessibility/tabindex-no-positive`、`.tsx` 那一軌的 `jsx-a11y/tabindex-no-positive`）。真正的失效方式 ——「DOM 順序與視覺順序不一致」「對話框的焦點沒有真的鎖住」—— 需要真瀏覽器跑鍵盤，**任何靜態或模擬 DOM 的做法都買不到**。
-- **2.4.6 標題和標籤（AA）** 標籤那一半開發期擋得到（`.vue`：`form-control-has-label`、`label-has-for`、`heading-has-content`；`.tsx`：`label-has-associated-control`、`control-has-associated-label`、`heading-has-content`）。**標題階層那一半擋不到**：階層是頁面級性質，而開發期的檢查單位是元件與畫面 —— 實測 repo 裡每個畫面只有一個 `<h1>`，axe 的 `heading-order` 掃孤立畫面時永遠不適用。
+- **2.4.6 標題和標籤（AA）** 標籤那一半開發期擋得到（`label-has-associated-control`、`control-has-associated-label`、`heading-has-content`）。**標題階層那一半擋不到**：階層是頁面級性質，而開發期的檢查單位是元件與畫面 —— 實測 repo 裡每個畫面只有一個 `<h1>`，axe 的 `heading-order` 掃孤立畫面時永遠不適用。
 
 ## 開發期的前置過濾器實際檢查什麼
 
@@ -53,12 +53,11 @@
 
 每一軌只在它自己的範圍上跑 —— 規則名的前綴就是它屬於哪一軌：
 
-| 範圍（files） | 規則前綴              | 套件                                | 規則數 |
-| ------------- | --------------------- | ----------------------------------- | ------ |
-| `**/*.vue`    | `vuejs-accessibility` | `eslint-plugin-vuejs-accessibility` | 23     |
-| `**/*.tsx`    | `jsx-a11y`            | `eslint-plugin-jsx-a11y-x`          | 36     |
+| 範圍（files） | 規則前綴   | 套件                       | 規則數 |
+| ------------- | ---------- | -------------------------- | ------ |
+| `**/*.tsx`    | `jsx-a11y` | `eslint-plugin-jsx-a11y-x` | 36     |
 
-共 59 條：
+共 36 條：
 
 - `jsx-a11y/alt-text`
 - `jsx-a11y/anchor-ambiguous-text`
@@ -96,37 +95,13 @@
 - `jsx-a11y/role-supports-aria-props`
 - `jsx-a11y/scope`
 - `jsx-a11y/tabindex-no-positive`
-- `vuejs-accessibility/alt-text`
-- `vuejs-accessibility/anchor-has-content`
-- `vuejs-accessibility/aria-props`
-- `vuejs-accessibility/aria-role`
-- `vuejs-accessibility/aria-unsupported-elements`
-- `vuejs-accessibility/click-events-have-key-events`
-- `vuejs-accessibility/form-control-has-label`
-- `vuejs-accessibility/heading-has-content`
-- `vuejs-accessibility/iframe-has-title`
-- `vuejs-accessibility/interactive-supports-focus`
-- `vuejs-accessibility/label-has-for`
-- `vuejs-accessibility/media-has-caption`
-- `vuejs-accessibility/mouse-events-have-key-events`
-- `vuejs-accessibility/no-access-key`
-- `vuejs-accessibility/no-aria-hidden-on-focusable`
-- `vuejs-accessibility/no-autofocus`
-- `vuejs-accessibility/no-distracting-elements`
-- `vuejs-accessibility/no-onchange`
-- `vuejs-accessibility/no-redundant-roles`
-- `vuejs-accessibility/no-role-presentation-on-focusable`
-- `vuejs-accessibility/no-static-element-interactions`
-- `vuejs-accessibility/role-has-required-aria-props`
-- `vuejs-accessibility/tabindex-no-positive`
 
 ## 哪些規則在哪些路徑被覆寫
 
-| 規則                                         | 範圍（files）                                                                                                                | 設定  |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----- |
-| `jsx-a11y/control-has-associated-label`      | `platform/ui/src/components/**/*.tsx`                                                                                        | `off` |
-| `jsx-a11y/prefer-tag-over-role`              | `platform/ui/src/components/UiAlert.tsx, platform/ui/src/components/UiSeparator.tsx, features/order/src/views/OrderList.tsx` | `off` |
-| `vuejs-accessibility/form-control-has-label` | `platform/ui/src/components/**/*.vue`                                                                                        | `off` |
+| 規則                                    | 範圍（files）                                                                                                                | 設定  |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `jsx-a11y/control-has-associated-label` | `platform/ui/src/components/**/*.tsx`                                                                                        | `off` |
+| `jsx-a11y/prefer-tag-over-role`         | `platform/ui/src/components/UiAlert.tsx, platform/ui/src/components/UiSeparator.tsx, features/order/src/views/OrderList.tsx` | `off` |
 
 理由寫在 `platform/eslint-config/src/a11y.js` 該區塊的註解裡，這裡不抄 —— 抄本會過期。
 

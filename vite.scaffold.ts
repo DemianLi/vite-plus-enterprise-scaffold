@@ -21,7 +21,7 @@
 type Severity = "allow" | "off" | "warn" | "error" | "deny";
 type Rule = Severity | [Severity, ...unknown[]];
 type Rules = Record<string, Rule>;
-type Plugin = "import" | "typescript" | "unicorn" | "oxc" | "vue" | "react" | "promise";
+type Plugin = "import" | "typescript" | "unicorn" | "oxc" | "react" | "promise";
 
 interface Override {
   files: string[];
@@ -34,7 +34,7 @@ export const scaffoldLint: {
   rules: Rules;
   options: { typeAware: boolean; typeCheck: boolean };
 } = {
-  plugins: ["import", "typescript", "unicorn", "oxc", "vue", "react", "promise"],
+  plugins: ["import", "typescript", "unicorn", "oxc", "react", "promise"],
 
   rules: {
     // D11 — CSP 無 unsafe-eval 的前提：執行期不得有任何 eval 語意。
@@ -44,8 +44,8 @@ export const scaffoldLint: {
     "import/no-cycle": "error",
 
     // React 那一套用 oxlint 內建的，不另裝 eslint-plugin-react-hooks（C241，Q94）。
-    // `no-danger` 是 `vue/no-v-html` 的對應：Vue 那條住在 Tier 2 ESLint，是因為 oxlint
-    // 沒有它；React 這條 oxlint 有，所以不必為它另開一軌。
+    // `no-danger` 是 Vue 版 `vue/no-v-html` 的對應：Vue 那條住在 Tier 2 ESLint，是因為 oxlint
+    // 沒有它（C244 隨 `.vue` 退場）；React 這條 oxlint 有，所以不必為它另開一軌。
     // ⚠️ 開了 `react` 外掛，它 correctness 類的規則會以 warning 一起生效 —— 那是外掛的
     // 預設，不是這裡點名的；擋 PR 的只有下面四條。
     // ⚠️ hook 那兩條寫 `react/` 不寫 `react-hooks/`：後者 oxlint 也收，但 `--print-config`
@@ -133,16 +133,12 @@ export const scaffoldOverrides: Override[] = [
     rules: {
       "max-lines-per-function": ["error", { max: 185 }],
       "max-depth": ["error", { max: 5 }],
-      "max-params": ["error", { max: 6 }],
+      "max-params": ["error", { max: 5 }],
       complexity: ["error", { max: 39 }],
 
-      // ⚠️ `<script setup>` 的 module 層在上面四條裡**一行都看不見**（只有
-      // max-depth 例外，它不限函式）。platform/ui 的 24 個零函式 .vue、
-      // 合計 1992 行 script，在四維分佈裡是 0 —— 表上乾淨是因為量不到，
-      // 不是因為程式碼乾淨（#129 §六）。這條把「參數個數」換成 props 補回
-      // 一格；區塊行數那一格 oxlint 沒有對應規則（vue/max-lines-per-block
-      // 不存在），仍然空著。
-      "vue/max-props": ["error", { maxProps: 5 }],
+      // ⚠️ C244 之前這裡還有一格 `vue/max-props`：`<script setup>` 的 module 層在上面四條裡
+      // 一行都看不見，那一格用 props 個數補回來（#129 §六）。元件換成函式之後四維量得到了，
+      // 而「props 個數」oxlint 沒有 React 的對應規則 —— **那一格空著**（Q100）。
     },
   },
   {
@@ -152,7 +148,7 @@ export const scaffoldOverrides: Override[] = [
     // 數字」。這裡不是為了寬鬆才分 —— 兩類的形狀差法不只一種：
     // 測試碼在巢狀深度與循環複雜度上比產品碼**乾淨得多**（89% 的
     // 測試函式 depth 0），但在函式大小上有一條產品碼沒有的長尾
-    // （describe／it 的 callback，最大 455 行）。用同一組數字，
+    // （describe／it 的 callback，最大 219 行；C244 之前是 455，那一支隨 Vue 退場）。用同一組數字，
     // 會在一個維度太鬆、另一個維度把人卡死。
     //
     // ⚠️ 這一條的 files 若寫錯，症狀是**測試碼安靜地套用產品碼門檻**，
@@ -173,11 +169,10 @@ export const scaffoldOverrides: Override[] = [
       // `tools/bff-check/tests/negative.test.ts` 起一台 mock 伺服器，
       // 而那個 handler 是這棵樹上最複雜的測試函式。它在 `release/v1`
       // 上不存在，所以 11 那個數字從來沒有量過它。
-      "max-lines-per-function": ["error", { max: 455 }],
+      "max-lines-per-function": ["error", { max: 219 }],
       "max-depth": ["error", { max: 3 }],
       "max-params": ["error", { max: 4 }],
       complexity: ["error", { max: 15 }],
-      "vue/max-props": ["error", { maxProps: 2 }],
     },
   },
   {

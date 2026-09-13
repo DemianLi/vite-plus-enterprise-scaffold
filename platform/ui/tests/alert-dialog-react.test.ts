@@ -89,7 +89,7 @@ describe("UiAlertDialog（React）", () => {
     expect(content.getAttribute("role")).toBe("alertdialog");
   });
 
-  it("標題與說明真的被 aria 接上（代理，同 Vue 版那一條的說明）", async () => {
+  it("標題與說明真的被 aria 接上（代理）", async () => {
     const content = await openDialog();
     const title = document.getElementById(content.getAttribute("aria-labelledby") ?? "");
     const description = document.getElementById(content.getAttribute("aria-describedby") ?? "");
@@ -172,7 +172,7 @@ describe("UiAlertDialog（React）", () => {
     expect(closes(onOpenChange)).toEqual([false]);
   });
 
-  it("confirmVariant 預設是 danger，不是 primary（對照組寫法，同 Vue 版）", async () => {
+  it("confirmVariant 預設是 danger，不是 primary（對照組寫法）", async () => {
     const byDefault = button(await openDialog(), "刪除").className;
     cleanup();
     const asPrimary = button(await openDialog({ confirmVariant: "primary" }), "刪除").className;

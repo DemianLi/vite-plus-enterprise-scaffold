@@ -178,7 +178,7 @@ describe("UiField 包 UiSelect：`control` 落到觸發鈕上（C101 的 React �
 describe("UiField 包 UiDatePicker：`control` 落到按鈕上（C238）", () => {
   /**
    * Vue 版接不起來：`DatePickerRoot` 不渲染元素，屬性落在它身上就消失，所以 `field` 那三條
-   * `aria-invalid:*` 從落地起就是死的（`UiField.vue` 檔頭）。React 版是一顆按鈕，這一組量它接上了。
+   * `aria-invalid:*` 從落地起就是死的（Vue 版 `UiField` 的檔頭，C236）。React 版是一顆按鈕，這一組量它接上了。
    */
   function dateField(props: Props): HTMLElement {
     const { container } = render(

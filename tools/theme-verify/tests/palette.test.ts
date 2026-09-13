@@ -231,7 +231,7 @@ describe("第三類的兩份資料", () => {
     //
     // 這條與上面「翻譯目標真的存在」同一個形狀（C97 §三之二），
     // 而它差一點沒有被寫下來：驗了 `VARIANTS` 在，沒驗 `secondary` 在裡面。
-    const button = readFileSync(join(ROOT, "platform/ui/src/components/UiButton.vue"), "utf8");
+    const button = readFileSync(join(ROOT, "platform/ui/src/components/UiButton.tsx"), "utf8");
     const table = /const VARIANTS: [^=]*= \{([\s\S]*?)\n\};/.exec(button);
     expect(table).not.toBeNull();
     expect(table?.[1]).toContain("secondary:");

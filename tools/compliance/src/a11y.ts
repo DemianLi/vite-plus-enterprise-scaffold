@@ -126,8 +126,7 @@ export const CRITERIA: readonly Criterion[] = [
     preFilter: "partial",
     gates: ["a11y-lint"],
     note:
-      "標籤那一半開發期擋得到（`.vue`：`form-control-has-label`、`label-has-for`、" +
-      "`heading-has-content`；`.tsx`：`label-has-associated-control`、" +
+      "標籤那一半開發期擋得到（`label-has-associated-control`、" +
       "`control-has-associated-label`、`heading-has-content`）。" +
       "**標題階層那一半擋不到**：階層是頁面級性質，" +
       "而開發期的檢查單位是元件與畫面 —— 實測 repo 裡每個畫面只有一個 `<h1>`，" +

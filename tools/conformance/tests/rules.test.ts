@@ -294,9 +294,10 @@ describe("要一棵目錄樹，但仍然不用起行程", () => {
     ]);
   });
 
-  it("★ 從 @org/ui/react 取元件也算用過 —— Q57 的 React 入口是同一個設計系統（C240）", () => {
+  it("★ 從 @org/ui 的子路徑取也算用過 —— 比的是套件不是整串（C240）", () => {
+    // C240 當時的子路徑是 Q57 的 React 入口（C244 收回）；比整串的話三片切片全被判成沒用。
     const root = tree({
-      "features/order/src/views/OrderList.tsx": 'import { UiButton } from "@org/ui/react";\n',
+      "features/order/src/views/OrderList.tsx": 'import { UiButton } from "@org/ui/extra";\n',
     });
     expect(checkDesignSystemAdoption(join(root, "features/order"), SLICE)).toEqual([]);
   });

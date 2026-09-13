@@ -151,9 +151,10 @@ const BARE_VAR = /var\(\s*(--[a-z0-9-]+)\s*\)/g;
  * ── 為什麼需要這一格，以及為什麼理由是必填的字串 ────────────────────
  *
  * 這道檢查的模型原本是「我們的 CSS 宣告，我們的 CSS 引用」。`UiSelect`
- * 打破它：reka-ui 的 `SelectContent`（`position="popper"`）會把觸發器的寬度
- * 用 **inline style** 寫進 `--reka-select-trigger-width`，好讓下拉面板跟觸發器
- * 一樣寬。那個變數在建置產物裡當然找不到 —— 它在瀏覽器裡才存在。
+ * 打破它：Base UI 的 `Select.Positioner` 會把觸發器的寬度用 **inline style**
+ * 寫進 `--anchor-width`，好讓下拉面板跟觸發器一樣寬。那個變數在建置產物裡當然
+ * 找不到 —— 它在瀏覽器裡才存在。（Vue 版是 reka-ui 的 `--reka-select-trigger-width`，
+ * 那一列 C244 隨 reka-ui 退場，是下面「死掉的那一筆」檢查自己抓出來的。）
  *
  * ⚠️ **這不是一個「例外清單」，兩者的差別是失敗輪廓。** 一個布林開關
  * （或一句 `// eslint-disable`）的下一個使用者只會照抄；一個**必填的字串**
@@ -161,16 +162,13 @@ const BARE_VAR = /var\(\s*(--[a-z0-9-]+)\s*\)/g;
  * silence 一個真的缺陷（C41）。
  *
  * 判準：**只有「我們無法宣告、而且宣告了反而是錯的」才進這裡。**
- * 把 `--reka-select-trigger-width` 寫進 `@theme` 會產生一個永遠被 inline
- * style 蓋掉的死代幣 —— 那比不宣告更糟，因為它看起來像可以調。
+ * 把 `--anchor-width` 寫進 `@theme` 會產生一個永遠被 inline style 蓋掉的
+ * 死代幣 —— 那比不宣告更糟，因為它看起來像可以調。
  */
 export const RUNTIME_PROVIDED: Readonly<Record<string, string>> = {
-  "--reka-select-trigger-width":
-    'reka-ui 的 SelectContent（position="popper"）在開啟時以 inline style 寫入觸發器寬度，' +
-    "讓下拉面板與觸發器等寬。宣告在 @theme 裡會變成一個永遠被蓋掉的死代幣。",
   "--anchor-width":
-    "Base UI 的 Select.Positioner 在開啟時以 inline style 寫入觸發器寬度（React 版 UiSelect，C237 Q69），" +
-    "與上一列同一個用途。宣告在 @theme 裡會變成一個永遠被蓋掉的死代幣。",
+    "Base UI 的 Select.Positioner 在開啟時以 inline style 寫入觸發器寬度（UiSelect，C237 Q69），" +
+    "讓下拉面板與觸發器等寬。宣告在 @theme 裡會變成一個永遠被蓋掉的死代幣。",
 };
 
 /**

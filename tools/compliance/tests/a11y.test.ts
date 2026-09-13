@@ -114,10 +114,14 @@ describe("前置過濾器的規則清單是推導的，不是抄的", () => {
   /**
    * #297 的判法（第一個 rules 區塊是清單、其餘都是覆寫）在 `.tsx` 那一軌加進來那天
    * 會把整軌印成覆寫（C234）。這條問的是那個結果：**沒有任何一軌的規則出現在覆寫表裡。**
+   *
+   * ⚠️ C244 起只剩一軌（`.vue` 那一軌隨 Vue 退場），「第二軌被誤判」的前提暫時不存在；
+   * 前置條件因此從「多於一軌」改成「至少一軌」。判法本身沒動 —— 哪天加回第二軌，
+   * 下面那條 `every` 照樣接得住。
    */
   it("🔴 整軌不會被當成覆寫 —— 覆寫表裡的每一列都不是某一軌的全開設定", () => {
     const tracks = languageTracks();
-    expect(tracks.length).toBeGreaterThan(1);
+    expect(tracks.length).toBeGreaterThan(0);
     expect(scopedOverrides().every((override) => override.setting !== '"error"')).toBe(true);
   });
 });

@@ -116,17 +116,19 @@ describe("懸空引用", () => {
   });
 
   it("★ 第三方在執行期設的那幾個放行", () => {
-    // reka-ui 的 SelectContent 用 inline style 寫 --reka-select-trigger-width，
+    // Base UI 的 Select.Positioner 用 inline style 寫 --anchor-width，
     // 所以它永遠不在建置產物裡。見 css.ts 的 RUNTIME_PROVIDED。
-    expect(names(".x{min-width:var(--reka-select-trigger-width)}")).toEqual([]);
+    expect(names(".x{min-width:var(--anchor-width)}")).toEqual([]);
   });
 
   it("🔴 沒登記的第三方變數**仍然要紅** —— 這個出口是窄的", () => {
     // 這一條才是上面那條的價值所在。放行清單如果會自己長大
-    //（例如「--reka-* 開頭一律放行」），那 reka-ui 那邊改名或我們打錯字
+    //（例如「--anchor-* 開頭一律放行」），那 Base UI 那邊改名或我們打錯字
     // 就再也不會紅了 —— 而那正是這道檢查存在的理由。
-    expect(names(".x{width:var(--reka-select-trigger-height)}")).toEqual([
-      "--reka-select-trigger-height",
+    // ⚠️ 已經拿掉的那一筆也要紅：C244 之前放行的 reka-ui 變數，登記表拿掉後不得偷偷還在。
+    expect(names(".x{width:var(--anchor-height)}")).toEqual(["--anchor-height"]);
+    expect(names(".x{width:var(--reka-select-trigger-width)}")).toEqual([
+      "--reka-select-trigger-width",
     ]);
   });
 
@@ -164,7 +166,7 @@ describe("懸空引用", () => {
      */
     const dir = join(import.meta.dirname, "../../../platform/ui/src/components");
     const sources = readdirSync(dir)
-      .filter((name) => name.endsWith(".vue") || name.endsWith(".tsx"))
+      .filter((name) => name.endsWith(".tsx"))
       .map((name) => readFileSync(join(dir, name), "utf8"))
       .join("\n");
 

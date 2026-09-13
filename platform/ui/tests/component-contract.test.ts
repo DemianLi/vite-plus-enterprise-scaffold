@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { createUiTheme } from "../src/theme.ts";
+import { createUiTheme } from "../src/theme-context.tsx";
+import { checkedOverride } from "../src/theme.ts";
 import {
   aliasesUsedInProps,
   componentExports,
@@ -10,15 +11,11 @@ import {
   declaredSlotTypes,
   defaultSlotKeys,
   defaultTablesInTemplate,
-  definePropsBlock,
   exportedTypeNames,
+  propsBlock,
   propUnionMembers,
-  reactComponentExports,
-  reactPropsBlock,
-  reactStringDefaults,
   resolveUnion,
   stringDefaults,
-  type ComponentKind,
 } from "./contract.ts";
 
 /**
@@ -26,18 +23,16 @@ import {
  *
  * ── 這支測試取代了什麼 ──────────────────────────────────────────────
  *
- * 前一版是 `theme.test.ts`，它 `readFileSync("src/components/UiButton.vue")`
+ * 前一版是 `theme.test.ts`，它讀 `src/components/UiButton` 那一支檔
  * —— **寫死一個檔名**。於是它守的不是一條規則，是一個檔案：`UiDialog` 從落地
  * 那天就缺「形狀」那條軸（寬度與位置寫死在模板裡，任何案子都換不掉），
  * 而那支測試一個字都沒說，因為它根本沒讀那個檔案。
  *
- * 現在掃目錄。第三個元件加進來時，它會被同一組條文檢查。
+ * 現在掃目錄。下一個元件加進來時，它會被同一組條文檢查。
  *
  * ── 為什麼是讀原始碼比對，不是型別層的等式 ──────────────────────────
  *
- * 實測過：**`vp check` 對 `.vue` 不做型別檢查**（`const broken: number = "字串"`
- * 在 SFC 裡是零錯誤）。所以 SFC 裡的型別斷言是裝飾品。`tools/vue-typecheck`
- * 補上了那個缺口，但它驗的是「型別對不對」，不是「慣例有沒有被遵守」——
+ * 型別檢查驗的是「型別對不對」，不是「慣例有沒有被遵守」——
  * 一個沒有接縫的元件型別完全正確。
  */
 
@@ -46,20 +41,13 @@ const COMPONENTS_DIR = join(PACKAGE_ROOT, "src/components");
 
 const THEME = readFileSync(join(PACKAGE_ROOT, "src/theme.ts"), "utf8");
 const INDEX = readFileSync(join(PACKAGE_ROOT, "src/index.ts"), "utf8");
-const REACT_ENTRY = readFileSync(join(PACKAGE_ROOT, "src/react.ts"), "utf8");
 
-/**
- * 元件清單從**檔案系統**推導，不是寫死（A1）。
- *
- * 遷移期間（C232 §六 ②–④）同一個目錄裡 `.vue` 與 `.tsx` 並存，同一組條文套在兩者上；
- * 各條文依 `kind` 取該框架的寫法（C235）。只掃 `.vue` 的話，React 那一半會零執行然後全綠。
- */
+/** 元件清單從**檔案系統**推導，不是寫死（A1）。 */
 const COMPONENTS = readdirSync(COMPONENTS_DIR)
-  .filter((name) => name.endsWith(".vue") || name.endsWith(".tsx"))
+  .filter((name) => name.endsWith(".tsx"))
   .map((name) => ({
-    name: name.replace(/\.(?:vue|tsx)$/, ""),
+    name: name.replace(/\.tsx$/, ""),
     file: name,
-    kind: (name.endsWith(".tsx") ? "react" : "vue") as ComponentKind,
     source: readFileSync(join(COMPONENTS_DIR, name), "utf8"),
   }));
 
@@ -74,19 +62,12 @@ describe("元件契約", () => {
    * 安靜失效的方式就是這個。
    */
   it("★ 至少掃到兩個元件", () => {
-    expect(COMPONENTS.filter(({ kind }) => kind === "vue").length).toBeGreaterThanOrEqual(2);
+    expect(COMPONENTS.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("★ React 那一半也掃到了", () => {
-    // 門檻與 Vue 那一條相同（C236）。C235 原訂「27 支到齊後」才改，但這一條防的是
-    // 「零支」而不是「少幾支」，② 之二已經有 22 支，沒有理由再留一個比較寬的門檻。
-    expect(COMPONENTS.filter(({ kind }) => kind === "react").length).toBeGreaterThanOrEqual(2);
-  });
-
-  describe.each(COMPONENTS)("$file", ({ name, kind, source }) => {
-    it("① 被自己那個入口以同名匯出（Vue → index.ts、React → react.ts）", () => {
-      const exported =
-        kind === "react" ? reactComponentExports(REACT_ENTRY) : componentExports(INDEX);
+  describe.each(COMPONENTS)("$file", ({ name, source }) => {
+    it("① 被 index.ts 以同名匯出", () => {
+      const exported = componentExports(INDEX);
       expect(exported.map((entry) => entry.file)).toContain(name);
       expect(exported.find((entry) => entry.file === name)?.exportedAs).toBe(name);
     });
@@ -104,29 +85,24 @@ describe("元件契約", () => {
     });
 
     it("③ 元件真的讀了自己的那一格", () => {
-      // 宣告了槽、寫好預設表，但從頭到尾沒有 inject —— 型別全對、測試全綠，
+      // 宣告了槽、寫好預設表，但從頭到尾沒有讀 useUiTheme() —— 型別全對、測試全綠，
       // 而各案的覆寫一個字都不會生效。這是最安靜的一種壞法。
       expect(sorted(consumedOverrides(source))).toContain(name);
     });
 
     it("④ props 的 union 是字面值，不是型別別名", () => {
-      const props = kind === "react" ? reactPropsBlock(source) : definePropsBlock(source);
-      if (props === null) return;
-      expect(aliasesUsedInProps(props, exportedTypeNames(THEME))).toEqual([]);
+      expect(aliasesUsedInProps(propsBlock(source), exportedTypeNames(THEME))).toEqual([]);
     });
 
     it("⑤ 模板不得直接引用預設表", () => {
       // 接縫還在、只是沒接上 —— 打錯一個名字，前面每一條都還是綠的，
       // 而各案的覆寫一個字都不會生效。
-      expect(defaultTablesInTemplate(source, kind)).toEqual([]);
+      expect(defaultTablesInTemplate(source)).toEqual([]);
     });
 
     it("預設值必須是該 prop 的 union 成員之一", () => {
-      const props = kind === "react" ? reactPropsBlock(source) : definePropsBlock(source);
-      if (props === null) return;
-
-      const defaults = kind === "react" ? reactStringDefaults(source) : stringDefaults(source);
-      for (const [prop, value] of defaults) {
+      const props = propsBlock(source);
+      for (const [prop, value] of stringDefaults(source)) {
         const members = propUnionMembers(props, prop);
         // 沒有 union 的 prop（`type?: "button" | …` 以外的自由字串）跳過 ——
         // 這一條問的是「預設值在不在清單裡」，不是「每個 prop 都要有清單」。
@@ -153,13 +129,20 @@ export type UiThemeOverride = {
 `;
 
   it("① 元件沒有被 index.ts 匯出", () => {
-    const index = `export { default as UiButton } from "./components/UiButton.vue";`;
+    const index = `export { UiButton } from "./components/UiButton.tsx";`;
     expect(componentExports(index).map((entry) => entry.file)).not.toContain("UiDialog");
   });
 
   it("① 匯出名與檔名不一致", () => {
-    const index = `export { default as Dialog } from "./components/UiDialog.vue";`;
+    const index = `export { Dialog } from "./components/UiDialog.tsx";`;
     expect(componentExports(index)[0]?.exportedAs).not.toBe("UiDialog");
+  });
+
+  it("① 換了匯出的寫法是零筆 —— 每一支元件都會紅，不是恆真", () => {
+    // C244 收回入口前 index.ts 是 `export { default as X } from "….vue"`。
+    // 樣式與入口對不上時要全紅，而不是讓 ① 安靜地對空清單比對。
+    const drifted = `export { default as UiButton } from "./components/UiButton.tsx";`;
+    expect(componentExports(drifted)).toEqual([]);
   });
 
   it("② UiThemeOverride 裡沒有那一格", () => {
@@ -190,7 +173,7 @@ const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = {
     );
   });
 
-  it("③ 元件沒有 inject —— 覆寫不會生效", () => {
+  it("③ 元件沒有讀覆寫 —— 覆寫不會生效", () => {
     const component = `
 const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };
 const parts = DEFAULT_PARTS;
@@ -224,74 +207,13 @@ const parts = DEFAULT_PARTS;
     expect(() => resolveUnion("export type UiEmptySlot = ;", "UiEmptySlot")).toThrow("恆真");
   });
 
-  it("④ props 寫成型別別名", () => {
-    const props = definePropsBlock(`defineProps<{
-  slot?: UiFakeSlot;
-}>()`);
-    expect(aliasesUsedInProps(props as string, exportedTypeNames(FAKE_THEME))).toEqual([
-      "UiFakeSlot",
-    ]);
-  });
-
-  it("④ 註解裡提到別名不算違規", () => {
-    // `UiButton` 的 docblock 就在解釋為什麼不能寫成 UiVariant 別名。
-    // 抓到它的話，這條規則會在「解釋自己」的句子上紅，然後被關掉。
-    const props = definePropsBlock(`defineProps<{
-  /** 不要寫成 UiFakeSlot，理由見 theme.ts。 */
-  variant?: "a" | "b";
-}>()`);
-    expect(aliasesUsedInProps(props as string, exportedTypeNames(FAKE_THEME))).toEqual([]);
-  });
-
-  it("預設值打錯字", () => {
-    const props = `
-  variant?: "primary" | "secondary";
-`;
-    expect(propUnionMembers(props, "variant")).not.toContain("secondry");
-  });
-
-  it("⑤ 模板綁到預設表 —— 接縫還在、只是沒接上", () => {
-    // 這是打錯一個名字的情形，而前面每一條都還是綠的：`parts` 仍然被算出來、
-    // `DEFAULT_PARTS` 仍然有全部的鍵、`UiThemeOverride` 仍然宣告著那個槽。
-    const broken = `<script setup lang="ts">
-const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };
-const parts: Readonly<Record<UiFakeSlot, string>> = { a: theme.UiFake?.a ?? DEFAULT_PARTS.a, b: theme.UiFake?.b ?? DEFAULT_PARTS.b };
-</script>
-
-<template>
-  <div :class="DEFAULT_PARTS.a" />
-</template>`;
-    expect(defaultTablesInTemplate(broken)).toEqual(["DEFAULT_PARTS"]);
-  });
-
-  it("⑤ 綁到解析後的表是對的，不該紅", () => {
-    // 兩張表的型別註記一模一樣，靠「有沒有讀 theme.」分辨 ——
-    // 靠命名慣例分辨等於沒有分辨。
-    const fine = `<script setup lang="ts">
-const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };
-const parts: Readonly<Record<UiFakeSlot, string>> = { a: theme.UiFake?.a ?? DEFAULT_PARTS.a, b: theme.UiFake?.b ?? DEFAULT_PARTS.b };
-</script>
-
-<template>
-  <div :class="parts.a" />
-</template>`;
-    expect(defaultTablesInTemplate(fine)).toEqual([]);
-  });
-
   it("★ 錨點移位要丟例外，不是回傳空集合", () => {
     // 空集合對空集合是相等的 —— 錨點改名之後這一整組斷言會安靜地變成恆真。
     expect(() => declaredSlotTypes("export type Something = {};")).toThrow(/找不到區塊起點/);
     expect(() => resolveUnion(FAKE_THEME, "UiNotThere")).toThrow(/找不到區塊起點/);
   });
 
-  it("① React 元件沒有被 react.ts 匯出，而 Vue 的條文不認 .tsx 那一行", () => {
-    // 分成兩支判定函式的理由：index.ts 誤轉出一支 React 元件時，Vue 那一條不能把它當成合法。
-    const entry = `export { UiButton } from "./components/UiButton.tsx";`;
-    expect(reactComponentExports(entry).map((e) => e.file)).not.toContain("UiDialog");
-    expect(componentExports(entry)).toEqual([]);
-  });
-
-  it("④ React 的 props 寫成型別別名", () => {
+  it("④ props 寫成型別別名", () => {
     const component = `export function UiFake({
   slot = "a",
 }: {
@@ -299,12 +221,26 @@ const parts: Readonly<Record<UiFakeSlot, string>> = { a: theme.UiFake?.a ?? DEFA
 }): ReactNode {
   return (<div />);
 }`;
-    expect(aliasesUsedInProps(reactPropsBlock(component), exportedTypeNames(FAKE_THEME))).toEqual([
+    expect(aliasesUsedInProps(propsBlock(component), exportedTypeNames(FAKE_THEME))).toEqual([
       "UiFakeSlot",
     ]);
   });
 
-  it("React 的預設值打錯字", () => {
+  it("④ 註解裡提到別名不算違規", () => {
+    // `UiButton` 的 docblock 就在解釋為什麼不能寫成 UiVariant 別名。
+    // 抓到它的話，這條規則會在「解釋自己」的句子上紅，然後被關掉。
+    const component = `export function UiFake({
+  variant = "a",
+}: {
+  /** 不要寫成 UiFakeSlot，理由見 theme.ts。 */
+  variant?: "a" | "b";
+}): ReactNode {
+  return (<div />);
+}`;
+    expect(aliasesUsedInProps(propsBlock(component), exportedTypeNames(FAKE_THEME))).toEqual([]);
+  });
+
+  it("預設值打錯字", () => {
     const component = `export function UiFake({
   variant = "secondry",
 }: {
@@ -312,29 +248,42 @@ const parts: Readonly<Record<UiFakeSlot, string>> = { a: theme.UiFake?.a ?? DEFA
 }): ReactNode {
   return (<div />);
 }`;
-    const value = reactStringDefaults(component).get("variant");
+    const value = stringDefaults(component).get("variant");
     expect(value).toBe("secondry");
-    expect(propUnionMembers(reactPropsBlock(component), "variant")).not.toContain(value);
+    expect(propUnionMembers(propsBlock(component), "variant")).not.toContain(value);
   });
 
-  it("⑤ JSX 綁到預設表 —— React 版的同一個一字之差", () => {
+  it("⑤ JSX 綁到預設表 —— 接縫還在、只是沒接上", () => {
+    // 這是打錯一個名字的情形，而前面每一條都還是綠的：`parts` 仍然被算出來、
+    // `DEFAULT_PARTS` 仍然有全部的鍵、`UiThemeOverride` 仍然宣告著那個槽。
     const broken = `export function UiFake(): ReactNode {
   const theme = useUiTheme();
   return (<div className={DEFAULT_PARTS.a} />);
 }
 const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };`;
-    expect(defaultTablesInTemplate(broken, "react")).toEqual(["DEFAULT_PARTS"]);
+    expect(defaultTablesInTemplate(broken)).toEqual(["DEFAULT_PARTS"]);
   });
 
-  it("★ React 元件找不到 props 或 JSX 那一段要丟例外，不是跳過", () => {
-    // Vue 那邊「沒有 defineProps／沒有 template」是合法的；.tsx 沒有這兩段只代表
-    // 慣例漂了，跳過的話 ④ ⑤ 與預設值那一條會一起對它恆真。
+  it("⑤ 綁到解析後的表是對的，不該紅", () => {
+    // 兩張表的型別註記一模一樣，靠「有沒有讀 theme.」分辨 ——
+    // 靠命名慣例分辨等於沒有分辨。
+    const fine = `export function UiFake(): ReactNode {
+  const theme = useUiTheme();
+  const parts: Readonly<Record<UiFakeSlot, string>> = { a: theme.UiFake?.a ?? DEFAULT_PARTS.a, b: theme.UiFake?.b ?? DEFAULT_PARTS.b };
+  return (<div className={parts.a} />);
+}
+const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };`;
+    expect(defaultTablesInTemplate(fine)).toEqual([]);
+  });
+
+  it("★ 找不到 props 或 JSX 那一段要丟例外，不是跳過", () => {
+    // 沒有這兩段只代表慣例漂了，跳過的話 ④ ⑤ 與預設值那一條會一起對它恆真。
     const drifted = `export const UiFake = (props: Props) => <div />;`;
-    expect(() => reactPropsBlock(drifted)).toThrow(/找不到區塊起點/);
-    expect(() => defaultTablesInTemplate(drifted, "react")).toThrow(/找不到區塊起點/);
+    expect(() => propsBlock(drifted)).toThrow(/找不到區塊起點/);
+    expect(() => defaultTablesInTemplate(drifted)).toThrow(/找不到區塊起點/);
   });
 
-  it("★ React 的 props 裡再有一層 `{ … }` 時，切到的是整段而不是第一個 `})` 之前", () => {
+  it("★ props 裡再有一層 `{ … }` 時，切到的是整段而不是第一個 `})` 之前", () => {
     // `UiField` 的 render prop 就是這個形狀。舊的切法停在 `}) => ReactNode`，
     // 後面那個 `variant` 整行不見 —— 而 ④ 與預設值那一條拿切錯的那段去比，照樣綠。
     const component = `export function UiFake({
@@ -346,10 +295,7 @@ const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };`
 }): ReactNode {
   return (<div />);
 }`;
-    expect(propUnionMembers(reactPropsBlock(component), "variant")).toEqual([
-      "primary",
-      "secondary",
-    ]);
+    expect(propUnionMembers(propsBlock(component), "variant")).toEqual(["primary", "secondary"]);
   });
 
   it("★ JSX 裡的箭頭函式含 `);` 時，⑤ 看到的是整段 JSX", () => {
@@ -361,7 +307,7 @@ const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };`
   );
 }
 const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };`;
-    expect(defaultTablesInTemplate(broken, "react")).toEqual(["DEFAULT_PARTS"]);
+    expect(defaultTablesInTemplate(broken)).toEqual(["DEFAULT_PARTS"]);
   });
 
   it("★ 收成一行的 `return <… />;` 也切得到", () => {
@@ -370,7 +316,7 @@ const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };`
   return <div className={DEFAULT_PARTS.a} />;
 }
 const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };`;
-    expect(defaultTablesInTemplate(oneLine, "react")).toEqual(["DEFAULT_PARTS"]);
+    expect(defaultTablesInTemplate(oneLine)).toEqual(["DEFAULT_PARTS"]);
   });
 
   it("★ 別名解析要跟著往下走，不是只認字面值", () => {
@@ -382,7 +328,7 @@ const DEFAULT_PARTS: Readonly<Record<UiFakeSlot, string>> = { a: "x", b: "y" };`
 
 describe("createUiTheme 的兩道防線", () => {
   it("🔴 空的覆寫 → 丟例外", () => {
-    // `.use(createUiTheme({}))` 在 composition root 裡看起來就像設計系統
+    // composition root 裡多包一層 `createUiTheme({})` 看起來就像設計系統
     // 已經被客製了，實際上什麼都沒做。
     expect(() => createUiTheme({})).toThrow(/沒有收到任何覆寫/);
     expect(() => createUiTheme({ UiButton: {} })).toThrow(/沒有收到任何覆寫/);
@@ -395,22 +341,16 @@ describe("createUiTheme 的兩道防線", () => {
     expect(() => createUiTheme({ UiDialog: { overlay: "" } })).toThrow(/UiDialog\.overlay/);
   });
 
-  it("合法的覆寫回傳一個 Vue plugin", () => {
-    const plugin = createUiTheme({ UiDialog: { content: "inset-x-0 bottom-0" } });
-    expect(typeof plugin.install).toBe("function");
+  it("合法的覆寫回傳一個元件", () => {
+    const provider = createUiTheme({ UiDialog: { content: "inset-x-0 bottom-0" } });
+    expect(typeof provider).toBe("function");
   });
 
   it("★ 覆寫物件與每個元件的槽表都要被凍結", () => {
     // ⚠️ 巢狀之後淺凍結已經不夠：它擋得住「換掉整個 UiButton 那一格」，
     // 擋不住 `theme.UiButton.secondary = "…"`，而後者比較可能發生。
-    let captured: unknown;
-    createUiTheme({ UiButton: { ghost: "bg-surface" } }).install?.({
-      provide: (_key: unknown, value: unknown) => {
-        captured = value;
-      },
-    } as never);
-
-    expect(Object.isFrozen(captured)).toBe(true);
-    expect(Object.isFrozen((captured as { UiButton: unknown }).UiButton)).toBe(true);
+    const checked = checkedOverride({ UiButton: { ghost: "bg-surface" } });
+    expect(Object.isFrozen(checked)).toBe(true);
+    expect(Object.isFrozen(checked.UiButton)).toBe(true);
   });
 });

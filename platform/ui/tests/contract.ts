@@ -4,8 +4,8 @@
  * ── 契約是什麼 ──────────────────────────────────────────────────────
  *
  * 「設計稿上的一塊東西 → 元件裡的哪一格」這條對應，在這個 repo 分三軸：
- * **值**走代幣、**形狀**走具名槽、**結構**走 slot。前後兩軸已經有人在守
- * （`tools/theme-verify` 守代幣、`tools/api-surface` 守 slot 宣告與模板一致），
+ * **值**走代幣、**形狀**走具名槽、**結構**走 props 與 children。前後兩軸已經有人在守
+ * （`tools/theme-verify` 守代幣、`tools/api-surface` 守元件的簽章），
  * 中間那一軸在 2026-08-17 之前**沒有** —— 而 `UiDialog` 就是漏掉它的證據：
  * 它的寬度與位置寫死在模板裡，任何案子都換不掉，而沒有任何東西說話。
  *
@@ -34,12 +34,7 @@
  */
 function isComment(line: string): boolean {
   const trimmed = line.trim();
-  return (
-    trimmed.startsWith("*") ||
-    trimmed.startsWith("/*") ||
-    trimmed.startsWith("//") ||
-    trimmed.startsWith("<!--")
-  );
+  return trimmed.startsWith("*") || trimmed.startsWith("/*") || trimmed.startsWith("//");
 }
 
 /** 去掉整行註解。刻意不處理行尾註解 —— 少剔一種只會少擋一次，多剔會吃掉程式碼。 */
@@ -69,7 +64,7 @@ function block(source: string, head: string, close: string): string {
 /**
  * 同 `block()`，但終點是**配對的**那一個括號（C236）。`head` 以 `open` 結尾。
  *
- * ⚠️ React 的兩段用「第一個收尾字串」切會切錯而不是切不到：`UiField` 的 props 裡有
+ * ⚠️ 用「第一個收尾字串」切會切錯而不是切不到：`UiField` 的 props 裡有
  * `children: (control: { … }) => ReactNode`，第一個 `})` 落在它裡面；JSX 裡的箭頭函式
  * `onClick={() => go(n)}` 也可以含 `);`。切錯的那一段照樣是字串，後面的條文拿它去比，
  * **讀起來是綠的** —— 比丟例外難發現得多。
@@ -93,9 +88,9 @@ function balancedBlock(source: string, head: string, open: string, close: string
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface ComponentExport {
-  /** `export { default as UiButton }` 的那個名字。 */
+  /** `export { UiButton }` 的那個名字。 */
   readonly exportedAs: string;
-  /** `./components/UiButton.vue` 的 `UiButton`。 */
+  /** `./components/UiButton.tsx` 的 `UiButton`。 */
   readonly file: string;
 }
 
@@ -103,26 +98,15 @@ export interface ComponentExport {
  * 一個沒有被匯出的元件是**寫了但沒有人用得到**的元件 —— 它不在 `api-surface`
  * 的公開面裡，所以改壞它不會有任何閘門說話，而它仍然會被 Tailwind 的
  * `@source` 掃到、把類別編進產物。症狀是 CSS 變大而畫面沒變。
+ *
+ * ⚠️ 寫法換了就是零筆，而零筆會讓 ① 對每一支元件紅 —— 不是恆真。C244 收回入口時
+ * `index.ts` 從 `export { default as X } from "….vue"` 換成具名的 `.tsx`，
+ * 這支的樣式跟著換；舊樣式對新入口是零筆，① 當場全紅，沒有安靜的那一種。
  */
 export function componentExports(indexSource: string): readonly ComponentExport[] {
   const found: ComponentExport[] = [];
-  const pattern = /export \{ default as (\w+) \} from "\.\/components\/(\w+)\.vue";/g;
-  for (const match of stripComments(indexSource).matchAll(pattern)) {
-    found.push({ exportedAs: match[1] as string, file: match[2] as string });
-  }
-  return found;
-}
-
-/**
- * React 那一半的 ①（C235）：`react.ts` 裡 `export { UiButton } from "./components/UiButton.tsx"`。
- *
- * 分成兩支而不是一支認兩種寫法：Vue 的條文要是意外認得 `.tsx` 那一行，
- * `index.ts` 誤轉出 React 元件就會被當成合法 —— 而 `vue-typecheck` 會對著它紅在別處。
- */
-export function reactComponentExports(reactSource: string): readonly ComponentExport[] {
-  const found: ComponentExport[] = [];
   const pattern = /export \{ (\w+) \} from "\.\/components\/(\w+)\.tsx";/g;
-  for (const match of stripComments(reactSource).matchAll(pattern)) {
+  for (const match of stripComments(indexSource).matchAll(pattern)) {
     found.push({ exportedAs: match[1] as string, file: match[2] as string });
   }
   return found;
@@ -228,7 +212,7 @@ export function resolveUnion(
  * **不是**「表有沒有少一個鍵」—— `Record<X, string>` 是滿的，少一個鍵
  * TypeScript 自己就會擋。買到的是**跨檔案的那一段**：`theme.ts` 的
  * `UiThemeOverride` 宣告了哪些槽，與元件裡真的有表的槽，兩者對不上時
- * 型別完全合法（`theme.UiButton?.[props.variant]` 照樣編得過），
+ * 型別完全合法（`theme.UiButton?.[variant]` 照樣編得過），
  * 而新加的那個槽**靜靜地什麼都不做**。
  *
  * 回傳 Set 而不是陣列：一個元件可以有好幾張同型別的表，重複出現不是違規。
@@ -289,36 +273,10 @@ export function defaultSlotValues(componentSource: string): ReadonlyMap<string, 
 }
 
 /**
- * 預設表（沒讀 `theme.` 的那幾張）的**原文**，空白壓成一格、尾逗號拿掉（C236）。
- *
- * 遷移期間（C232 §六 ②–⑤）同一支元件有 `.vue` 與 `.tsx` 兩份，兩份的預設表應該逐字相同。
- * 各元件檔頭都寫著「代幣對照是人工核對的，沒有閘門在守」—— 兩版逐字比對擋不住兩份一起翻錯，
- * 但擋得住**只翻了其中一份**，而移植最可能出的就是這一種錯。
- *
- * 比原文而不是比值，因為多行的那幾格是 `cn("…", "…")`，`defaultSlotValues` 只認單一字串。
- */
-export function defaultTableBodies(componentSource: string): ReadonlyMap<string, string> {
-  const bodies = new Map<string, string>();
-  const pattern = /const (\w+): Readonly<Record<\w+, string>> = \{([^}]*)\}/g;
-  for (const match of stripComments(componentSource).matchAll(pattern)) {
-    const body = match[2] as string;
-    if (body.includes("theme.")) continue;
-    const normalized = body
-      .replace(/\s+/g, " ")
-      .replace(/,\s*\)/g, ")")
-      .replace(/\(\s+/g, "(")
-      .replace(/\s+\)/g, ")")
-      .trim();
-    bodies.set(match[1] as string, normalized.replace(/,$/, ""));
-  }
-  return bodies;
-}
-
-/**
  * 元件真的從覆寫表讀了哪些元件名（`theme.UiButton?.` 的那個名字）。
  *
  * ⚠️ 這一條要擋的是**宣告了槽卻沒接上**：`UiThemeOverride` 加一格、
- * 預設表也寫好，但元件從頭到尾沒有 `inject(UI_THEME)` —— 型別全對、
+ * 預設表也寫好，但元件從頭到尾沒有讀 `useUiTheme()` —— 型別全對、
  * 測試全綠，而各案的覆寫一個字都不會生效。
  */
 export function consumedOverrides(componentSource: string): ReadonlySet<string> {
@@ -351,19 +309,10 @@ export function styleTables(componentSource: string): ReadonlyMap<string, boolea
   return tables;
 }
 
-/** `<template>` 的內容。沒有 template 區塊時回傳空字串。 */
-export function templateBlock(componentSource: string): string {
-  const clean = stripComments(componentSource);
-  if (!clean.includes("<template>")) return "";
-  return block(clean, "<template>", "</template>");
-}
-
 /**
- * React 元件的「模板」：`return (` 到 `);` 那一段 JSX（C235）。
+ * 元件的「模板」：`return (` 到 `);` 那一段 JSX（C235）。
  *
- * ⚠️ 找不到就丟，**不像 `templateBlock` 回傳空字串**。Vue 那邊沒有 template 的
- * 元件是合法的（純 render 函式）；`.tsx` 元件沒有這一段，只代表慣例漂了 ——
- * 回傳空字串會讓 ⑤ 對它恆真。
+ * ⚠️ 找不到就丟：沒有這一段只代表慣例漂了，回傳空字串會讓 ⑤ 對它恆真。
  *
  * 終點取配對的 `)`（C236，理由見 `balancedBlock`）。⚠️ 格式化器會把放得進一行的 JSX
  * 收成 `return <div … />;`（`UiSkeleton`），那一形沒有括號，取到該行的 `;` 為止。
@@ -379,7 +328,7 @@ export function jsxBlock(componentSource: string): string {
  *
  * ── 這一條擋的是一個字的錯 ──────────────────────────────────────────
  *
- * `:class="parts.overlay"` 打成 `:class="DEFAULT_PARTS.overlay"` ——
+ * `className={parts.overlay}` 打成 `className={DEFAULT_PARTS.overlay}` ——
  * 前面每一條都還是綠的：`parts` 仍然被算出來（③ 有讀 `theme.`）、
  * `DEFAULT_PARTS` 仍然有全部的鍵（③ 鍵對得上）、`UiThemeOverride` 仍然
  * 宣告著那個槽（②）。**而各案的覆寫一個字都不會生效。**
@@ -391,12 +340,8 @@ export function jsxBlock(componentSource: string): string {
  * `UiButton` 有同樣的間接（`classes`），只是它剛好沒寫錯 ——
  * 所以規則寫成通則，不是寫成「UiDialog 必須怎樣」。
  */
-export function defaultTablesInTemplate(
-  componentSource: string,
-  kind: ComponentKind = "vue",
-): readonly string[] {
-  const template = kind === "react" ? jsxBlock(componentSource) : templateBlock(componentSource);
-  if (template === "") return [];
+export function defaultTablesInTemplate(componentSource: string): readonly string[] {
+  const template = jsxBlock(componentSource);
 
   const used: string[] = [];
   for (const [name, readsTheme] of styleTables(componentSource)) {
@@ -422,33 +367,21 @@ export function defaultTablesInTemplate(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * `defineProps<{ … }>` 的內容（已去掉註解）。沒有 `defineProps` 的元件回傳 null。
- */
-export function definePropsBlock(componentSource: string): string | null {
-  const clean = stripComments(componentSource);
-  if (!clean.includes("defineProps<{")) return null;
-  return block(clean, "defineProps<{", "}>");
-}
-
-/** 兩個框架各自的寫法。遷移期間（C232 §六 ②–④）同一組條文要檢查兩者。 */
-export type ComponentKind = "vue" | "react";
-
-/**
- * React 元件的 props 型別字面值：`}: {` 到 `})` 那一段（C235）。
+ * 元件的 props 型別字面值：`}: {` 到 `})` 那一段（C235）。
  *
  * 慣例是「解構參數 ＋ 行內型別字面值」，不另立 `interface XxxProps` ——
  * 理由同 ④：`api-surface` 記的是簽章的文字，具名介面只會印出名字。
- * 找不到就丟，不回傳 null：Vue 那邊「沒有 props」是合法的，這邊沒有這一段
- * 只代表慣例漂了，而回傳 null 會讓 ④ 與「預設值在 union 裡」一起跳過。
+ * 找不到就丟，不回傳 null：沒有這一段只代表慣例漂了，而回傳 null 會讓 ④
+ * 與「預設值在 union 裡」一起跳過。
  *
  * 終點取配對的 `}`（C236）：型別字面值裡可以再有一層 `{ … }`，見 `balancedBlock`。
  */
-export function reactPropsBlock(componentSource: string): string {
+export function propsBlock(componentSource: string): string {
   return balancedBlock(stripComments(componentSource), "}: {", "{", "}");
 }
 
 /** 解構參數裡的字串預設值：`({ variant = "secondary", … }: {` 那一段。 */
-export function reactStringDefaults(componentSource: string): ReadonlyMap<string, string> {
+export function stringDefaults(componentSource: string): ReadonlyMap<string, string> {
   const destructured = block(stripComments(componentSource), "({", "}: {");
   const found = new Map<string, string>();
   for (const match of destructured.matchAll(/(\w+)\s*=\s*"([^"]*)"/g)) {
@@ -462,7 +395,7 @@ export function reactStringDefaults(componentSource: string): ReadonlyMap<string
  *
  * ── 為什麼別名在這裡是錯的 ──────────────────────────────────────────
  *
- * `api-surface` 記錄的是 `defineProps` 的**字面文字**。寫成別名之後，
+ * `api-surface` 記錄的是 props 型別的**字面文字**。寫成別名之後，
  * 基準檔會從 `"primary" | "secondary" | …` 變成 `UiVariant` ——
  * 而那之後 **union 少一個成員這道閘門就看不見了**，因為形狀字串沒變。
  * 拿「少寫一次」換一道變弱的閘門，是這個 repo 一路在拆的那種交易。
@@ -479,11 +412,11 @@ export function exportedTypeNames(themeSource: string): ReadonlySet<string> {
 }
 
 export function aliasesUsedInProps(
-  propsBlock: string,
+  propsSource: string,
   aliases: ReadonlySet<string>,
 ): readonly string[] {
   const used: string[] = [];
-  for (const match of propsBlock.matchAll(/\b([A-Z]\w*)\b/g)) {
+  for (const match of propsSource.matchAll(/\b([A-Z]\w*)\b/g)) {
     const name = match[1] as string;
     if (aliases.has(name)) used.push(name);
   }
@@ -494,24 +427,9 @@ export function aliasesUsedInProps(
 // 預設值必須是 union 的成員之一
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** `withDefaults(…, { variant: "secondary", … })` 裡那些字串預設值。 */
-export function stringDefaults(componentSource: string): ReadonlyMap<string, string> {
-  const clean = stripComments(componentSource);
-  if (!clean.includes("withDefaults(")) return new Map();
-
-  // `}>(),` 之後才是 withDefaults 的第二個參數。用它切，比想辦法讓正則認得
-  // 巢狀大括號可靠 —— 而且切不到會丟，不會安靜地比對到空字串。
-  const defaults = block(clean, "}>(),", ");");
-  const found = new Map<string, string>();
-  for (const match of defaults.matchAll(/(\w+):\s*"([^"]*)"/g)) {
-    found.set(match[1] as string, match[2] as string);
-  }
-  return found;
-}
-
 /** 某個 prop 宣告的字串字面值成員。沒有這個 prop、或它不是字串 union 時回傳空陣列。 */
-export function propUnionMembers(propsBlock: string, prop: string): readonly string[] {
-  for (const line of propsBlock.split("\n")) {
+export function propUnionMembers(propsSource: string, prop: string): readonly string[] {
+  for (const line of propsSource.split("\n")) {
     const declared = /^\s*(\w+)\??:\s*(.+);\s*$/.exec(line);
     if (declared === null || declared[1] !== prop) continue;
     return [...(declared[2] as string).matchAll(/"([^"]+)"/g)].map((m) => m[1] as string);

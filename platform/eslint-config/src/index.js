@@ -1,7 +1,5 @@
 import security from "eslint-plugin-security";
 import noUnsanitized from "eslint-plugin-no-unsanitized";
-import vue from "eslint-plugin-vue";
-import vueParser from "vue-eslint-parser";
 import tseslint from "typescript-eslint";
 
 /**
@@ -19,10 +17,10 @@ import tseslint from "typescript-eslint";
  * 因此**不 extend 任何 recommended preset**：那些會帶進大量風格規則，
  * 與 oxlint 正面衝突，並在幾週內把這道閘門變成大家眼中的雜訊。
  *
- * 存在的首要理由：oxlint 的 847 條規則裡**沒有 `vue/no-v-html`**。
- * 那是 Vue 專案最主要的 XSS 入口，只有這一軌擋得住。
- * React 那一格（`dangerouslySetInnerHTML`）oxlint 有 `react/no-danger`，所以住在
- * `vite.scaffold.ts`、不在這裡（C241）—— 別為它在這一軌加 React 外掛。
+ * 存在的理由：DOM sink（`no-unsanitized`）與 `eslint-plugin-security` 那幾條，oxlint 沒有。
+ * ⚠️ Vue 版在時首要理由是另一條 —— oxlint 沒有 `vue/no-v-html`（Vue 最主要的 XSS 入口），
+ * 那一格隨 `.vue` 退場（C244，Q104）。React 那一格（`dangerouslySetInnerHTML`）oxlint 有
+ * `react/no-danger`，所以住在 `vite.scaffold.ts`、不在這裡（C241）—— 別為它在這一軌加 React 外掛。
  *
  * ── ⚠️ TypeScript 版本並存（實測踩到的坑）────────────────────────────
  *
@@ -87,40 +85,6 @@ export default [
       // 開著只會逼大家滿檔案寫 eslint-disable，連帶讓真正的告警被忽略。
       // 這個面向交給 Semgrep / Sonar 的資料流分析處理，它們判得準得多。
       "security/detect-object-injection": "off",
-    },
-  },
-
-  // ── Vue 單檔元件 ──────────────────────────────────────────────────────
-  {
-    files: ["**/*.vue"],
-    languageOptions: {
-      parser: vueParser,
-      parserOptions: {
-        parser: tseslint.parser,
-        ecmaVersion: "latest",
-        sourceType: "module",
-      },
-    },
-    plugins: {
-      vue,
-      security,
-      "no-unsanitized": noUnsanitized,
-    },
-    rules: {
-      // ★ 本軌存在的首要理由。oxlint 沒有這條規則。
-      "vue/no-v-html": "error",
-      "vue/no-v-text-v-html-on-component": "error",
-
-      // tabnabbing：target="_blank" 未加 rel="noopener" 時，
-      // 開啟的頁面可透過 window.opener 竄改來源分頁。
-      "vue/no-template-target-blank": [
-        "error",
-        { allowReferrer: false, enforceDynamicLinks: "always" },
-      ],
-
-      "no-unsanitized/method": "error",
-      "no-unsanitized/property": "error",
-      "security/detect-eval-with-expression": "error",
     },
   },
 ];

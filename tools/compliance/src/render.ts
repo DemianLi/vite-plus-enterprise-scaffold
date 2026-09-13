@@ -5,7 +5,6 @@ import type { Control, Gate } from "./map.ts";
  *
  * 取數（檔案存不存在）留在 cli.ts，判定留在這裡：這樣每一條判定都可以用
  * 固定的輸入測過一次，而不是靠「跑一次看看對不對」。
- * 與 `tools/ui-survey/src/registry.ts` 同一個切法。
  */
 
 /**

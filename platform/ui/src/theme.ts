@@ -1,5 +1,3 @@
-import type { App, InjectionKey, Plugin } from "vue";
-
 /**
  * 元件外觀的**擴充點** —— 三軸裡的「形狀」那一條。
  *
@@ -38,11 +36,14 @@ import type { App, InjectionKey, Plugin } from "vue";
  *
  * ── 槽名不是我們取的 ────────────────────────────────────────────────
  *
- * `UiDialog` 的四個槽名來自 reka-ui 的基元（`DialogOverlay`／`DialogContent`／
- * `DialogTitle`／`DialogDescription`），那也是 shadcn-vue 的 part 名、
- * 以及市面上 shadcn Figma kit 的圖層名。設計師說「overlay 要更淡」的時候，
- * 前端要改的那一格就叫 `overlay` —— 這條對應不需要翻譯表，這是需求 2 與 3
- * 真正的產出。**採用它的代價是零**，因為那些名字本來就已經在元件的 import 裡。
+ * `UiDialog` 的四個槽名是 shadcn 的 part 名（`DialogOverlay`／`DialogContent`／
+ * `DialogTitle`／`DialogDescription`），也是市面上 shadcn Figma kit 的圖層名。
+ * 設計師說「overlay 要更淡」的時候，前端要改的那一格就叫 `overlay` —— 這條對應
+ * 不需要翻譯表，這是需求 2 與 3 真正的產出。
+ *
+ * ⚠️ 下面各型別註解寫的「名稱取自 reka-ui 的基元」是 Vue 版的來歷：當時槽名與
+ * import 的基元同名。Base UI 的基元叫 `Backdrop`／`Popup`，**槽名不跟著改** ——
+ * 改槽名是 `UiThemeOverride` 的破壞性變更，而設計稿那一側的名字沒有變（C244）。
  *
  * ⚠️ 但 variant 的名字**刻意不跟** shadcn（它叫 `default`／`destructive`）。
  * `primary`／`danger` 是設計稿上的通用語彙，而改 variant 名會動到 prop union ——
@@ -55,10 +56,10 @@ import type { App, InjectionKey, Plugin } from "vue";
  * `{ UiDialog: { ovelay: "…" } }` 會安靜地被忽略，而畫面看起來只是「沒生效」。
  * 真的需要第五個槽的話，那是 `platform/ui` 的變更，走 PR，所有案子一起得到它。
  *
- * ⚠️ ── 覆寫字串必須寫在 `.ts`、`.tsx` 或 `.vue` 裡 ──────────────────
+ * ⚠️ ── 覆寫字串必須寫在 `.ts` 或 `.tsx` 裡 ──────────────────────────
  *
  * `platform/ui/src/styles/index.css` 的 `@source` 是
- * `"../../../../**\/*.{vue,ts,tsx}"`。把覆寫搬進 JSON、YAML、`.mjs` 或環境變數，
+ * `"../../../../**\/*.{ts,tsx}"`。把覆寫搬進 JSON、YAML、`.mjs` 或環境變數，
  * Tailwind **掃不到那些類別名，也不會報錯** —— 產出的 CSS 少掉它們，
  * 而建置全綠。這與 `@source` 本身那個坑是同一個（見該檔檔頭）。
  *
@@ -280,33 +281,12 @@ type SlotTables = Readonly<
   Record<string, Readonly<Record<string, string | undefined>> | undefined>
 >;
 
-/**
- * 元件端讀這個。**不從 `index.ts` 匯出** —— 使用端的入口只有
- * `createUiTheme()`，因為那裡才有辦法驗下面那兩條。
- */
-export const UI_THEME: InjectionKey<UiThemeOverride> = Symbol("@org/ui theme");
-
-/** 沒有人 provide 時的值。獨立常數而非 inject 的行內字面值，才不會每次渲染新建一個物件。 */
+/** 沒有 `UiTheme` 包著時的值。獨立常數而非行內字面值，才不會每次渲染新建一個物件。 */
 export const NO_OVERRIDE: UiThemeOverride = Object.freeze({});
 
 /**
- * 裝進 composition root：`createApp(App).use(createUiTheme({ … }))`。
- *
- * 做成 Vue plugin 而不是匯出 `UI_THEME` 讓人自己 `app.provide()`，
- * 是為了有一個地方擋掉下面兩種「看起來有接上、實際上沒有」：
- */
-export function createUiTheme(override: UiThemeOverride): Plugin {
-  const checked = checkedOverride(override);
-  return {
-    install(app: App) {
-      app.provide(UI_THEME, checked);
-    },
-  };
-}
-
-/**
- * 那兩道防線本身。抽出來是因為 React 版的 `createUiTheme()`（`theme-context.tsx`）
- * 要擋同樣兩件事 —— 各寫一份的話，日後補第三道只會補到其中一邊（C235）。
+ * `createUiTheme()`（`theme-context.tsx`）擋的那兩種「看起來有接上、實際上沒有」。
+ * 住在 `.ts` 而不是 context 那一支，是為了讓防線本身不必掛 React 就測得到。
  */
 export function checkedOverride(override: UiThemeOverride): UiThemeOverride {
   // 攤平成 `UiButton.secondary` 這種名字：下面兩條防線的訊息要指得出是哪一格，

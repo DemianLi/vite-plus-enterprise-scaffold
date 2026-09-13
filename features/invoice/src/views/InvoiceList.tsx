@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { UiButton, UiDialog } from "@org/ui/react";
+import { UiButton, UiDialog } from "@org/ui";
 
 import { useInvoiceList } from "../hooks/useInvoiceList.ts";
 import { useInvoiceFilterStore } from "../store.ts";

@@ -289,7 +289,7 @@ export const FACTS: readonly Fact[] = [
      *
      * 登記它的成本是這幾行；不登記的成本是每一批元件都重新賭一次。
      */
-    source: "git ls-files platform/ui/src/components 底下的 .vue 數",
+    source: "git ls-files platform/ui/src/components 底下的 .tsx 數",
     citations: [
       // README：「**`platform/ui` 有 24 個元件**」
       // HANDOFF〈已知的誠實缺口〉的標題：「`platform/ui` 有 24 個元件，範圍是被定義過的」

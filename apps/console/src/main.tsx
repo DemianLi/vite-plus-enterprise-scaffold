@@ -6,7 +6,7 @@ import { initReactI18next } from "react-i18next";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { registerFeatures } from "@org/slice-kit";
 import { config } from "@org/config";
-import { createUiTheme } from "@org/ui/react";
+import { createUiTheme } from "@org/ui";
 
 // 這個案子的樣式入口。它自己第一行才是 `@import "@org/ui/styles.css"` ——
 // D15 的基礎版型仍然先載入（Tailwind 的 base reset 必須在元件樣式之前），
@@ -103,7 +103,7 @@ document.title = config.appTitle;
  * 代幣換得掉值，換不掉**組合** —— 這個案子的預設按鈕不要外框，改成淺底色。
  * 那不是任何一個代幣，它是 `VARIANTS.secondary` 那一整條字串。
  *
- * ⚠️ 類別字串必須寫在 `.ts`／`.tsx`／`.vue` 裡。`platform/ui` 的 `@source` 只掃這三種
+ * ⚠️ 類別字串必須寫在 `.ts`／`.tsx` 裡。`platform/ui` 的 `@source` 只掃這兩種
  * 副檔名，搬進 JSON 或環境變數的話 Tailwind **掃不到、也不會報錯**，
  * 產出的 CSS 少掉這些類別而建置全綠。同樣是示範，開新案子時照需求改。
  *

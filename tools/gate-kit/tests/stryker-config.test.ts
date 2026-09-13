@@ -12,8 +12,8 @@ import { REAL_TREE_OBSERVERS } from "../../../vitest.stryker.config.ts";
  *
  *   - 名單裡的路徑改名、搬家、刪掉：vitest 的 `exclude` 對不存在的路徑**不報錯**，
  *     那支測試就靜靜回到乾跑裡，下一次跑 stryker 才紅，而那可能是幾週後、別人跑的。
- *   - `disableTypeChecks` 被改回預設：`vue-typecheck` 的 fixture 被插 `@ts-nocheck`，
- *     同樣只在乾跑紅。
+ *   - `disableTypeChecks` 被改回預設：每一個匹配到的檔被插 `@ts-nocheck`，改變的是被測的
+ *     原始碼（C244 之前紅的是 `vue-typecheck` 的 fixture），同樣只在乾跑紅。
  *   - `vitest.configFile` 指到不存在的檔：runner 退回根層 `vite.config.ts`，名單整份失效。
  *
  * 乾跑本身 1 分 25 秒、而且**就地改寫產品碼**，進不了 `vpr ready`（C154 §三 兩軸：
@@ -58,7 +58,7 @@ describe("stryker 乾跑的三格設定指得到它們說的東西", () => {
     expect(existsSync(join(repoRoot(), "vitest.stryker.config.ts"))).toBe(true);
   });
 
-  it("★ `disableTypeChecks` 關著 —— 開著它，`vue-typecheck` 的 fixture 會被插 `@ts-nocheck`", () => {
+  it("★ `disableTypeChecks` 關著 —— 開著它，每一個匹配到的檔都會被插 `@ts-nocheck`", () => {
     expect(config.disableTypeChecks).toBe(false);
   });
 });

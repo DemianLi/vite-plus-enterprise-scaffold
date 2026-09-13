@@ -37,8 +37,6 @@ dist-ssr
 sbom.cdx.json
 trivy.sarif
 
-# tools/vue-typecheck 反向測試的暫存副本（見 tests/fixtures/README.md）
-tools/vue-typecheck/tests/fixtures/.tmp-*
 
 # tools/slice-gen 覆蓋率門檻反向測試的暫存專案（見 tests/coverage-gate.test.ts）
 tools/slice-gen/tests/fixtures/.tmp-*

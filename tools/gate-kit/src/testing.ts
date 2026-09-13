@@ -36,14 +36,6 @@ export interface SandboxOptions {
   readonly copy?: readonly string[];
   /** `git init` ＋ `git add -A`。要 commit 或更多，走 `sandbox.git(...)`。 */
   readonly git?: boolean;
-  /**
-   * 沙盒建在哪個目錄底下。預設 `os.tmpdir()`。
-   *
-   * 唯一已知要改它的是 `tools/vue-typecheck/tests/negative.test.ts`：tsconfig 的
-   * `extends` 要從沙盒解析得到 `@org/tsconfig`，所以沙盒必須住在 repo 裡面。
-   * 那段理由寫在它自己檔頭，這裡只留入口。
-   */
-  readonly within?: string;
   /** 臨時目錄名的前綴，留給清理失敗時認屍用。 */
   readonly prefix?: string;
   /**
@@ -84,7 +76,7 @@ afterEach(() => removeAll(perTest));
 afterAll(() => removeAll(perFile));
 
 export function sandbox(options: SandboxOptions = {}): Sandbox {
-  const root = mkdtempSync(join(options.within ?? tmpdir(), options.prefix ?? "gate-kit-sandbox-"));
+  const root = mkdtempSync(join(tmpdir(), options.prefix ?? "gate-kit-sandbox-"));
   (options.lifetime === "all" ? perFile : perTest).push(root);
 
   const box: Sandbox = {

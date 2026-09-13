@@ -389,6 +389,7 @@ export function findPaletteUsage(
  * ⚠️ `.tsx` 不能等到最後一支 `.vue` 刪掉才加（C234 §二）：遷移期間兩種並存，
  * `cli.ts` 那兩條「掃不到就紅」只在**兩種都沒有**時響 —— 只認 `.vue` 的話，
  * 新寫的 `.tsx` 元件會在一道全綠的閘門底下安靜地不被檢查。
+ * ⚠️ C244 `.vue` 退場之後 `.vue` 照讀：樹上沒有不是拿掉掃描範圍的理由（C182 §五）。
  */
 export const SCANNED_EXTENSIONS = [".vue", ".tsx"] as const;
 

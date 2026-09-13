@@ -60,18 +60,10 @@ describe("react-day-picker 的執行期相依閉包也不注入 <style>（C238�
 });
 
 describe("🔴 判定函式抓得到真的注入", () => {
-  it("reka-ui 的 Splitter 那一支 —— 這棵樹上已知會注入的真實套件", () => {
-    // 正向對照用真實套件而不是只用人造字串：證明這個樣式對得上實際發佈的寫法
-    // （它是 C232 §四 2 那條 Splitter 禁令的來源）。reka-ui 在批次 ⑤ 隨 Vue 退場，
-    // 那天這條要換一個對照，不能刪 —— 刪了之後上面那組「零處」就沒有人證明它會紅。
-    const reka = dependencyClosure("reka-ui", PACKAGE_JSON, new Set()).get("reka-ui");
-    expect(reka).toBeDefined();
-    expect(injectingFiles(reka as string).hits.length).toBeGreaterThan(0);
-  });
-
-  it("react-dom 的開發版 —— reka-ui 退場後接手的真實套件（C243，Q99）", () => {
-    // 同上一條的理由：刪了真實套件的對照，上面那組「零處」就沒有人證明它認得實際發佈的寫法。
-    // react-dom 會一直留在這棵樹上；它的 `createElement("style")` 在兩支開發版建置裡（React 19
+  it("react-dom 的開發版 —— 這棵樹上已知含那個寫法的真實套件（C243，Q99）", () => {
+    // 正向對照用真實套件而不是只用人造字串：少了它，上面那組「零處」就沒有人證明判定式
+    // 認得實際發佈的寫法。原本的對照是 reka-ui 的 Splitter（C232 §四 2 那條禁令的來源），
+    // 隨 Vue 退場（C244）。react-dom 的 `createElement("style")` 在兩支開發版建置裡（React 19
     // 的 `<style precedence>` 資源），正式版的寫法不同。所以這條證明的是判定式認得真實發佈的
     // 寫法，**不是** react-dom 會在我們的畫面上注入 —— 證明力比 Splitter 弱，是換對照的代價。
     const reactDom = dependencyClosure("react-dom", PACKAGE_JSON, new Set()).get("react-dom");

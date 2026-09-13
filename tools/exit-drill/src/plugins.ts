@@ -42,12 +42,6 @@ export interface DrillPlugin {
 /** 演練重新產生的設定裡實際註冊的 plugin。加一筆就等於把它納入退出保證。 */
 export const DRILL_PLUGINS: readonly DrillPlugin[] = [
   {
-    // 根層設定用它跑 `platform/ui` 的 `.vue` 測試。批次 ⑤ 刪 Vue 時一起拿掉。
-    name: "vue",
-    module: "@vitejs/plugin-vue",
-    importLine: 'import vue from "@vitejs/plugin-vue";',
-  },
-  {
     // `apps/console` 從 C240 起是 React。**必須重現**：JSX 要靠它編進產物。
     name: "react",
     module: "@vitejs/plugin-react",

@@ -87,7 +87,7 @@ describe("UiDialog（React）", () => {
     expect(contentEl()).toBeNull();
   });
 
-  it("給了 footer，close 就不渲染 —— 同 Vue 具名 slot 的預設內容", async () => {
+  it("給了 footer，close 就不渲染 —— footer 取代預設的關閉鈕", async () => {
     const content = await openDialog({
       footer: createElement(UiButton, null, "送出"),
       close: createElement(UiButton, null, "關閉"),
