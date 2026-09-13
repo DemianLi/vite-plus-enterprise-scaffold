@@ -76,6 +76,7 @@
 │   ├── threshold-check/      複雜度門檻沒有過期：實測最大值降了，門檻要跟著降
 │   ├── spec-report/          驗收規格的完成率報表
 │   ├── release-distance/     距上一版幾支 commit、幾天（只報數，不是閘門）
+│   ├── delivery-export/      交付給機關的匯出：白名單、改寫、痕跡掃描、重跑建置（掃描只報數，還不進閘門）
 │   └── promise-check/        specs/ 的承諾：照規格弄壞一份副本，跑指名的閘門，比對結果
 │
 ├── specs/                    框架承諾（.feature）。腳手架對採用團隊的承諾，人逐字讀
@@ -235,6 +236,6 @@ PR 會被兩層 CI 攔一次，請先在本機把完整檢查跑到全綠。另�
 
 MIT 宣告在 [LICENSE](LICENSE) 與根 `package.json` 的 `license` 欄位兩處，兩者須一致。
 著作權人欄位目前是占位符 `@org`，對外發布前須替換為法務認可的法人全名。
-底下 34 個 workspace 套件全部是 `private`、不對外發佈，因此不逐一標註授權。
+底下 35 個 workspace 套件全部是 `private`、不對外發佈，因此不逐一標註授權。
 
 上游相依的授權盤點見 [`tools/supply-chain`](tools/supply-chain)。
