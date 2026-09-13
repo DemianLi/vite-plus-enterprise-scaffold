@@ -1,7 +1,7 @@
 # language: zh-TW
 功能: v1 承諾一 —— 分工開發不受影響的系統架構
 
-  一片功能 ＝ 一個 package，自帶 API／composables／views／store／測試。
+  一片功能 ＝ 一個 package，自帶 API／hooks／views／store／測試。
   依賴方向單向（apps → features → platform），**切片之間一律禁止互相依賴**。
 
   這一段是寫給人讀的。打開這個檔案的人可能是接手維護的工程師、要評估
