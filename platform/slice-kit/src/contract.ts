@@ -35,30 +35,37 @@ export const REQUIRED_FILES = [
 // api.ts / store.ts / routes.ts / views/ 那套結構只存在於產生器的模板裡，
 // 沒有任何檢查在守。誰手寫一個切片、或改了產生器，那套慣例就消失，而閘門全綠。
 //
-// 補上的分層照 Vue 官方對 composable 的定義（vuejs.org/guide/reusability/composables）：
-// **有狀態的邏輯住在 `useXxx()` 裡，元件只負責呈現。**
+// **有狀態的邏輯住在 `useXxx()` hook 裡，元件只負責呈現。**
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** 切片內放 composable 的目錄。Vue 官方文件用的就是這個慣例位置。 */
-export const COMPOSABLES_DIR = "src/composables";
+/**
+ * 切片內放 hook 的目錄。
+ *
+ * 原本叫 `src/composables`（Vue 的慣例位置），C239 Q76 隨切片改寫成 React 一起改名 ——
+ * 目錄名是讀程式碼的人第一眼看到的東西，React 的人找的是 `hooks/`。
+ */
+export const HOOKS_DIR = "src/hooks";
 
 /** 切片內放元件的目錄。 */
 export const VIEWS_DIR = "src/views";
 
 /**
- * composable 檔名規則：`use` 開頭、駝峰、`.ts` 結尾（`useOrderList.ts`）。
+ * hook 檔名規則：`use` 開頭、駝峰、`.ts` 結尾（`useOrderList.ts`）。
+ *
+ * `use` 開頭不只是風格：React 的 hook 規則與 `eslint-plugin-react-hooks` 都靠這個前綴
+ * 認出「這支只能在元件頂層呼叫」。
  *
  * 與切片名的規則同理，刻意避開巢狀量詞（見本檔案末尾 SLICE_DIR_CHARSET 的說明）——
  * Tier 2 的 `security/detect-unsafe-regex` 會擋，而且它是對的。
  */
-const COMPOSABLE_FILE_CHARSET = /^use[A-Z][A-Za-z0-9]*\.ts$/;
+const HOOK_FILE_CHARSET = /^use[A-Z][A-Za-z0-9]*\.ts$/;
 
-export function isValidComposableFile(fileName: string): boolean {
-  return COMPOSABLE_FILE_CHARSET.test(fileName);
+export function isValidHookFile(fileName: string): boolean {
+  return HOOK_FILE_CHARSET.test(fileName);
 }
 
 /** 檔名 → 應該匯出的函式名（`useOrderList.ts` → `useOrderList`）。 */
-export function composableFunctionName(fileName: string): string {
+export function hookFunctionName(fileName: string): string {
   return fileName.replace(/\.ts$/, "");
 }
 

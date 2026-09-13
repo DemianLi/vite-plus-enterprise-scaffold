@@ -1,19 +1,21 @@
-import { createApp } from "vue";
-import { createPinia } from "pinia";
-import { createRouter, createWebHistory } from "vue-router";
-import { createI18n } from "vue-i18n";
-import { VueQueryPlugin } from "@tanstack/vue-query";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router";
+import i18next from "i18next";
+import { initReactI18next } from "react-i18next";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { registerFeatures } from "@org/slice-kit";
 import { config } from "@org/config";
-import { createUiTheme } from "@org/ui";
+import { createUiTheme } from "@org/ui/react";
 
 // 這個案子的樣式入口。它自己第一行才是 `@import "@org/ui/styles.css"` ——
 // D15 的基礎版型仍然先載入（Tailwind 的 base reset 必須在元件樣式之前），
 // 差別是各案的代幣覆寫現在有地方可放，不必去改 platform/ui（HANDOFF #24）。
 import "./styles.css";
 
-import App from "./App.vue";
+import { App } from "./App.tsx";
 import { features } from "./features.ts";
+import { menuLinks, toRouteObject } from "./router.ts";
 
 /**
  * Composition root（D4）。
@@ -22,16 +24,24 @@ import { features } from "./features.ts";
  * 任何業務邏輯出現在這裡，都代表某個切片的邊界劃錯了。
  */
 const registered = registerFeatures(features);
+const links = menuLinks(registered);
+const home = registered.routes[0]?.path;
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes: [{ path: "/", redirect: registered.routes[0]?.path ?? "/" }, ...registered.routes],
-});
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <App links={links} />,
+    children: [
+      ...(home === undefined ? [] : [{ index: true, element: <Navigate to={home} replace /> }]),
+      ...registered.routes.map(toRouteObject),
+    ],
+  },
+]);
 
 /**
  * 外殼自己的翻譯字串。
  *
- * ⚠️ 這個命名空間**只為了無障礙而存在**：`App.vue` 上那幾個「只給輔具看的」
+ * ⚠️ 這個命名空間**只為了無障礙而存在**：`App.tsx` 上那幾個「只給輔具看的」
  * 字串（導覽區域的名稱、跳至主要內容）不屬於任何一個切片，但它們必須是
  * 翻譯字串 —— 一個寫死中文的 `aria-label` 對切到英文的使用者就是一段噪音，
  * 而且畫面上看不到，所以不會有人回報。
@@ -67,14 +77,19 @@ function withShellMessages(
   return merged;
 }
 
-const i18n = createI18n({
-  legacy: false,
-  locale: "zh-TW",
-  fallbackLocale: "en",
-  // vue-i18n 的 messages 型別是由字面值推導的巢狀結構，無法表達「切片在執行期
-  // 合併而成」這件事。registerFeatures 的回傳型別已保證它是
-  // Record<locale, Record<featureName, ...>>，此處的斷言只是跨過型別推導的限制。
-  messages: withShellMessages(registered.messages) as Record<string, Record<string, string>>,
+void i18next.use(initReactI18next).init({
+  lng: "zh-TW",
+  fallbackLng: "en",
+  // 字串全在記憶體裡，同步初始化才不會讓第一次 render 拿到一整排 key。
+  initAsync: false,
+  // React 本身就會跳脫文字與屬性；i18next 再跳一次，「<」會變成畫面上的 &lt;。
+  interpolation: { escapeValue: false },
+  resources: Object.fromEntries(
+    Object.entries(withShellMessages(registered.messages)).map(([locale, messages]) => [
+      locale,
+      { translation: messages },
+    ]),
+  ),
 });
 
 document.title = config.appTitle;
@@ -85,7 +100,7 @@ document.title = config.appTitle;
  * 代幣換得掉值，換不掉**組合** —— 這個案子的預設按鈕不要外框，改成淺底色。
  * 那不是任何一個代幣，它是 `VARIANTS.secondary` 那一整條字串。
  *
- * ⚠️ 類別字串必須寫在 `.ts` 或 `.vue` 裡。`platform/ui` 的 `@source` 只掃這兩種
+ * ⚠️ 類別字串必須寫在 `.ts`／`.tsx`／`.vue` 裡。`platform/ui` 的 `@source` 只掃這三種
  * 副檔名，搬進 JSON 或環境變數的話 Tailwind **掃不到、也不會報錯**，
  * 產出的 CSS 少掉這些類別而建置全綠。同樣是示範，開新案子時照需求改。
  *
@@ -99,15 +114,19 @@ document.title = config.appTitle;
  * 也就是說沒有任何東西會為此變紅。而這份 app 是每個案子 fork 的起點，
  * 一個示範用的覆寫不該順便示範一個無障礙缺陷。
  */
-const uiTheme = createUiTheme({
+const UiTheme = createUiTheme({
   UiButton: { secondary: "border-control border-accent bg-surface text-fg hover:bg-surface-hover" },
 });
 
-createApp(App)
-  .use(createPinia())
-  .use(router)
-  .use(i18n)
-  .use(VueQueryPlugin)
-  .use(uiTheme)
-  .provide("features", registered)
-  .mount("#app");
+const mountPoint = document.getElementById("app");
+if (mountPoint === null) throw new Error("index.html 少了 #app —— 應用沒有地方可掛");
+
+createRoot(mountPoint).render(
+  <StrictMode>
+    <QueryClientProvider client={new QueryClient()}>
+      <UiTheme>
+        <RouterProvider router={router} />
+      </UiTheme>
+    </QueryClientProvider>
+  </StrictMode>,
+);

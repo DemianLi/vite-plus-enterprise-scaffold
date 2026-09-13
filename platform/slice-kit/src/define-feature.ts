@@ -1,4 +1,4 @@
-import type { RouteRecordRaw } from "vue-router";
+import type { ComponentType } from "react";
 
 import { isValidSliceDir } from "./contract.ts";
 
@@ -23,10 +23,27 @@ export interface FeatureMenuItem {
   readonly permissions?: readonly string[];
 }
 
+/**
+ * 切片的一條路由。
+ *
+ * ⚠️ 契約自己定這個型別，不直接用 react-router 的 `RouteObject`（C239，Q74）：
+ * react-router 的路由沒有 `name`，而命名空間檢查、選單的 `routeName`、composition
+ * root 那條 ★ 測試都掛在 name 上。轉成 react-router 的格式是應用殼的事。
+ * 附帶的好處是 react-router 升大版時，這個公開型別不跟著變。
+ */
+export interface SliceRoute {
+  readonly path: string;
+  readonly name?: string;
+  /** 回傳整個模組，`() => import("./views/X.tsx")` 直接放得進來，畫面照樣懶載入。 */
+  readonly component: () => Promise<{ readonly default: ComponentType }>;
+  readonly meta?: { readonly permissions?: readonly string[] };
+  readonly children?: readonly SliceRoute[];
+}
+
 export interface Feature {
-  /** 切片名。同時是路由、store、i18n、權限碼的命名空間前綴。 */
+  /** 切片名。同時是路由、i18n、權限碼、query key 的命名空間前綴。 */
   readonly name: string;
-  readonly routes: readonly RouteRecordRaw[];
+  readonly routes: readonly SliceRoute[];
   /** 本切片使用到的權限碼，全部必須以 `<name>:` 開頭。 */
   readonly permissions: readonly string[];
   /** 本切片的翻譯。頂層 key 為 locale，其下必須只有 `<name>` 一個 key。 */
@@ -44,7 +61,7 @@ class FeatureContractError extends Error {
 /**
  * 命名空間隔離是切片不互相踩踏的**唯一**保證。
  *
- * 型別擋得住結構，擋不住「路由叫 /list、store 叫 useListStore」這種
+ * 型別擋得住結構，擋不住「路由叫 /list、i18n 叫 title」這種
  * 兩個團隊撞名的情況。所以這裡在執行期把命名空間驗到底 ——
  * dev 模式當場拋錯，讓違規在寫的當下就被發現，而不是兩個切片同時載入時才炸。
  */
@@ -55,7 +72,7 @@ function assertNamespaced(feature: Feature): void {
     throw new FeatureContractError(name, `切片名必須是 kebab-case，收到 "${name}"`);
   }
 
-  const walkRoutes = (routes: readonly RouteRecordRaw[], depth = 0): void => {
+  const walkRoutes = (routes: readonly SliceRoute[], depth = 0): void => {
     for (const route of routes) {
       if (typeof route.name === "string" && !route.name.startsWith(`${name}/`)) {
         throw new FeatureContractError(

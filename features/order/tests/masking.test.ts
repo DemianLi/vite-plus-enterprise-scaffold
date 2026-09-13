@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
-import { mount } from "@vue/test-utils";
-import { defineComponent, h } from "vue";
+import { render } from "@testing-library/react";
+import { createElement } from "react";
 import { maskName } from "@org/pii";
 
 /**
@@ -29,37 +29,41 @@ const FULL_NAME = "王曉明";
 const LATIN_NAME = "Aya Nakamura";
 
 /**
- * 用一個只做呈現的替身元件，而不是掛整個 `OrderList.vue`。
+ * 用一個只做呈現的替身元件，而不是掛整個 `OrderList.tsx`。
  *
- * `OrderList.vue` 需要 Pinia、vue-query、vue-i18n 與 router 四個外掛才掛得起來，
- * 而那四個東西一個都不影響「姓名有沒有被遮住」。掛整個畫面只會讓這支測試
- * 因為與個資無關的理由而壞掉 —— 然後有人把它跳過。
+ * `OrderList.tsx` 要 QueryClient 與 i18n 兩個 Provider 才掛得起來，而那兩個東西
+ * 一個都不影響「姓名有沒有被遮住」。掛整個畫面只會讓這支測試因為與個資無關的
+ * 理由而壞掉 —— 然後有人把它跳過。
  *
- * ⚠️ 代價要說清楚：這樣就**不是**在測 `OrderList.vue` 本身 ——
- * 它只涵蓋這個替身元件。`OrderList.vue` 有沒有繼續呼叫 `maskName()`，靠 review。
+ * ⚠️ 代價要說清楚：這樣就**不是**在測 `OrderList.tsx` 本身 ——
+ * 它只涵蓋這個替身元件。`OrderList.tsx` 有沒有繼續呼叫 `maskName()`，靠 review。
  */
-const OrderRow = defineComponent({
-  props: { customerName: { type: String, required: true } },
-  setup: (props) => () => h("td", maskName(props.customerName)),
-});
+function OrderRow({ customerName }: { readonly customerName: string }) {
+  return createElement("td", null, maskName(customerName));
+}
+
+/** `<td>` 要放在表格裡：直接掛在 `<div>` 底下，React 會為巢狀不合法而報錯。 */
+function renderRow(customerName: string): HTMLElement {
+  const row = createElement("tr", null, createElement(OrderRow, { customerName }));
+  return render(createElement("table", null, createElement("tbody", null, row))).container;
+}
 
 describe("渲染結果裡找不到完整姓名", () => {
   it("🔴 完整姓名不得出現在 HTML 的任何地方", () => {
-    const wrapper = mount(OrderRow, { props: { customerName: FULL_NAME } });
-    expect(wrapper.html(), "完整姓名被渲染出去了").not.toContain(FULL_NAME);
+    expect(renderRow(FULL_NAME).innerHTML, "完整姓名被渲染出去了").not.toContain(FULL_NAME);
   });
 
   it("★ 而且畫面不是空的 —— 對照組", () => {
     // 少了這條，「什麼都沒渲染」會被讀成「遮得很好」。
     // 這是 C33 的規矩在元件測試上的樣子。
-    const wrapper = mount(OrderRow, { props: { customerName: FULL_NAME } });
-    expect(wrapper.text().length).toBeGreaterThan(0);
-    expect(wrapper.text()).toContain("王");
+    const text = renderRow(FULL_NAME).textContent ?? "";
+    expect(text.length).toBeGreaterThan(0);
+    expect(text).toContain("王");
   });
 
   it("西方姓名同樣不得完整出現", () => {
-    const wrapper = mount(OrderRow, { props: { customerName: LATIN_NAME } });
-    expect(wrapper.html()).not.toContain(LATIN_NAME);
-    expect(wrapper.html()).not.toContain("Nakamura");
+    const html = renderRow(LATIN_NAME).innerHTML;
+    expect(html).not.toContain(LATIN_NAME);
+    expect(html).not.toContain("Nakamura");
   });
 });

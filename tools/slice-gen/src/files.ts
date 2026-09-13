@@ -514,7 +514,7 @@ export const use${Pascal}FilterStore = defineStore("${name}/filter", () => {
 });
 `,
 
-      "routes.ts": `import type { RouteRecordRaw } from "vue-router";
+      "routes.ts": `import type { SliceRoute } from "@org/slice-kit";
 
 /**
  * 本切片自己的路由樹，不碰任何共用 router 檔案（D7）。
@@ -522,7 +522,7 @@ export const use${Pascal}FilterStore = defineStore("${name}/filter", () => {
  * path 一律在 /${name} 之下、name 一律以 "${name}/" 開頭 ——
  * defineFeature 會在 dev 模式當場驗證，撞名不可能活到執行期。
  */
-export const routes: RouteRecordRaw[] = [
+export const routes: SliceRoute[] = [
   {
     path: "/${name}",
     name: "${name}/list",

@@ -75,7 +75,7 @@ beforeAll(async () => {
 
 describe("dev-only 的本機 session 入口", () => {
   it("探針字串確實住在元件裡（不然下面兩條都是空的）", () => {
-    const source = readFileSync(join(PACKAGE_ROOT, "src/DevSession.vue"), "utf8");
+    const source = readFileSync(join(PACKAGE_ROOT, "src/DevSession.tsx"), "utf8");
     for (const probe of PROBES) expect(source).toContain(probe);
   });
 

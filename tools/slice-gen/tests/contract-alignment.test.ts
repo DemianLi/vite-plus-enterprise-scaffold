@@ -7,11 +7,11 @@ import {
   BANNED_DIRECT_DEPENDENCIES,
   ALLOWED_VERSION_PROTOCOLS,
   slicePackageName,
-  COMPOSABLES_DIR,
+  HOOKS_DIR,
   VIEWS_DIR,
   VIEW_FORBIDDEN_IMPORTS,
-  isValidComposableFile,
-  composableFunctionName,
+  isValidHookFile,
+  hookFunctionName,
   usesDesignSystem,
   DESIGN_SYSTEM_PACKAGE,
   SLICE_DESIGN_SYSTEM_IMPORTS,
@@ -213,7 +213,7 @@ describe("產出的程式碼落在正確的命名空間", () => {
  * 於是每個新切片都從「取數混在呈現層」開始，而當時沒有任何檢查會說話。
  */
 describe("產出的切片符合 D14 內部分層", () => {
-  const composables = paths.filter((path) => path.startsWith(`${COMPOSABLES_DIR}/`));
+  const composables = paths.filter((path) => path.startsWith(`${HOOKS_DIR}/`));
   const views = paths.filter((path) => path.startsWith(`${VIEWS_DIR}/`));
 
   it("產出至少一個 composable —— 否則模板等於沒示範這一層", () => {
@@ -223,11 +223,11 @@ describe("產出的切片符合 D14 內部分層", () => {
   it("composable 檔名符合 useXxx.ts 且匯出同名函式", () => {
     for (const path of composables) {
       const fileName = path.split("/").pop() ?? "";
-      expect(isValidComposableFile(fileName), `${path} 不符合 useXxx.ts`).toBe(true);
+      expect(isValidHookFile(fileName), `${path} 不符合 useXxx.ts`).toBe(true);
 
       const source = fileAt(path);
-      expect(source, `${path} 沒有匯出 ${composableFunctionName(fileName)}`).toContain(
-        `export function ${composableFunctionName(fileName)}`,
+      expect(source, `${path} 沒有匯出 ${hookFunctionName(fileName)}`).toContain(
+        `export function ${hookFunctionName(fileName)}`,
       );
     }
   });
@@ -526,7 +526,7 @@ describe("驗收規格的設施", () => {
    * `tests/<切片>.test.ts` 那 5 條照樣全綠。
    */
   it("composable 呼叫 usecase 而不是直接呼叫資料存取層", () => {
-    const composable = fileAt(`${COMPOSABLES_DIR}/useOrderHistoryList.ts`);
+    const composable = fileAt(`${HOOKS_DIR}/useOrderHistoryList.ts`);
     expect(composable).toContain(`from "../usecases/query-${options.name}.ts"`);
     expect(composable).toMatch(/queryFn:\s*\(\)\s*=>\s*queryOrderHistory\(/);
     expect(composable, "queryFn 不得繞過 usecase 直接取數").not.toMatch(

@@ -4,9 +4,9 @@ import { defineFeature, registerFeatures } from "../src/index.ts";
 import type { Feature } from "../src/index.ts";
 import {
   IMPORT_SPECIFIER_PATTERN,
-  composableFunctionName,
+  hookFunctionName,
   isTypeOnlyImportAt,
-  isValidComposableFile,
+  isValidHookFile,
 } from "../src/contract.ts";
 
 /**
@@ -132,23 +132,23 @@ describe("registerFeatures 組裝", () => {
  */
 describe("composable 命名（D14）", () => {
   it("接受 Vue 官方慣例的形狀", () => {
-    expect(isValidComposableFile("useOrderList.ts")).toBe(true);
-    expect(isValidComposableFile("useOrder.ts")).toBe(true);
-    expect(isValidComposableFile("useOrderListV2.ts")).toBe(true);
+    expect(isValidHookFile("useOrderList.ts")).toBe(true);
+    expect(isValidHookFile("useOrder.ts")).toBe(true);
+    expect(isValidHookFile("useOrderListV2.ts")).toBe(true);
   });
 
   it("擋掉不是 composable 的東西", () => {
     // 這些放進 composables/ 通常代表作者其實想放的是工具函式或型別，
     // 而混在一起之後，「哪些必須在 setup 期間同步呼叫」就看不出來了。
-    expect(isValidComposableFile("orderHelpers.ts")).toBe(false);
-    expect(isValidComposableFile("use.ts")).toBe(false);
-    expect(isValidComposableFile("uselessThing.ts")).toBe(false); // use 後面必須接大寫
-    expect(isValidComposableFile("useOrderList.vue")).toBe(false);
-    expect(isValidComposableFile("use-order-list.ts")).toBe(false);
+    expect(isValidHookFile("orderHelpers.ts")).toBe(false);
+    expect(isValidHookFile("use.ts")).toBe(false);
+    expect(isValidHookFile("uselessThing.ts")).toBe(false); // use 後面必須接大寫
+    expect(isValidHookFile("useOrderList.vue")).toBe(false);
+    expect(isValidHookFile("use-order-list.ts")).toBe(false);
   });
 
   it("由檔名推出應該匯出的函式名", () => {
-    expect(composableFunctionName("useOrderList.ts")).toBe("useOrderList");
+    expect(hookFunctionName("useOrderList.ts")).toBe("useOrderList");
   });
 });
 

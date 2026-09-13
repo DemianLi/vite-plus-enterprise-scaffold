@@ -12,14 +12,15 @@
     "test": "vp test",
     "check": "vp check"
   },
-  "dependencies": {
-    "vue-router": "catalog:"
-  },
   "devDependencies": {
     "@org/tsconfig": "workspace:*",
+    "@types/react": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "catalog:"
   }
 }
