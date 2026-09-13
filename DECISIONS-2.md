@@ -12626,7 +12626,8 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 
 #### 六、實測
 
-- 本機 `vpr ready`：（待填：READY_RC）
+- 本機 `vpr ready`：**READY_RC 0**，量在 `95636f4` 上；之後只改了這一行。前五趟都是紅的，依序紅在 `decision-ids`、`api-surface` 的負向測試、`compliance`、`threshold-check`、`promise-check`（§三），每一趟都是修一處再從頭跑。
+- `pnpm install --frozen-lockfile --offline`：已是最新；codemod `slice-routes-and-hooks` 對真樹的 `--dry-run` 零命中（掃了 331 個檔）。
 
 #### 七、與既有裁決的關係
 
