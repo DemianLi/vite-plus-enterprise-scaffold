@@ -87,6 +87,7 @@
 | **C238** | 第 ② 批之四（Q70–Q73）：React 版 DatePicker；八格逐格找落點、`locale` 一張小表、一週起始日照 CLDR；react-day-picker 三支進供應鏈                               |
 | **C239** | README 改寫成只講現況（Q74–Q88）：六節、無程式碼、不留經過；閘門守著的表與目錄樹照字面留下，`doc-facts` 刪六條隨段落消失的樣式                                 |
 | **C240** | 第 ③ 批（Q89–Q93）：切片契約、兩片切片與應用殼換成 React；路由型別由契約自訂並附 codemod、`composables/` 改名 `hooks/`；CSP 理由量過重寫；驗收規格那條鏈零差異 |
+| **C241** | 第 ④ 批（Q94–Q97）：React 的 hook 與 XSS 規則用 oxlint 內建的；`vue-typecheck` 退場挪到 ⑤（它守的 `.vue` 還在）；SAST 規則補上 react-router 的來源             |
 
 ---
 

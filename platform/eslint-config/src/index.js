@@ -21,6 +21,8 @@ import tseslint from "typescript-eslint";
  *
  * 存在的首要理由：oxlint 的 847 條規則裡**沒有 `vue/no-v-html`**。
  * 那是 Vue 專案最主要的 XSS 入口，只有這一軌擋得住。
+ * React 那一格（`dangerouslySetInnerHTML`）oxlint 有 `react/no-danger`，所以住在
+ * `vite.scaffold.ts`、不在這裡（C241）—— 別為它在這一軌加 React 外掛。
  *
  * ── ⚠️ TypeScript 版本並存（實測踩到的坑）────────────────────────────
  *

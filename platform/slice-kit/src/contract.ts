@@ -52,7 +52,7 @@ export const VIEWS_DIR = "src/views";
 /**
  * hook 檔名規則：`use` 開頭、駝峰、`.ts` 結尾（`useOrderList.ts`）。
  *
- * `use` 開頭不只是風格：React 的 hook 規則與 `eslint-plugin-react-hooks` 都靠這個前綴
+ * `use` 開頭不只是風格：React 的 hook 規則與 oxlint 的 `react/rules-of-hooks` 都靠這個前綴
  * 認出「這支只能在元件頂層呼叫」。
  *
  * 與切片名的規則同理，刻意避開巢狀量詞（見本檔案末尾 SLICE_DIR_CHARSET 的說明）——

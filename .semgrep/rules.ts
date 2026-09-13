@@ -70,6 +70,36 @@ export function writesTaintedText(element: HTMLElement): void {
   element.textContent = route.query["q"] as string;
 }
 
+// react-router 的三個來源（C241）。宣告的形狀照 react-router 的回傳型別，理由同上面的 `useRoute`。
+declare function useParams(): Record<string, string | undefined>;
+declare function useSearchParams(): [URLSearchParams, (next: URLSearchParams) => void];
+declare function useLocation(): { pathname: string; search: string; hash: string };
+
+export function writesTaintedPathParam(element: HTMLElement): void {
+  const params = useParams();
+  // ruleid: tainted-route-input-to-dom-sink
+  element.innerHTML = params["id"] ?? "";
+}
+
+export function redirectsToTaintedSearchParam(): void {
+  const [searchParams] = useSearchParams();
+  // ruleid: tainted-route-input-to-dom-sink
+  window.location.href = searchParams.get("next") ?? "/";
+}
+
+export function opensTaintedLocation(): void {
+  const location = useLocation();
+  // ruleid: tainted-route-input-to-dom-sink
+  window.open(location.hash);
+}
+
+/** 對照組：react-router 的來源流進安全的 sink，理由同 `writesTaintedText`。 */
+export function writesTaintedSearchParamText(element: HTMLElement): void {
+  const [searchParams] = useSearchParams();
+  // ok: tainted-route-input-to-dom-sink
+  element.textContent = searchParams.get("q");
+}
+
 // ruleid: runtime-code-construction
 const built = new Function("return 1");
 

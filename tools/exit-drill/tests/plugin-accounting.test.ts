@@ -76,8 +76,8 @@ describe("parseConfiguredPlugins —— 應該抓到的", () => {
 
 describe("parseConfiguredPlugins —— 不可以誤報的", () => {
   it("oxlint 的字串型 plugins 陣列不算 plugin", () => {
-    // 這是根目錄 vite.config.ts 真正的內容。誤報的話 gate 從第一天就是紅的。
-    const source = `lint: { plugins: ["import", "typescript", "unicorn", "oxc", "vue", "promise"] }`;
+    // 這是 oxlint 外掛清單（`vite.scaffold.ts`）真正的內容。誤報的話 gate 從第一天就是紅的。
+    const source = `lint: { plugins: ["import", "typescript", "unicorn", "oxc", "vue", "react", "promise"] }`;
     expect(parseConfiguredPlugins(source)).toEqual([]);
   });
 
