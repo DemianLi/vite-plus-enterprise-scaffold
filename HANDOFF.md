@@ -83,7 +83,7 @@ touch .scaffold-fork && git add .scaffold-fork
 2. **開一片切片** → README〈1 分鐘：新增一個切片並掛上系統〉。
    產生器跑完會把接下來要改的檔案印在終端機上。
 3. **接資料** → 下面那一節。這一段以前哪份文件裡都沒有。
-4. **用元件** → `platform/ui/src/components/` 底下每一個 `.vue` 檔的檔頭。
+4. **用元件** → `platform/ui/src/components/` 底下每一個 `.tsx` 檔的檔頭。
    每個元件的用途、取捨與踩過的坑都寫在它自己的原始碼裡；
    ⚠️ **沒有一份獨立的元件使用說明**，這是 v1 的現況。
 
@@ -202,14 +202,13 @@ BFF_ORIGIN=https://gateway.internal ./node_modules/.bin/vpr dev
 
 #### 一、分工開發不受影響的系統架構
 
-一片功能 ＝ 一個 package，自帶 API／composables／views／store／測試。
+一片功能 ＝ 一個 package，自帶 API／hooks／views／store／測試。
 依賴方向單向（`apps → features → platform`），**切片之間一律禁止互相依賴**。
 
 | 守它的                | 守什麼                                                                    |
 | --------------------- | ------------------------------------------------------------------------- |
 | `tools/conformance`   | 切片契約、分層邊界、相對路徑逃逸、幽靈依賴（含 CSS 的 `@import`）         |
 | `tools/api-surface`   | `platform/*` 的**型別形狀**，改名或改形狀就失敗，破壞性變更必須附 codemod |
-| `tools/vue-typecheck` | `.vue` 的型別（`vp check` 的 tsgolint 不看 SFC）                          |
 | `tools/slice-gen`     | 產生器與檢查器**讀同一份契約**，不會各說各話                              |
 | `tools/codemods`      | 破壞性變更的遷移腳本；`api-surface` 擋下的就是**沒附 codemod** 的那些     |
 | `tools/promise-check` | **這一條承諾本身** —— 照 `specs/` 的規格弄壞一份副本，跑閘門，比對結果    |
@@ -231,14 +230,14 @@ BFF_ORIGIN=https://gateway.internal ./node_modules/.bin/vpr dev
 設計稿上的一塊樣式要變成程式裡可以各案替換的東西，中間有三段。
 **每一段都有檢查**，而且檢查是**掃目錄**的 —— 第三個元件加進來時它一樣會說話。
 
-| 那一段           | 沒有檢查會怎樣                                                      |
-| ---------------- | ------------------------------------------------------------------- |
-| 槽被宣告         | 元件沒有接縫，各案只能去改 `platform/ui` 的原始碼                   |
-| 元件真的讀到它   | 宣告與預設表都在、就是沒 `inject` —— 型別全對，覆寫一個字都不會生效 |
-| 宣告與預設表一致 | 新加的槽沒有對應的表，**靜靜地什麼都不做**                          |
-| 各案覆寫得到     | 覆寫字串搬出 `.ts` 之後 Tailwind 掃不到，CSS 少掉那些類別而建置全綠 |
+| 那一段           | 沒有檢查會怎樣                                                              |
+| ---------------- | --------------------------------------------------------------------------- |
+| 槽被宣告         | 元件沒有接縫，各案只能去改 `platform/ui` 的原始碼                           |
+| 元件真的讀到它   | 宣告與預設表都在、就是沒從 context 讀覆寫 —— 型別全對，覆寫一個字都不會生效 |
+| 宣告與預設表一致 | 新加的槽沒有對應的表，**靜靜地什麼都不做**                                  |
+| 各案覆寫得到     | 覆寫字串搬出 `.ts`／`.tsx` 之後 Tailwind 掃不到，CSS 少掉那些類別而建置全綠 |
 
-| 模板真的綁到解析後的表 | `:class="parts.overlay"` 打成 `DEFAULT_PARTS.overlay` —— 接縫還在、只是沒接上 |
+| 模板真的綁到解析後的表 | `className={parts.overlay}` 打成 `DEFAULT_PARTS.overlay` —— 接縫還在、只是沒接上 |
 
 前四段由 `platform/ui/tests/component-contract.test.ts` 守，
 最後一段由 `tools/theme-verify` **真的建置兩次**比對產物。
@@ -248,7 +247,7 @@ BFF_ORIGIN=https://gateway.internal ./node_modules/.bin/vpr dev
 「每一塊 class 都要有槽」，然後排版用的 `<div>` 會被逼出沒有人會覆寫的槽名，
 然後有人加例外 —— 而例外永遠不會拿掉。
 
-#### 三、設計模板對應 vue component 的方式
+#### 三、設計模板對應元件的方式
 
 元件的公開面分三格，各對應設計稿上的一種東西：
 
@@ -256,7 +255,7 @@ BFF_ORIGIN=https://gateway.internal ./node_modules/.bin/vpr dev
 | ------------------------------ | ----------------------------- | --------------------- |
 | **值**（顏色、圓角、字重）     | `@theme` 代幣                 | 在自己的 app 覆寫代幣 |
 | **形狀**（哪一塊長什麼樣）     | **具名槽** ＋ `createUiTheme` | 換整條 class 字串     |
-| **結構**（哪一塊可以整組換掉） | `<slot>`                      | 在使用端填 slot       |
+| **結構**（哪一塊可以整組換掉） | 收 `ReactNode` 的 props       | 在使用端傳內容        |
 
 ```ts
 createUiTheme({
@@ -266,20 +265,23 @@ createUiTheme({
 ```
 
 **槽名不是我們取的。** `UiDialog` 的 `overlay`／`content`／`title`／`description`
-就是 reka-ui 的基元名，也是 shadcn-vue 的 part 名、以及 shadcn Figma kit 的圖層名。
-設計師說「overlay 要更淡」，前端要改的那一格就叫 `overlay` —— 這條對應不需要翻譯表。
+就是 shadcn 的 part 名，也是 shadcn Figma kit 的圖層名（Base UI 的基元叫 `Backdrop`／`Popup`，
+槽名不跟著改，C244）。設計師說「overlay 要更淡」，前端要改的那一格就叫 `overlay` ——
+這條對應不需要翻譯表。
 
 ⚠️ **這一條的接縫從第一天就完整，內容補到 14 個元件。**
 表單那一排（`UiInput`、`UiTextarea`、`UiSelect`、`UiCheckbox`、
 `UiRadioGroup`／`UiRadioItem`、`UiSwitch`、`UiLabel`）已經齊了，
 而且**27 個元件都被檢查過**，一個 CRUD 畫面拼得出來了。
 
-⚠️ **shadcn 沒有安裝。** 這個 repo 用的是它的三個原料
-（reka-ui ＋ clsx ＋ tailwind-merge）與它的模型（原始碼在自己手上）。
+⚠️ **shadcn 沒有裝成相依。** 元件由 shadcn CLI 在上游產出、收進 `platform/ui` 當素材
+（C232；CLI 要連公網抓 registry，封閉網路的團隊用不到它），執行期只用它的三個原料
+（Base UI ＋ clsx ＋ tailwind-merge，C233）與它的模型（原始碼在自己手上）。
 
 **不採用它的樣式層，理由只有一句：CSS preset 沒有任何閘門在守。**
-現行 shadcn-vue 的樣式住在 `style-*.css`（`.cn-button-variant-default` 之類），
-各案換 preset 就換掉整套外觀，元件原始碼不動 —— 設計很好，但
+preset 把樣式放進語意 class（C68 量的 shadcn-vue 是 `.cn-button-variant-default` 之類；
+React 的 Base UI 系列還留一個 `cn-font-heading`，C233），CLI 產出的語意 class 收進來時
+一律改寫成 utility（C235）。各案換 preset 就換掉整套外觀，元件原始碼不動 —— 設計很好，但
 `.cn-button-variant-defualt` 打錯一個字會產生一個永遠不匹配的 class，
 畫面安靜地少一塊樣式。具名槽打錯字是**編譯失敗**。
 
@@ -350,7 +352,7 @@ createUiTheme({
 | **D2 退出演練**（驅動層可替換的證據）                      | 採購要求評估供應商鎖定風險               |
 | **BFF 契約驗收器**                                         | 要驗收真實 gateway 的案子                |
 | **CSP 瀏覽器實測探針**                                     | 有滲透測試的案子                         |
-| **UI 技術選型的三方比較**                                  | 要回答「為什麼選 reka-ui」的場合         |
+| **UI 技術選型的三方比較**                                  | 要回答「當年為什麼選 reka-ui」的場合     |
 
 ⚠️ **政府採購案請特別注意第一列。** v1.0.0 **沒有任何無障礙檢查**。
 機關端的驗收是 Freego ＋ 人工檢測，那一段本來就不在 CI 裡 ——
@@ -365,7 +367,7 @@ createUiTheme({
 
 #### 一、`platform/ui` 有 27 個元件，範圍是被定義過的
 
-接縫（代幣／具名槽／slot）都通了、**27 個元件都被檢查器驗過**，
+接縫（代幣／具名槽／組合）都通了、**27 個元件都被檢查器驗過**，
 一個 CRUD 畫面拼得出來：表單十支、表格家族六支＋分頁、版型與回饋十支。
 
 範圍由 **C78** 定，判準是「一個典型的 CRUD 案子，第一天要不要自己寫這個
@@ -373,35 +375,15 @@ createUiTheme({
 Combobox／Avatar／Progress／Toast）。那是一個可以被反駁的決定，不是一份
 被當成既定事實的記憶。
 
-#### ⚠️ 使用端把 prop 名字打錯，不會有任何東西說話
-
-`UiButton` 的是 `variant`，`UiAlert` 與 `UiBadge` 的是 **`tone`**。
-照 `UiButton` 的習慣寫 `<UiAlert variant="danger">` —— **全套閘門綠**，
-而那塊錯誤提示會安靜地渲染成 info 色（灰底），`<div variant="danger">`
-留在 DOM 裡看起來像有設。
-
-成因是 Vue 的 fallthrough attrs：不存在的 prop 變成 DOM 屬性，不是型別錯。
-
-**兩次量測（不要再量第三次）：**
-
-| 開什麼                                    | 結果                                                                                                                                                              |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `strictTemplates`（C55 量的）             | 多 2 條，都是 `<UiButton @click>`；而加 `defineEmits` 會**關掉 fallthrough**，是真的行為迴歸                                                                      |
-| **只開 `checkUnknownProps`**（C101 量的） | **28 條，全部是 `data-slot`**；把 `data-slot` 正名之後變成 `aria-invalid`／`aria-describedby` 那一批 —— 也就是 `UiField` 的 `control` 靠 fallthrough 傳下去的東西 |
-
-⚠️ **這個元件庫的設計整體建立在 fallthrough attrs 上**，而
-`checkUnknownProps` 與那個設計衝突 —— 不是設定沒調對。**留著這個缺口是決定，
-不是疏忽。**
-
-⚠️ 已經好一點的一半：`platform/*` 每個 export 的形狀現在列在根層
-[`API.md`](API.md) 裡（產生的，由 `api-surface` 守著）—— 寫之前查一下，
-比事後發現快。
-
 ⚠️ 這個數字由 `tools/doc-facts` 從 **`git ls-files`** 數出來（不是掃磁碟，
 理由見 C73），文件裡三處引用它的地方對不上就會紅。
 
-⚠️ 補元件的最快路徑是用 shadcn-vue 的 CLI 把原始碼**抄進來**（不是相依它），
-抄進來之後接上具名槽 —— 檢查器會告訴你哪一個沒接上。那是 v1.x 的工作。
+⚠️ 補元件的最快路徑是在上游用 shadcn CLI 產出原始碼再**收進來**（不是相依它，C232），
+收進來之後把語意 class 改寫成 utility、接上具名槽（C235）—— 檢查器會告訴你哪一個沒接上。
+
+⚠️ Vue 版時這一節還記著一個缺口：使用端把 prop 名字打錯（照 `UiButton` 的習慣寫
+`<UiAlert variant="danger">`，而它的 prop 叫 `tone`）全套閘門綠。React 版是型別錯誤 ——
+實測 `vp check` 報 `TS2322`，同檔寫對的那一行零報（2026-09-13，C246）。
 
 #### 二、`bff-mock` 不是認證伺服器
 
@@ -409,16 +391,7 @@ Combobox／Avatar／Progress／Toast）。那是一個可以被反駁的決定�
 路徑（登入、CSRF、401／403）從第一天就跑得通，以及證明
 `@org/bff-contract` 是可實現的。**正式環境請用組織的 gateway。**
 
-#### 三、`vue-typecheck` 用的是第二個 TypeScript
-
-catalog 主線的 `typescript` 是原生 Go 版（TS 7），已經沒有 `vue-tsc` 需要的
-compiler API，所以 `tools/vue-typecheck` 用具名 catalog 拉一份 JS 版的 5.x。
-
-⚠️ 這道閘門紅、而 `vp check` 綠的時候，**多半是真陽性**不是工具吵架：
-`.ts` 檔消費 `.vue` 時 `vp check` 看的是 `declare module "*.vue"` 的萬用宣告
-（任何 prop 都合法），vue-tsc 解析真的 SFC。紅燈訊息自己會講這句。
-
-#### 四、四份閘門清單是手抄的，沒有東西在斷言它們一致
+#### 三、四份閘門清單是手抄的，沒有東西在斷言它們一致
 
 同一份「跑哪些閘門」的清單，在這個 repo 裡各寫一份：`package.json` 的
 `gate` 與各別名、兩個 workflow、以及 `README`〈兩層檢查〉那張表。
@@ -441,20 +414,15 @@ README 那張表的 Tier 2 那格漏了兩道閘門，**不知道漏了多久** 
 grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 ```
 
-#### 五、複雜度閘門看不見你的 `<script setup>`
+#### 四、複雜度閘門量得到元件了，只剩「props 個數」那一格空著
 
 `vp check` 從 v1.9.0 起會擋過長的函式、過深的巢狀、過多的參數（C119）。
-⚠️ **但那四條規則全部是函式範圍的**，而 `<script setup>` 的主體是 module 層
-程式碼 —— 不在任何函式裡。落到實際數字上：這個腳手架自己的 `platform/ui`
-有 **24 個 `.vue` 一個函式都沒有，合計 1992 行 script，在四個維度裡是 0**。
-`UiDropdownMenu.vue`（script 275 行）在複雜度閘門下**零違規**。
+元件從 C244 起是函式，JSX 裡的條件也算進循環複雜度 —— 實測（2026-09-13，暫放一支
+探針元件）：45 個三元運算報 `complexity` 46、206 行的元件報 `max-lines-per-function`，
+同檔的小元件零報。Vue 版時 `<script setup>` 的主體是 module 層程式碼，四條規則幾乎看不見它。
 
-只有 `max-depth` 是例外（它不限函式），`vue/max-props` 補回「參數個數」
-那一格。`<template>` 裡的條件與迴圈**沒有任何維度在看**。
-
-⚠️ **所以「複雜度全綠」不等於「元件不複雜」。** 這不是設定沒調對 ——
-用 ESLint 量出來一模一樣，而區塊行數那一格 oxlint 沒有對應規則。
-**寫元件的時候這條線得自己拉。**
+⚠️ **空著的是「props 個數」**：Vue 版用 `vue/max-props` 補那一格，oxlint 沒有 React 的
+對應規則（Q100）。一個元件長出二十個 props 不會有任何東西說話 —— **這條線得自己拉。**
 
 ---
 
@@ -580,7 +548,7 @@ grep -rn "vpr gate\|node tools/" package.json .github/workflows README.md
 | 23  | 平台（CI）   | ~~17 處引用全用可移動的標籤~~ **已全部釘 SHA ＋ 加閘門（2026-08-16）**        | ~~CI 這一層是敞開的~~ 剩：`run:` 裡的容器映像沒被守           | ⬜       | 已釘住；剩下的是內部取捨                      |
 | 24  | 架構／設計   | ~~三條軸只有一條有接縫~~ **三條軸全部接上並各有閘門（2026-08-17）**           | ~~各案只能改共用套件~~ 已結案，兩個殘留同日也關掉了           | ⬜       | 已擋掉；剩下的是內部取捨                      |
 | 25  | repo 管理者  | CODEOWNERS 距離生效有**三層**，文件原本只寫了中間那層                         | 做完 15 會以為共簽生效了 —— 12 條資安共簽其實是任一核准       | ⬜       | 與 12、15 同批；**做 15 的時候一起看**        |
-| 26  | 平台（實作） | ~~`.vue` 沒有型別檢查~~ **已接上（2026-08-17）**。乾跑撞出一個沒人守的相依    | ~~SFC 的型別斷言是裝飾品~~ 已守住，CSS `@import` 盲區同日補上 | ⬜       | 已做掉；剩下的是內部取捨                      |
+| 26  | 平台（實作） | ~~`.vue` 沒有型別檢查~~ **已接上（2026-08-17）**。乾跑撞出一個沒人守的相依    | ~~SFC 的型別斷言是裝飾品~~ 已守住，CSS `@import` 盲區同日補上 | ⬜       | C244 隨 Vue 退場；`.tsx` 由 vp check 檢查     |
 
 ---
 
@@ -891,6 +859,9 @@ Tier 1 一次就綠；Tier 2 首跑紅，抓到三個本機看不到的問題，
 
 ## 14. 架構／設計 — 樣式策略與設計系統擁有權 ✅ 兩格都已決策（2026-08-15／08-16）
 
+> **2026-09-13 現況**：前端從 C232 起是 React、基元從 C233 起是 Base UI，元件由 shadcn CLI
+> 在上游產出、收進 `platform/ui`（C232、C235）。下面「決策」那一行是當時的紀錄。
+
 **決策：shadcn-vue（reka-ui ＋ Tailwind v4），元件原始碼住 `platform/ui`。**
 完整理由見 [`DECISIONS.md`](DECISIONS.md) 的 **D15**，市調見
 [`UI-SURVEY.md`](UI-SURVEY.md)。產生市調的 `tools/ui-survey` 隨 Vue 退場刪除（C244，Q101），
@@ -990,6 +961,10 @@ gh api repos/<owner>/<repo>/codeowners/errors
 >
 > 對審查者的意義：**「CSP 在 enforce 下實測過」是一份 2026-08-15 的紀錄，
 > 不是一個持續成立的保證。** 升過相依之後要不要重驗，現在靠人記得。
+>
+> ⚠️ **2026-09-13（C245）**：`style-src-attr` 收成 `'none'`，探針二（style 屬性）的期望
+> 從「生效」翻成「被擋」，並在 enforce 下重量過（桌面 app 內建的 Chromium）。上面「五個
+> 探針全對」是 2026-08-15 那一次的紀錄。
 
 ### 會連動到本清單其他項的兩件事
 
@@ -1469,6 +1444,9 @@ ESLint 的 `security` 外掛與 `vue/no-v-html` 擋的是**單點樣式**
 
 ## 22. 架構／設計 — 無障礙：能力在，強制它的東西沒有 ⚠️ 已裝閘門，但閘門看不見大部分（2026-08-16）
 
+> **2026-09-13 現況**：Vue 那一軌（`vuejs-accessibility`）隨 `.vue` 退場（C244），現在只剩
+> `.tsx` 那一軌（`jsx-a11y`，C234）。下面是當時的紀錄。
+
 **已加 `vpr a11y`（`eslint-plugin-vuejs-accessibility` 全 23 條，跑在 Tier 1）。
 它對本 repo 的正常結果是零個發現，而那**不是**因為模板沒問題。**
 
@@ -1728,6 +1706,10 @@ grep -n "uses:" .github/workflows/*.yml
 ---
 
 ## 24. 架構／設計 — 三條軸都接上了 ✅（2026-08-17）
+
+> **2026-09-13 現況**：互動那一軸在 React 版是 `UiDialog` 的 `children`／`footer`／`close`
+> 三個 props，形狀由 `api-surface` 記、消費端型別由 `vp check` 驗；下面講的 slot／emit 與
+> `vue-typecheck` 隨 Vue 退場（C244）。
 
 回答第 14 項時得到的產品要求是這一句：
 
@@ -2004,6 +1986,9 @@ C44 的「Renovate 用 `workflow_dispatch` 而非自動觸發」把「`tools/sup
 ---
 
 ## 26. 平台（實作）— `.vue` 的型別檢查已接上，而乾跑撞出一個沒人看得見的相依 ✅（2026-08-17）
+
+> **2026-09-13 現況**：`vue-typecheck` 與它守的 `.vue` 一起在 C244 退場，`.tsx` 由 `vp check`
+> 的型別段直接檢查；「兩個 TypeScript」也隨它結束。下面是當時的紀錄。
 
 > **2026-08-17 結案。** 下面保留原本的問題描述（過去式讀），因為那個
 > 「撞出來才知道」的過程本身是這一項的價值 —— 它是**沒有任何閘門會說話**

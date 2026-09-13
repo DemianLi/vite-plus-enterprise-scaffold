@@ -15,8 +15,6 @@ import { DRILL_PLUGINS } from "./plugins.ts";
 // 打包上游的 vitest —— 這件事本身就是 D2 論證的一部分。
 export const UPSTREAM = {
   vite: "^8.2.1",
-  vue: "^3.5.41",
-  "@vitejs/plugin-vue": "^6.0.8",
   vitest: "4.1.11",
 };
 

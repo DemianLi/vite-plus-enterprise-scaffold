@@ -105,7 +105,7 @@ workspace 成員**，`UNGATED` 的「為什麼它不是閘門」**必填**，而
 | `platform/security-headers` | CSP 以**資料**定義，由 BFF／dev 中介層／測試三方共用              |
 | `platform/bff-contract`     | 中間層必須做到什麼 ＋ 怎麼證明做到了                              |
 | `platform/bff-mock`         | 契約的參考實作；**不是認證伺服器**                                |
-| `platform/ui`               | 共用 UI 元件層。代幣兩層、具名槽、slot                            |
+| `platform/ui`               | 共用 UI 元件層。代幣兩層、具名槽、組合                            |
 | `platform/pii`              | 個資欄位的標註與遮罩函式（`maskName()` 等，含 `isMasked()` 判準） |
 | `platform/tsconfig`         | 共用 TypeScript 設定                                              |
 | `platform/eslint-config`    | Tier 2 安全閘門的 ESLint 設定（與 oxlint 零重疊）                 |

@@ -80,8 +80,8 @@ vp create slice -- --directory=../features/shipment --slice=shipment --title=出
 「規格解析得出來、分母數得對」，執行那一半發生在產出的切片上。
 
 ⚠️ **usecase 必須在畫面真的會走到的路徑上。** 模板產出的鏈是
-`views → composables → usecases → ports → api.ts`；composable 呼叫的是 usecase，
-規格打的也是 usecase。改成讓 composable 直接呼叫 `api.ts` 的話，規格驗的東西
+`views → hooks → usecases → ports → api.ts`；hook 呼叫的是 usecase，
+規格打的也是 usecase。改成讓 hook 直接呼叫 `api.ts` 的話，規格驗的東西
 與畫面跑的東西就是兩條路 —— 那條也有絆線守著。
 
 ## ⚠️ 產完 `vp install` 會看到兩行 WARN，那不是你裝壞了

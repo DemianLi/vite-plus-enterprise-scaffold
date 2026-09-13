@@ -5,12 +5,12 @@ import type { InvoiceGateway, InvoiceListResponse, QueryInvoiceInput } from "../
  *
  * ── 這一層的規則只有三條（TESTING.md 層 3）────────────────────────────
  *
- *   1. **零框架相依**：不 import vue／pinia／vue-router／vue-i18n／vue-query，
- *      也不 import 任何 .vue
- *   2. **輸入輸出都是純資料**：沒有 ref、沒有 computed、沒有生命週期
- *   3. **業務規則住這裡**，composable 只負責把它接到畫面上
+ *   1. **零框架相依**：不 import react／react-router／react-i18next／zustand／
+ *      react-query，也不 import 任何 .tsx（清單見契約的 USECASE_FORBIDDEN_IMPORTS）
+ *   2. **輸入輸出都是純資料**：沒有 state、沒有 hook、沒有生命週期
+ *   3. **業務規則住這裡**，hook 只負責把它接到畫面上
  *
- * 為什麼規格不直接打 composable：規格步驟一旦要掛載 Vue、建 pinia、造
+ * 為什麼規格不直接打 hook：規格步驟一旦要掛載 React、建 store、造
  * QueryClient，那層設施就會貴到沒有專案組願意用 —— 而**沒人用就等於不存在**。
  *
  * ⚠️ 下面這條 `keyword` 篩選是**範本**，換成這個切片真正的業務規則。

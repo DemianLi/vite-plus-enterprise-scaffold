@@ -113,7 +113,7 @@ vite-plus，而整場演練的重點就是不要它。演練會先刪掉它，�
 | `DRILL_PLUGINS`   | 會改變產物 → **必須重現** | 真的裝它、真的註冊它。import／呼叫／相依三處全由它推導 |
 | `DROPPED_PLUGINS` | 不改變產物 → 明示丟掉     | 必須寫明「丟掉它為什麼不影響產物」                     |
 
-沒登記的一律 exit 1。目前是重現 2 個（`vue`、`tailwindcss`）、明示丟棄 2 個
+沒登記的一律 exit 1。目前是重現 2 個（`react`、`tailwindcss`）、明示丟棄 2 個
 （`securityHeaders` 只掛 dev server 中介層、`assertStaticCspCompatible` 是檢查
 而非轉換 —— 兩個都不改產物一個位元組）。
 

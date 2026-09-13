@@ -27,8 +27,8 @@
  *
  * ── 這一份在 C235–C243 期間叫 `./react` ─────────────────────────────
  *
- * 遷移期間 `.` 仍是 Vue 版；Vue 退場時收回來（C244），使用端的 import
- * 由 codemod `ui-react-entry-to-root` 改寫。
+ * 那段期間 `.` 仍是 Vue 版；C244 Vue 退場時收回 `.`，舊的 `@org/ui/react`
+ * import 由 codemod `ui-react-entry-to-root` 改寫。
  */
 
 export { UiButton } from "./components/UiButton.tsx";

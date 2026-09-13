@@ -22,7 +22,7 @@ export function fetchInvoiceList(query: InvoiceListQuery = {}): Promise<InvoiceL
 /**
  * 送進 usecase 的正式 gateway。
  *
- * ⚠️ 它必須是**畫面真的在用的那一個** —— composable 拿的就是它。
+ * ⚠️ 它必須是**畫面真的在用的那一個** —— hook 拿的就是它。
  * 規格跑的是同一份 usecase，只是換一個 gateway 進去；
  * 兩邊各走各的路的話，規格全綠而畫面壞掉，沒有閘門看得見。
  */

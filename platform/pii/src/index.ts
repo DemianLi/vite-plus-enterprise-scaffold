@@ -22,7 +22,7 @@
  *
  *   2. **包裝物件會靜靜地漏出去。** `currency.format()`、`localeCompare`、
  *      `encodeURIComponent`、`JSON.stringify` 都會把它強制轉型，
- *      而轉出來的東西會進 TanStack 的快取與 Pinia 的狀態 ——
+ *      而轉出來的東西會進 TanStack 的快取與 zustand 的狀態 ——
  *      **一個沒有任何東西會報錯的地方**。用編譯期的缺口換一個執行期的缺口，
  *      不划算。
  *

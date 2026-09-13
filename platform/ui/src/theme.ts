@@ -9,9 +9,11 @@
  *
  * ── 為什麼不照 shadcn 的做法 ────────────────────────────────────────
  *
- * ⚠️ **不是因為它要人改原始碼 —— 那個說法是錯的，這裡更正。** 現行
+ * ⚠️ **不是因為它要人改原始碼 —— 那個說法是錯的，這裡更正。** C68 量的
  * shadcn-vue 的 cva 表裡沒有任何 utility，只有語意 class 名
- * （`cn-button-variant-default`），真正的樣式住在 `style-*.css`。各案換樣式
+ * （`cn-button-variant-default`），真正的樣式住在 `style-*.css`。React 那一側 C233
+ * 量過：`new-york-v4` 已經是 utility，Base UI 對應的 nova 系列還留一個語意 class
+ * （`cn-font-heading`），C235 照同一條理由改寫成 utility。各案換樣式
  * ＝ 換一份 preset CSS，**元件原始碼完全不動**。官方的客製順序是
  * 「內建 variant → `class` → 改原始碼加 variant → wrapper」，改原始碼排第三。
  *
@@ -41,8 +43,8 @@
  * 設計師說「overlay 要更淡」的時候，前端要改的那一格就叫 `overlay` —— 這條對應
  * 不需要翻譯表，這是需求 2 與 3 真正的產出。
  *
- * ⚠️ 下面各型別註解寫的「名稱取自 reka-ui 的基元」是 Vue 版的來歷：當時槽名與
- * import 的基元同名。Base UI 的基元叫 `Backdrop`／`Popup`，**槽名不跟著改** ——
+ * ⚠️ 下面各型別註解寫的「名稱沿用 Vue 版的基元名」是槽名的來歷：當時槽名與 import 的
+ * reka-ui 基元同名。Base UI 的基元叫 `Backdrop`／`Popup`，**槽名不跟著改** ——
  * 改槽名是 `UiThemeOverride` 的破壞性變更，而設計稿那一側的名字沒有變（C244）。
  *
  * ⚠️ 但 variant 的名字**刻意不跟** shadcn（它叫 `default`／`destructive`）。
@@ -78,7 +80,7 @@ export type UiSize = "sm" | "md";
  */
 export type UiButtonSlot = UiVariant | UiSize;
 
-/** `UiDialog` 的可覆寫部位。名稱取自 reka-ui 的基元，見檔頭。 */
+/** `UiDialog` 的可覆寫部位。名稱沿用 Vue 版的基元名，見檔頭。 */
 export type UiDialogSlot = "overlay" | "content" | "title" | "description";
 
 /**
@@ -118,7 +120,7 @@ export type UiSkeletonSlot = "skeleton";
  */
 export type UiBadgeSlot = "badge" | "neutral" | "accent" | "danger";
 
-/** `UiCheckbox` 的可覆寫部位。名稱取自 reka-ui 的基元與 `Label`。 */
+/** `UiCheckbox` 的可覆寫部位。名稱沿用 Vue 版的基元名與 `Label`。 */
 export type UiCheckboxSlot = "root" | "indicator" | "label";
 
 /**
@@ -146,7 +148,7 @@ export type UiFieldSlot = "field" | "description" | "error";
 /** `UiTextarea` 的可覆寫部位。⚠️ 與 `UiInputSlot` 刻意分開，見元件檔頭。 */
 export type UiTextareaSlot = "textarea";
 
-/** `UiSwitch` 的可覆寫部位。名稱取自 reka-ui 的基元。 */
+/** `UiSwitch` 的可覆寫部位。名稱沿用 Vue 版的基元名。 */
 export type UiSwitchSlot = "root" | "thumb";
 
 /** `UiRadioGroup` 的可覆寫部位 —— 只有容器，每一項是 `UiRadioItem` 的事。 */
@@ -155,7 +157,7 @@ export type UiRadioGroupSlot = "group";
 /** `UiRadioItem` 的可覆寫部位。 */
 export type UiRadioItemSlot = "item" | "indicator" | "label";
 
-/** `UiSelect` 的可覆寫部位。名稱取自 reka-ui 的基元。 */
+/** `UiSelect` 的可覆寫部位。名稱沿用 Vue 版的基元名。 */
 export type UiSelectSlot = "trigger" | "content" | "item" | "indicator" | "chevron";
 
 /**
@@ -184,7 +186,7 @@ export type UiSelectSlot = "trigger" | "content" | "item" | "indicator" | "chevr
 export type UiDropdownMenuSlot = "trigger" | "icon" | "content" | "item" | "danger";
 
 /**
- * `UiDatePicker` 的可覆寫部位。名稱取自 reka-ui 的基元。
+ * `UiDatePicker` 的可覆寫部位。名稱沿用 Vue 版的基元名。
  *
  * ⚠️ 八格是這個 repo 目前最多的 —— 日期選擇器本來就是一個小應用
  *（輸入分段 ＋ 觸發器 ＋ 面板 ＋ 導航 ＋ 表頭 ＋ 日格）。合併成幾格會讓
@@ -219,7 +221,7 @@ export type UiTableHeadCellSlot = "cell";
 /** `UiTableCell` 的可覆寫部位（`<td>`）。`numeric` 是疊加在 `cell` 上的那一格。 */
 export type UiTableCellSlot = "cell" | "numeric";
 
-/** `UiPagination` 的可覆寫部位。名稱取自 reka-ui 的基元。 */
+/** `UiPagination` 的可覆寫部位。名稱沿用 Vue 版的基元名。 */
 export type UiPaginationSlot = "list" | "item" | "nav" | "ellipsis";
 
 /** `UiSeparator` 的可覆寫部位。 */

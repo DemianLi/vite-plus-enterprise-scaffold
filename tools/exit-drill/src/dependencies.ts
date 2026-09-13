@@ -100,12 +100,10 @@ export const DROPPED_TEST_DEPENDENCIES: readonly DroppedDependency[] = [
   },
   { name: "vitest", reason: "由 UPSTREAM.vitest 提供（上游版本）。" },
   {
-    name: "@vitejs/plugin-vue",
-    reason: "由 DRILL_PLUGINS 推導安裝 —— 它是 plugin，帳目在 plugins.ts 那一張表。",
-  },
-  {
     name: "@vitejs/plugin-react",
-    reason: "同上，DRILL_PLUGINS 的一筆（C240：應用殼是 React，JSX 要靠它編進產物）。",
+    reason:
+      "由 DRILL_PLUGINS 推導安裝 —— 它是 plugin，帳目在 plugins.ts 那一張表" +
+      "（C240：應用殼是 React，JSX 要靠它編進產物）。",
   },
   {
     name: "@tailwindcss/vite",
