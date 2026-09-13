@@ -26,7 +26,7 @@ import { buildSliceFiles } from "../src/files.ts";
  * ── 為什麼跑得起來 ──────────────────────────────────────────────────
  *
  * 暫存專案建在這個 package 底下，所以 `vite-plus`／`vitest`／
- * `@vitest/coverage-v8`／`@vitejs/plugin-vue`／`@org/slice-kit` 全部由
+ * `@vitest/coverage-v8`／`@vitejs/plugin-react`／`@org/slice-kit` 全部由
  * node 往上找 `node_modules` 解析得到。放到系統暫存目錄就解析不到，
  * 那也是 `tools/vue-typecheck` 的 fixture 建在 repo 內的同一個理由。
  *
@@ -127,12 +127,12 @@ describe("一、產生器真的產出那份設定", () => {
     expect(pkg.scripts["test"]).toBeUndefined();
   });
 
-  it("provider 與 vue plugin 列在切片自己的相依裡（C111）", () => {
+  it("provider 與 react plugin 列在切片自己的相依裡（C111）", () => {
     const pkg = JSON.parse(generated["package.json"] as string) as {
       devDependencies: Record<string, string>;
     };
     expect(pkg.devDependencies["@vitest/coverage-v8"]).toBe("catalog:");
-    expect(pkg.devDependencies["@vitejs/plugin-vue"]).toBe("catalog:");
+    expect(pkg.devDependencies["@vitejs/plugin-react"]).toBe("catalog:");
   });
 });
 

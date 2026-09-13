@@ -385,7 +385,7 @@ export const CONTROLS: readonly Control[] = [
     gates: [],
     coverage: "none",
     owed: true,
-    note: "⚠️ **曾經有閘門，2026-08-16 移除**（C52）：它要求每個新切片宣告 personalData、而宣告的欄位在 .vue 裡必須包 maskXxx()，那是加一個切片時最重的那一項摩擦。`platform/pii` 的遮罩函式仍在、`OrderList.vue` 也仍然呼叫 —— **遮罩還在，只是沒有機制強制**，新加的欄位不會有任何東西說話。這一格重新變紅是刻意的：拿掉閘門而讓表繼續顯示「已覆蓋」，比沒有閘門更糟。",
+    note: "⚠️ **曾經有閘門，2026-08-16 移除**（C52）：它要求每個新切片宣告 personalData、而宣告的欄位在 .vue 裡必須包 maskXxx()，那是加一個切片時最重的那一項摩擦。`platform/pii` 的遮罩函式仍在、`OrderList.tsx` 也仍然呼叫 —— **遮罩還在，只是沒有機制強制**，新加的欄位不會有任何東西說話。這一格重新變紅是刻意的：拿掉閘門而讓表繼續顯示「已覆蓋」，比沒有閘門更糟。",
   },
   {
     article: "§12 III",

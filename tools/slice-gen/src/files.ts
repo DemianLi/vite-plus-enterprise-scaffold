@@ -23,7 +23,7 @@ export interface SliceOptions {
  * 正是 C119 唯一一條 per-file 放行守著的東西。
  */
 const VITE_CONFIG = `import { defineConfig } from "vite-plus";
-import vue from "@vitejs/plugin-vue";
+import react from "@vitejs/plugin-react";
 import { USECASE_COVERAGE_GLOB, USECASE_COVERAGE_MIN } from "@org/slice-kit/contract";
 
 /**
@@ -31,20 +31,20 @@ import { USECASE_COVERAGE_GLOB, USECASE_COVERAGE_MIN } from "@org/slice-kit/cont
  *
  * 門檻只收在 \`src/usecases/**\` 上，因為那是規格打的那一層：一行沒被走過的
  * usecase 就是一個沒有規格在驗的 usecase。切片整體**不設數字** ——
- * \`src/views/**\` 佔行分母的 40%、函式分母的 45%，而 \`.vue\` 只算
- * \`<script setup>\`（template 一行都不進分母），一個套在整包上的數字會被
- * 那件事帶著走。
+ * \`src/views/**\` 佔行分母的 40%、函式分母的 45%（Vue 版時量的），
+ * 一個套在整包上的數字會被畫面那一半帶著走。
  *
  * ⚠️ 為什麼不放腳手架根層：根層**刻意不放** \`test\` 區塊。\`vp test\` 的設定以
  * package 為根解析，就算根層放了，一個有自己 \`vite.config.ts\` 的 package 也
  * **整塊不繼承**。所以這支檔案**不能刪** —— 刪掉之後門檻不會報錯，它會安靜
  * 地不存在。
  *
- * ⚠️ \`plugins\` 這一行不是贅字：少了它 \`.vue\` 不會被轉譯，畫面那支會整支
+ * ⚠️ \`plugins\` 這一行不是贅字：Vue 版時少了它 \`.vue\` 不會被轉譯，畫面那支會整支
  * 從覆蓋率報表裡消失（實測：行覆蓋率不降反升，而程式碼一個字都沒改）。
+ * 換成 React（C240）之後沒有重量過少了它會怎樣 —— 留著它，建置與測試走同一套轉譯。
  */
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [react()],
 
   // ── 覆蓋率的產物落在 package 底下，而 \`vp run\` 會把它算成輸入（C120）──
   //
@@ -131,14 +131,10 @@ export function buildSliceFiles(options: SliceOptions): FileTree {
             // D15：畫面元件一律從 @org/ui 取用。一致性檢查會驗切片**真的用過**它 ——
             // 只是宣告依賴不算，只是不用也不行。
             "@org/ui": "workspace:*",
-            "@tanstack/vue-query": "catalog:",
-            pinia: "catalog:",
-            vue: "catalog:",
-            // 模板用 `$t`，而 `$t` 是 vue-i18n 掛上去的全域屬性 —— 它是相依，
-            // 只是不長得像。少了這一行（加上 env.d.ts 那句 import），切片單獨
-            // 型別檢查會噴一整排 TS2339，見 C68。
-            "vue-i18n": "catalog:",
-            "vue-router": "catalog:",
+            "@tanstack/react-query": "catalog:",
+            react: "catalog:",
+            "react-i18next": "catalog:",
+            zustand: "catalog:",
           },
           devDependencies: {
             // 驗收規格的 runner。⚠️ **必須列在切片自己的相依裡**，不能靠
@@ -146,10 +142,11 @@ export function buildSliceFiles(options: SliceOptions): FileTree {
             // `tests/` 底下溜得過去 —— 而那種相依在乾淨重建時不成立（C111）。
             "@amiceli/vitest-cucumber": "catalog:",
             "@org/tsconfig": "workspace:*",
+            "@types/react": "catalog:",
             // ⚠️ 這兩條也**必須列在切片自己的相依裡**，理由同上一條（C111）。
             // `vite.config.ts` 不在幽靈相依檢查的射程（它只掃 `src/`），
             // 所以少了它們不會有任何檢查說話 —— 症狀是乾淨重建時才炸。
-            "@vitejs/plugin-vue": "catalog:",
+            "@vitejs/plugin-react": "catalog:",
             "@vitest/coverage-v8": "catalog:",
             typescript: "catalog:",
             vite: "catalog:",
@@ -165,6 +162,9 @@ export function buildSliceFiles(options: SliceOptions): FileTree {
     // stringify 的多行陣列每次都會被改寫，讓「產完直接 check 就過」不成立。
     "tsconfig.json": `{
   "extends": "@org/tsconfig/lib.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  },
   "include": ["src", "tests"]
 }
 `,
@@ -194,10 +194,10 @@ ${title}
 
 畫面元件一律從 \`@org/ui\` 取用。一致性檢查驗的是**兩個方向**：
 
-| 規則                                            | 防的是什麼                                       |
-| ----------------------------------------------- | ------------------------------------------------ |
-| 不得直接 import \`reka-ui\`／\`clsx\`／\`tailwind-merge\` | 繞過 \`@org/ui\` 自己拼基元                        |
-| 整個切片**至少一處**使用 \`@org/ui\`              | 根本不用 —— 全部自己刻，一條規則都不會 violate    |
+| 規則                                                                        | 防的是什麼                                     |
+| --------------------------------------------------------------------------- | ---------------------------------------------- |
+| 不得直接 import 設計系統的底層（清單見契約的 \`SLICE_DESIGN_SYSTEM_IMPORTS\`） | 繞過 \`@org/ui\` 自己拼基元                    |
+| 整個切片**至少一處**使用 \`@org/ui\`                                          | 根本不用 —— 全部自己刻，一條規則都不會 violate |
 
 第二條才是實際上比較常發生的那一種。要的元件 \`@org/ui\` 沒有，
 就把它加進 \`platform/ui\` —— 那個 package 有 CODEOWNERS 與 api-surface 閘門，
@@ -213,15 +213,15 @@ ${title}
 | \`src/usecases/\`    | **業務規則**，純 TS 零框架。規格打的就是這一層                                    |
 | \`src/routes.ts\`    | 本切片的路由樹，\`/${name}\` 之下、name 以 \`${name}/\` 開頭                          |
 | \`src/api.ts\`       | 資料存取。一律走 \`@org/http-client\`，禁止直接用 fetch/axios                     |
-| \`src/composables/\` | \`useXxx()\` —— 取數、快取 key、後備值。**有狀態的邏輯住這裡**（D14）             |
-| \`src/store.ts\`     | Pinia。只放**客戶端才是權威**的東西：篩選條件、選取的 id。**存 id 不存 entity**  |
-| \`src/views/\`       | 畫面元件，**只負責呈現**。不得直接 import \`@tanstack/vue-query\` 或 \`api.ts\`     |
+| \`src/hooks/\`       | \`useXxx()\` —— 取數、快取 key、後備值。**有狀態的邏輯住這裡**（D14）             |
+| \`src/store.ts\`     | zustand。只放**客戶端才是權威**的東西：篩選條件、選取的 id。**存 id 不存 entity** |
+| \`src/views/\`       | 畫面元件，**只負責呈現**。不得直接 import \`@tanstack/react-query\` 或 \`api.ts\`   |
 | \`tests/specs/\`     | 規格的**接線**（\`.spec.ts\`）。把規格的中文句子接到 usecase 上，越薄越好      |
 | \`tests/\`           | 本切片的測試。一致性檢查要求至少一支                                            |
 
 > 「這份資料如果和伺服器不一致，誰是錯的？」
-> 伺服器是權威 → \`composables/\`；客戶端是權威 → \`store.ts\`；
-> 兩者都不是（例如「選取的那幾筆物件」）→ 哪裡都不放，用 \`computed\` 推導。
+> 伺服器是權威 → \`hooks/\`；客戶端是權威 → \`store.ts\`；
+> 兩者都不是（例如「選取的那幾筆物件」）→ 哪裡都不放，render 時從列表推導。
 
 ## 命名空間
 
@@ -252,7 +252,7 @@ ${title}
 ⚠️ **agent 不得修改 \`specs/\` 底下的檔案**（含不得自己加上 \`@待辦\`）。
 這條沒有閘門在守，靠的是人讀規格的 diff —— 見根目錄 \`AGENTS.md\` 的契約。
 
-規格打的是 \`src/usecases/\`（純 TS、零框架），而 composable 呼叫的也是它 ——
+規格打的是 \`src/usecases/\`（純 TS、零框架），而 hook 呼叫的也是它 ——
 **同一份業務規則**。規格餵 in-memory 的 gateway，畫面餵真的 HTTP，
 中間那層一模一樣；不這樣接的話，規格全綠而畫面壞掉，沒有閘門看得見。
 
@@ -330,35 +330,7 @@ vp run ${pkgName}#test
     },
 
     src: {
-      // ⚠️ **這個檔案不可以出現任何頂層 import／export。**
-      // 有的話它就從全域腳本變成模組，而模組裡的 \`declare module "*.vue"\`
-      // 不再是環境宣告 —— \`routes.ts\` 的 \`import("./views/…​.vue")\` 當場
-      // 找不到模組。i18n 的那句 import 因此住在隔壁的 i18n.d.ts。
       "env.d.ts": `/// <reference types="vite/client" />
-
-// Vue 單檔元件的型別橋接：tsgolint 不認識 .vue 副檔名。
-declare module "*.vue" {
-  import type { DefineComponent } from "vue";
-  const component: DefineComponent<Record<string, unknown>, Record<string, unknown>, unknown>;
-  export default component;
-}
-`,
-
-      "i18n.d.ts": `// ── 模板裡的 \`$t\` 是一個相依，而它不長得像相依（C68）─────────────────
-//
-// \`$t\` 由 vue-i18n augment 到 \`ComponentCustomProperties\` 上。少了這一行，
-// 這個切片**單獨拿出來型別檢查會噴一整排 TS2339**，而在 apps/console 的
-// program 裡是 0 條 —— 因為 console 的 main.ts 有 \`import { createI18n }\`。
-//
-// ⚠️ 實測過三種寫法，只有這一種有效（package.json 宣告、\`/// <reference>\`
-// 都無效）。而這一行的另一半價值是它**是一個 import** —— 幽靈相依檢查讀
-// import，所以補完之後這個相依從此有人守。
-//
-// ⚠️ **為什麼自己一個檔案。** 併進 env.d.ts 會讓那個檔案變成模組，
-// 於是裡面的 \`declare module "*.vue"\` 不再是環境宣告。實測時就是這樣紅的，
-// 而且**只有 tsgolint 紅、vue-tsc 全綠** —— vue-tsc 真的解析 \`.vue\`，
-// 根本不需要那個 shim。一行 import 的位置會決定另一支工具看不看得見半個切片。
-import type {} from "vue-i18n";
 `,
 
       // ⚠️ 型別與介面住在 ports.ts，不住在這裡 —— 這樣 usecase 層才拿得到它們
@@ -466,55 +438,52 @@ export const ${camel}Keys = {
 } as const;
 `,
 
-      "store.ts": `import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+      "store.ts": `import { create } from "zustand";
 
 /**
- * 切片內的 Pinia store（D13 / D14）。
+ * 切片內的 store（D13 / D14）。
  *
- * store id 用 "${name}/" 命名空間前綴，且定義在切片內部 ——
- * **不得有全域 store 目錄**，那是三層架構最常見的破口：
+ * 定義在切片內部 —— **不得有全域 store 目錄**，那是三層架構最常見的破口：
  * 一旦出現，兩個切片就會開始共用狀態，邊界當場失效。
+ *
+ * ⚠️ 沒有 store id：zustand 的 store 是這個模組裡的一個變數，撞不到名（C240 Q92）。
  *
  * ── 這裡只放「客戶端才是權威」的東西 ───────────────────────────────────
  *
  * 判準：*這份資料如果和伺服器不一致，誰是錯的？*
  *
- *   伺服器是權威（列表資料本身）  → composables/use${Pascal}List.ts
+ *   伺服器是權威（列表資料本身）  → hooks/use${Pascal}List.ts
  *   客戶端是權威（篩選、選取的 id）→ 這裡
- *   兩者都不是（選取的那幾筆物件）→ 哪裡都不放，用 computed 推導
+ *   兩者都不是（選取的那幾筆物件）→ 哪裡都不放，render 時從列表推導
  *
  * 一句話：**存 id，不存 entity。**
- * 一致性檢查會擋下 value import \`./api.ts\` 與 \`@tanstack/vue-query\`；
+ * 一致性檢查會擋下 value import \`./api.ts\` 與 \`@tanstack/react-query\`；
  * \`import type\` 允許（在 verbatimModuleSyntax 下會被完全抹除，無執行期效果）。
  */
-export const use${Pascal}FilterStore = defineStore("${name}/filter", () => {
-  const page = ref(1);
-
+interface ${Pascal}FilterState {
+  readonly page: number;
   /**
    * 被選取的那一筆 —— 只存 id。
    *
    * 這裡刻意**不放** \`selected${Pascal}Item\` 物件。放了就是第二份快取：
    * 列表重新整理之後對話框裡還是舊資料，而且不會有任何測試變紅。
-   * 要那筆物件的時候，在元件裡用 \`computed\` 從列表推導（見 views/）。
+   * 要那筆物件的時候，在元件裡從列表推導（見 views/）。
    */
-  const selectedId = ref<string | null>(null);
+  readonly selectedId: string | null;
+  // 寫成屬性而不是方法：元件會把它單獨選出來傳給 onClick，方法語法在型別上帶著 \`this\`。
+  readonly setPage: (next: number) => void;
+  readonly select: (id: string | null) => void;
+}
 
-  const query = computed(() => ({ page: page.value }));
-
-  function setPage(next: number): void {
-    page.value = next;
-  }
-
-  function select(id: string | null): void {
-    selectedId.value = id;
-  }
-
-  return { page, selectedId, query, setPage, select };
-});
+export const use${Pascal}FilterStore = create<${Pascal}FilterState>()((set) => ({
+  page: 1,
+  selectedId: null,
+  setPage: (next) => set({ page: next }),
+  select: (id) => set({ selectedId: id }),
+}));
 `,
 
-      "routes.ts": `import type { RouteRecordRaw } from "vue-router";
+      "routes.ts": `import type { SliceRoute } from "@org/slice-kit";
 
 /**
  * 本切片自己的路由樹，不碰任何共用 router 檔案（D7）。
@@ -522,11 +491,11 @@ export const use${Pascal}FilterStore = defineStore("${name}/filter", () => {
  * path 一律在 /${name} 之下、name 一律以 "${name}/" 開頭 ——
  * defineFeature 會在 dev 模式當場驗證，撞名不可能活到執行期。
  */
-export const routes: RouteRecordRaw[] = [
+export const routes: SliceRoute[] = [
   {
     path: "/${name}",
     name: "${name}/list",
-    component: () => import("./views/${Pascal}List.vue"),
+    component: () => import("./views/${Pascal}List.tsx"),
     meta: { permissions: ["${name}:read"] },
   },
 ];
@@ -584,7 +553,7 @@ export type { ${Pascal}Item, ${Pascal}ListResponse } from "./api.ts";
 `,
 
       // ⚠️ **業務規則住這裡，而且這一層在活的路徑上。**
-      // 驗收規格打的是它（餵 in-memory gateway），composable 呼叫的也是它 ——
+      // 驗收規格打的是它（餵 in-memory gateway），hook 呼叫的也是它 ——
       // 兩邊各走各的路的話，規格全綠而畫面壞掉，沒有任何閘門看得見。
       usecases: {
         [`query-${name}.ts`]: `import type { ${Pascal}Gateway, ${Pascal}ListResponse, Query${Pascal}Input } from "../ports.ts";
@@ -594,12 +563,12 @@ export type { ${Pascal}Item, ${Pascal}ListResponse } from "./api.ts";
  *
  * ── 這一層的規則只有三條（TESTING.md 層 3）────────────────────────────
  *
- *   1. **零框架相依**：不 import vue／pinia／vue-router／vue-i18n／vue-query，
- *      也不 import 任何 .vue
- *   2. **輸入輸出都是純資料**：沒有 ref、沒有 computed、沒有生命週期
- *   3. **業務規則住這裡**，composable 只負責把它接到畫面上
+ *   1. **零框架相依**：不 import react／react-router／react-i18next／zustand／
+ *      react-query，也不 import 任何 .tsx（清單見契約的 USECASE_FORBIDDEN_IMPORTS）
+ *   2. **輸入輸出都是純資料**：沒有 state、沒有 hook、沒有生命週期
+ *   3. **業務規則住這裡**，hook 只負責把它接到畫面上
  *
- * 為什麼規格不直接打 composable：規格步驟一旦要掛載 Vue、建 pinia、造
+ * 為什麼規格不直接打 hook：規格步驟一旦要掛載 React、建 store、造
  * QueryClient，那層設施就會貴到沒有專案組願意用 —— 而**沒人用就等於不存在**。
  *
  * ⚠️ 下面這條 \`keyword\` 篩選是**範本**，換成這個切片真正的業務規則。
@@ -625,9 +594,8 @@ export async function query${Pascal}(
 `,
       },
 
-      composables: {
-        [`use${Pascal}List.ts`]: `import { useQuery } from "@tanstack/vue-query";
-import { computed, toValue, type ComputedRef, type MaybeRefOrGetter, type Ref } from "vue";
+      hooks: {
+        [`use${Pascal}List.ts`]: `import { useQuery } from "@tanstack/react-query";
 
 import { ${camel}Gateway, ${camel}Keys, type ${Pascal}Item, type Query${Pascal}Input } from "../api.ts";
 import { query${Pascal} } from "../usecases/query-${name}.ts";
@@ -636,41 +604,34 @@ import { query${Pascal} } from "../usecases/query-${name}.ts";
  * 本切片的取數邏輯（D14）。
  *
  * **元件只負責呈現，有狀態的邏輯住在這裡。** 一致性檢查會擋下
- * 直接在 views/ 裡 import \`@tanstack/vue-query\` 或 \`../api.ts\` 的寫法。
+ * 直接在 views/ 裡 import \`@tanstack/react-query\` 或 \`../api.ts\` 的寫法。
  *
- * 照 Vue 官方 composable 的三條慣例（vuejs.org/guide/reusability/composables）：
- *
- * 1. 輸入接受 ref／getter／純值，一律用 \`toValue()\` 正規化
- * 2. 回傳 ref 組成的**普通物件**（回傳 \`reactive()\` 的話，解構就斷開響應性）
- * 3. 只在 setup 期間同步呼叫
- *
- * ⚠️ queryKey 包 \`computed\` 是必要的：傳靜態值的話，條件變了不會重新取數，
- * 畫面停在舊資料上而且不報錯。
+ * 靠 React hook 的兩條規則成立：只在元件頂層呼叫；queryKey 由輸入算出來 ——
+ * 寫成固定的 key 的話，條件變了不會重新取數，畫面停在舊資料上而且不報錯。
  */
 export interface Use${Pascal}ListResult {
-  readonly items: ComputedRef<readonly ${Pascal}Item[]>;
-  readonly total: ComputedRef<number>;
-  readonly isPending: Ref<boolean>;
-  readonly isError: Ref<boolean>;
-  readonly error: Ref<Error | null>;
+  readonly items: readonly ${Pascal}Item[];
+  readonly total: number;
+  readonly isPending: boolean;
+  readonly isError: boolean;
+  readonly error: Error | null;
 }
 
-export function use${Pascal}List(
-  query: MaybeRefOrGetter<Query${Pascal}Input> = {},
-): Use${Pascal}ListResult {
-  const current = computed(() => toValue(query));
+/** 後備值用同一個陣列：每次 render 給一個新的 \`[]\`，依賴它的 memo 會每次都重算。 */
+const NO_ITEMS: readonly ${Pascal}Item[] = [];
 
+export function use${Pascal}List(query: Query${Pascal}Input = {}): Use${Pascal}ListResult {
   const { data, isPending, isError, error } = useQuery({
-    queryKey: computed(() => ${camel}Keys.list(current.value)),
+    queryKey: ${camel}Keys.list(query),
     // ⚠️ 呼叫的是 **usecase**，不是 api.ts —— 業務規則只有一份，而驗收規格
     // 打的就是這一份。直接叫 fetch${Pascal}List 的話，規格驗的東西與畫面
     // 跑的東西會是兩條路。
-    queryFn: () => query${Pascal}(${camel}Gateway, current.value),
+    queryFn: () => query${Pascal}(${camel}Gateway, query),
   });
 
   return {
-    items: computed(() => data.value?.items ?? []),
-    total: computed(() => data.value?.total ?? 0),
+    items: data?.items ?? NO_ITEMS,
+    total: data?.total ?? 0,
     isPending,
     isError,
     error,
@@ -680,80 +641,79 @@ export function use${Pascal}List(
       },
 
       views: {
-        [`${Pascal}List.vue`]: `<script setup lang="ts">
-import { computed } from "vue";
-import { UiButton, UiDialog } from "@org/ui";
-import { use${Pascal}List } from "../composables/use${Pascal}List.ts";
+        [`${Pascal}List.tsx`]: `import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { UiButton, UiDialog } from "@org/ui/react";
+
+import { use${Pascal}List } from "../hooks/use${Pascal}List.ts";
 import { use${Pascal}FilterStore } from "../store.ts";
 
 /**
- * 這個元件**只負責呈現**（D14）。取數在 composables/use${Pascal}List.ts。
- *
- * 注意傳的是 **getter 而不是當下值** —— 傳值會讓條件變動後查詢不重跑。
+ * 這個元件**只負責呈現**（D14）。取數在 hooks/use${Pascal}List.ts。
  *
  * 畫面元件一律從 \`@org/ui\` 取用（D15）。一致性檢查會驗這個切片**真的用過**它：
  * 自己刻一顆按鈕不會違反任何一條規則，但第二個團隊也刻一顆之後，
  * 兩套永遠不會收斂 —— 而且兩邊各自看起來都是對的。
  */
-const filter = use${Pascal}FilterStore();
-const { items, isPending, isError, error } = use${Pascal}List(() => filter.query);
+export default function ${Pascal}List(): ReactNode {
+  const { t } = useTranslation();
+  const page = use${Pascal}FilterStore((state) => state.page);
+  const selectedId = use${Pascal}FilterStore((state) => state.selectedId);
+  const select = use${Pascal}FilterStore((state) => state.select);
+  const { items, isPending, isError, error } = use${Pascal}List({ page });
 
-/**
- * 被選取的那一筆 —— **從列表推導，不從 store 讀**（D14）。
- * store 裡只有一個 id；把物件也存進去就是第二份快取。
- */
-const selected = computed(() => items.value.find((item) => item.id === filter.selectedId));
+  // 被選取的那一筆 —— **從列表推導，不從 store 讀**（D14）。
+  // store 裡只有一個 id；把物件也存進去就是第二份快取。
+  const selected = items.find((item) => item.id === selectedId);
 
-const isOpen = computed({
-  get: () => selected.value !== undefined,
-  set: (open: boolean) => {
-    if (!open) filter.select(null);
-  },
-});
-</script>
+  return (
+    <section>
+      <h1 className="text-xl font-semibold text-fg">{t("${name}.title")}</h1>
 
-<template>
-  <section>
-    <h1 class="text-xl font-semibold text-fg">{{ $t("${name}.title") }}</h1>
+      {/*
+        錯誤訊息一律以文字輸出，絕不使用 dangerouslySetInnerHTML。
+        伺服器回傳的內容可能含使用者輸入，那會讓它變成 XSS 入口。
+      */}
+      {isPending ? (
+        <p>…</p>
+      ) : isError ? (
+        <p role="alert">{error?.message}</p>
+      ) : items.length === 0 ? (
+        <p>{t("${name}.empty")}</p>
+      ) : (
+        <ul className="mt-4 flex flex-col gap-2">
+          {items.map((item) => (
+            <li key={item.id} className="flex items-center justify-between gap-4">
+              <span>{item.id}</span>
+              <UiButton size="sm" onClick={() => select(item.id)}>
+                {t("${name}.detail")}
+              </UiButton>
+            </li>
+          ))}
+        </ul>
+      )}
 
-    <p v-if="isPending">…</p>
-
-    <!--
-      錯誤訊息一律以文字插值輸出，絕不使用 v-html。
-      伺服器回傳的內容可能含使用者輸入，v-html 會讓它變成 XSS 入口。
-      這條由 Tier 2 的 vue/no-v-html 強制（oxlint 沒有該規則）。
-    -->
-    <p v-else-if="isError" role="alert">{{ error?.message }}</p>
-
-    <p v-else-if="items.length === 0">{{ $t("${name}.empty") }}</p>
-
-    <ul v-else class="mt-4 flex flex-col gap-2">
-      <li v-for="item in items" :key="item.id" class="flex items-center justify-between gap-4">
-        <span>{{ item.id }}</span>
-        <UiButton size="sm" @click="filter.select(item.id)">
-          {{ $t("${name}.detail") }}
-        </UiButton>
-      </li>
-    </ul>
-
-    <!-- 對話框的內容由 \`selected\` 推導 —— D14 那條「存 id 不存 entity」在畫面上的樣子。 -->
-    <UiDialog
-      v-model:open="isOpen"
-      :title="$t('${name}.detail')"
-      :description="$t('${name}.detailDescription')"
-    >
-      <dl v-if="selected" class="grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
-        <dt class="text-fg-muted">#</dt>
-        <dd>{{ selected.id }}</dd>
-        <!-- TODO: 補上這個切片實際的欄位（與 api.ts 的 ${Pascal}Item 對齊） -->
-      </dl>
-
-      <template #close>
-        <UiButton>{{ $t("${name}.close") }}</UiButton>
-      </template>
-    </UiDialog>
-  </section>
-</template>
+      {/* 對話框的內容由 \`selected\` 推導 —— D14 那條「存 id 不存 entity」在畫面上的樣子。 */}
+      <UiDialog
+        open={selected !== undefined}
+        onOpenChange={(open) => {
+          if (!open) select(null);
+        }}
+        title={t("${name}.detail")}
+        description={t("${name}.detailDescription")}
+        close={<UiButton>{t("${name}.close")}</UiButton>}
+      >
+        {selected === undefined ? null : (
+          <dl className="grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
+            <dt className="text-fg-muted">#</dt>
+            <dd>{selected.id}</dd>
+            {/* TODO: 補上這個切片實際的欄位（與 api.ts 的 ${Pascal}Item 對齊） */}
+          </dl>
+        )}
+      </UiDialog>
+    </section>
+  );
+}
 `,
       },
     },

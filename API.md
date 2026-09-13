@@ -513,7 +513,7 @@ i18n: Readonly<Record<string, Record<string, unknown>>>
 menu: readonly FeatureMenuItem[]
 name: string
 permissions: readonly string[]
-routes: readonly RouteRecordRaw[]
+routes: readonly SliceRoute[]
 ```
 
 ### `FeatureMenuItem` — type
@@ -533,13 +533,23 @@ menu: readonly FeatureMenuItem[]
 messages: Readonly<Record<string, Record<string, unknown>>>
 names: readonly string[]
 permissions: readonly string[]
-routes: readonly RouteRecordRaw[]
+routes: readonly SliceRoute[]
 ```
 
 ### `registerFeatures` — function
 
 ```
 (features: readonly Feature[]) => RegisteredFeatures
+```
+
+### `SliceRoute` — type
+
+```
+children?: readonly SliceRoute[] | undefined
+component: () => Promise<{ readonly default: ComponentType; }>
+meta?: { readonly permissions?: readonly string[] | undefined; } | undefined
+name?: string | undefined
+path: string
 ```
 
 ---
@@ -556,18 +566,6 @@ readonly ["workspace:", "catalog:"]
 
 ```
 readonly ["axios", "ky", "got", "superagent", "node-fetch"]
-```
-
-### `composableFunctionName` — function
-
-```
-(fileName: string) => string
-```
-
-### `COMPOSABLES_DIR` — value
-
-```
-"src/composables"
 ```
 
 ### `CSP_INCOMPATIBLE_MODULES` — value
@@ -590,6 +588,18 @@ specifier: string
 "@org/ui"
 ```
 
+### `hookFunctionName` — function
+
+```
+(fileName: string) => string
+```
+
+### `HOOKS_DIR` — value
+
+```
+"src/hooks"
+```
+
 ### `IMPORT_SPECIFIER_PATTERN` — value
 
 ```
@@ -608,7 +618,7 @@ RegExp
 (source: string, matchIndex: number) => boolean
 ```
 
-### `isValidComposableFile` — function
+### `isValidHookFile` — function
 
 ```
 (fileName: string) => boolean

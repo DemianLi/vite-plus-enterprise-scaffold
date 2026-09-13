@@ -233,10 +233,16 @@ export default [
      *                 `role="none"`，照樣得用 `<div>`，而 preflight 給 `<hr>` 的上框線會讓
      *                 語意模式比裝飾模式多一條線。
      *
-     * 兩支都與 Vue 版的 DOM 逐字相同（`platform/ui/tests/react-parity.test.ts`）。
-     * ⚠️ **範圍刻意是兩個檔名，不是目錄**：其他元件與切片、畫面裡的 role 照樣被這條守。
+     *   `OrderList`   載入中／查無資料的播報區 `role="status"`，理由同 `UiAlert`（C240，Q93 人裁）。
+     *
+     * 兩支元件都與 Vue 版的 DOM 逐字相同（`platform/ui/tests/react-parity.test.ts`）。
+     * ⚠️ **範圍刻意是檔名，不是目錄**：其他元件與切片、畫面裡的 role 照樣被這條守。
      */
-    files: ["platform/ui/src/components/UiAlert.tsx", "platform/ui/src/components/UiSeparator.tsx"],
+    files: [
+      "platform/ui/src/components/UiAlert.tsx",
+      "platform/ui/src/components/UiSeparator.tsx",
+      "features/order/src/views/OrderList.tsx",
+    ],
     rules: { "jsx-a11y/prefer-tag-over-role": "off" },
   },
 ];

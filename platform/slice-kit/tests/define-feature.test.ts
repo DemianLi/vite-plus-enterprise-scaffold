@@ -4,9 +4,9 @@ import { defineFeature, registerFeatures } from "../src/index.ts";
 import type { Feature } from "../src/index.ts";
 import {
   IMPORT_SPECIFIER_PATTERN,
-  composableFunctionName,
+  hookFunctionName,
   isTypeOnlyImportAt,
-  isValidComposableFile,
+  isValidHookFile,
 } from "../src/contract.ts";
 
 /**
@@ -17,10 +17,13 @@ import {
  * 這裡把命名空間驗到底，讓違規在寫的當下就現形。
  */
 
+/** 契約只要求「呼叫得到一個回傳模組的函式」；命名空間驗證不會去載入它。 */
+const VIEW = () => Promise.resolve({ default: () => null });
+
 function makeFeature(overrides: Partial<Feature> = {}): Feature {
   return {
     name: "order",
-    routes: [{ path: "/order", name: "order/list", component: {} }],
+    routes: [{ path: "/order", name: "order/list", component: VIEW }],
     permissions: ["order:read"],
     i18n: { "zh-TW": { order: { title: "訂單" } } },
     menu: [{ labelKey: "order.title", routeName: "order/list" }],
@@ -37,14 +40,14 @@ describe("defineFeature 的命名空間驗證", () => {
 
   it("擋下未加命名空間的路由 name", () => {
     expect(() =>
-      defineFeature(makeFeature({ routes: [{ path: "/order", name: "list", component: {} }] })),
+      defineFeature(makeFeature({ routes: [{ path: "/order", name: "list", component: VIEW }] })),
     ).toThrow(/路由 name/);
   });
 
   it("擋下落在其他切片路徑下的頂層路由", () => {
     expect(() =>
       defineFeature(
-        makeFeature({ routes: [{ path: "/billing", name: "order/list", component: {} }] }),
+        makeFeature({ routes: [{ path: "/billing", name: "order/list", component: VIEW }] }),
       ),
     ).toThrow(/未落在 \/order 之下/);
   });
@@ -57,8 +60,8 @@ describe("defineFeature 的命名空間驗證", () => {
             {
               path: "/order",
               name: "order/list",
-              component: {},
-              children: [{ path: "detail/:id", name: "order/detail", component: {} }],
+              component: VIEW,
+              children: [{ path: "detail/:id", name: "order/detail", component: VIEW }],
             },
           ],
         }),
@@ -95,7 +98,7 @@ describe("registerFeatures 組裝", () => {
   const order = defineFeature(makeFeature());
   const billing = defineFeature({
     name: "billing",
-    routes: [{ path: "/billing", name: "billing/list", component: {} }],
+    routes: [{ path: "/billing", name: "billing/list", component: VIEW }],
     permissions: ["billing:read"],
     i18n: { "zh-TW": { billing: { title: "帳務" } } },
     menu: [{ labelKey: "billing.title", routeName: "billing/list", order: 5 }],
@@ -130,25 +133,25 @@ describe("registerFeatures 組裝", () => {
  * D14 的命名規則。這些函式同時被一致性檢查與產生器的測試使用 ——
  * 契約裡的每個判定都該有測試，否則「單一事實來源」只是位置上的，不是行為上的。
  */
-describe("composable 命名（D14）", () => {
-  it("接受 Vue 官方慣例的形狀", () => {
-    expect(isValidComposableFile("useOrderList.ts")).toBe(true);
-    expect(isValidComposableFile("useOrder.ts")).toBe(true);
-    expect(isValidComposableFile("useOrderListV2.ts")).toBe(true);
+describe("hook 命名（D14）", () => {
+  it("接受 React hook 慣例的形狀", () => {
+    expect(isValidHookFile("useOrderList.ts")).toBe(true);
+    expect(isValidHookFile("useOrder.ts")).toBe(true);
+    expect(isValidHookFile("useOrderListV2.ts")).toBe(true);
   });
 
-  it("擋掉不是 composable 的東西", () => {
-    // 這些放進 composables/ 通常代表作者其實想放的是工具函式或型別，
-    // 而混在一起之後，「哪些必須在 setup 期間同步呼叫」就看不出來了。
-    expect(isValidComposableFile("orderHelpers.ts")).toBe(false);
-    expect(isValidComposableFile("use.ts")).toBe(false);
-    expect(isValidComposableFile("uselessThing.ts")).toBe(false); // use 後面必須接大寫
-    expect(isValidComposableFile("useOrderList.vue")).toBe(false);
-    expect(isValidComposableFile("use-order-list.ts")).toBe(false);
+  it("擋掉不是 hook 的東西", () => {
+    // 這些放進 hooks/ 通常代表作者其實想放的是工具函式或型別，
+    // 而混在一起之後，「哪些只能在元件頂層呼叫」就看不出來了。
+    expect(isValidHookFile("orderHelpers.ts")).toBe(false);
+    expect(isValidHookFile("use.ts")).toBe(false);
+    expect(isValidHookFile("uselessThing.ts")).toBe(false); // use 後面必須接大寫
+    expect(isValidHookFile("useOrderList.vue")).toBe(false);
+    expect(isValidHookFile("use-order-list.ts")).toBe(false);
   });
 
   it("由檔名推出應該匯出的函式名", () => {
-    expect(composableFunctionName("useOrderList.ts")).toBe("useOrderList");
+    expect(hookFunctionName("useOrderList.ts")).toBe("useOrderList");
   });
 });
 

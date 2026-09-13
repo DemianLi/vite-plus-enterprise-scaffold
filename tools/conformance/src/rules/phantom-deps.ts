@@ -45,7 +45,7 @@ const LINE_COMMENT = /^[ \t]*\/\/.*$/gm;
  * 剝掉註解再掃。
  *
  * 不剝的話這條規則會**在定義規則的那份檔案上誤報**：`slice-kit/src/contract.ts`
- * 的 JSDoc 裡有 `import { useQuery } from "@tanstack/vue-query";` 當範例
+ * 的 JSDoc 裡有 `import { useQuery } from "@tanstack/react-query";` 當範例
  * （那正是它在解釋哪些 import 該被擋）。乾跑時它是第一個亮起來的。
  *
  * 與 `importClauseBefore` 是同一個坑的第二次 —— 差別只在這次乾跑先撞到，

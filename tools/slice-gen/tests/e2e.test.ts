@@ -170,7 +170,7 @@ describe("產出的切片內容正確", () => {
   });
 
   it("view 使用設計系統（D15）—— 判定式與 conformance 同一份", () => {
-    const view = readFileSync(join(SLICE_DIR, "src/views/ZzSliceGenE2eList.vue"), "utf8");
+    const view = readFileSync(join(SLICE_DIR, "src/views/ZzSliceGenE2eList.tsx"), "utf8");
     expect(usesDesignSystem(view)).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import { defineConfig, lazyPlugins } from "vite-plus";
-import vue from "@vitejs/plugin-vue";
+import react from "@vitejs/plugin-react";
 import { USECASE_COVERAGE_GLOB, USECASE_COVERAGE_MIN } from "@org/slice-kit/contract";
 
 /**
@@ -7,20 +7,20 @@ import { USECASE_COVERAGE_GLOB, USECASE_COVERAGE_MIN } from "@org/slice-kit/cont
  *
  * 門檻只收在 `src/usecases/**` 上，因為那是規格打的那一層：一行沒被走過的
  * usecase 就是一個沒有規格在驗的 usecase。切片整體**不設數字** ——
- * `src/views/**` 佔行分母的 40%、函式分母的 45%，而 `.vue` 只算
- * `<script setup>`（template 一行都不進分母），一個套在整包上的數字會被
- * 那件事帶著走。
+ * `src/views/**` 佔行分母的 40%、函式分母的 45%（Vue 版時量的），
+ * 一個套在整包上的數字會被畫面那一半帶著走。
  *
  * ⚠️ 為什麼不放腳手架根層：根層**刻意不放** `test` 區塊。`vp test` 的設定以
  * package 為根解析，就算根層放了，一個有自己 `vite.config.ts` 的 package 也
  * **整塊不繼承**。所以這支檔案**不能刪** —— 刪掉之後門檻不會報錯，它會安靜
  * 地不存在。
  *
- * ⚠️ `plugins` 這一行不是贅字：少了它 `.vue` 不會被轉譯，畫面那支會整支
+ * ⚠️ `plugins` 這一行不是贅字：Vue 版時少了它 `.vue` 不會被轉譯，畫面那支會整支
  * 從覆蓋率報表裡消失（實測：行覆蓋率不降反升，而程式碼一個字都沒改）。
+ * 換成 React（C240）之後沒有重量過少了它會怎樣 —— 留著它，建置與測試走同一套轉譯。
  */
 export default defineConfig({
-  plugins: lazyPlugins(() => [vue()]),
+  plugins: lazyPlugins(() => [react()]),
 
   // ── 覆蓋率的產物落在 package 底下，而 `vp run` 會把它算成輸入（C120）──
   //

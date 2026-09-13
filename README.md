@@ -218,16 +218,16 @@ export function fetchOrders(query: OrderListQuery = {}): Promise<OrderListRespon
   /* … */
 }
 
-// features/order/src/composables/useOrderList.ts —— 有狀態的邏輯
-export function useOrderList(query: MaybeRefOrGetter<OrderListQuery>): UseOrderListResult {
+// features/order/src/hooks/useOrderList.ts —— 有狀態的邏輯
+export function useOrderList(query: OrderListQuery): UseOrderListResult {
   /* … */
 }
 
-// features/order/src/views/OrderList.vue —— 只呈現，只准 import 上面那支 composable
+// features/order/src/views/OrderList.tsx —— 只呈現，只准 import 上面那支 hook
 ```
 
-> `src/views/` 不得直接 import `@tanstack/vue-query`、`@org/http-client` 或本切片的 `api.ts`。
-> 禁的是**位置**不是相依，composable 本來就要用它們。
+> `src/views/` 不得直接 import `@tanstack/react-query`、`@org/http-client` 或本切片的 `api.ts`。
+> 禁的是**位置**不是相依，hook 本來就要用它們。
 
 ### 一次跑完所有檢查
 
@@ -364,10 +364,10 @@ Tier 2 的三條規則——不快取、不做 affected 過濾、必須有時間
 | 3   | `tools/conformance` 精確路徑解析          | 相對路徑逃逸切片根目錄                         | Tier 2               |
 
 切片**之內**還有第四層（D14），同一把尺套在三處：`src/views/` 與 `src/store.ts` 不得
-直接 import `@tanstack/vue-query`、`@org/http-client` 或本切片的 `api.ts`（取數一律走
-`src/composables/useXxx.ts`），`src/usecases/` 不得 import 任何前端框架模組
+直接 import `@tanstack/react-query`、`@org/http-client` 或本切片的 `api.ts`（取數一律走
+`src/hooks/useXxx.ts`），`src/usecases/` 不得 import 任何前端框架模組
 （清單是 `platform/slice-kit` 契約裡的 `USECASE_FORBIDDEN_IMPORTS`，不在這裡抄一份）。
-禁的是**位置**不是相依，composable 本來就要用它們；三處都放行
+禁的是**位置**不是相依，hook 本來就要用它們；三處都放行
 `import type`。理由與反向測試見 DECISIONS.md 的 D14，第三處的接線見 C204。
 
 第 3 層之所以不用 lint 規則：`import/no-relative-parent-imports` 擋掉的是**所有** `../`，
@@ -456,7 +456,7 @@ D2 選了「可替換的驅動層」，而那張保單**是被實測過的**，�
 
 ## 供應鏈：拿去給資安與平台團隊的三份文件
 
-腳手架帶進來的東西比想像的多：**737 個套件，其中 146 個是平台限定的原生二進位，
+腳手架帶進來的東西比想像的多：**708 個套件，其中 146 個是平台限定的原生二進位，
 分屬 12 個家族**（不只 `vite-plus` —— TypeScript 7 自己就是原生執行檔，
 `lightningcss` 是 MPL-2.0）。
 

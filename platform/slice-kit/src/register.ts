@@ -1,8 +1,7 @@
-import type { RouteRecordRaw } from "vue-router";
-import type { Feature, FeatureMenuItem } from "./define-feature.ts";
+import type { Feature, FeatureMenuItem, SliceRoute } from "./define-feature.ts";
 
 export interface RegisteredFeatures {
-  readonly routes: readonly RouteRecordRaw[];
+  readonly routes: readonly SliceRoute[];
   readonly messages: Readonly<Record<string, Record<string, unknown>>>;
   readonly menu: readonly FeatureMenuItem[];
   readonly permissions: readonly string[];
@@ -24,7 +23,7 @@ export function registerFeatures(features: readonly Feature[]): RegisteredFeatur
     seen.add(feature.name);
   }
 
-  const routes: RouteRecordRaw[] = [];
+  const routes: SliceRoute[] = [];
   const messages: Record<string, Record<string, unknown>> = {};
   const menu: FeatureMenuItem[] = [];
   const permissions = new Set<string>();
