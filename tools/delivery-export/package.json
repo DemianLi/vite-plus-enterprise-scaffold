@@ -1,0 +1,24 @@
+{
+  "name": "@org/delivery-export",
+  "version": "0.0.0",
+  "private": true,
+  "description": "交付給機關的匯出：白名單推導、改寫、痕跡掃描、在匯出那棵樹上重跑安裝與建置（C231）",
+  "bin": {
+    "delivery-export": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@org/gate-kit": "workspace:*"
+  },
+  "devDependencies": {
+    "@org/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}
