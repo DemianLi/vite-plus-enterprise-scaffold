@@ -14,8 +14,8 @@ import { parseSpec } from "../src/spec.ts";
  *
  * 兩支工具都讀 `.feature`，但問的是不同的問題：
  *
- *   這一支      `specs/*.feature`             第一類 —— 腳手架對採用團隊的承諾
- *   spec-report `features/​*​/specs/*.feature`   第二類 —— 專案組自己的業務規格
+ *   這一支      `specs/*.feature`                   第一類 —— 腳手架對採用團隊的承諾
+ *   spec-report `features/<name>/specs/*.feature`   第二類 —— 專案組自己的業務規格
  *
  * ⚠️ 混在一起的後果不是「多算幾條」：框架承諾會被算進**業務功能完成率**，
  * 而那份報表是拿去對外報進度的。分界現在成立，靠的是兩個 glob 不重疊 ——
@@ -37,7 +37,7 @@ import { parseSpec } from "../src/spec.ts";
  * 所以修的是排程，理由逐字寫在 `tools/threshold-check/vite.config.ts`。
  *
  * ⚠️⚠️ **第三次，而破法又換了（C165）。** `spec-report --check` 從
- * `features/invoice` 進版控起會讀 `features/*​/.vitest-results.json` ——
+ * `features/invoice` 進版控起會讀 `features/<name>/.vitest-results.json` ——
  * 一個 **gitignore 掉的產物**。「事實來源都是 `git ls-files`」那個論證
  * 對它完全不適用：它讀的根本不是版控。在此之前報表是空的、`--check` 恆綠，
  * 所以誰先跑無所謂。

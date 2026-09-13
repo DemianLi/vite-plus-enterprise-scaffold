@@ -12803,3 +12803,48 @@ C232 §六 ① 列了五支工具。逐項問同一句：**等輸入真的出現
 | **C210**             | `tainted-route-input-to-dom-sink` 的判讀照舊；只補來源，sink 不動                                |
 | **AGENTS.md 規則二** | **遵守** —— 退場時機與豁免射程都交人裁（Q95、Q96）；外掛預設的五則 warning 沒有關掉              |
 | **C136 §八**         | **遵守** —— 舊裁決一個字都不改                                                                   |
+
+### C242 — lint 警告 16 → 7：三件零行為風險的清掉，`promise-check` 註解裡的 ZWSP 換成 `features/<name>/` 記法；C241 那五則與刻意的兩則照留（2026-09-13）
+
+> 起點 `5123e0e`。交辦時寫的是 11 則 —— 那是 C241 之前量的；在 `5123e0e` 上 `vp install` 後實測 **16 則**，多出來的 5 則正是 C241 §三 記的那五則。
+
+#### 一、逐則處置
+
+| 位置                                                                                                                        | 規則                                                  | 處置                                   | 理由                                                                                 |
+| --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------ |
+| `platform/ui/src/utils/cn.ts:29`、`:31`                                                                                     | `no-irregular-whitespace`                             | **修**：U+3000 換兩個 ASCII 空格       | 註解裡量測表的欄間空白；全形佔兩欄，換兩個空格落點不變                               |
+| `platform/ui/tests/dropdown-menu.test.ts:228`                                                                               | `unicorn/no-useless-spread`                           | **修**：拿掉 `[...]`                   | `querySelectorAll` 回傳的是靜態 `NodeList`，本身可迭代；迴圈裡 `remove()` 不會改到它 |
+| `tools/promise-check/src/cli.ts:31`（×2）、`tests/cli.test.ts:18`（×2）、`:40`、`vite.config.ts:16`                         | `no-irregular-whitespace`                             | **修**：`*` 換成 `<name>`、ZWSP 全拿掉 | 見 §二                                                                               |
+| `platform/pii/tests/mask.test.ts:91`                                                                                        | `typescript/no-misused-spread`                        | 留                                     | 刻意展開字串，那條斷言要示範的就是「以碼點切開」（`"José"` 分解形長度 5）            |
+| `tools/spec-report/src/collect.ts:89`                                                                                       | `typescript/unbound-method`                           | 留                                     | 誤報：拿出來的方法只在第 97 行以 `stepTitleOf.call(scenario, …)` 呼叫，`this` 有綁   |
+| `platform/ui/tests/field-wiring-react.test.ts`（×3）、`react-parity.test.ts`（×1）、`apps/console/src/DevSession.tsx`（×1） | `react/no-children-prop`、`react/set-state-in-effect` | 留                                     | C241 §三 已裁：不為一則不擋的訊息改碼、也不關預設                                    |
+
+#### 二、ZWSP 為什麼換記法，不是留著加註解
+
+那六個 U+200B 夾在區塊註解裡的 `*` 兩側：`features/*/specs` 的字面含 `*/`，會提早結束註解。這個理由樹上沒有寫下來。兩條路是留 ZWSP 加一句 WHY，或換一種不含 `*/` 的寫法；選後者，三個理由：
+
+1. **留著，六則警告就一直在**。加註解只是把判斷寫下來，下一個跑 `vp check` 的人照樣看到六則，照樣要走到那一行才知道是故意的。
+2. **ZWSP 讓那段看起來是 glob 的文字不能用**。實測：從註解複製 `features/​*​/specs/*.feature` 餵給 `git ls-files --`，**0 行、exit 0**；同一個 glob 不帶 ZWSP 是 1 行。它安靜地錯，而這兩個檔講的正是「射程」。
+3. **`features/<name>/` 是樹上既有的記法**（`tools/slice-gen/src/template.ts`、`tools/slice-gen/tests/e2e.test.ts`、根 `vite.config.ts` 各一處）；`features/<slice>/` 零處，不另立一種。
+
+- **代價**：`cli.ts:31` 與 `cli.test.ts:18` 那一列不再是 `tools/spec-report/src/cli.ts:78` 那個 glob 的逐字副本。那張對照表要讀出來的是「兩個射程不重疊」，`<name>` 讀得出這件事；逐字對不是它的工作 —— 守分界的是 `tests/boundary.test.ts`（`cli.ts` 註解自己寫的）。
+- **兩組句子一起改**：`cli.ts:31` 與 `cli.test.ts:18` 是同一張對照表；`cli.test.ts:40` 與 `vite.config.ts:16` 是同一段話（兩處都標著 C165）的兩份副本。改一份就是製造分岔。
+- **對齊**：`<name>` 比 `*` 寬 5 欄，兩張對照表的第一列補同樣的空格，「第一類／第二類」仍在同一欄。
+
+#### 三、沒動的
+
+- **`tools/exit-drill/src/tree-fingerprint.ts:124` 也有一個 U+3000**，在模板字串裡 —— `no-irregular-whitespace` 預設不檢字串，它不在 16 則裡，而且是印給人看的訊息的一部分。掃字串掃得到它，不代表它是這一批。
+- **規則一條都沒關、嚴重度一格都沒改**（AGENTS.md 規則二）。
+
+#### 四、實測
+
+- `vp check`：**16 → 7 warnings**（0 errors）。7 ＝ C241 §三 的 5 ＋ §一 刻意留的 2，逐則對過位置。
+- 章：`vpr scaffold-stamp-update` 改了 `.scaffold-stamp` 5 列，正好是本則動的 5 支檔。
+- 本機 `vpr ready`：**READY_RC 0**，量在 `d04e3d9` 上；之後只改了這一行。
+
+#### 五、與既有裁決的關係
+
+| 裁決                 | 關係                                                                                                                                                                                                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **C241 §三**         | **不衝突，對象不同** —— 那一則不改，是因為那五則在程式碼裡（render prop 的傳法、effect 裡 `await` 之後的 setState），消它要動結構，換來的只是一則不擋的訊息安靜。本則九則裡八則是註解裡的空白字元、一則是等價的語法簡化，零行為變化；而 ZWSP 本身就有害（§二 第 2 點），不只是為了讓訊息安靜 |
+| **AGENTS.md 規則二** | **遵守** —— 沒有改任何 lint 設定                                                                                                                                                                                                                                                             |

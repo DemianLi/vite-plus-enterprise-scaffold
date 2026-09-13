@@ -27,8 +27,8 @@ import { checkPromises } from "./check.ts";
  *
  * 兩者都讀 `.feature`，但軸不同，**而且路徑不重疊**：
  *
- *   這一支      `specs/*.feature`            第一類 —— 腳手架對採用團隊的承諾
- *   spec-report `features/​*​/specs/*.feature`  第二類 —— 專案組自己的業務規格
+ *   這一支      `specs/*.feature`                  第一類 —— 腳手架對採用團隊的承諾
+ *   spec-report `features/<name>/specs/*.feature`  第二類 —— 專案組自己的業務規格
  *
  * ⚠️ 混在一起的話，框架承諾會被算進「業務功能完成率」，而那份報表是
  * 拿去對外報進度的。這條分界由 `tests/boundary.test.ts` 守著，不靠人記得。

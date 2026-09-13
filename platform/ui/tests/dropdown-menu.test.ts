@@ -225,7 +225,7 @@ describe("UiDropdownMenu", () => {
     mountMenu();
     await settle();
     const clone = triggerEl().cloneNode(true) as HTMLElement;
-    for (const node of [...clone.querySelectorAll(".sr-only")]) {
+    for (const node of clone.querySelectorAll(".sr-only")) {
       node.remove();
     }
 
