@@ -8,11 +8,11 @@ import { UiDialog } from "../src/components/UiDialog.tsx";
 import { pressKey, pressOn, settle } from "./overlay-react.ts";
 
 /**
- * `UiDialog` 的 React 版（C237）。Vue 版沒有行為測試（它的保證全是 reka 的），React 版的
- * 三個 slot 改成了 prop，而 `close` 是交給 `Dialog.Close` 當 `render` 的 —— 那一段是
- * 這裡寫的接線，要量。另外它是 `alert-dialog-react.test.ts` 那條「點外面不會關」的對照組。
+ * `UiDialog` 的行為（C237）。焦點、Esc、外側點擊是基元的保證；要量的是這裡自己寫的接線 ——
+ * 三個接縫是 prop，而 `close` 是交給 `Dialog.Close` 當 `render` 的。另外它是
+ * `alert-dialog-react.test.ts` 那條「點外面不會關」的對照組。
  *
- * 綠燈的意思同 `alert-dialog.test.ts` 檔頭：happy-dom 上成立，不是真瀏覽器。
+ * 綠燈的意思同 `alert-dialog-react.test.ts` 檔頭：happy-dom 上成立，不是真瀏覽器。
  */
 
 afterEach(cleanup);

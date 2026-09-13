@@ -10,14 +10,18 @@ import { UiSelect } from "../src/components/UiSelect.tsx";
 import { UiTextarea } from "../src/components/UiTextarea.tsx";
 
 /**
- * `UiField` 的接線，React 版（C236）。問題與 `field-wiring.test.ts` 相同 —— 屬性值與 id
- * 對不對得起來 —— 答案要從 React 版自己的產出量：`control` 那一段是重寫的，而且 React 版的
- * 控制項沒有 fallthrough，`control` 的三格落不落得到 `<input>` 上取決於它有沒有把三個 prop
+ * `UiField` 的接線驗收：渲染出來的屬性值與 id 對不對得起來。
+ *
+ * 不讀原始碼，是因為這個元件的**全部價值都在執行期算出來的那個 `control` 物件上**：
+ * `aria-describedby` 要不要接、接幾個、順序、以及「沒有時必須是 undefined 不是空字串」。
+ * 讀原始碼對這些完全無感 —— 那一段可以整個寫錯而每一個字串斷言照樣綠。
+ * 而控制項沒有屬性穿透，`control` 的三格落不落得到 `<input>` 上取決於它有沒有把三個 prop
  * 明列出來（`UiInput.tsx` 檔頭）。
  *
  * 用 DOM 而不是解析 SSR 字串：這裡問的都是「這個屬性在不在、指到的元素在不在」，
- * `hasAttribute` 與 `getElementById` 直接答，不必再造一個屬性解析器（Vue 那支為什麼要造，
- * 見它的 `hasAttribute` 說明 —— 那個坑在 DOM 上不存在）。
+ * `hasAttribute` 與 `getElementById` 直接答，不必再造一個屬性解析器（C236 之前的 SSR 版
+ * 為此自造過一個，而它有坑 —— 在 DOM 上不存在）。代價是它證明的是 DOM 上的屬性，不是
+ * 瀏覽器算出來的無障礙樹 —— 但屬性值與 id 對應這一層，兩者是同一件事。
  */
 
 afterEach(cleanup);
@@ -135,8 +139,8 @@ describe("control 的三格落到控制項上 —— React 沒有 fallthrough，
 
 describe("UiField 包 UiSelect：`control` 落到觸發鈕上（C101 的 React 形狀，C237）", () => {
   /**
-   * Vue 版的缺陷是 `<label for>` 指向一個不存在的元素（`field-wiring.test.ts` 那一組）。
-   * React 版多一種壞法：Base UI 另渲染一個隱藏的表單 `<input>`，`for` 若指到它，
+   * C101 量到的缺陷是 `<label for>` 指向一個不存在的元素（`UiSelect.tsx` 檔頭）。
+   * Base UI 多一種壞法：它另渲染一個隱藏的表單 `<input>`，`for` 若指到它，
    * 元素存在、`getElementById` 找得到，而使用者操作的那顆按鈕仍然沒有名字。
    */
   function selectField(props: Props): HTMLElement {

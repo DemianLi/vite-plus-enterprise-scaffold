@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useUiTheme } from "../theme-context.tsx";
 import type { UiTableBodySlot } from "../theme.ts";
 
-/** 表身（`<tbody>`），React 版（C236）。hover 為什麼在這裡而不在列上，見 `UiTableBody.vue`。 */
+/** 表身（`<tbody>`）。放 `UiTableRow` ＋ `UiTableCell`。 */
 export function UiTableBody({ children }: { children?: ReactNode }): ReactNode {
   const theme = useUiTheme();
   const parts: Readonly<Record<UiTableBodySlot, string>> = {
@@ -17,5 +17,10 @@ export function UiTableBody({ children }: { children?: ReactNode }): ReactNode {
 }
 
 const DEFAULT_PARTS: Readonly<Record<UiTableBodySlot, string>> = {
+  // 列與列之間用分隔線而不是斑馬紋：斑馬紋在只有兩三列時看起來像 bug，
+  // 而且各案想換成斑馬紋只要覆寫這一格。
+  //
+  // ⚠️ hover 在這裡而不是 `UiTableRow` 上：那個元件同時用在 `<thead>` 與
+  // `<tbody>`，寫在它身上的話**表頭也會 hover 變色**，看起來像可以點。
   body: "divide-y divide-line [&>tr]:hover:bg-surface-hover",
 };

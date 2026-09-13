@@ -7,11 +7,22 @@ import { UiDropdownMenu } from "../src/components/UiDropdownMenu.tsx";
 import { activeText, pressKey, pressOn, settle } from "./overlay-react.ts";
 
 /**
- * `UiDropdownMenu` 的 React 版（C237）。條目照 `dropdown-menu.test.ts` 逐條重量；
- * Base UI 與 reka 答案不同的那幾條（焦點落點、disabled、繞回、modal 的外面）在這裡寫的是
- * **Base UI 的答案**，差別與理由列在 `UiDropdownMenu.tsx` 的檔頭。
+ * `UiDropdownMenu` 的行為（C88 起，C237 在 Base UI 上逐條重量）。SSR 驗不到（內容在 portal 裡），
+ * 所以同 `alert-dialog-react.test.ts` 掛在 happy-dom 上。Base UI 與 reka 答案不同的那幾條
+ * （焦點落點、disabled、繞回、modal 的外面）在這裡寫的是 **Base UI 的答案**，差別與理由列在
+ * `UiDropdownMenu.tsx` 的檔頭。
  *
- * 綠燈的意思同 Vue 那支的檔頭：happy-dom 上成立；位置與捲軸寬度量不到。
+ * ── ⚠️ 綠燈的意思是什麼、不是什麼 ──────────────────────────────────
+ *
+ * **是**：在 happy-dom 上，名稱接得起來、鍵盤導航會動、Esc 會還原焦點、選一項會回報並關閉、
+ * `disabled` 的項目點不動。
+ *
+ * **不是**：真實瀏覽器的行為。除了 `alert-dialog-react.test.ts` 記的「沒有可見性計算」之外，
+ * 這裡多兩個：
+ *
+ *   一、面板的**位置**驗不到。對齊是屬性，量得到；真正的座標依版面算，而 happy-dom 沒有版面。
+ *   二、捲動鎖定補的 `padding-right` 在 happy-dom 上不是捲軸寬度（reka 版量到 `1024px`，
+ *       真瀏覽器約 15px）。所以 modal 那一條只斷言 `overflow` 在不在，**不碰任何數字**。
  */
 
 afterEach(cleanup);

@@ -4,14 +4,17 @@ export const ELLIPSIS = "ellipsis";
 /**
  * 「1 … 4 5 6 … 20」的那條清單（C236）。
  *
- * ⚠️ **`UiPagination.vue` 檔頭寫著「不要自己算頁碼」，而這裡在自己算。** 那句話的前提是
- * reka-ui 的 `PaginationList` 替它算好了；Base UI 沒有分頁基元，shadcn 的 Base UI 那一版
- * 也只給版型、不算頁碼。所以這支是 reka-ui `Pagination/utils.ts` 的 `getRange` 在
- * `showEdges: true` 那一支的**逐行移植**（Vue 版就是 `show-edges`、`siblingCount` 預設 2），
- * 不是重新設計 —— 邊界多、錯了回報率極低，那段警告講的正是這個。
+ * ⚠️ **不要自己重新設計這支。** 「1 … 4 5 6 … 20」看起來是十行 for 迴圈，實際上邊界很多：
+ * 前三頁與後三頁不該出現省略號、`siblingCount` 要對稱、頁數少時要全部列出。
+ * 每一個邊界寫錯的症狀都是「某幾頁的時候排版怪怪的」—— **回報率極低**。
  *
- * 守它的不是讀原始碼，是**差分**：`tests/react-parity.test.ts` 把 Vue 版（reka 在算）當成
- * 對照組，逐組 (總頁數, 目前頁) 比對兩版渲染出來的整條清單。
+ * Base UI 沒有分頁基元，shadcn 的 Base UI 那一版也只給版型、不算頁碼。所以這支是
+ * reka-ui `Pagination/utils.ts` 的 `getRange` 在 `showEdges: true` 那一支的**逐行移植**
+ * （`siblingCount` 預設 2），不是重新設計。
+ *
+ * 守它的是 `tests/page-range.test.ts` 的固定期望值：總頁數 1–20 × 每一個目前頁，
+ * 211 組答案是 reka 退場前由 reka 算出來凍結的（C243，Q98）。改這支之前，先想清楚
+ * 是不是真的要偏離 reka 的答案 —— 要的話先改表。
  */
 export function pageRange(
   current: number,

@@ -3,8 +3,22 @@ import { useUiTheme } from "../theme-context.tsx";
 import type { UiTableHeadCellSlot } from "../theme.ts";
 
 /**
- * 表頭的一格（`<th>`），React 版（C236）。`scope` 是這支存在的主要理由，見
- * `UiTableHeadCell.vue`；預設值寫在解構參數裡，契約的「預設值必須是 union 成員」讀的是那裡。
+ * 表頭的一格（`<th>`）。
+ *
+ * ── `scope="col"` 是這個元件存在的主要理由 ──────────────────────
+ *
+ * 螢幕閱讀器唸一個儲存格時會先唸它所屬的欄標題，而**那條關聯來自 `scope`**。
+ * 少了它，使用者聽到的是一串沒有欄名的值。
+ *
+ * 自己寫 `<th>` 的人有一半會忘記它，而**畫面上完全看不出差別** ——
+ * 那正是把它包成元件的理由：預設值就是對的。`row` 用在第一欄就是識別碼的表格
+ * （訂單編號、身分證字號），那時每一列的第一格是那一列的標題。
+ *
+ * ⚠️ 沒有閘門在守「有沒有用這個元件」。切片大可以自己寫 `<th>`，
+ * 而 `conformance` 的 D15 檢查擋的是 import 不是標籤。
+ *
+ * ⚠️ 預設值寫在解構參數裡：`scope` 有 union，契約測試的「預設值必須是該 prop 的
+ * union 成員之一」**真的會檢查它**，而打錯成 `"colum"` 的症狀是螢幕閱讀器唸不出欄名。
  */
 export function UiTableHeadCell({
   scope = "col",
