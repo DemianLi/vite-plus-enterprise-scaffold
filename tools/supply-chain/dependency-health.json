@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-09-13",
+  "capturedAt": "2026-09-14",
   "registry": "https://registry.npmjs.org",
   "records": [
     {
@@ -107,6 +107,14 @@
       "lastStableAt": "2026-09-03"
     },
     {
+      "name": "@voidzero-dev/vite-plus-core",
+      "latest": "0.3.1",
+      "license": "MIT",
+      "publishedAt": "2026-09-08",
+      "stableReleasesPerYear": 37,
+      "lastStableAt": "2026-09-08"
+    },
+    {
       "name": "bingo",
       "latest": "0.9.3",
       "license": "MIT",
@@ -196,11 +204,11 @@
     },
     {
       "name": "react-i18next",
-      "latest": "17.0.13",
+      "latest": "17.0.14",
       "license": "MIT",
-      "publishedAt": "2026-09-01",
-      "stableReleasesPerYear": 53,
-      "lastStableAt": "2026-09-01"
+      "publishedAt": "2026-09-13",
+      "stableReleasesPerYear": 54,
+      "lastStableAt": "2026-09-13"
     },
     {
       "name": "react-router",
@@ -268,10 +276,10 @@
     },
     {
       "name": "zod",
-      "latest": "4.6.4",
+      "latest": "4.6.5",
       "license": "MIT",
       "publishedAt": "2026-09-13",
-      "stableReleasesPerYear": 28,
+      "stableReleasesPerYear": 29,
       "lastStableAt": "2026-09-13"
     },
     {

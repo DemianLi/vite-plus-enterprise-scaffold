@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { scan, traceRules, verdict } from "../src/scan.ts";
+import { LOCKFILE, scan, traceRules, verdict } from "../src/scan.ts";
 
 const RULES = traceRules({
   toolNames: ["exit-drill", "pii-check"],
@@ -23,7 +23,14 @@ const KNOWN_HITS: Record<string, string> = {
   "gate／drill": "the gate blocks it",
   演練: "採用演練花了半天",
   "issue 號 #＋數字": "登記在（#95）",
+  "測試套件（lockfile）": "  vite-plus@0.3.1:\n    resolution: {integrity: sha512-x}",
 };
+
+/** 樣本放在規則會掃的那一支檔裡：lockfile 那一條只看 lockfile。 */
+function sampleFile(label: string, content: string): { path: string; content: string } {
+  const lockfileOnly = RULES.find((rule) => rule.label === label)?.scope === "lockfile";
+  return { path: lockfileOnly ? LOCKFILE : "sample.ts", content };
+}
 
 /** 「已知為零」那一半：像業務碼、而且故意長得接近詞表的字串。 */
 const KNOWN_CLEAN = [
@@ -60,7 +67,7 @@ describe("痕跡掃描的詞表（C231 §三，Q111）", () => {
   });
 
   it.each(Object.entries(KNOWN_HITS))("%s 命中它的樣本", (label, sample) => {
-    const result = scan([{ path: "sample.ts", content: sample }], RULES);
+    const result = scan([sampleFile(label, sample)], RULES);
     expect(result.rules.find((rule) => rule.label === label)?.hits).toBeGreaterThan(0);
   });
 
@@ -106,20 +113,41 @@ describe("痕跡掃描的詞表（C231 §三，Q111）", () => {
 
   it("逐檔的計數加總等於總數", () => {
     const result = scan(
-      Object.values(KNOWN_HITS).map((content, index) => ({ path: `f${index}`, content })),
+      Object.entries(KNOWN_HITS).map(([label, content]) => sampleFile(label, content)),
       RULES,
     );
     expect(result.byFile.reduce((sum, [, count]) => sum + count, 0)).toBe(result.total);
   });
 });
 
-describe("掃不到東西不是乾淨", () => {
-  it("零支檔 → 丟例外，不回傳零命中", () => {
-    expect(() => scan([], RULES)).toThrow(/零支檔/);
+describe("lockfile 只掃測試套件的名字（C253）", () => {
+  const hitsIn = (path: string, content: string): Record<string, number> =>
+    Object.fromEntries(
+      scan([{ path, content }], RULES)
+        .rules.filter((rule) => rule.hits > 0)
+        .map((rule) => [rule.label, rule.hits]),
+    );
+
+  it("★ vite-plus 帶進來的 vitest 與它的 peer 在 lockfile 裡命中", () => {
+    const lock = "  vitest@4.1.11(happy-dom@20.11.2):\n  '@testing-library/dom@10.4.1':";
+    expect(hitsIn(LOCKFILE, lock)).toEqual({ "測試套件（lockfile）": 3 });
   });
 
-  it("推導出來的工具名是空的 → 丟例外（空詞表掃出零處，與乾淨長得一樣）", () => {
-    expect(() => traceRules({ toolNames: [], docNames: ["A.md"] })).toThrow(/工具名/);
+  it("★ 其餘規則不掃 lockfile —— sha512 的 base64 會湊出假的編號", () => {
+    expect(hitsIn(LOCKFILE, "    resolution: {integrity: sha512-ab+C12/D3=}")).toEqual({});
+  });
+
+  it("lockfile 那一條不掃原始碼：業務碼寫 playwright 由別的規則管，不歸它", () => {
+    expect(hitsIn("src/a.ts", "// 截圖用 playwright")).toEqual({});
+  });
+
+  it("上游 Vite 與 rolldown 不算 —— 那是交出去的樹的建置引擎", () => {
+    expect(
+      hitsIn(
+        LOCKFILE,
+        "  vite@8.2.2:\n  rolldown@1.2.6:\n  '@rolldown/binding-linux-x64-gnu@1.2.6':",
+      ),
+    ).toEqual({});
   });
 });
 
@@ -136,5 +164,15 @@ describe("判定：任一命中就失敗（C252）", () => {
 
   it("零命中才 ok", () => {
     expect(verdict(clean).ok).toBe(true);
+  });
+});
+
+describe("掃不到東西不是乾淨", () => {
+  it("零支檔 → 丟例外，不回傳零命中", () => {
+    expect(() => scan([], RULES)).toThrow(/零支檔/);
+  });
+
+  it("推導出來的工具名是空的 → 丟例外（空詞表掃出零處，與乾淨長得一樣）", () => {
+    expect(() => traceRules({ toolNames: [], docNames: ["A.md"] })).toThrow(/工具名/);
   });
 });

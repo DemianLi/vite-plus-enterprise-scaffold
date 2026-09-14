@@ -15,6 +15,8 @@ import {
 import {
   buildsItself,
   catalogReferences,
+  deliveredScript,
+  DRIVER,
   GITIGNORE,
   importsRelatively,
   rewriteManifest,
@@ -24,8 +26,10 @@ import {
   rewriteWorkspaceYaml,
   TEST_FILE,
   testOnlyDependencies,
+  upstreamViteVersion,
   VITE_CONFIG,
   withoutTestSourceExclusions,
+  withUpstreamVite,
 } from "../src/rewrite.ts";
 import { scan, traceRules } from "../src/scan.ts";
 import type { Manifest } from "../src/workspace.ts";
@@ -205,15 +209,83 @@ describe("出門的 package 裡、不是測試卻不出門的檔（C250）", () 
   });
 });
 
+describe("交出去的樹用上游 Vite 建置，vite-plus 不出門（C253）", () => {
+  it("script 照改寫表換成上游 Vite 與 pnpm；沒用到 vp 的原樣留下", () => {
+    expect(deliveredScript("build", "vp build")).toBe("vite build");
+    expect(deliveredScript("dev", "vp dev")).toBe("vite");
+    expect(deliveredScript("build", "vp run -r build")).toBe("pnpm -r build");
+    expect(deliveredScript("x", "node scripts/x.js")).toBe("node scripts/x.js");
+  });
+
+  it("★ 表外的 vp 寫法丟例外 —— 猜錯的樣子是機關端一跑就 command not found", () => {
+    expect(() => deliveredScript("lint", "vp lint --fix")).toThrow(/改寫表沒有它/);
+    expect(() => deliveredScript("build", "tsc && vp build")).toThrow(/改寫表沒有它/);
+  });
+
+  it("rewriteManifest 拿掉 vite-plus 與 check script", () => {
+    const rewritten = rewriteManifest(
+      {
+        name: "x",
+        scripts: { build: "vp build", check: "vp check" },
+        devDependencies: { [DRIVER]: "catalog:", vite: "catalog:" },
+      },
+      [],
+    );
+    expect(rewritten).toEqual({
+      name: "x",
+      scripts: { build: "vite build" },
+      devDependencies: { vite: "catalog:" },
+    });
+  });
+
+  it("vite.config 的 import 改成上游 vite；還有別的 vite-plus 寫法就丟例外", () => {
+    expect(withUpstreamVite('import { defineConfig } from "vite-plus";')).toBe(
+      'import { defineConfig } from "vite";',
+    );
+    expect(() => withUpstreamVite('import x from "vite-plus/test";')).toThrow(/還引用/);
+  });
+
+  it("catalog 的 vite 釘成 vite-upstream 那一版；形狀不對或沒有就丟例外", () => {
+    expect(upstreamViteVersion("catalog:\n  vite-upstream: npm:vite@8.2.2\n")).toBe("8.2.2");
+    expect(() => upstreamViteVersion("catalog:\n  vite-upstream: ^8\n")).toThrow(/npm:vite@/);
+    expect(() => upstreamViteVersion("catalog:\n  vite: 1\n")).toThrow(/沒有 vite-upstream/);
+    const yaml = "catalog:\n  vite: npm:@voidzero-dev/vite-plus-core@0.3.1\n  react: ^19\n";
+    expect(
+      rewriteWorkspaceYaml(yaml, {
+        globs: new Set(),
+        catalog: new Set(["vite", "react"]),
+        pins: new Map([["vite", "8.2.2"]]),
+      }),
+    ).toBe("catalog:\n  vite: 8.2.2\n  react: ^19\n");
+  });
+
+  it("★ 真樹：出門的根層檔、manifest 與改寫過的檔裡沒有 vite-plus，也沒有 vp", () => {
+    const planned = plan(ROOT);
+    const shipped = [
+      ...Object.values(planned.rootFiles),
+      ...[...planned.manifests.values()].map((manifest) => JSON.stringify(manifest)),
+      ...planned.rewritten.values(),
+    ].join("\n");
+    expect(shipped).not.toContain(DRIVER);
+    expect(shipped).not.toMatch(/"vp /);
+    // 出門的 vite.config 沒套到改寫的話，它原樣複製、不在 `rewritten` 裡 —— 上面那條看不到它。
+    const configs = planned.files.filter((file) => VITE_CONFIG.test(basename(file)));
+    expect(configs.length).toBeGreaterThan(0);
+    for (const file of configs) {
+      expect(planned.rewritten.get(file), `${file} 沒有改寫`).toBeDefined();
+      expect(planned.rewritten.get(file)).not.toContain(DRIVER);
+    }
+    expect(planned.rootFiles["pnpm-workspace.yaml"]).toContain(
+      `  vite: ${upstreamViteVersion(read("pnpm-workspace.yaml"))}\n`,
+    );
+  });
+});
+
 describe("根層的檔另寫，不複製（C231 §四.4）", () => {
-  it("package.json 只留 build／dev 與三筆 devDep；不帶 license 與腳手架的版號", () => {
+  it("package.json 只留 build／dev 與兩筆 devDep；不帶 license 與腳手架的版號", () => {
     const rewritten = rewriteRootManifest(JSON.parse(read("package.json")) as Manifest);
     expect(Object.keys(rewritten.scripts ?? {})).toEqual(["build", "dev"]);
-    expect(Object.keys(rewritten.devDependencies ?? {})).toEqual([
-      "typescript",
-      "vite",
-      "vite-plus",
-    ]);
+    expect(Object.keys(rewritten.devDependencies ?? {})).toEqual(["typescript", "vite"]);
     expect(rewritten).not.toHaveProperty("license");
     expect(rewritten).not.toHaveProperty("version");
   });

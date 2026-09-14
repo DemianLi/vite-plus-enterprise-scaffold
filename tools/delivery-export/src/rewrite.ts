@@ -67,6 +67,60 @@ export function testOnlyDependencies(
 }
 
 /**
+ * 交出去的樹不用 vite-plus 建置（C253）：它硬相依 vitest 與九個 `@vitest/*`，只要它在，
+ * lockfile 與機關端裝出來的 `node_modules` 就看得到測試套件。建置改用上游 Vite ——
+ * 版本取自 catalog 的 `vite-upstream`，它在 repo 的 lockfile 裡，所以 SCA 看得到、CI 開機時
+ * 它就在 store 裡。
+ */
+export const DRIVER = "vite-plus";
+
+/**
+ * 出門的 script 裡 `vp` 的寫法 → 上游 Vite 與 pnpm 的寫法。鍵是上游那一行的全文：
+ * 表外的 `vp …` 丟例外，不猜 —— 猜錯的樣子是機關端一跑就 `command not found`。
+ */
+export const DELIVERED_SCRIPTS: Readonly<Record<string, string>> = {
+  "vp dev": "vite",
+  "vp build": "vite build",
+  "vp preview": "vite preview",
+  "vp run -r build": "pnpm -r build",
+  "vp run console#dev": "pnpm --filter @org/console dev",
+};
+
+/** 開發者才跑的：測試，以及 `vp check`（格式、lint、型別）—— 機關端沒有 `vp`，不出門。 */
+export const DEVELOPER_SCRIPTS: ReadonlySet<string> = new Set(["test", "check"]);
+
+const USES_DRIVER = /(^|[\s;&|])vp(\s|$)/;
+
+export function deliveredScript(name: string, command: string): string {
+  if (!USES_DRIVER.test(command)) return command;
+  const rewritten = DELIVERED_SCRIPTS[command];
+  if (rewritten === undefined) {
+    throw new Error(`script「${name}」是 \`${command}\`，改寫表沒有它 —— 機關端沒有 vp`);
+  }
+  return rewritten;
+}
+
+function deliveredScripts(scripts: Readonly<Record<string, string>>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(scripts)
+      .filter(([name]) => !DEVELOPER_SCRIPTS.has(name))
+      .map(([name, command]) => [name, deliveredScript(name, command)]),
+  );
+}
+
+/** `vite.config.*` 從 vite-plus 拿的 `defineConfig`／`loadEnv`，上游 Vite 同名同形。 */
+export function withUpstreamVite(source: string): string {
+  const rewritten = QUOTES.reduce(
+    (text, quote) => text.replaceAll(`from ${quote}${DRIVER}${quote}`, `from ${quote}vite${quote}`),
+    source,
+  );
+  if (references(rewritten, DRIVER)) {
+    throw new Error(`vite.config 還引用 ${DRIVER}（子路徑或別的寫法）—— 上游 Vite 沒有它`);
+  }
+  return rewritten;
+}
+
+/**
  * `tsconfig.json` 的 `include` 裡，指到匯出樹不存在的路徑拿掉（C251，Q121）：上游要型別檢查涵蓋
  * `tests/`，匯出樹沒有它，那一格只剩「這裡原本有測試」的意思。`exists` 由匯出結果推 ——
  * `apps/console` 的 `vite.config.ts` 出門，照樣留著。
@@ -112,15 +166,20 @@ export function withoutTestSourceExclusions(css: string): string {
   return lines.filter((_, index) => !drop.has(index)).join("\n");
 }
 
-/** `dropped` 是拿掉的 devDependencies，`withheldExports` 是不出門的子路徑（`./contract`）。 */
+/**
+ * `dropped` 是拿掉的 devDependencies，`withheldExports` 是不出門的子路徑（`./contract`）。
+ * `vite-plus` 與開發者才跑的 script 一律不出門（C253）。
+ */
 export function rewriteManifest(
   manifest: Manifest,
   dropped: readonly string[],
   withheldExports: readonly string[] = [],
 ): Manifest {
-  const { test: _test, ...scripts } = manifest.scripts ?? {};
+  const scripts = deliveredScripts(manifest.scripts ?? {});
   const devDependencies = Object.fromEntries(
-    Object.entries(manifest.devDependencies ?? {}).filter(([name]) => !dropped.includes(name)),
+    Object.entries(manifest.devDependencies ?? {}).filter(
+      ([name]) => !dropped.includes(name) && name !== DRIVER,
+    ),
   );
   const rewritten: Record<string, unknown> = { ...manifest, scripts, devDependencies };
   if (withheldExports.length > 0 && typeof manifest["exports"] === "object") {
@@ -139,8 +198,8 @@ export function rewriteManifest(
  * 根層 `package.json` 用白名單重寫，不是從原檔刪欄位：原檔的每一筆 script 與大半 devDep
  * 都是腳手架的（閘門鏈、stryker、eslint），而黑名單會把下一個新加的欄位預設帶出門。
  *
- * - `vite-plus` 提供 `vp`，`build`／`dev` 兩條 script 靠它；`vite` 是它 alias 的那一份；
- *   `typescript` 讓機關端 `vp check` 做得了型別檢查。
+ * - `build`／`dev` 改寫成 pnpm（`DELIVERED_SCRIPTS`）；`vite` 是上游那一份（C253）。
+ * - `typescript` 留著：`tsconfig` 出門，機關端的編輯器與 `tsc` 做型別檢查靠它。
  * - ⚠️ `license` 不帶：交付物的授權看契約，交付時由人放（C231 §八）。`version` 是腳手架的版號，不帶。
  */
 export const ROOT_FIELDS = [
@@ -152,7 +211,7 @@ export const ROOT_FIELDS = [
   "packageManager",
 ] as const;
 export const ROOT_SCRIPTS = ["build", "dev"] as const;
-export const ROOT_DEV_DEPENDENCIES = ["typescript", "vite", "vite-plus"] as const;
+export const ROOT_DEV_DEPENDENCIES = ["typescript", "vite"] as const;
 
 export function rewriteRootManifest(manifest: Manifest): Manifest {
   const pick = <K extends string>(
@@ -167,7 +226,7 @@ export function rewriteRootManifest(manifest: Manifest): Manifest {
     throw new Error(`根層 package.json 沒有 ${missing.join("、")} —— 機關端建不起來`);
   return {
     ...pick(manifest, ROOT_FIELDS),
-    scripts: pick(manifest.scripts, ROOT_SCRIPTS),
+    scripts: deliveredScripts(pick(manifest.scripts, ROOT_SCRIPTS) as Record<string, string>),
     devDependencies: pick(manifest.devDependencies, ROOT_DEV_DEPENDENCIES),
   } as Manifest;
 }
@@ -190,18 +249,48 @@ function yamlKey(line: string): string {
   return line.trim().split(":")[0]?.replaceAll('"', "").replaceAll("'", "") ?? "";
 }
 
+function yamlValue(line: string): string {
+  return line
+    .slice(line.indexOf(":") + 1)
+    .trim()
+    .replaceAll('"', "")
+    .replaceAll("'", "");
+}
+
+/**
+ * catalog 的 `vite-upstream`（`npm:vite@<版本>`）→ 交出去的樹的 `vite` 版本（C253）。
+ * 沒有這一行、或形狀不是 `npm:vite@<版本>`，丟例外：交出去的樹會沒有建置引擎可用。
+ */
+export function upstreamViteVersion(yaml: string): string {
+  for (const raw of yaml.split("\n")) {
+    const line = stripInlineComment(raw);
+    if (!/^\s/.test(line) || yamlKey(line) !== "vite-upstream") continue;
+    const version = /^npm:vite@(\d\S*)$/.exec(yamlValue(line))?.[1];
+    if (version === undefined) {
+      throw new Error(`catalog 的 vite-upstream 不是 npm:vite@<版本>：${yamlValue(line)}`);
+    }
+    return version;
+  }
+  throw new Error("catalog 沒有 vite-upstream —— 交出去的樹沒有建置引擎可用");
+}
+
 /**
  * `pnpm-workspace.yaml` 逐行改寫，不引入 YAML parser（D2：多一個相依就是多一筆 SCA 範圍）。
  *
  * - 註解全拿掉：原檔的註解是這棵樹的決策脈絡，大半帶裁決編號與工具名。
  * - `packages:` 只留有成員出門的那幾層。
  * - `catalog:` 只留匯出的 manifest 還引用的條目 —— 沒被引用的那幾筆（stryker、eslint…）
- *   本身就是痕跡，而且 lockfile 剪完之後也不再需要它們。
+ *   本身就是痕跡，而且 lockfile 剪完之後也不再需要它們。`pins` 裡的條目換成指定的值
+ *  （`vite` 換成上游那一版，C253）。
  * - ⚠️ `overrides` 一筆都不動：lockfile 記著它們，改了 `--frozen-lockfile` 就裝不起來。
  */
 export function rewriteWorkspaceYaml(
   yaml: string,
-  keep: { readonly globs: ReadonlySet<string>; readonly catalog: ReadonlySet<string> },
+  keep: {
+    readonly globs: ReadonlySet<string>;
+    readonly catalog: ReadonlySet<string>;
+    readonly pins?: ReadonlyMap<string, string>;
+  },
 ): string {
   const sections: string[][] = [];
   let section = "";
@@ -218,7 +307,15 @@ export function rewriteWorkspaceYaml(
       const glob = /^\s+-\s+["']?([^"'\s]+)/.exec(line)?.[1];
       if (glob !== undefined && !keep.globs.has(glob)) continue;
     }
-    if (section === "catalog" && !keep.catalog.has(yamlKey(line))) continue;
+    if (section === "catalog") {
+      const key = yamlKey(line);
+      if (!keep.catalog.has(key)) continue;
+      const pinned = keep.pins?.get(key);
+      if (pinned !== undefined) {
+        sections.at(-1)?.push(`${/^\s*/.exec(line)?.[0] ?? "  "}${key}: ${pinned}`);
+        continue;
+      }
+    }
     sections.at(-1)?.push(line);
   }
   return `${sections.map((lines) => lines.join("\n")).join("\n\n")}\n`;
@@ -236,12 +333,7 @@ export function catalogReferences(manifests: readonly Manifest[], yaml: string):
   for (const raw of yaml.split("\n")) {
     if (!/^\s+[^\s#]/.test(raw)) continue;
     const line = stripInlineComment(raw);
-    const value = line
-      .slice(line.indexOf(":") + 1)
-      .trim()
-      .replaceAll('"', "")
-      .replaceAll("'", "");
-    if (value.startsWith("catalog:")) names.add(yamlKey(line));
+    if (yamlValue(line).startsWith("catalog:")) names.add(yamlKey(line));
   }
   return names;
 }

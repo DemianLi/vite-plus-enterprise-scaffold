@@ -1,9 +1,9 @@
 {
   "lockfileDocuments": 2,
   "totals": {
-    "packages": 625,
-    "native": 146,
-    "families": 12,
+    "packages": 643,
+    "native": 161,
+    "families": 13,
     "withoutIntegrity": 0
   },
   "families": [
@@ -104,6 +104,29 @@
         "@reflink/reflink-linux-x64-musl@0.1.19",
         "@reflink/reflink-win32-arm64-msvc@0.1.19",
         "@reflink/reflink-win32-x64-msvc@0.1.19"
+      ]
+    },
+    {
+      "family": "@rolldown",
+      "tier": "toolchain",
+      "count": 15,
+      "documents": [2],
+      "members": [
+        "@rolldown/binding-android-arm-eabi@1.2.6",
+        "@rolldown/binding-android-arm64@1.2.6",
+        "@rolldown/binding-darwin-arm64@1.2.6",
+        "@rolldown/binding-darwin-x64@1.2.6",
+        "@rolldown/binding-freebsd-x64@1.2.6",
+        "@rolldown/binding-linux-arm-gnueabihf@1.2.6",
+        "@rolldown/binding-linux-arm64-gnu@1.2.6",
+        "@rolldown/binding-linux-arm64-musl@1.2.6",
+        "@rolldown/binding-linux-ppc64-gnu@1.2.6",
+        "@rolldown/binding-linux-s390x-gnu@1.2.6",
+        "@rolldown/binding-linux-x64-gnu@1.2.6",
+        "@rolldown/binding-linux-x64-musl@1.2.6",
+        "@rolldown/binding-openharmony-arm64@1.2.6",
+        "@rolldown/binding-win32-arm64-msvc@1.2.6",
+        "@rolldown/binding-win32-x64-msvc@1.2.6"
       ]
     },
     {
@@ -661,6 +684,111 @@
       "family": "@reflink",
       "platform": "win32/x64",
       "documents": [1]
+    },
+    {
+      "id": "@rolldown/binding-android-arm-eabi@1.2.6",
+      "integrity": "sha512-b+jTcARdTiFLI6jB4a5XjTm0RWd6KcRfQj/I2356fxUZemiho9zQLxo0RtCuMDAyKcLo6cEltkgbQp6d1+sjjQ==",
+      "family": "@rolldown",
+      "platform": "android/arm",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-android-arm64@1.2.6",
+      "integrity": "sha512-lkWU8ZJaRk9q3CIEY1Tc7vIFALp3Xw5NfGJo2hQg5oIqNgxWi1zI+IiDEK3r70BF5Dzol1tcXsnzsRc8NLhG+Q==",
+      "family": "@rolldown",
+      "platform": "android/arm64",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-darwin-arm64@1.2.6",
+      "integrity": "sha512-dgR56NYnvAszm7Ob1B2/Vn0e8bUQYZH2UjVaMMtMVOCKFSfjhfLmuA/9+O+F+ajUdG6B/bSssrKW6JJYASa8jA==",
+      "family": "@rolldown",
+      "platform": "darwin/arm64",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-darwin-x64@1.2.6",
+      "integrity": "sha512-vpVxFvUCFioJqug7OTvqptkc4yb8UX0AwfDmJpaR/0sWz+BUmqSVAf7c8JkUgnN8YLspb4a/N6NhTyMAmdyQ7Q==",
+      "family": "@rolldown",
+      "platform": "darwin/x64",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-freebsd-x64@1.2.6",
+      "integrity": "sha512-h1wG6Y6K3JlRswxsI64qQJqBAy4vrLuHgRbc8CZMGSWTOFRY6ghMApM1NKzB2I0n5xV1fjkE18SuVl2QpLeNpA==",
+      "family": "@rolldown",
+      "platform": "freebsd/x64",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-linux-arm-gnueabihf@1.2.6",
+      "integrity": "sha512-tbCiqub0q2MVWJKgF5PoAlNWCtQydiOYSLIkd8sByqK/6MMYLJRcSXSYodqYtd0O+Fw7QaVmKKlS4oL94YRZ0w==",
+      "family": "@rolldown",
+      "platform": "linux/arm",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-linux-arm64-gnu@1.2.6",
+      "integrity": "sha512-oxK9+baEBPhZG5HB4URY+uU04zJWeZlH6Tb9rB5DK4DF9XR1uXNLXt5Q5ZsugTKayNCNLhkcwz/ye74hRI98dg==",
+      "family": "@rolldown",
+      "platform": "linux/arm64/glibc",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-linux-arm64-musl@1.2.6",
+      "integrity": "sha512-muWCk27FVBEZtv0MsK8gnfSmgczA8KQ0uRVJbTABKhkRfQc38aUrcb7fhi3BNiyseFmgcRsoMfQsSNJ+DbZdSw==",
+      "family": "@rolldown",
+      "platform": "linux/arm64/musl",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-linux-ppc64-gnu@1.2.6",
+      "integrity": "sha512-eWDoSfU7Co2qj3vgB3Dt4lj1mG6CoWbcJQkRMP3XJplyCMtuaq3LHvPFjS9QIPvMGWVadJC04Xiy0IdcVPtnwQ==",
+      "family": "@rolldown",
+      "platform": "linux/ppc64/glibc",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-linux-s390x-gnu@1.2.6",
+      "integrity": "sha512-2bWNjRSIayvupRKxXUY2tWG9fYdoUlTqWywHRvE8Eq3GvuQ+f2HeIkve697fIt+IQs/PV8yFsdWuhp1aJ1PdnA==",
+      "family": "@rolldown",
+      "platform": "linux/s390x/glibc",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-linux-x64-gnu@1.2.6",
+      "integrity": "sha512-KekI0gS0wLxe1UBSQSjenBVwou/JkcQPDzBPICGZjxUv9k3RteHDPBQaiOicZUFKRIH2wKEimGwVpnJsbPzu7w==",
+      "family": "@rolldown",
+      "platform": "linux/x64/glibc",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-linux-x64-musl@1.2.6",
+      "integrity": "sha512-TvtPnfVr+HtyGiDmPK4VWmlNm7QhNNAcK5Q9A7aOXsI8545yCyaoMaicXrFZ72JzeYjaUVk7yT243zT0jzjFKQ==",
+      "family": "@rolldown",
+      "platform": "linux/x64/musl",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-openharmony-arm64@1.2.6",
+      "integrity": "sha512-iOo0VEay2XFhaCcH0sps5XIimkSuOnNaZrf6+ZkoSOQBJPKNU48RkmJv0/lSpipexu5P+ouFgafe5IGr/DiQfg==",
+      "family": "@rolldown",
+      "platform": "openharmony/arm64",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-win32-arm64-msvc@1.2.6",
+      "integrity": "sha512-y5NTmmasMS455JlOCO4ZM9krIchv3Mvm1crL1iUPGOPgEzSkves9n0SdC5Sjz6+qWDFhd8/JpfWMH8NSWNHe+A==",
+      "family": "@rolldown",
+      "platform": "win32/arm64",
+      "documents": [2]
+    },
+    {
+      "id": "@rolldown/binding-win32-x64-msvc@1.2.6",
+      "integrity": "sha512-np8iZSLfXlAD4kWhiyq/u0Yt8oZDtRQ8lGhQaCXo2rl37KNjeU0GjJuwr4P3oeZ++ROfofsKNBqR5LTO8aXyWQ==",
+      "family": "@rolldown",
+      "platform": "win32/x64",
+      "documents": [2]
     },
     {
       "id": "@tailwindcss/oxide-android-arm64@4.3.3",
@@ -1278,5 +1406,5 @@
       "reason": "This is a stub types definition. parse-path provides its own type definitions, so you do not need this installed."
     }
   ],
-  "nonNativeDigest": "89cf9695171aa0b0651c56a235c325bde83f80647b029cc7f662bd73fcb654cc"
+  "nonNativeDigest": "9ddc0b4700e2accd39c5993a30c8dedd86e88cd2dbbe4e4f6c241cd97ee2f481"
 }

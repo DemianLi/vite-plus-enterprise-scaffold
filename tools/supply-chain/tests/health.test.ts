@@ -6,10 +6,12 @@ import { fileURLToPath } from "node:url";
 import {
   COMMON_LICENSES,
   HEALTH_FRESHNESS_DAYS,
+  catalogEntries,
   checkHealth,
   licenseNeedsReview,
   looksUnmaintained,
   parseRegistry,
+  registryName,
   type HealthFacts,
   type HealthFile,
 } from "../src/health.ts";
@@ -250,5 +252,49 @@ describe("對實際擷取到的 dependency-health.json", () => {
 
   it("沒有掃到 workspace 內部套件 —— 它們不在 registry 上", () => {
     expect(actual.records.some((record) => record.name.startsWith("@org/"))).toBe(false);
+  });
+
+  it("★ alias 以真名擷取：registry 上沒有 vite-upstream，只有它指到的 vite（C253）", () => {
+    const names = actual.records.map((record) => record.name);
+    expect(names).not.toContain("vite-upstream");
+    expect(names).toContain("vite");
+  });
+});
+
+describe("alias 要換成 registry 上的真名（C253）", () => {
+  const catalog = catalogEntries(
+    [
+      "packages:",
+      "  - apps/*",
+      "catalog:",
+      "  # 註解行不算",
+      '  "@types/node": ^24',
+      "  vite: npm:@voidzero-dev/vite-plus-core@0.3.1",
+      "  vite-upstream: npm:vite@8.2.2 # 行尾註解",
+      "overrides:",
+      '  vite: "catalog:"',
+    ].join("\n"),
+  );
+
+  it("catalog 讀得出帶引號的鍵與 npm: 的值；overrides 不算 catalog", () => {
+    expect([...catalog]).toEqual([
+      ["@types/node", "^24"],
+      ["vite", "npm:@voidzero-dev/vite-plus-core@0.3.1"],
+      ["vite-upstream", "npm:vite@8.2.2"],
+    ]);
+  });
+
+  it("★ 經 catalog 的 alias 換成真名，含 scope", () => {
+    expect(registryName("vite-upstream", "catalog:", catalog)).toBe("vite");
+    expect(registryName("vite", "catalog:", catalog)).toBe("@voidzero-dev/vite-plus-core");
+  });
+
+  it("直接寫在 package.json 的 alias 也換", () => {
+    expect(registryName("x", "npm:left-pad@1.3.0", catalog)).toBe("left-pad");
+  });
+
+  it("不是 alias 的名字原樣留下", () => {
+    expect(registryName("@types/node", "catalog:", catalog)).toBe("@types/node");
+    expect(registryName("react", "^19", catalog)).toBe("react");
   });
 });

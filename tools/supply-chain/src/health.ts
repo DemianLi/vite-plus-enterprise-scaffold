@@ -137,6 +137,40 @@ export interface HealthProblem {
  */
 export const HEALTH_FRESHNESS_DAYS = 90;
 
+/** `pnpm-workspace.yaml` 的預設 catalog：名字 → 版本字串。不引入 YAML parser（D2）。 */
+export function catalogEntries(yaml: string): Map<string, string> {
+  const entries = new Map<string, string>();
+  let inCatalog = false;
+  for (const raw of yaml.split("\n")) {
+    if (/^\S/.test(raw)) {
+      inCatalog = /^catalog:\s*$/.test(raw);
+      continue;
+    }
+    if (!inCatalog) continue;
+    const match = /^\s+["']?([^"'\s:#][^"':]*)["']?\s*:\s*["']?([^"'\s#]+)/.exec(raw);
+    if (match?.[1] !== undefined && match[2] !== undefined) entries.set(match[1], match[2]);
+  }
+  return entries;
+}
+
+/**
+ * registry 上查得到的名字。package.json 的鍵是 alias 時（`"vite-upstream": "npm:vite@8.2.2"`，
+ * 直接寫或經 catalog），查的是它指到的真名 —— 拿 alias 去查，那一筆永遠擷取失敗（C253）。
+ * ⚠️ catalog 的 `vite` 同樣是 alias（vite-plus-core）：換名之前，那一筆健康紀錄查的是上游 vite。
+ */
+export function registryName(
+  name: string,
+  spec: string,
+  catalog: ReadonlyMap<string, string>,
+): string {
+  const resolved = spec === "catalog:" ? (catalog.get(name) ?? spec) : spec;
+  if (!resolved.startsWith("npm:")) return name;
+  const target = resolved.slice("npm:".length);
+  // scope 自己也以 `@` 開頭，版本前的那個 `@` 要從第二個字元找起。
+  const at = target.indexOf("@", 1);
+  return at > 0 ? target.slice(0, at) : name;
+}
+
 /**
  * 離線檢查。`now` 由呼叫端注入，`acknowledged` 是已經有人看過並寫下理由的例外。
  *

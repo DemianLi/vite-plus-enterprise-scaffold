@@ -14,7 +14,14 @@ import {
   type FamilyTier,
   type Inventory,
 } from "./inventory.ts";
-import { checkHealth, parseRegistry, type HealthFile, type HealthProblem } from "./health.ts";
+import {
+  catalogEntries,
+  checkHealth,
+  parseRegistry,
+  registryName,
+  type HealthFile,
+  type HealthProblem,
+} from "./health.ts";
 import {
   attestationUrl,
   decodeProvenance,
@@ -142,6 +149,14 @@ const FAMILY_TIERS: Readonly<Record<string, FamilyTier>> = {
    * 而且不一定會失敗。這正是它必須進退出演練 DRILL_PLUGINS 的同一個理由（D15）。
    */
   "@tailwindcss": "toolchain",
+
+  /**
+   * 上游 Vite 8 的 bundler 原生 binding。rolldown/rolldown，MIT。
+   *
+   * 只用在交付匯出那棵樹的建置（`vite-upstream`，C253）：開發與閘門仍然走 vite-plus-core。
+   * 歸 toolchain：缺了某個平台的變體，機關在那個平台上就建不起來。
+   */
+  "@rolldown": "toolchain",
 
   // ── 選用：缺了只是少一點便利 ────────────────────────────────────────
   /** macOS 的檔案系統事件。缺了 watch 會退回輪詢，不影響建置產物。 */
@@ -530,6 +545,7 @@ function checkSbom(sbomPath: string, inventory: Inventory): Failure[] {
  */
 function directDependencies(): readonly string[] {
   const names = new Set<string>();
+  const catalog = catalogEntries(readFileSync(join(ROOT, "pnpm-workspace.yaml"), "utf8"));
 
   const walk = (dir: string): void => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -545,8 +561,8 @@ function directDependencies(): readonly string[] {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
-      for (const name of Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })) {
-        if (!name.startsWith("@org/")) names.add(name);
+      for (const [name, spec] of Object.entries({ ...pkg.dependencies, ...pkg.devDependencies })) {
+        if (!name.startsWith("@org/")) names.add(registryName(name, spec, catalog));
       }
     }
   };
