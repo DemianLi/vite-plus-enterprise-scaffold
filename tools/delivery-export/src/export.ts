@@ -17,10 +17,12 @@ import {
   rewriteWorkspaceYaml,
   TEST_FILE,
   testOnlyDependencies,
+  upstreamViteVersion,
   VITE_CONFIG,
   withoutTestSourceExclusions,
+  withUpstreamVite,
 } from "./rewrite.ts";
-import type { ScannedFile } from "./scan.ts";
+import { LOCKFILE, type ScannedFile } from "./scan.ts";
 import {
   closure,
   type Manifest,
@@ -194,6 +196,8 @@ function rewrittenContents(
       content = rewriteTsconfigInclude(original, (entry) => present(dirname(file), entry));
     } else if (file.endsWith(".css")) {
       content = withoutTestSourceExclusions(original);
+    } else if (VITE_CONFIG.test(basename(file))) {
+      content = withUpstreamVite(original);
     }
     if (content !== original) rewritten.set(file, content);
   }
@@ -292,7 +296,11 @@ export function plan(root: string): Plan {
 
   const rootFiles = {
     "package.json": `${JSON.stringify(rootManifest, null, 2)}\n`,
-    "pnpm-workspace.yaml": rewriteWorkspaceYaml(yaml, { globs, catalog }),
+    "pnpm-workspace.yaml": rewriteWorkspaceYaml(yaml, {
+      globs,
+      catalog,
+      pins: new Map([["vite", upstreamViteVersion(yaml)]]),
+    }),
     ".npmrc": rewriteNpmrc(readFileSync(join(root, ".npmrc"), "utf8")),
     ".gitignore": GITIGNORE,
   };
@@ -373,7 +381,10 @@ export function pruneLockfile(out: string): Step {
   return packageManager(["install", "--lockfile-only", "--prefer-offline"], out, "lockfile 剪枝");
 }
 
-/** 掃描的對象：匯出目錄裡每一支檔，lockfile 除外（sha512 會湊出假的編號，而它剪不掉的是公開套件）。 */
+/**
+ * 掃描的對象：匯出目錄裡每一支檔，含 lockfile —— 它只吃「測試套件」那一條（C253，見 `traceRules`）。
+ * ⚠️ 沒有 lockfile 就丟例外：那一條會掃到零處，與「乾淨」長得一樣。
+ */
 export function readExport(out: string): ScannedFile[] {
   const found: ScannedFile[] = [];
   const visit = (dir: string, prefix: string): void => {
@@ -381,11 +392,14 @@ export function readExport(out: string): ScannedFile[] {
       const path = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
       if (entry.isDirectory()) {
         if (entry.name !== "node_modules") visit(join(dir, entry.name), path);
-      } else if (path !== "pnpm-lock.yaml") {
+      } else {
         found.push({ path, content: readFileSync(join(dir, entry.name), "utf8") });
       }
     }
   };
   visit(out, "");
+  if (!found.some((file) => file.path === LOCKFILE)) {
+    throw new Error(`匯出目錄沒有 ${LOCKFILE} —— 測試套件那一條會掃到零處`);
+  }
   return found;
 }

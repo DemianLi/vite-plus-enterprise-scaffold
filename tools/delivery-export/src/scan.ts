@@ -2,6 +2,8 @@ export interface Rule {
   readonly label: string;
   /** 一支檔裡命中幾處。 */
   readonly count: (content: string) => number;
+  /** 只掃 lockfile 的規則。其餘規則反過來，不掃 lockfile。 */
+  readonly scope?: "lockfile";
 }
 
 export interface ScannedFile {
@@ -22,6 +24,8 @@ export interface ScanResult {
   /** 每支檔命中幾處，多的排前面。 */
   readonly byFile: readonly (readonly [string, number])[];
 }
+
+export const LOCKFILE = "pnpm-lock.yaml";
 
 function literal(pattern: RegExp): (content: string) => number {
   return (content) => [...content.matchAll(pattern)].length;
@@ -94,13 +98,17 @@ export const MECHANISM_WORDS = [
 ] as const;
 
 /**
- * C231 §三 那張詞表，加上 Q111 收進來的題號、C250 收進來的 `gate`／`drill`／演練／issue 號。
+ * C231 §三 那張詞表，加上 Q111 收進來的題號、C250 收進來的 `gate`／`drill`／演練／issue 號，
+ * 與 C253 的 lockfile 那一條。
  *
  * 工具名與內部文件名**從樹上推**，不手列：`toolNames` 是 `tools/*` 的目錄名，
  * `docNames` 是根層不出門的 `.md`。手列的話，下一支新工具的名字會安靜地不在表上。
  *
  * issue 號前面不能是英數、`&`、`#`：`&#123;` 是 HTML 實體、`##1` 是標題。⚠️ 全數字的色碼
  * （`#333`）與「訂單 #1024」這種業務寫法會命中 —— 誤報的方向是匯出失敗。
+ *
+ * lockfile 只掃測試套件的名字（C253）：機關打開 lockfile 或裝出來的 `node_modules`，看得到的是
+ * 套件名。其餘規則不掃它 —— sha512 的 base64 在 `+`、`/` 之間會湊出 `C12` 這種假編號。
  */
 export function traceRules(input: {
   readonly toolNames: readonly string[];
@@ -121,6 +129,13 @@ export function traceRules(input: {
     { label: "gate／drill", count: words("gate／drill", MECHANISM_WORDS) },
     { label: "演練", count: literal(/演練/g) },
     { label: "issue 號 #＋數字", count: literal(/(?<![\w&#])#\d+\b/g) },
+    {
+      label: "測試套件（lockfile）",
+      count: literal(
+        /vitest|happy-dom|jsdom|@testing-library\/|cucumber|stryker|playwright|webdriverio|vite-plus/g,
+      ),
+      scope: "lockfile",
+    },
   ];
 }
 
@@ -133,6 +148,7 @@ export function scan(files: readonly ScannedFile[], rules: readonly Rule[]): Sca
     let hits = 0;
     const matched: string[] = [];
     for (const file of files) {
+      if ((file.path === LOCKFILE) !== (rule.scope === "lockfile")) continue;
       const count = rule.count(file.content);
       if (count === 0) continue;
       hits += count;

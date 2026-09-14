@@ -14,6 +14,11 @@ catalog:
   typescript: ^7.0.2
   vite: npm:@voidzero-dev/vite-plus-core@0.3.1
   vite-plus: 0.3.1
+  # 交付匯出的建置引擎（C253）：匯出時 `vite` 改寫成這一版，vite-plus 與它帶的 vitest 不出門。
+  # 放在這裡而不是寫在匯出工具裡：進了 lockfile，SCA 與 Renovate 才看得到它，CI 開機時它才在
+  # store 裡 —— 匯出那棵樹的離線安裝靠的就是這一點。⚠️ 下面 `overrides` 的 `vite` 不會吃掉這個
+  # alias（實測解析到的是上游 vite）。
+  vite-upstream: npm:vite@8.2.2
   # ⚠️ 必須與 vite-plus 內部鎖定的版本**完全一致**。vite-plus 把 vitest 釘死在
   # 精確版本（=4.1.11），此處若用 ^ 範圍或不同版本，node_modules 會出現兩份 vitest，
   # 測試會以難以診斷的方式失敗（型別對不上、mock 失效）。升 vite-plus 時要同步改這行。

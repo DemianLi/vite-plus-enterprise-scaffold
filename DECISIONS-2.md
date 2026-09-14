@@ -13913,3 +13913,106 @@ C231 §八 那一格「要不要進 `gate:fork`，批次 ④ 再問」到此答�
 - 逐 package：`delivery-export` 79 條（拿掉報數模式那一條、補上 ENOENT 那一條）。
 - 乾淨機器：本則的程式碼綠，8 秒（§六）。
 - 本機 `vpr ready`：最後一趟跑在本則與 CHANGELOG 都已 commit 的那一版上，RC 見 PR。
+
+### C253 — 交出去的樹看得到測試套件：vite-plus 硬相依 vitest，匯出的 lockfile 命中 259 處 —— 匯出改用上游 Vite 建置，版本以 alias 進 repo 的 lockfile；新舊兩份產物執行期比對一致（2026-09-14，Q125、Q126）
+
+> 發版前人問「這一版是不是能拿去交付、不會被發現用了那些測試套件」，量出來不是。C252 的痕跡掃描刻意不掃 lockfile，閘門是綠的。
+
+| 題       | 問                                                                           | 答                                     |
+| -------- | ---------------------------------------------------------------------------- | -------------------------------------- |
+| **Q125** | 交出去的 lockfile 與 `node_modules` 看得到 vitest 等測試套件，發版前怎麼處理 | **先修掉再發**                         |
+| **Q126** | 交出去的樹改用上游 Vite 建置，要怎麼進行                                     | **改用上游 Vite，附執行期比對**（§四） |
+
+#### 一、量到的
+
+匯出的 `pnpm-lock.yaml`：`vitest@4.1.11` 46 處、`@vitest/coverage-v8` 40、`happy-dom` 33、`@vitest/browser` 26、`@testing-library/dom` 7…… 痕跡掃描的 vitest 那一條套上去是 259 處。兩個成因：
+
+1. vite-plus 0.3.1 的 `dependencies` 硬帶 `vitest` 4.1.11 與九個 `@vitest/*` —— 只要交出去的樹用它建置，就剪不掉。
+2. `happy-dom`、`@testing-library/*`、`@vitest/coverage-v8` 沒有任何出門的 package 依賴，掛在 vite-plus 那一條 snapshot 的 peer 後綴上。`--resolution-only` 清不掉（lockfile 逐位元組不變）。它跟著 1. 走，1. 解掉它就消失。
+
+C231 §八 判「vite-plus 與它帶的 vitest 是公開工具，不處理」—— 與 Q125 衝突，**由本則推翻**。C231 本文不動（C136 §八）。
+
+#### 二、做法
+
+1. **repo 的 catalog 加 `vite-upstream: npm:vite@8.2.2`**，由 `tools/delivery-export` 引用。放在 repo 而不是寫在匯出工具裡：進了 lockfile，SCA 與 Renovate 才看得到它；CI 開機時它才在 store 裡，演練的離線安裝才過得去（§三）。`overrides` 的 `vite` 不會吃掉這個 alias（實測解析到上游 vite）。
+2. **匯出改寫**：出門的 manifest 拿掉 `vite-plus` 與 `check` script；`vp` 的 script 照改寫表換成 `vite`／`pnpm`，表外的寫法丟例外；根層 devDep 剩 `typescript`、`vite`；catalog 的 `vite` 釘成 `vite-upstream` 那一版；`vite.config` 的 import 改成 `"vite"`，改完還引用 `vite-plus` 就丟例外。
+3. **痕跡掃描加一條只掃 lockfile 的「測試套件」規則**；其餘規則照舊不掃 lockfile（sha512 的 base64 會湊出 `C12` 這種假編號）。匯出目錄沒有 lockfile 就丟例外 —— 那一條會掃到零處，與乾淨長得一樣。
+4. **supply-chain**：新家族 `@rolldown`（15 個平台 binding，MIT）歸 toolchain；來源證明重擷（`--recapture-safe`；SLSA provenance 103 → 118，僅發佈簽章 43 不變）；`--capture-health` 原本拿 alias 名去問 registry，永遠失敗 —— 改成問它指到的真名（`registryName`）。⚠️ 同一個修法揭露一件既有的事：catalog 的 `vite` 也是 alias，那一筆健康紀錄一直查的是上游 vite，不是實際裝的 vite-plus-core。
+5. **文件**：HANDOFF／UI-SURVEY 的盤點數字（625 → 643、146 → 161、12 → 13、103 → 118，doc-facts 抓到的 12 處）；HANDOFF #6 寫給機關的「`vp` 第一步就往公網連」改成「套件管理器」；〈交付匯出那一道〉加兩點（上游 Vite、`.env`）。
+
+#### 三、兩條路，量測決定
+
+| 做法                                    | 量測（全新 `HOME`、PATH 沒有 pnpm、照 tier1 開機）                                                                                                            |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 只在匯出時把 catalog 的 `vite` 改成上游 | 演練的離線安裝**紅**：`ERR_PNPM_NO_OFFLINE_META @rolldown/binding-*` —— rolldown 從來沒經過 repo 的安裝，不在任何 store 裡；釘在匯出工具裡的版本 SCA 也看不到 |
+| **alias 放進 repo**（選這個）           | 先改寫、再剪一次：rolldown 1.2.6 與 repo 一致，`vite-upstream` 0 處，測試套件 0 處，離線安裝 RC=0，建置 RC=0，裝出來的 `node_modules` 測試套件 0              |
+
+⚠️ 中途紅過一次：原型拿**已經剪過**的匯出樹再改 catalog，repo lockfile 裡的 vite 8.2.2／rolldown 1.2.6 在第一次剪的時候已經被拿掉，第二次剪只好上網解 —— 解到 rolldown **1.2.8**，store 裡沒有。工具本身是改寫之後才剪一次，沒有這個問題；這一趟證明的是**順序是承重的**，理由與 C231 §二「帶原檔、讓 pnpm 剪」同一條。
+
+另外兩個量測台的假零，照記：一次是 lockfile 有兩份 YAML 文件、`indexOf` 抓到 pnpm 自己那份（兩邊都是 19 個套件、差異 0 —— 方向是「什麼都沒變」，會直接否定整個做法），改 `lastIndexOf`；一次是模擬 CI 時把 PATH 縮到連 `rtk` 都不在，改寫過的 `tail`／`ls` 安靜失效。
+
+結果：lockfile 277 → 134 個 name@version（拿掉 159、新增 17：vite 8.2.2、rolldown 1.2.6 與 15 個 binding），版本有變的只有 `@oxc-project/types` 0.148.0 → 0.147.0。本機 `--check` 6 秒綠。
+
+#### 四、產物與執行期比對（Q126）
+
+- **產物不是逐位元組相同**：10 支檔，7 支大小相同（CSS、`index.html` 在內）；`index.js` +34 bytes、`react.js` +4 bytes。正規化雜湊之後第一處差異在第 225,490 字元 —— `(e.path!=null||e.index)` 寫成 `!(e.path==null&&!e.index)`，等價；其餘差異沒有逐處讀。建置引擎不同（vite-plus-core 0.3.1 對上 vite 8.2.2 ＋ rolldown 1.2.6），所以「產物相同」不是本則的主張。
+- **執行期一致**：兩份產物各起一台 preview，接同一個 BFF mock、同一個 session，走 `/`、`/order`、`/invoice`，打開訂單明細（ORD-1002）與請款單明細（INV-5001）兩個彈出層 —— 頁面文字逐字相同、截圖相同；乾淨分頁的 console 兩邊都零錯誤。
+- ⚠️ 第一次比對兩邊都是白畫面：匯出不帶 `.env`，`platform/config` 在執行期擋下缺的 `VITE_APP_TITLE`。**演練只驗 `dist/index.html` 存在，看不到這一種**（§八）。
+- 這份比對是一次性的紀錄，不是閘門（§八）。
+
+#### 五、代價，明寫
+
+- 交給機關的建置引擎，與團隊開發、閘門跑的不是同一個。上游 Vite 走的是 `exit-drill` 每季那一條 —— 它用 `UPSTREAM.vite = ^8.2.1` 跑 853 條測試，驗的是原始碼，不是產物；本則之後，交付物**本來就是**換掉驅動層的那一份，D2 保單從「證明換得掉」多了一個真的在用的消費端。
+- 機關端沒有 `vp check`：格式與 lint 不出門；型別檢查靠留在根層的 `typescript` 與編輯器。
+- repo 多一條 alias、一個原生家族（15 個平台 binding），SCA 範圍擴大。
+
+#### 六、變異
+
+對照（不改）：`delivery-export` 90 條、`supply-chain` 99 條全綠。
+
+| #   | 改壞                            | 結果                                                                                      |
+| --- | ------------------------------- | ----------------------------------------------------------------------------------------- |
+| M35 | manifest 不拿掉 `vite-plus`     | 2 條紅                                                                                    |
+| M36 | 不傳 `vite` 的釘選版本          | 1 條紅                                                                                    |
+| M37 | `vite.config` 不改寫            | 1 條紅（補強過的那條真樹測試 —— 第一版只看 `rewritten`，原樣複製的檔看不到）              |
+| M38 | lockfile 規則不看範圍           | 3 條紅                                                                                    |
+| M39 | `readExport` 又排除 lockfile    | **測試 0 條紅**；CLI `--check` 紅（「匯出目錄沒有 pnpm-lock.yaml」）—— 守它的是閘門那一趟 |
+| M40 | `registryName` 不換真名         | 3 條紅                                                                                    |
+| M41 | 表外的 `vp` 寫法原樣放行        | 1 條紅                                                                                    |
+| M42 | `FAMILY_TIERS` 拿掉 `@rolldown` | supply-chain 閘門紅（未分類家族）                                                         |
+
+#### 七、C154 §三
+
+| 軸       |                                                                                                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **交付** | **有分。** 交出去的樹不再看得到測試套件（Q125）。                                                                                                                              |
+| **迭代** | ① 對象在外 ✅：vite-plus 升版會改變 lockfile 裡的名字，任何人在出門的 package 加一個測試相依也會；② 壞法安靜 ✅ —— **級別：探針**：§一，C252 的閘門全綠而 lockfile 有 259 處。 |
+
+#### 八、沒有機制在守的
+
+- **執行期等價**：§四 的比對是一次性的紀錄。`vite-upstream` 或 vite-plus 升版之後兩份產物會不會分岔，沒有東西會紅。
+- `vite-upstream` 與 `exit-drill` 的 `UPSTREAM.vite` 沒有東西在對齊 —— 今天一個是 8.2.2、一個是 `^8.2.1`，碰巧相容。
+- 演練只驗 `dist/index.html` 存在，驗不到「沒有 `.env` 打開是白畫面」（寫進了 HANDOFF，機關端要自己放）。
+- 改寫表以上游那一行 script 的全文為鍵：上游改了 `build`／`dev` 的寫法，匯出當場丟例外 —— 紅，不安靜；列在這裡是因為它會紅在一支沒有做錯事的上游 PR 上。
+
+#### 九、與既有裁決的關係
+
+| 裁決                 | 關係                                                             |
+| -------------------- | ---------------------------------------------------------------- |
+| **C231 §八**         | 「vite-plus 與它帶的 vitest 是公開工具，不處理」**由 Q125 推翻** |
+| **C231 §二**         | 「lockfile 帶原檔、讓 pnpm 剪」沿用；§三 那次漂移就是它的反例    |
+| **C252**             | lockfile 從「掃描刻意不掃」改成「只吃測試套件那一條」            |
+| **D2**               | 交出去的樹換掉驅動層，走的是 D2 保單證明過換得掉的那一條（§五）  |
+| **D6**               | alias 以 `catalog:` 引用                                         |
+| **C220**             | `tools/`、`pnpm-workspace.yaml` 動了，`.scaffold-stamp` 重算     |
+| **C136 §八**         | **遵守** —— C231、C248、C252 本文一個字都不改                    |
+| **C154 §三**         | **遵守** —— §七                                                  |
+| **AGENTS.md 規則二** | **遵守** —— 沒有動任何門檻；新家族照 `FAMILY_TIERS` 的規矩登記   |
+| **AGENTS.md 規則四** | **遵守** —— `specs/` 沒動                                        |
+
+#### 十、實測
+
+- 逐 package：`delivery-export` 90 條、`supply-chain` 99 條。
+- supply-chain 閘門綠：643 個套件、161 個原生二進位、13 個家族，4 個目標平台皆有變體，來源綁定一致。
+- doc-facts 綠（14 個事實、27 個引用樣式）。
+- 本機 `vpr ready`：最後一趟跑在本則與 CHANGELOG 都已 commit 的那一版上，RC 見 PR。
