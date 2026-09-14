@@ -2,6 +2,8 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 
+import { repoRoot } from "@org/gate-kit";
+
 import {
   buildsItself,
   catalogReferences,
@@ -340,21 +342,35 @@ export interface Step {
   readonly output: string;
 }
 
-export function pnpm(args: readonly string[], cwd: string, name: string): Step {
-  const result = spawnSync("pnpm", [...args], { cwd, encoding: "utf8" });
+export function run(command: string, args: readonly string[], cwd: string, name: string): Step {
+  const result = spawnSync(command, [...args], { cwd, encoding: "utf8" });
   return {
     name,
     ok: result.status === 0,
-    output: `${result.stdout ?? ""}\n${result.stderr ?? ""}`,
+    // 執行檔不存在時 stdout／stderr 都是 null，只剩 error 說得出原因。
+    output: [result.error?.message, result.stdout, result.stderr].filter(Boolean).join("\n"),
   };
 }
 
 /**
- * lockfile 帶原檔、讓 pnpm 離線剪（C231 §二）。重新解析的那一趟會解到 store 沒有的版本 ——
- * 在機關端就是版本漂移；`--lockfile-only --offline` 只刪沒人要的條目，不換版本。
+ * 經由本 repo 的 `vp` 叫套件管理器，不直接叫 `pnpm`：CI（上游與 fork 同一份 workflow）只用
+ * `npx vite-plus … vp install` 開機，PATH 上沒有 `pnpm`；`vp` 照 `packageManager` 解析出來的，
+ * 就是開機時把 store 裝滿的那一支，離線安裝才讀得到它（C252）。
+ */
+export function packageManager(args: readonly string[], cwd: string, name: string): Step {
+  return run(join(repoRoot(), "node_modules", ".bin", "vp"), args, cwd, name);
+}
+
+/**
+ * lockfile 帶原檔、讓 pnpm 剪（C231 §二）。重新解析的那一趟會解到 store 沒有的版本 ——
+ * 在機關端就是版本漂移；`--lockfile-only` 只刪沒人要的條目，不換版本。
+ *
+ * ⚠️ `--prefer-offline` 不是 `--offline`：剪枝要讀**其他平台**選配相依的完整 metadata
+ *（`@typescript/typescript-sunos-x64` 之類），而 `--frozen-lockfile` 的安裝不會把它抓進快取 ——
+ * 乾淨的機器上 `--offline` 必紅，只有快取長年累積的開發機會綠（C252）。
  */
 export function pruneLockfile(out: string): Step {
-  return pnpm(["install", "--lockfile-only", "--offline"], out, "lockfile 離線剪枝");
+  return packageManager(["install", "--lockfile-only", "--prefer-offline"], out, "lockfile 剪枝");
 }
 
 /** 掃描的對象：匯出目錄裡每一支檔，lockfile 除外（sha512 會湊出假的編號，而它剪不掉的是公開套件）。 */

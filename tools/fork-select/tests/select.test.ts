@@ -21,7 +21,7 @@ describe("辨別子（C217 §三）", () => {
 
   it("⚠️ 空檔也是 fork —— 內容不參與判定（C217 §十）", () => {
     // 內容一旦被讀，「空的標記檔」就會被判成上游，而那個方向是安靜的：
-    // fork 跑了全部 15 道，紅在它不該管的東西上，而沒有任何訊息說為什麼。
+    // fork 跑了全部 16 道，紅在它不該管的東西上，而沒有任何訊息說為什麼。
     const box = sandbox({ prefix: "fork-select-", files: { [FORK_MARKER]: "" } });
     expect(sideOf(box.root)).toBe("fork");
   });

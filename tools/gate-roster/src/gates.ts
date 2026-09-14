@@ -524,6 +524,28 @@ export const GATES: readonly Gate[] = [
     },
   },
   {
+    id: "delivery-check",
+    label: "交付匯出乾淨、建得起來",
+    pkg: "delivery-export",
+    command: "node tools/delivery-export/src/cli.ts --check",
+    tiers: ["tier1"],
+    why:
+      "交付給機關的匯出（C231）：白名單推出出門的檔、改寫、掃內部痕跡，再到 repo 外離線安裝與建置一次。" +
+      "C248 把它登記在 `UNGATED`，理由是掃描那時必紅；C249–C251 清到零之後由 C252 接上。" +
+      "在 Tier 1：它量的是這棵樹會交出去什麼，不會隨時間失效。" +
+      "⚠️ 它經由 `vp` 叫套件管理器（CI 只用 `npx vite-plus` 開機，PATH 上沒有 `pnpm`），" +
+      "所以綁驅動層 —— 放 Tier 2 會違反 D2 保單（tier2-security.yml 檔頭）。" +
+      "⚠️ 排在上游專用那幾道之後、ESLint 之前：它要離線安裝加建置一次（乾淨機器實測 7～10 秒），" +
+      "是 fork 那一條裡最貴的一道。",
+    ship: {
+      to: "fork",
+      why:
+        "拿去接政府案的是團隊，匯出要在他們的樹上跑（C231 §四.8）；日常就擋、不等交付那天才掃，" +
+        "是 C252 人選的 —— 團隊或他們的 agent 在出門的碼裡寫下內部痕跡的那一趟就紅。" +
+        "⚠️ 代價：詞表在 `tools/` 裡、被章鎖著，業務資料真的撞到詞表時團隊調不了，照規則二回報上游。",
+    },
+  },
+  {
     id: "spec-report",
     label: "驗收規格完成率",
     pkg: "spec-report",
@@ -682,15 +704,5 @@ export const UNGATED: readonly Ungated[] = [
       "升 reka-ui／vue／tailwindcss 就紅，而修復要人開瀏覽器跑一次，" +
       "那是所有閘門裡每次成本最高的一道。留著它零摩擦，要驗時隨時跑得起來；" +
       "失去的是「有沒有人真的驗過」這個問題的機器答案。",
-  },
-  {
-    pkg: "delivery-export",
-    why:
-      "**今天必紅，所以還不是閘門**（C231 §六 ①，C248）。它產出交付給機關的匯出、在匯出那棵樹上" +
-      "重跑安裝與建置、掃內部痕跡 —— 而 `platform/`、`apps/`、`features/` 的痕跡排在 C231 ② ③ 才清，" +
-      "現在接進閘門鏈，每一趟 CI 都會紅在一件排好了、還沒做的事上。所以掃描預設只報數，" +
-      "`--fail-on-trace` 是 ④ 接線時要走的那條。" +
-      "⚠️ ④ 掃描歸零之後移進 `GATES`（`ship.to: fork`，C231 §四.8），不要留在這裡加一個旗標了事 —— " +
-      "一支會紅的東西待在 `UNGATED`，它的紅燈就沒有人會看到。",
   },
 ];

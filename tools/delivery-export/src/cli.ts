@@ -13,19 +13,20 @@ import { formatScan, scan, traceRules, verdict } from "./scan.ts";
  * 交付給機關的匯出（C231）：產出一個沒有 `.git` 的目錄，只含可建置的業務原始碼。
  *
  * 用法：
- *   node tools/delivery-export/src/cli.ts                    匯出到一個新的暫存目錄
- *   node tools/delivery-export/src/cli.ts --out <目錄>       匯出到指定目錄（必須還不存在、在 repo 外）
- *   node tools/delivery-export/src/cli.ts --fail-on-trace    痕跡掃描有命中就失敗、不留產物
+ *   node tools/delivery-export/src/cli.ts                匯出到一個新的暫存目錄
+ *   node tools/delivery-export/src/cli.ts --out <目錄>   匯出到指定目錄（必須還不存在、在 repo 外）
+ *   node tools/delivery-export/src/cli.ts --check        閘門：同一趟走完，最後刪掉產物
  *
- * ⚠️ 今天的預設是**掃描只報數**：C231 §六 ① 寫明掃描今天必紅，② ③ 清完之後由 ④ 改成判定並接線。
- * 它因此登記在 `UNGATED`，不在閘門鏈上。
+ * 痕跡掃描有命中、或匯出那棵樹建不起來，都是失敗、不留產物（C252）。
+ *
+ * ⚠️ `--check` 刪產物，是因為它每一趟 `vpr gate` 都跑 —— 留著的話，暫存目錄每趟多一整棵樹。
  *
  * ⚠️ 產物一律在 repo 外：repo 內的副本會被 `threshold-check` 之類讀磁碟的閘門掃到而間歇紅，
  * 也會以「未追蹤且未 ignore」的身分出現在 `git status`（#282）。
  */
 const FLAGS = parseFlags(process.argv.slice(2), {
   out: { kind: "value", noun: "目錄" },
-  "fail-on-trace": { kind: "boolean" },
+  check: { kind: "boolean" },
 } as const);
 if (!FLAGS.ok) {
   console.error(FLAGS.message);
@@ -54,7 +55,10 @@ function report(steps: readonly Step[]): boolean {
   return steps.every((step) => step.ok);
 }
 
-function main(failOnTrace: boolean, requestedOut: string | undefined): number {
+function main(check: boolean, requestedOut: string | undefined): number {
+  if (check && requestedOut !== undefined) {
+    throw new Error("--check 跑完會刪掉產物，不能與 --out 一起用");
+  }
   const planned = plan(ROOT);
   const out = outputDir(requestedOut);
   const fail = (message: string): number => {
@@ -78,7 +82,7 @@ function main(failOnTrace: boolean, requestedOut: string | undefined): number {
 
   const result = scan(readExport(out), traceRules(planned));
   console.log(`\n${formatScan(result)}\n`);
-  const judged = verdict(result, failOnTrace);
+  const judged = verdict(result);
 
   console.log("\n在匯出那棵樹上重跑（repo 外、離線）：");
   const apps = planned.exported
@@ -88,12 +92,17 @@ function main(failOnTrace: boolean, requestedOut: string | undefined): number {
 
   if (!judged.ok) return fail(judged.message);
   console.log(`\n${judged.message}`);
+  if (check) {
+    rmSync(out, { recursive: true, force: true });
+    console.log("\n✓ 交付匯出乾淨、建得起來（--check：產物已刪除）");
+    return 0;
+  }
   console.log(`\n匯出目錄：${out}`);
   return 0;
 }
 
 try {
-  process.exit(main(FLAGS.flags["fail-on-trace"], FLAGS.flags.out));
+  process.exit(main(FLAGS.flags.check, FLAGS.flags.out));
 } catch (error) {
   console.error(`✗ ${error instanceof Error ? error.message : String(error)}`);
   process.exit(1);

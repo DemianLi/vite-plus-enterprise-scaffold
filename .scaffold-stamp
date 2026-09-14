@@ -3,7 +3,7 @@
 # 一行一個檔、一行一條 script，照字典序 —— 兩支 PR 改到不同的檔，合併不會撞在同一行。
 file	8016f658f28465508a11d63a71f493bd1ac71e1a555566bb2e7e2f94bb803c81	.github/workflows/exit-drill.yml
 file	e4c2434b01fa70ea1de336acdca3d08c8ef0f98e48f356d0869a3836a41580fe	.github/workflows/supply-chain-recapture.yml
-file	7c97340bb6dafb7ab1aac0f18ff8dda66f0e7bdc33755ecb6a58da4de6fe8492	.github/workflows/tier1-quality.yml
+file	56b1e49307c1ada3643e2ac634729d088809fe3b6b76065966a0ebc1d3a772c6	.github/workflows/tier1-quality.yml
 file	709d00f748ea76301200e221013d44e0211743d9b064221e5fa115c6bbe02308	.github/workflows/tier2-security.yml
 file	c57c47f71015ed8cf21542b44a1ef3f4b55b2ae03d8aff700ac282f8d1974f06	platform/bff-contract/README.md
 file	c806d7b876ec11b961a625ccc4faf686a5cdc205a2e9f0e8750a472d264ea946	platform/bff-contract/package.json
@@ -188,15 +188,15 @@ file	847fbcaf20d26bf51c3a7d2f0e2ee0023ebecc5e5933f7bf30fabd2009260193	tools/csp-
 file	85151406b894d37abc9b25e706247884761a14854c4a72cef7b011ae4c83b250	tools/csp-verify/src/probe.ts
 file	7d7ef82d413fac1c1e183b7ef56031bbc795f85ae0d4354e1bbe01dedd1bca12	tools/csp-verify/tsconfig.json
 file	b376e95a52fea9fd1d99ae6780cab4636ffe2579340ae06af1d6ef5e263096c1	tools/delivery-export/package.json
-file	1c7bf9fe095105249341e80293a35e1803962818989c134791d655e5cdc7a263	tools/delivery-export/src/cli.ts
-file	e96d73a593dc4ae769f200db77420bf4c5ba3b8fb60b14681b29c173bcee02c3	tools/delivery-export/src/drill.ts
-file	09e51fa6e90079ced98ae5efe9886cab3fc8dcbff7a87e01445dfd4804689768	tools/delivery-export/src/export.ts
+file	d0d4195d5a6582aa729b788e889398c2f7d1cedc85129413f859f2f3881dde60	tools/delivery-export/src/cli.ts
+file	adb62d9ff10445a4f146368cb76b5d2b9d300ed39d09442b62b87a74eff930aa	tools/delivery-export/src/drill.ts
+file	acb408c7707050565e6236657c68197a90b24314cc59f08a8c5d6928d09601e9	tools/delivery-export/src/export.ts
 file	4d65de1bd10ae3a2c75f29b66b0b100f61615e47aa4661d91df18883b2c6a91d	tools/delivery-export/src/rewrite.ts
-file	663b2b77c8b88b8a866354ccae56ffb9ecbc058f8965c08c5c3c7178196dd052	tools/delivery-export/src/scan.ts
+file	98bb88d53f707deb9eca55bf23770087ffe555e1c7826f2b8c31485b5b716daf	tools/delivery-export/src/scan.ts
 file	326626ab5a5a429c8ecb44e801c3228c181569c931c40f9b5ee8f34f5d325290	tools/delivery-export/src/workspace.ts
-file	98b155f103e9608c05a8996be49813474ed29a20c798c363b507404a34d791be	tools/delivery-export/tests/drill.test.ts
+file	ab7b3360fd825534ca80d35ff2a74b1da48061ed287b903c58f4a9ae808734d7	tools/delivery-export/tests/drill.test.ts
 file	a69cac572a9384b09888f1e39c80e2340fb14ded27cf789a7c58bce92f311bac	tools/delivery-export/tests/rewrite.test.ts
-file	bde3dff58ab55d431d53078bc820220bee6435f587598f3b0c0ce219960ee722	tools/delivery-export/tests/scan.test.ts
+file	d92cb54c7a81b2cef4f2fbf95a01a022aae7b5dc81acd6f1da824e02e5f39877	tools/delivery-export/tests/scan.test.ts
 file	1dd7704819d792181d79fc29dd285ca717ed758d216e485c89d50236324984af	tools/delivery-export/tests/workspace.test.ts
 file	3097525e10b329b9e34cbfc38b1f8e8d1982bb454fb2c9f2b74b7d368c035bcb	tools/delivery-export/tsconfig.json
 file	13f772c6c63e71f098fe12af2293b8528c28ce419e62fa720ff0326d5a2b5a1c	tools/delivery-export/vite.config.ts
@@ -234,7 +234,7 @@ file	7d7ef82d413fac1c1e183b7ef56031bbc795f85ae0d4354e1bbe01dedd1bca12	tools/exit
 file	7a541b9b8fd81eee16ff95cb0950f4f42824fd5df5a0059e580db5e8a18d21f1	tools/fork-select/package.json
 file	51b927bd3f7c6c0b34098369edd7840acce710cf4d7702e6348f73bbc1b52e64	tools/fork-select/src/cli.ts
 file	f8016481b6c7408319b241978ad8dd2f366476eab70c61b4dadd6081deb2bbac	tools/fork-select/src/select.ts
-file	f274922c3d9b597089b8b9e29991a5bcb708570e8072d61238e23bfa384a9e41	tools/fork-select/tests/select.test.ts
+file	89dc46bc11b0849f3f7f12c52a65f0b773a4f2604adb2679cf8f911326a56ab8	tools/fork-select/tests/select.test.ts
 file	3097525e10b329b9e34cbfc38b1f8e8d1982bb454fb2c9f2b74b7d368c035bcb	tools/fork-select/tsconfig.json
 file	21c2af46987dd83c706f1c467f83ccae3ced7742606e067f49575b2a4e312ac8	tools/gate-kit/README.md
 file	c8d37f0c73cadac7b7b91185c5aa5038d0df4f936cbf5885988832da1825bec0	tools/gate-kit/package.json
@@ -255,7 +255,7 @@ file	3097525e10b329b9e34cbfc38b1f8e8d1982bb454fb2c9f2b74b7d368c035bcb	tools/gate
 file	f0d9ebc525989e73ea77173ef27b68fe0db9cb4372d95c082fbb2089b9747be9	tools/gate-roster/package.json
 file	068e035d941011ff2b9a1d6f9a74f7725960fee1904b7b8b736a3071b0461654	tools/gate-roster/src/check.ts
 file	92721d5bb307a1365b746484b22ba92cf57ec0ede2d602845566233abb76858a	tools/gate-roster/src/cli.ts
-file	d6e96c4f329fe3ec6eb1cc595e1466ef951774d66bb4957e799f61b0fcf1fd3b	tools/gate-roster/src/gates.ts
+file	73dfc637717c537cc0f1fb112d0f74e1ea1262f0b956784c3b37514b4dbc1440	tools/gate-roster/src/gates.ts
 file	09eb1fefa6ac17c462fee90ded3489bc37e45ed06a1e67492baf86cd12d7be1a	tools/gate-roster/tests/roster.test.ts
 file	3097525e10b329b9e34cbfc38b1f8e8d1982bb454fb2c9f2b74b7d368c035bcb	tools/gate-roster/tsconfig.json
 file	d43c1a7c13ec4330dfb632b7561ead42e2f80270dc436b1438bf868eccfc9be5	tools/pii-check/package.json
@@ -374,15 +374,16 @@ script	compliance-update	node tools/compliance/src/cli.ts --update
 script	conformance	node tools/conformance/src/cli.ts
 script	csp-probe	node tools/csp-verify/src/cli.ts --print-probe
 script	csp-verify	node tools/csp-verify/src/cli.ts
+script	delivery-check	node tools/delivery-export/src/cli.ts --check
 script	doc-facts	node tools/doc-facts/src/cli.ts
 script	evidence	node tools/compliance/src/cli.ts --evidence
 script	exit-drill	node tools/exit-drill/src/cli.ts --full
 script	exit-surface	node tools/exit-drill/src/cli.ts
 script	gate	vp run --no-cache gate:select
 script	gate-roster	node tools/gate-roster/src/cli.ts
-script	gate:fork	node tools/scaffold-stamp/src/cli.ts && node tools/conformance/src/cli.ts && node tools/api-surface/src/cli.ts && node tools/theme-verify/src/cli.ts && node tools/exit-drill/src/cli.ts
+script	gate:fork	node tools/scaffold-stamp/src/cli.ts && node tools/conformance/src/cli.ts && node tools/api-surface/src/cli.ts && node tools/theme-verify/src/cli.ts && node tools/exit-drill/src/cli.ts && node tools/delivery-export/src/cli.ts --check
 script	gate:select	node tools/fork-select/src/cli.ts --script gate
-script	gate:upstream	node tools/gate-roster/src/cli.ts && node tools/scaffold-stamp/src/cli.ts && node tools/conformance/src/cli.ts && node tools/api-surface/src/cli.ts && node tools/theme-verify/src/cli.ts && node tools/exit-drill/src/cli.ts && node tools/supply-chain/src/cli.ts && node tools/compliance/src/cli.ts && node tools/pii-check/src/cli.ts && node tools/doc-facts/src/cli.ts && node tools/scope-check/src/cli.ts && node tools/threshold-check/src/cli.ts && node tools/promise-check/src/cli.ts && eslint . --max-warnings=0 && eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0
+script	gate:upstream	node tools/gate-roster/src/cli.ts && node tools/scaffold-stamp/src/cli.ts && node tools/conformance/src/cli.ts && node tools/api-surface/src/cli.ts && node tools/theme-verify/src/cli.ts && node tools/exit-drill/src/cli.ts && node tools/supply-chain/src/cli.ts && node tools/compliance/src/cli.ts && node tools/pii-check/src/cli.ts && node tools/doc-facts/src/cli.ts && node tools/scope-check/src/cli.ts && node tools/threshold-check/src/cli.ts && node tools/promise-check/src/cli.ts && node tools/delivery-export/src/cli.ts --check && eslint . --max-warnings=0 && eslint --config platform/eslint-config/src/a11y.js . --max-warnings=0
 script	mirror-manifest	node tools/supply-chain/src/cli.ts --manifest
 script	pii	node tools/pii-check/src/cli.ts
 script	promise-check	node tools/promise-check/src/cli.ts
