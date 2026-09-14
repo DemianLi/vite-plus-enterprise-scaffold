@@ -117,7 +117,7 @@ export function formatStaticCspViolations(
   return (
     `\n[@org/security-headers] ${fileName} 破壞了「靜態 CSP 就夠」的前提：\n\n` +
     `${lines.join("\n\n")}\n\n` +
-    "  這不只是一條 lint。它改變的是**組織端要準備什麼**：\n\n" +
+    "  這不是寫法問題。它改變的是**組織端要準備什麼**：\n\n" +
     "    修掉之前：CSP 是一行靜態回應標頭 —— nginx / CDN / gateway 都設得出來\n" +
     "    修掉之後：需要 per-request nonce，也就是需要一個會改寫 HTML 內容的中間層\n" +
     "              （靜態檔案伺服器與 CDN 做不到）\n\n" +

@@ -54,8 +54,8 @@ import type { UiDropdownMenuSlot } from "../theme.ts";
  * ⚠️ **曾經有第四個理由，而它是錯的。** 舊版寫著「內容式的名字才進得了
  * `aria-labelledby`」—— 假的：由 `aria-labelledby` 觸發的名稱遞迴會忽略被指
  * 元素自己的 `aria-labelledby`，但 `aria-label` 照用，所以換成 `aria-label`
- * 之後選單的名字**一樣解得出來**。（⚠️ **規格來源，本 repo 量不到** ——
- * page JS 沒有算可及名稱的 API。）
+ * 之後選單的名字**一樣解得出來**。（⚠️ **這是從 accname 規格推出來的** ——
+ * 瀏覽器沒有公開 API 可以直接驗。）
  *
  * 而它刻意**不開槽**：開了就等於讓一句 `{ UiDropdownMenu: { label: "" } }`
  * 同時把按鈕和選單變成無名，且畫面完全不變。見 `theme.ts` 那一段。

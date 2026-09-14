@@ -1,5 +1,5 @@
 /**
- * BFF 契約：「同源中間層」的**可執行規格**。
+ * BFF 契約：「同源中間層」必須做到的要求。
  *
  * ── 這個 package 為什麼存在 ──────────────────────────────────────────
  *
@@ -7,15 +7,15 @@
  * gateway（Kong／nginx＋auth service／APISIX／自建）。「你們到底有沒有那一層」
  * 是**組織問題**，而組織問題無法用程式碼回答。
  *
- * 可以用程式碼回答的是**另一個問題**：那一層必須做到什麼，才算合格。
+ * 可以寫下來的是**另一個問題**：那一層必須做到什麼，才算合格。
  *
- * 所以這裡不寫實作，寫規格：
+ * 所以這裡不寫實作，寫要求（`CONTRACT_ITEMS`）：
  *
- *   有 gateway  → 用下面的 env 把驗收指向它，全部通過 ＝ 不需要任何新程式碼
- *   沒有 gateway → 這份規格就是那個 BFF 的驗收條件
+ *   有 gateway  → 逐條對照，全部做得到 ＝ 不需要任何新程式碼
+ *   沒有 gateway → 這些條目就是要蓋的那一層的要求
  *
- * 規格寫成程式碼而不是文件，是因為只寫在文件裡的規格，半年後會與實作
- * 各說各話，而且沒有人會發現。
+ * 要求寫成程式碼而不是文件，是因為前端與中間層共用的名稱（CSRF 的 cookie 與標頭）
+ * 就定義在這裡、由雙方 import —— 只寫在文件裡的約定，半年後會與實作各說各話。
  *
  * ── 哪些是硬性的、哪些可以換 ────────────────────────────────────────
  *
@@ -80,7 +80,7 @@ export const SESSION_COOKIE_ALLOWED_SAMESITE = ["Lax", "Strict"] as const;
  *
  * 這支 cookie 必須是**可讀**的 —— double-submit 的原理就是「前端讀得到、
  * 跨站的攻擊者讀不到」。有人出於直覺給它加上 HttpOnly，前端就再也讀不到值，
- * 所有寫入請求全部失敗。這條斷言存在的唯一理由就是攔下這個直覺。
+ * 所有寫入請求全部失敗。這一條存在的唯一理由就是攔下這個直覺。
  */
 export const CSRF_COOKIE_FORBIDDEN_ATTRIBUTES = ["HttpOnly"] as const;
 
@@ -107,10 +107,7 @@ export const DEFAULT_ENDPOINTS: BffEndpoints = {
 };
 
 /**
- * 從環境變數解析端點設定，讓同一套測試能指向組織既有的 gateway。
- *
- * 驗收既有 gateway 時，改的是 env，不是驗收程式碼。
- * 一旦要改驗收程式碼才能過，那份驗收就不再是契約，而是實作的鏡子。
+ * 從環境變數解析端點設定：各家 gateway 的路徑慣例不同，路徑可換、語意不可換。
  */
 export function endpointsFromEnv(env: Record<string, string | undefined>): BffEndpoints {
   return {
@@ -195,10 +192,10 @@ export function isCleared(cookie: ParsedSetCookie): boolean {
 }
 
 /**
- * 契約條目。測試檔逐條對應，`describeContract()` 產生給人看的清單。
+ * 契約條目，`describeContract()` 產生給人看的清單。
  *
  * 為什麼要有這份陣列：拿去問組織「你們的 gateway 做得到嗎」時，對方要的是
- * 一張可以逐條回答的表，不是一份測試原始碼。兩者同源才不會漂移。
+ * 一張可以逐條回答的表。條目與上面的常數寫在同一支檔，兩者才不會漂移。
  */
 export const CONTRACT_ITEMS: readonly { readonly id: string; readonly requirement: string }[] = [
   { id: "same-origin", requirement: `BFF 掛在與 SPA 同源的 ${API_PREFIX} 路徑前綴下` },

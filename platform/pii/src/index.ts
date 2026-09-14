@@ -39,7 +39,7 @@ const MASK = "○";
 /**
  * 拆成**字素叢集**（grapheme cluster），不是 `[...value]`。
  *
- * 第一版用的是展開運算子，lint 擋下來了，而它是對的 —— 展開拆的是
+ * 展開運算子在這裡是錯的 —— 它拆的是
  * Unicode 碼點，會把一個「字」拆成好幾塊：帶結合附標的字母（é 的分解形式）、
  * emoji、以及某些漢字的變體選擇符。
  *
@@ -115,7 +115,6 @@ export function maskAll(value: string): string {
   return MASK.repeat(graphemes(value).length);
 }
 
-/** 這個字串已經被隱碼過了嗎。給元件測試與靜態檢查共用一個判準。 */
 export function isMasked(value: string): boolean {
   return value.includes(MASK);
 }

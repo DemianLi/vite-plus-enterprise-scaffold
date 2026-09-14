@@ -1,14 +1,16 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { repoRoot } from "@org/gate-kit/testing";
+import { repoRoot, sandbox } from "@org/gate-kit/testing";
 
 import {
   devDependenciesToRemove,
   plan,
   unexportedWorkspaceDevDependencies,
+  unreferencedModules,
   unusedSubpaths,
+  write,
 } from "../src/export.ts";
 import {
   buildsItself,
@@ -18,10 +20,12 @@ import {
   rewriteManifest,
   rewriteNpmrc,
   rewriteRootManifest,
+  rewriteTsconfigInclude,
   rewriteWorkspaceYaml,
   TEST_FILE,
   testOnlyDependencies,
   VITE_CONFIG,
+  withoutTestSourceExclusions,
 } from "../src/rewrite.ts";
 import { scan, traceRules } from "../src/scan.ts";
 import type { Manifest } from "../src/workspace.ts";
@@ -274,5 +278,134 @@ describe("根層的檔另寫，不複製（C231 §四.4）", () => {
       ([path, content]) => ({ path, content }),
     );
     expect(scan(files, traceRules(planned)).byFile).toEqual([]);
+  });
+});
+
+describe("出門的檔：內容改寫、沒人引用的模組不出門（C251）", () => {
+  const exists = (path: string, files: readonly string[]): boolean =>
+    files.some((file) => file === path || file.startsWith(`${path}/`));
+  const includeOf = (tsconfig: string): string[] =>
+    [...(/"include"\s*:\s*\[([^\]]*)\]/.exec(tsconfig)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map(
+      (match) => match[1] ?? "",
+    );
+
+  it("tsconfig 的 include：匯出樹沒有的拿掉、有的留著，註解一個字都不動", () => {
+    const source = '{\n  // 給 Node 的型別\n  "include": ["src", "tests", "vite.config.ts"]\n}\n';
+    expect(rewriteTsconfigInclude(source, (entry) => entry !== "tests")).toBe(
+      '{\n  // 給 Node 的型別\n  "include": ["src", "vite.config.ts"]\n}\n',
+    );
+  });
+
+  it("每一格都在就原樣回傳；一格都不在就失敗，不交一份什麼都不檢查的 tsconfig", () => {
+    const source = '{ "include": ["src"] }';
+    expect(rewriteTsconfigInclude(source, () => true)).toBe(source);
+    expect(() => rewriteTsconfigInclude(source, () => false)).toThrow(/include/);
+  });
+
+  // ⚠️ 讀真樹的斷言只挑 `platform/`（理由見上面「只有測試用到的 devDependencies」那一段）。
+  it("★ 真樹：出門的 platform tsconfig，include 的每一格都在匯出樹裡；platform/ui 原本那格 tests 真的被拿掉了", () => {
+    const planned = plan(ROOT);
+    const tsconfigs = planned.files.filter(
+      (file) => file.startsWith("platform/") && basename(file) === "tsconfig.json",
+    );
+    expect(tsconfigs.length).toBeGreaterThan(0);
+    for (const file of tsconfigs) {
+      const shipped = planned.rewritten.get(file) ?? read(file);
+      for (const entry of includeOf(shipped)) {
+        expect(exists(`${dirname(file)}/${entry}`, planned.files), `${file} 的 ${entry}`).toBe(
+          true,
+        );
+      }
+    }
+    // 對照組：上面那條迴圈在「沒有任何改寫」時也會綠，所以要看得到它真的動過一支。
+    expect(includeOf(read("platform/ui/tsconfig.json"))).toContain("tests");
+    expect(includeOf(planned.rewritten.get("platform/ui/tsconfig.json") ?? "")).toEqual(["src"]);
+  });
+
+  const css = [
+    '@source "../**/*.{ts,tsx}";',
+    "",
+    "/*",
+    " * 為什麼排掉那兩條",
+    " */",
+    '@source not "../**/tests/**";',
+    '@source not "../**/*.test.ts";',
+    "",
+    "/*",
+    " * 下一段",
+    " */",
+    ":root {}",
+  ].join("\n");
+
+  it("指向測試檔的 @source not 連同緊貼的那段註解拿掉；下一段註解與掃描那條照留", () => {
+    expect(withoutTestSourceExclusions(css)).toBe(
+      ['@source "../**/*.{ts,tsx}";', "", "/*", " * 下一段", " */", ":root {}"].join("\n"),
+    );
+  });
+
+  it("那一串混了不是測試的排除：只拿測試那幾行，註解留著", () => {
+    const mixed = [
+      "/*",
+      " * x",
+      " */",
+      '@source not "../**/tests/**";',
+      '@source not "../legacy/**";',
+    ];
+    expect(withoutTestSourceExclusions(mixed.join("\n"))).toBe(
+      ["/*", " * x", " */", '@source not "../legacy/**";'].join("\n"),
+    );
+  });
+
+  it("★ 真樹：platform/ui 的樣式出門那份沒有 @source not，掃描那條照留", () => {
+    const shipped = plan(ROOT).rewritten.get("platform/ui/src/styles/index.css");
+    expect(read("platform/ui/src/styles/index.css")).toMatch(/^@source not /m);
+    expect(shipped).toBeDefined();
+    expect(shipped).not.toMatch(/^@source not /m);
+    expect(shipped).toMatch(/^@source "[^"]+";$/m);
+  });
+
+  it("★ 沒有出門的檔引用、也不是 exports 目標的程式模組不出門；.d.ts、vite.config、index.html 載入的入口照出門", () => {
+    const app = { dir: "apps/a", manifest: { name: "@org/a", scripts: { build: "vp build" } } };
+    const files: Record<string, string> = {
+      "apps/a/index.html": '<script type="module" src="/src/main.tsx"></script>',
+      "apps/a/src/main.tsx": 'import "./app.tsx";',
+      "apps/a/src/app.tsx": "",
+      "apps/a/src/env.d.ts": "",
+      "apps/a/vite.config.ts": "",
+      "apps/a/dev-routes.ts": "export const routes = [];",
+    };
+    expect(unreferencedModules(app, Object.keys(files), (file) => files[file] ?? "")).toEqual([
+      "apps/a/dev-routes.ts",
+    ]);
+  });
+
+  it("exports 的目標照出門 —— 引用它的在 package 外", () => {
+    const kit = {
+      dir: "platform/kit",
+      manifest: { name: "@org/kit", exports: { ".": "./src/index.ts" } },
+    };
+    expect(unreferencedModules(kit, ["platform/kit/src/index.ts"], () => "")).toEqual([]);
+  });
+
+  // ⚠️ 痕跡掃描的詞表沒有 `tests`、`@source not`：寫出去時漏套改寫，沒有別的東西會紅。
+  it("★ 寫出去的是改寫過的那一份，不是原檔", () => {
+    const planned = plan(ROOT);
+    const out = sandbox({ prefix: "delivery-export-write-" });
+    write(ROOT, planned, out.root);
+    expect(planned.rewritten.size).toBeGreaterThan(0);
+    for (const [file, content] of planned.rewritten) {
+      expect(out.read(file), file).toBe(content);
+    }
+  });
+
+  // 相對 import 只在同一個 package 裡有意義；全樹一起比，`bff-contract` 的 `./contract.ts`
+  // 會撞上 `slice-kit` 那支同名的檔。
+  it("★ 真樹：不出門的模組，沒有一支被同 package 裡出門的檔以相對路徑引用", () => {
+    const planned = plan(ROOT);
+    for (const file of planned.withheld.filter((path) => /\.[cm]?[jt]sx?$/.test(path))) {
+      const member = planned.exported.find((candidate) => file.startsWith(`${candidate.dir}/`));
+      const own = planned.files.filter((other) => other.startsWith(`${member?.dir}/`));
+      expect(importsRelatively(own.map(read).join("\n"), file), file).toBe(false);
+    }
   });
 });

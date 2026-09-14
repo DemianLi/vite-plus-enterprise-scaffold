@@ -11,10 +11,12 @@ import {
   rewriteManifest,
   rewriteNpmrc,
   rewriteRootManifest,
+  rewriteTsconfigInclude,
   rewriteWorkspaceYaml,
   TEST_FILE,
   testOnlyDependencies,
   VITE_CONFIG,
+  withoutTestSourceExclusions,
 } from "./rewrite.ts";
 import type { ScannedFile } from "./scan.ts";
 import {
@@ -33,12 +35,21 @@ const CODE_FILE = /\.(?:[cm]?[jt]sx?|css)$/;
 /** devDep 那條邊算不算被引用：程式碼、樣式，加上設定檔（`tsconfig.json` 以 `extends` 引用 `@org/tsconfig`）。 */
 const REFERENCE_FILE = /\.(?:[cm]?[jt]sx?|css|json)$/;
 
+/** 要被 import 才會生效的程式模組。`.d.ts` 不算 —— 它由 tsconfig 的 `include` 生效。 */
+const MODULE = /\.[cm]?[jt]sx?$/;
+const DECLARATION = /\.d\.[cm]?ts$/;
+
 export interface Plan {
   readonly members: readonly Member[];
   readonly exported: readonly Member[];
-  /** 相對 repo 根、原樣複製的檔（不含各成員的 `package.json`，那個另外改寫）。 */
+  /** 相對 repo 根、出門的檔（不含各成員的 `package.json`，那個另外改寫）。 */
   readonly files: readonly string[];
-  /** 出門的成員底下、不是測試卻不出門的檔：只剩測試在讀的設定、沒有出門的碼引用的子路徑。 */
+  /** `files` 裡內容要改寫的那幾支：路徑 → 出門的內容。其餘原樣複製。 */
+  readonly rewritten: ReadonlyMap<string, string>;
+  /**
+   * 出門的成員底下、不是測試卻不出門的檔：只剩測試在讀的設定、沒有出門的碼引用的子路徑、
+   * 沒有出門的檔引用的程式模組。
+   */
   readonly withheld: readonly string[];
   readonly manifests: ReadonlyMap<string, Manifest>;
   /** 成員目錄 → 拿掉的測試相依。 */
@@ -66,6 +77,17 @@ function shippable(member: Member, file: string): boolean {
     return false;
   }
   return !(VITE_CONFIG.test(file.slice(member.dir.length + 1)) && !buildsItself(member.manifest));
+}
+
+/** `exports` 指到的檔（相對 repo 根）。條件式 exports 的每一個字串值都算。 */
+function exportTargets(member: Member): Set<string> {
+  const targets = new Set<string>();
+  const visit = (value: unknown): void => {
+    if (typeof value === "string") targets.add(`${member.dir}/${value.replace(/^\.\//, "")}`);
+    else if (typeof value === "object" && value !== null) Object.values(value).forEach(visit);
+  };
+  visit(member.manifest["exports"]);
+  return targets;
 }
 
 /**
@@ -100,6 +122,29 @@ export function unusedSubpaths(
   return unused;
 }
 
+/**
+ * 成員底下出門的程式模組裡，沒有任何其他出門的檔引用、也不是 `exports` 目標或建置設定的那幾支
+ *（C251，Q123）。引用照 `unusedSubpaths` 的算法，外加 `index.html` 以路徑載入的入口。
+ * ⚠️ 今天命中的是 `apps/console/bff-routes.ts`：只有不出門的 `platform/bff-mock` 以 env 動態載入它。
+ */
+export function unreferencedModules(
+  member: Member,
+  shipped: readonly string[],
+  read: (file: string) => string,
+): string[] {
+  const targets = exportTargets(member);
+  return shipped.filter((file) => {
+    if (!under(member.dir, file) || !MODULE.test(file) || DECLARATION.test(file)) return false;
+    if (targets.has(file) || VITE_CONFIG.test(file.slice(member.dir.length + 1))) return false;
+    const source = shipped
+      .filter((other) => other !== file)
+      .map(read)
+      .join("\n");
+    const specifier = `${member.manifest.name}/${file.slice(member.dir.length + 1)}`;
+    return !importsRelatively(source, file) && !references(source, specifier);
+  });
+}
+
 /** 沒出門的 workspace package 還寫在 devDep 裡的話，機關端 `pnpm install` 會找不到它。 */
 export function unexportedWorkspaceDevDependencies(
   member: Member,
@@ -125,10 +170,45 @@ export function devDependenciesToRemove(
   ];
 }
 
+/** 出門的檔裡內容要改寫的：`tsconfig*.json` 的 `include`、樣式檔排除測試的 `@source not`。 */
+function rewrittenContents(
+  files: readonly string[],
+  read: (file: string) => string,
+): Map<string, string> {
+  const shipped = new Set(files);
+  const present = (base: string, entry: string): boolean => {
+    const prefix = entry
+      .replace(/[*?{[].*$/, "")
+      .replace(/^\.\//, "")
+      .replace(/\/$/, "");
+    const path = prefix === "" ? base : `${base}/${prefix}`;
+    return shipped.has(path) || files.some((file) => under(path, file));
+  };
+  const rewritten = new Map<string, string>();
+  for (const file of files) {
+    const original = read(file);
+    let content = original;
+    if (/^tsconfig[^/]*\.json$/.test(basename(file))) {
+      content = rewriteTsconfigInclude(original, (entry) => present(dirname(file), entry));
+    } else if (file.endsWith(".css")) {
+      content = withoutTestSourceExclusions(original);
+    }
+    if (content !== original) rewritten.set(file, content);
+  }
+  return rewritten;
+}
+
 export function plan(root: string): Plan {
   const tracked = trackedFiles(root);
   const members = workspaceMembers(root, tracked);
-  const read = (file: string): string => readFileSync(join(root, file), "utf8");
+  const cache = new Map<string, string>();
+  const read = (file: string): string => {
+    const cached = cache.get(file);
+    if (cached !== undefined) return cached;
+    const content = readFileSync(join(root, file), "utf8");
+    cache.set(file, content);
+    return content;
+  };
 
   const sources = new Map<string, string>();
   const shippedSource = (member: Member): string => {
@@ -157,7 +237,15 @@ export function plan(root: string): Plan {
     );
     for (const [, file] of unused) withheldFiles.add(file);
   }
-  const files = candidates.filter((file) => !withheldFiles.has(file));
+  let files = candidates.filter((file) => !withheldFiles.has(file));
+  // 拿掉一支之後，只被它引用的那幾支也跟著沒人引用 —— 做到不再變為止。
+  for (;;) {
+    const unreferenced = new Set(
+      exported.flatMap((member) => unreferencedModules(member, files, read)),
+    );
+    if (unreferenced.size === 0) break;
+    files = files.filter((file) => !unreferenced.has(file));
+  }
   const shippedFiles = new Set(files);
   const withheld = tracked.filter(
     (file) =>
@@ -212,6 +300,7 @@ export function plan(root: string): Plan {
     members,
     exported,
     files,
+    rewritten: rewrittenContents(files, read),
     withheld,
     manifests,
     dropped,
@@ -231,6 +320,11 @@ export function write(root: string, planned: Plan, out: string): void {
     writeFileSync(join(out, path), content);
   };
   for (const file of planned.files) {
+    const content = planned.rewritten.get(file);
+    if (content !== undefined) {
+      put(file, content);
+      continue;
+    }
     mkdirSync(dirname(join(out, file)), { recursive: true });
     copyFileSync(join(root, file), join(out, file));
   }

@@ -2,7 +2,7 @@
   "name": "@org/bff-contract",
   "version": "0.0.0",
   "private": true,
-  "description": "同源中間層的可執行契約：驗收既有 gateway，或作為新建 BFF 的規格",
+  "description": "同源中間層的契約：前端與中間層共用的名稱，以及那一層必須做到的條目",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
