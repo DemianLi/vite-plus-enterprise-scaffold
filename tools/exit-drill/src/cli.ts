@@ -401,6 +401,8 @@ function listWorkspacePackages(): WorkspacePackage[] {
   const packages: WorkspacePackage[] = [];
 
   for (const layer of ["platform", "features"]) {
+    // fork 可以一片切片都不留（C256）：沒有那一層就沒有那一層的 package。
+    if (!existsSync(join(ROOT, layer))) continue;
     for (const entry of readdirSync(join(ROOT, layer), { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       const dir = join(ROOT, layer, entry.name);

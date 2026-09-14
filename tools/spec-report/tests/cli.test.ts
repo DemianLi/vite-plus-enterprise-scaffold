@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -41,8 +42,19 @@ describe("真的 repo —— 事實來源那條路徑走得通", () => {
    * 的事（C87），不是這條路徑的事。驗它會讓這一條在乾淨 clone 上偽紅。
    */
   it("git ls-files 在真的 repo 上找得到版控中的規格", () => {
+    // 期望值從同一條 git ls-files 推，不寫死 invoice：fork 可以刪掉示範切片（C256），
+    // 一份切片規格都沒有時，要看到的是「沒有找到」那句話，不是崩掉。
+    const tracked = spawnSync("git", ["ls-files", "--", "features/*/specs/*.feature"], {
+      cwd: REPO,
+      encoding: "utf8",
+    })
+      .stdout.split("\n")
+      .filter((path) => path.length > 0);
     const { out } = run(["--report", reportPath, "--root", REPO]);
-    expect(out, "版控裡的切片規格要被找到").toContain("invoice");
+    if (tracked.length === 0) expect(out).toContain("沒有找到任何");
+    for (const path of tracked) {
+      expect(out, "版控裡的切片規格要被找到").toContain(path.split("/")[1] as string);
+    }
   });
 });
 
