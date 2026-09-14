@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
 
   // ── 機密外洩的編譯期檢查 ────────────────────────────────────────────
   // VITE_ 前綴的值會被編譯進 bundle 明文。這行讓「有人在 .env 加了
-  // VITE_API_SECRET」直接變成建置失敗，而不是上線後被 gitleaks 掃出來。
+  // VITE_API_SECRET」直接變成建置失敗，而不是上線後被機密掃描工具掃出來。
   assertNoUndeclaredEnv(env);
 
   // ── dev proxy 的 BFF 目標 ───────────────────────────────────────────
@@ -68,7 +68,7 @@ export default defineConfig(({ mode }) => {
         // 形同虛設。dev 若用不同 origin，會出現「本機好好的、上線就掛」——
         // 而且掛的是認證，最難查。
         //
-        // 另一端是本機的 BFF（開發時用 mock）。沒有東西在聽的話，
+        // 另一端是本機的 BFF（開發時接的是假資料）。沒有東西在聽的話，
         // 「登入 → 帶 cookie → 被 CSRF 擋 → 補標頭 → 通過」這整條路徑在本機一次都走不到。
         "/api": {
           target: bffOrigin,

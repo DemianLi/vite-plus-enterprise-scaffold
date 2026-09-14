@@ -27,6 +27,7 @@
 | **C251** | Q117 那一批：`platform/` 詞表外的測試字樣逐行判過（出門的 71 → 32 行）；匯出工具再加三條：tsconfig 的 include、排除測試的 `@source not`、沒人引用的模組不出門 |
 | **C252** | C231 ④：交付匯出接上閘門鏈、fork 也擋（Q124）；改經由 `vp` 叫套件管理器、剪 lockfile 改 `--prefer-offline` —— 原本那條在乾淨機器上必紅                        |
 | **C253** | 交出去的樹看得到測試套件（vite-plus 帶的 vitest，lockfile 259 處）—— 匯出改用上游 Vite 建置，版本以 alias 進 repo 的 lockfile（Q125、Q126）                   |
+| **C254** | 交出去的樹還點名兩個內部工具：三處 gitleaks、三處 mock 的註解改寫成一般說法（Q127）                                                                           |
 
 ---
 
