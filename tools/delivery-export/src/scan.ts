@@ -170,18 +170,10 @@ export function formatScan(result: ScanResult): string {
 }
 
 /**
- * 掃描的判定。**今天預設只報數**（C231 §六 ①：掃描今天必紅）；`--fail-on-trace` 是 ④ 接線時
- * 要走的那條，任一命中就不留產物。兩條路都由測試走過，免得接線那天才發現只有報數被跑過。
+ * 掃描的判定：任一命中就失敗、不留產物。C248 時預設只報數（C231 §六 ①：那時必紅）；
+ * 清到零之後，報數模式唯一多做的事是「有痕跡照樣留下產物」—— 那正是交付不能發生的事（C252）。
  */
-export function verdict(
-  result: ScanResult,
-  failOnTrace: boolean,
-): { readonly ok: boolean; readonly message: string } {
+export function verdict(result: ScanResult): { readonly ok: boolean; readonly message: string } {
   if (result.total === 0) return { ok: true, message: "✓ 痕跡掃描零命中" };
-  if (failOnTrace)
-    return { ok: false, message: `✗ 痕跡掃描命中 ${result.total} 處 —— 匯出失敗，產物已刪除` };
-  return {
-    ok: true,
-    message: `⚠️ 痕跡掃描命中 ${result.total} 處（只報數，C231 ② ③ 清完後由 ④ 改成判定）`,
-  };
+  return { ok: false, message: `✗ 痕跡掃描命中 ${result.total} 處 —— 匯出失敗，產物已刪除` };
 }

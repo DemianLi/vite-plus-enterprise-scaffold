@@ -123,26 +123,18 @@ describe("掃不到東西不是乾淨", () => {
   });
 });
 
-describe("判定：今天只報數，④ 走 --fail-on-trace", () => {
+describe("判定：任一命中就失敗（C252）", () => {
   const dirty = scan([{ path: "a", content: "閘門" }], RULES);
   const clean = scan([{ path: "a", content: "發票" }], RULES);
 
-  it("報數模式：有命中照樣 ok，訊息說它只報數", () => {
-    expect(verdict(dirty, false)).toMatchObject({
-      ok: true,
-      message: expect.stringContaining("只報數"),
-    });
-  });
-
-  it("★ 判定模式：有命中就失敗 —— 這條路 ④ 才會接線，今天先由這裡走過一次", () => {
-    expect(verdict(dirty, true)).toMatchObject({
+  it("★ 有命中就失敗，訊息說產物已刪除", () => {
+    expect(verdict(dirty)).toMatchObject({
       ok: false,
       message: expect.stringContaining("產物已刪除"),
     });
   });
 
-  it("零命中兩個模式都 ok", () => {
-    expect(verdict(clean, true).ok).toBe(true);
-    expect(verdict(clean, false).ok).toBe(true);
+  it("零命中才 ok", () => {
+    expect(verdict(clean).ok).toBe(true);
   });
 });

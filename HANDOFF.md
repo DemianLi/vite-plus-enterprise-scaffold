@@ -57,6 +57,18 @@ touch .scaffold-fork && git add .scaffold-fork
 （寫進一條 override 的 `files`）。寫在頂層 `rules` 裡，它會一路落到 `tools/`、`platform/`
 上 —— 那是你們改不了的碼，而 `AGENTS.md` 規則二不准你們為了綠燈調鬆它（C220 §六）。
 
+#### 交付匯出那一道（C252）
+
+fork 那一條的最後一道是 `vpr delivery-check`：把會交給機關的碼匯出一次、掃內部痕跡
+（裁決編號、issue 號、「閘門」這類字），再到 repo 外離線安裝與建置。紅了要改的是那段文字 ——
+詞表在 `tools/` 裡，你們改不了；業務資料真的撞到詞表時（例如表單代號長得像 `C3`），停下來回報上游。
+
+- 交付那天產出目錄：`node tools/delivery-export/src/cli.ts --out <repo 外的目錄>`。
+  `LICENSE` 不在裡面，授權歸屬看契約，由人放（C231 §八）。
+- 測試不出門。契約若要求交測試，這支工具不合用，回報上游。
+- 演練認的是每個應用的 `dist/index.html`（vite 的預設輸出位置）。改了 `build.outDir` 會紅在
+  一件沒做錯的事上 —— 同樣回報上游。
+
 #### 團隊自己的工具
 
 放在 `tools/` **以外**的目錄（例如 `team-tools/`），三件事一起做：

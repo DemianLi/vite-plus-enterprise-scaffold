@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { pnpm, type Step } from "./export.ts";
+import { packageManager, type Step } from "./export.ts";
 
 /**
  * 在匯出那棵樹上重跑一次：repo 外的乾淨目錄、離線照 lockfile 安裝、建置（C231 §四.7）。
@@ -12,7 +12,12 @@ import { pnpm, type Step } from "./export.ts";
  *
  * ⚠️ 建置綠不等於有產物：每一個出門的應用都要留下 `dist/index.html`，否則這一步紅。
  */
-/** 每一個出門的應用都要留下 `dist/index.html`；零個應用出門也算紅（全數有產物是空真）。 */
+/**
+ * 每一個出門的應用都要留下 `dist/index.html`；零個應用出門也算紅（全數有產物是空真）。
+ *
+ * ⚠️ 寫死的是 vite 的預設輸出位置。fork 裡的應用是團隊的，改了 `build.outDir` 就會紅在
+ * 一件沒做錯的事上，而 `tools/` 他們改不了 —— 那時照規則二回報上游（C252）。
+ */
 export function artifactStep(workdir: string, apps: readonly string[]): Step {
   const missing = apps.filter((app) => !existsSync(join(workdir, app, "dist/index.html")));
   return {
@@ -30,9 +35,13 @@ export function drill(exportDir: string, apps: readonly string[]): readonly Step
       filter: (source) => !source.includes("/node_modules"),
     });
     const steps: Step[] = [
-      pnpm(["install", "--frozen-lockfile", "--offline"], workdir, "離線照 lockfile 安裝"),
+      packageManager(
+        ["install", "--frozen-lockfile", "--offline"],
+        workdir,
+        "離線照 lockfile 安裝",
+      ),
     ];
-    if (steps[0]?.ok === true) steps.push(pnpm(["run", "build"], workdir, "建置"));
+    if (steps[0]?.ok === true) steps.push(packageManager(["run", "build"], workdir, "建置"));
     if (steps.at(-1)?.ok === true && steps.length === 2) steps.push(artifactStep(workdir, apps));
     return steps;
   } finally {
