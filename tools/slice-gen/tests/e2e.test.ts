@@ -54,13 +54,28 @@ const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const SLICE = "zz-slice-gen-e2e";
 const SLICE_DIR = join(ROOT, "features", SLICE);
 
-/** 跑之前 `features/` 底下有哪些切片。最後一條測試拿它比對。 */
-const SLICES_BEFORE = readdirSync(join(ROOT, "features")).filter((entry) =>
-  statSync(join(ROOT, "features", entry)).isDirectory(),
-);
+/**
+ * 跑之前 `features/` 底下有哪些切片。最後一條測試拿它比對。
+ * fork 可以一片切片都不留（C256）：那時 `features/` 不存在，產生器要能從零建出第一片。
+ */
+const FEATURES_DIR = join(ROOT, "features");
+const FEATURES_EXISTED = existsSync(FEATURES_DIR);
+
+function slicesOnDisk(): string[] {
+  if (!existsSync(FEATURES_DIR)) return [];
+  return readdirSync(FEATURES_DIR).filter((entry) =>
+    statSync(join(FEATURES_DIR, entry)).isDirectory(),
+  );
+}
+
+const SLICES_BEFORE = slicesOnDisk();
 
 function cleanup(): void {
   rmSync(SLICE_DIR, { recursive: true, force: true });
+  // 從零建出來的 features/ 也要收回去：留一個空目錄，別的工具就會以為這棵樹有切片層。
+  if (!FEATURES_EXISTED && existsSync(FEATURES_DIR) && readdirSync(FEATURES_DIR).length === 0) {
+    rmSync(FEATURES_DIR, { recursive: true });
+  }
 }
 
 interface Run {
@@ -234,11 +249,10 @@ describe("不留殘留物", () => {
   it("清理後 features/ 只剩真正的切片", () => {
     cleanup();
 
-    const after = readdirSync(join(ROOT, "features")).filter((entry) =>
-      statSync(join(ROOT, "features", entry)).isDirectory(),
-    );
+    const after = slicesOnDisk();
 
     expect(after).toEqual(SLICES_BEFORE);
+    expect(existsSync(FEATURES_DIR)).toBe(FEATURES_EXISTED);
     expect(after).not.toContain(SLICE);
   });
 });

@@ -1,3 +1,7 @@
+import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { defineConfig } from "vite-plus";
 
 /**
@@ -17,13 +21,40 @@ import { defineConfig } from "vite-plus";
  * **一個 gitignore 掉的產物**（`.gitignore:51`）。在此之前報表是空的、
  * `--check` 恆綠，所以誰先跑無所謂；現在切片的測試沒先跑，它就回 1。
  * 事實來源是 `git ls-files` 那個論證擋不住這一種：它讀的不是版控。
+ *
+ * ⚠️⚠️ **C256 —— 那一片不再寫死。** 原本這裡是 `@org/feature-invoice#test`：
+ * fork 刪掉示範切片的那一刻，整張任務圖載不起來，**任何** `vp run` 都跑不了 ——
+ * 而 `tools/` 在 fork 裡被章鎖著。改成從 `spec-report` 讀的同一份清單推：
+ * 版控裡帶 `specs/*.feature` 的切片。只收帶規格的，因為 `dependsOn` 指到不存在的
+ * package 或任務一樣會讓任務圖載不起來（實測），而結果檔只有帶規格的切片會產出。
  */
+const ROOT = join(import.meta.dirname, "../..");
+
+function specSliceTests(): string[] {
+  const listed = spawnSync("git", ["ls-files", "-z", "--", "features/*/specs/*.feature"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  const dirs = new Set(
+    (listed.stdout ?? "")
+      .split("\0")
+      .filter((path) => path.length > 0)
+      .map((path) => path.split("/")[1] as string),
+  );
+  return [...dirs].sort().map((dir) => {
+    const manifest = JSON.parse(
+      readFileSync(join(ROOT, "features", dir, "package.json"), "utf8"),
+    ) as { name: string };
+    return `${manifest.name}#test`;
+  });
+}
+
 export default defineConfig({
   run: {
     tasks: {
       test: {
         command: "vp test",
-        dependsOn: ["@org/slice-gen#test", "@org/feature-invoice#test"],
+        dependsOn: ["@org/slice-gen#test", ...specSliceTests()],
       },
     },
   },

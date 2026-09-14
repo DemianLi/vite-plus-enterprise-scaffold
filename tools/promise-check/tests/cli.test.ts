@@ -57,8 +57,8 @@ import { parseSpec } from "../src/spec.ts";
  * 綁的是**跑序**不是產出：單獨 `vp run @org/promise-check#test` 永遠缺它，
  * 而那不是缺陷。所以訊息要把兩個成因分開講。
  *
- * ⚠️ 它同時是**下一片帶規格的切片**的絆線：那一片的 `#test` 沒被加進
- * `vite.config.ts` 的 `dependsOn` 時，這裡會指名說出是哪一片。
+ * ⚠️ 它同時是**下一片帶規格的切片**的絆線。C256 起 `vite.config.ts` 的 `dependsOn`
+ * 從同一份清單自動推，這裡仍會指名缺結果的那一片 —— 那時要查的是推導，不是漏寫。
  */
 function slicesMissingResults(): string[] {
   const listed = spawnSync("git", ["ls-files", "-z", "--", "features/*/specs/*.feature"], {
@@ -168,8 +168,8 @@ describe("與 tools/spec-report 的分界", () => {
         "  · 單獨跑這一支 → 結果檔只有帶 `--outputFile` 的那條完整指令會產生，" +
         "改跑 `vp run -r test -- --reporter=default --reporter=json " +
         "--outputFile=.vitest-results.json`\n" +
-        "  · 完整指令下仍然缺 → 那一片的 `@org/feature-<切片>#test` 沒進 " +
-        "tools/promise-check/vite.config.ts 的 dependsOn，跑序沒有被綁住",
+        "  · 完整指令下仍然缺 → tools/promise-check/vite.config.ts 從 " +
+        "features/*/specs/*.feature 推出來的 dependsOn 沒涵蓋那一片，跑序沒有被綁住",
     ).toEqual([]);
 
     // 真的跑一次那支工具：它自己的 `--check` 就是分界破掉時會響的那條線。

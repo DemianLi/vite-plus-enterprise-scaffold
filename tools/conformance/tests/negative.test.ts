@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { mkdirSync, readFileSync, writeFileSync, unlinkSync, rmSync, renameSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  unlinkSync,
+  rmSync,
+  renameSync,
+} from "node:fs";
 import { join } from "node:path";
 
 import { repoRoot, runCli, sandbox } from "@org/gate-kit/testing";
@@ -37,6 +45,13 @@ import { repoRoot, runCli, sandbox } from "@org/gate-kit/testing";
 
 const ROOT = repoRoot();
 const CLI = "tools/conformance/src/cli.ts";
+
+/**
+ * 示範切片在不在。fork 可以刪掉它們（C256）—— 那時拿它們當樣本的幾組照規矩跳過：
+ * `tools/` 在 fork 裡被章鎖著、與上游逐位元組相同，而上游每一趟都跑這幾組。
+ */
+const DEMO_SLICES =
+  existsSync(join(ROOT, "features/order")) && existsSync(join(ROOT, "features/invoice"));
 
 /**
  * 建一個最小 repo：**兩個**切片。
@@ -92,7 +107,7 @@ const VIEW = "src/views/OrderList.tsx";
 const STORE_ANCHOR = 'import { create } from "zustand";';
 const VIEW_ANCHOR = 'import { useTranslation } from "react-i18next";';
 
-describe("乾淨的副本本身是綠的", () => {
+describe.skipIf(!DEMO_SLICES)("乾淨的副本本身是綠的", () => {
   /**
    * ⚠️ 這一條必須先過，否則下面每一條都沒有意義。
    *
@@ -107,7 +122,7 @@ describe("乾淨的副本本身是綠的", () => {
   });
 });
 
-describe("D14：store 只放「客戶端才是權威」的東西", () => {
+describe.skipIf(!DEMO_SLICES)("D14：store 只放「客戶端才是權威」的東西", () => {
   const CASES = [
     {
       what: "store 直接取數（value import ./api.ts）",
@@ -166,7 +181,7 @@ describe("D14：store 只放「客戶端才是權威」的東西", () => {
   });
 });
 
-describe("D14：view 只負責呈現", () => {
+describe.skipIf(!DEMO_SLICES)("D14：view 只負責呈現", () => {
   const CASES = [
     { what: "view 直接 import 資料層", line: 'import { fetchOrders } from "../api.ts";' },
     { what: "view 直接用 useQuery", line: 'import { useQuery } from "@tanstack/react-query";' },
@@ -183,7 +198,7 @@ describe("D14：view 只負責呈現", () => {
   }
 });
 
-describe("D15：設計系統的兩條規則", () => {
+describe.skipIf(!DEMO_SLICES)("D15：設計系統的兩條規則", () => {
   it("繞過 @org/ui 直接 import reka-ui → 紅", () => {
     const root = makeSandbox();
     patch(root, VIEW, VIEW_ANCHOR, `${VIEW_ANCHOR}\nimport { Primitive } from "reka-ui";`);
@@ -213,7 +228,7 @@ describe("D15：設計系統的兩條規則", () => {
   });
 });
 
-describe("D4 / D6 / D12：切片邊界與治理", () => {
+describe.skipIf(!DEMO_SLICES)("D4 / D6 / D12：切片邊界與治理", () => {
   it("跨切片依賴 → 紅", () => {
     const root = makeSandbox();
     const path = join(root, "features/order/package.json");
@@ -263,7 +278,7 @@ describe("D4 / D6 / D12：切片邊界與治理", () => {
  * 所以下面五條 ★ 各釘住一種偽陽性來源。少了它們，這道閘門會在上線第一週被
  * 加上例外，然後例外永遠不會拿掉。
  */
-describe("幽靈依賴：import 了但 package.json 沒宣告", () => {
+describe.skipIf(!DEMO_SLICES)("幽靈依賴：import 了但 package.json 沒宣告", () => {
   const GHOST = 'import { cloneDeep } from "lodash-es";';
 
   it("切片 import 了沒宣告的套件 → 紅", () => {
@@ -448,7 +463,7 @@ describe("幽靈依賴：import 了但 package.json 沒宣告", () => {
  * 快照，讓它保持為真的是下面這些測試所守的那條規則。少了它，下一個人加一行
  * `uses: foo@v1`，而沒有任何東西會說話。
  */
-describe("CI 的 action 必須以 commit SHA 釘住", () => {
+describe.skipIf(!DEMO_SLICES)("CI 的 action 必須以 commit SHA 釘住", () => {
   const SHA = "3d3c42e5aac5ba805825da76410c181273ba90b1";
 
   function writeWorkflow(root: string, body: string): void {
@@ -524,7 +539,7 @@ describe("CI 的 action 必須以 commit SHA 釘住", () => {
   });
 });
 
-describe("C120：覆蓋率門檻有沒有真的會跑", () => {
+describe.skipIf(!DEMO_SLICES)("C120：覆蓋率門檻有沒有真的會跑", () => {
   const CONFIG = "vite.config.ts";
 
   it("enabled: true 改成 false → 紅，訊息含 enabled 與切片名", () => {
@@ -578,7 +593,7 @@ describe("C120：覆蓋率門檻有沒有真的會跑", () => {
   });
 });
 
-describe("repo 本身沒有被動到", () => {
+describe.skipIf(!DEMO_SLICES)("repo 本身沒有被動到", () => {
   /**
    * 這條看似多餘，但它釘住的正是搬這支測試進 repo 的**唯一理由**：
    * 前身會就地改 `features/order` 的原始碼，跑到一半被中斷 repo 就壞著。
@@ -593,7 +608,7 @@ describe("repo 本身沒有被動到", () => {
   });
 });
 
-describe("C172 §五：checkSliceTests 零反向 —— 沒有測試的切片要紅", () => {
+describe.skipIf(!DEMO_SLICES)("C172 §五：checkSliceTests 零反向 —— 沒有測試的切片要紅", () => {
   /**
    * 這條規則在此之前零反向：把 `hasTestFile` 改成恆 true，這支檔 100 條全綠，
    * CLI 對真樹照樣 RC=0 —— 真樹每片都有測試，分不出規則死了沒有。
@@ -659,5 +674,15 @@ describe("C172 §五：checkSliceTests 零反向 —— 沒有測試的切片要
 
     const result = runConformance(root);
     expect(result.red).toBe(false);
+  });
+});
+
+describe("沙盒裡沒有 features/（C256）", () => {
+  // 真樹上一片切片都沒有是合法的（fork 可以刪掉示範切片）；沙盒裡沒有，多半是 `--root` 指錯了。
+  it("★ --root 指到沒有 features/ 的地方 → 紅，訊息說找不到 —— 掃不到東西的綠燈是假的", () => {
+    const { root } = sandbox({ prefix: "conformance-no-features-", files: { CODEOWNERS: "" } });
+    const result = runConformance(root);
+    expect(result.red).toBe(true);
+    expect(result.output).toContain("找不到 features/ 目錄");
   });
 });

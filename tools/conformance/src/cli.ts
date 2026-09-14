@@ -85,15 +85,19 @@ const FEATURES_DIR = join(ROOT, "features");
 const SANDBOXED = FLAGS.flags.root !== undefined;
 
 // ── 執行 ──────────────────────────────────────────────────────────────
-if (!existsSync(FEATURES_DIR)) {
+// 沙盒裡找不到 features/ 多半是 `--root` 指錯了 —— 掃不到東西的綠燈是假的，照舊擋。
+// 真樹上它是工具自己的位置推出來的，不在就是真的一片切片都沒有：fork 可以刪掉
+// 示範切片（C256），切片那幾條沒有對象，其餘照查。
+if (!existsSync(FEATURES_DIR) && SANDBOXED) {
   console.error(`找不到 features/ 目錄（預期在 ${relative(process.cwd(), FEATURES_DIR)}）`);
   process.exit(1);
 }
 
 const codeowners = loadCodeowners(ROOT);
-const slices = readdirSync(FEATURES_DIR).filter((entry) =>
-  statSync(join(FEATURES_DIR, entry)).isDirectory(),
-);
+const slices = existsSync(FEATURES_DIR)
+  ? readdirSync(FEATURES_DIR).filter((entry) => statSync(join(FEATURES_DIR, entry)).isDirectory())
+  : [];
+if (slices.length === 0) console.log("features/ 底下沒有切片 —— 切片的規則沒有對象，其餘照查");
 
 // 先建立「哪些套件名確實是切片」的事實名單，再逐片檢查。
 const sliceNames = new Set(slices.map(slicePackageName));

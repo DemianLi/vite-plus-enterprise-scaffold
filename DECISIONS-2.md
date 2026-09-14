@@ -14116,3 +14116,69 @@ M2 重做：`localMidnight` 改回 `new Date(date.year, date.month - 1, date.day
 
 - `date-picker-react.test.ts` 23 條綠。
 - 本機 `vpr ready`：跑在本則與 CHANGELOG 都已 commit 的那一版上，RC 見 PR。
+
+### C256 — fork 可以刪光示範切片：真樹上沒有切片時，切片那幾條規則沒有對象、其餘照查；promise-check 的跑序改從規格推出來，五支工具的測試不再寫死 invoice／order（2026-09-14，Q128）
+
+> 人要拉 v2.1.x、刪掉 `features/invoice` 與 `features/order`，只留元件做業務開發。發版前先在一份刪光兩片的 fork 上把整條檢查逐步跑一遍：腳手架這一半有三處工具邏輯、四支工具測試會紅。
+
+| 題       | 問                                                   | 答                           |
+| -------- | ---------------------------------------------------- | ---------------------------- |
+| **Q128** | 刪掉兩片示範切片之前，要不要先修上游讓 fork 刪得乾淨 | **先修上游，發 v2.1.1 再刪** |
+
+#### 一、刪光之後紅在哪（改之前的探測）
+
+| 位置                                                     | 紅法                                                                                       | 歸屬   |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------ |
+| `tools/promise-check/vite.config.ts`                     | `dependsOn` 寫死 `@org/feature-invoice#test`，那個 package 不在 → 整張 task graph 載不起來 | 腳手架 |
+| `tools/conformance/src/cli.ts`                           | 找不到 `features/` → exit 1                                                                | 腳手架 |
+| `tools/exit-drill/src/cli.ts`                            | 列 workspace package 時對 `features/` `readdirSync` → ENOENT                               | 腳手架 |
+| conformance、exit-drill、slice-gen、spec-report 的測試   | 複製或讀 `features/`、或寫死 invoice                                                       | 腳手架 |
+| `apps/console` 的組裝根、它的 5 條測試、`SPEC-REPORT.md` | 匯入兩片、斷言至少註冊一片、order 的權限碼                                                 | 團隊   |
+
+#### 二、改法
+
+- **conformance**：`--root` 指到的沙盒裡找不到 `features/`，照舊擋 —— 多半是指錯了，掃不到東西的綠燈是假的。真樹上那個路徑是工具從自己的位置推的，不在就是真的一片切片都沒有：印一行，切片那幾條規則沒有對象，其餘照查。
+- **exit-drill**：不存在的那一層跳過。
+- **promise-check**：`dependsOn` 從 `git ls-files -- features/*/specs/*.feature` 推。上游算出來是 `["@org/slice-gen#test", "@org/feature-invoice#test"]`，與原本寫死的值一模一樣，C165 的跑序不變。
+- **測試**：conformance 的反向測試有 10 組是複製示範切片去破壞，沒有那兩片時 skip；另加一條「沙盒裡沒有 `features/` → 紅」。exit-drill 的測試先問 git `features/` 底下有沒有版控檔再決定複製 —— 不問磁碟，因為 slice-gen 的 e2e 會留下空目錄（第一版問磁碟，第四輪探測紅了 7 條）。slice-gen 的 e2e 要能從零建出第一片，並把自己建出來的 `features/` 收回去。spec-report 的期望值從 git 推。
+
+#### 三、變異
+
+| 變異                                                | 在哪棵樹        | 結果                            |
+| --------------------------------------------------- | --------------- | ------------------------------- |
+| conformance 拿掉沙盒那道擋                          | 上游            | 新加的那一條紅，其餘綠          |
+| conformance 真樹上也擋                              | 刪光兩片的 fork | 閘門 RC 1（找不到 `features/`） |
+| exit-drill 拿掉「那一層不存在就跳過」               | 刪光兩片的 fork | ENOENT，RC 1                    |
+| slice-gen e2e 不收回自己建的 `features/`            | 刪光兩片的 fork | 「不留殘留物」紅 1 條           |
+| exit-drill 測試改回問磁碟，磁碟上有空的 `features/` | 刪光兩片的 fork | 紅 7 條；對照（問 git）122 條綠 |
+
+promise-check 的推導沒有做變異：上游算出來的值與原值相同，能證明的只有「沒變」。每一列跑前都先確認同一棵樹不改時是綠的。
+
+#### 四、刪兩片時團隊要自己改的
+
+- `apps/console/src/features.ts`：拿掉兩片的 import，陣列留 `[]`；`apps/console/package.json` 拿掉兩片的相依。
+- `apps/console/bff-routes.ts` 裡 order 的那幾條路由。
+- `apps/console/tests/` 的 `bff-routes.test.ts`、`composition-root.test.ts`：5 條斷言示範切片存在（至少註冊一片、order 的權限碼）。
+- 重新產生 `SPEC-REPORT.md`。
+
+#### 五、沒做的、沒有機制在守的
+
+- **「刪光示範切片的 fork」這個形狀沒有 CI 在跑。** 探測是一次性的腳本，不進樹。下一個在工具測試裡寫死 invoice／order 的人，上游全綠而 fork 紅。
+- fork 刪片之後，conformance 那 10 組反向測試 skip —— 那些規則在 fork 裡沒有自己的反向測試，在上游有。
+- `apps/console` 的測試寫死 order 是組裝根的示範，屬團隊那一半，不動。
+
+#### 六、與既有裁決的關係
+
+| 裁決                 | 關係                                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| **C165**             | **遵守** —— 跑序的值不變，只換成推出來的                                                          |
+| **C215 §九**         | fork 不接 promise-check，但它的 `vite.config.ts` 照樣被 `vp` 載入 —— 所以寫死的相依在 fork 也會紅 |
+| **C220**             | `tools/` 動了，`.scaffold-stamp` 重算                                                             |
+| **AGENTS.md 規則二** | **遵守** —— 門檻沒動                                                                              |
+| **AGENTS.md 規則四** | **遵守** —— `specs/` 沒動                                                                         |
+
+#### 七、實測
+
+- 上游：slice-gen 101、conformance 136、exit-drill 122、spec-report 40、promise-check 38 條綠。
+- 刪光兩片的 fork（改完 `apps/console` 的組裝根）：`vp check`、建置、六道 fork 閘門、spec-report `--check` 全綠；各 package 測試只剩 `apps/console` 那 5 條紅（§四，團隊的）。
+- 本機 `vpr ready`：跑在本則與 CHANGELOG 都已 commit 的那一版上，RC 見 PR。

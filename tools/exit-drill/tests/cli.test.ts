@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { spawnSync } from "node:child_process";
 
-import { runCli, sandbox, type Sandbox } from "@org/gate-kit/testing";
+import { repoRoot, runCli, sandbox, type Sandbox } from "@org/gate-kit/testing";
 
 import type { Evidence } from "../src/freshness.ts";
 
@@ -14,7 +15,12 @@ const CLI = "tools/exit-drill/src/cli.ts";
  * 副本走 `copy:`（版控檔）不走手寫：plugin 帳目與相依帳目在靜態半前面，一份手拼的
  * 副本會先紅在那兩關，而那不是這裡要問的。
  */
-const TREE = ["apps/console", "platform", "features", "vite.config.ts"];
+// fork 可以一片切片都不留（C256）：那時不複製那一格 —— `copy:` 對沒有版控檔的路徑會丟例外。
+// 問 git 不問磁碟：slice-gen 的 e2e 會在真樹上留一個空的 features/，目錄在而版控檔是零。
+const HAS_SLICES =
+  spawnSync("git", ["ls-files", "--", "features"], { cwd: repoRoot(), encoding: "utf8" }).stdout
+    .length > 0;
+const TREE = ["apps/console", "platform", ...(HAS_SLICES ? ["features"] : []), "vite.config.ts"];
 
 function daysAgo(days: number): string {
   return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
