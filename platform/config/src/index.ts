@@ -3,7 +3,7 @@
  *
  * 要解決的問題：`import.meta.env.VITE_*` 的值會被編譯進 production bundle 的明文。
  * 很多團隊把 API key 塞進 VITE_API_KEY，以為 .env 沒進 git 就安全 ——
- * 實際上它躺在線上的 JS 檔裡，gitleaks 掃 build artifact 或按 F12 就撿得到。
+ * 實際上它躺在線上的 JS 檔裡，機密掃描工具掃建置產物、或按 F12 就撿得到。
  *
  * 這裡的機制不是「提醒大家別這樣做」，是**讓做不到**：
  *
