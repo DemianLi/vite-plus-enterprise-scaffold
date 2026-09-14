@@ -66,6 +66,52 @@ export function testOnlyDependencies(
   );
 }
 
+/**
+ * `tsconfig.json` 的 `include` 裡，指到匯出樹不存在的路徑拿掉（C251，Q121）：上游要型別檢查涵蓋
+ * `tests/`，匯出樹沒有它，那一格只剩「這裡原本有測試」的意思。`exists` 由匯出結果推 ——
+ * `apps/console` 的 `vite.config.ts` 出門，照樣留著。
+ * ⚠️ 只改那個陣列、不經 `JSON.parse`：有幾支帶註解（JSONC），重新序列化會把它們吃掉。
+ */
+export function rewriteTsconfigInclude(source: string, exists: (entry: string) => boolean): string {
+  return source.replace(/("include"\s*:\s*)\[([^\]]*)\]/, (whole, head: string, body: string) => {
+    const entries = [...body.matchAll(/"([^"]+)"/g)].map((match) => match[1] ?? "");
+    const kept = entries.filter(exists);
+    if (kept.length === entries.length) return whole;
+    if (kept.length === 0) throw new Error(`tsconfig 的 include 全部指到匯出樹沒有的路徑：${body}`);
+    return `${head}[${kept.map((entry) => JSON.stringify(entry)).join(", ")}]`;
+  });
+}
+
+const SOURCE_NOT = /^@source\s+not\s+["']([^"']+)["'];\s*$/;
+
+/**
+ * 樣式檔裡把測試檔排除在 Tailwind 掃描之外的 `@source not`，連同緊貼在上面的那段註解，不出門
+ *（C251，Q122）。「指向測試檔」沿用 `TEST_FILE`。匯出樹沒有測試檔，拿掉它們產物不變。
+ * 註解只在那一串 `@source not` 全數指向測試檔時一起拿 —— 混了別的排除，那段註解就不只在講測試。
+ */
+export function withoutTestSourceExclusions(css: string): string {
+  const lines = css.split("\n");
+  const drop = new Set<number>();
+  for (let index = 0; index < lines.length; index++) {
+    if (!SOURCE_NOT.test(lines[index] as string)) continue;
+    let end = index;
+    while (end + 1 < lines.length && SOURCE_NOT.test(lines[end + 1] as string)) end++;
+    const run = lines.slice(index, end + 1);
+    for (let at = index; at <= end; at++) {
+      if (TEST_FILE.test(SOURCE_NOT.exec(lines[at] as string)?.[1] ?? "")) drop.add(at);
+    }
+    const whole = run.every((line) => TEST_FILE.test(SOURCE_NOT.exec(line)?.[1] ?? ""));
+    if (whole && lines[index - 1]?.trim() === "*/") {
+      let start = index - 1;
+      while (start > 0 && !(lines[start] as string).trimStart().startsWith("/*")) start--;
+      for (let at = start; at < index; at++) drop.add(at);
+      if (lines[start - 1]?.trim() === "" && lines[end + 1]?.trim() === "") drop.add(start - 1);
+    }
+    index = end;
+  }
+  return lines.filter((_, index) => !drop.has(index)).join("\n");
+}
+
 /** `dropped` 是拿掉的 devDependencies，`withheldExports` 是不出門的子路徑（`./contract`）。 */
 export function rewriteManifest(
   manifest: Manifest,

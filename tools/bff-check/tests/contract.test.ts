@@ -31,7 +31,17 @@ import {
  *        BFF_SESSION_COOKIE=<你們的 cookie 名> \
  *        BFF_SESSION_VALUE=<從瀏覽器複製的一組有效 session> \
  *        BFF_CSRF_VALUE=<同一組的 XSRF-TOKEN> \
- *        vp run -F @org/bff-contract test
+ *        vp run @org/bff-check#test
+ *
+ *    可覆寫的 env：`BFF_ORIGIN`、`BFF_SESSION_COOKIE`、`BFF_LOGIN_PATH`、`BFF_LOGOUT_PATH`、
+ *    `BFF_SESSION_PATH`、`BFF_PROBE_PATH`、`BFF_ADMIN_PROBE_PATH`、`BFF_SESSION_VALUE`、
+ *    `BFF_CSRF_VALUE`、`BFF_SET_COOKIE_FILE`。
+ *
+ *    **驗收既有 gateway 時改的是 env，不是這支測試。** 一旦要改測試才能過，
+ *    那份驗收就不再是契約，而是實作的鏡子。
+ *
+ *    （這一段原本寫在 `platform/bff-contract` 的 README；那份會交給機關，而這支測試不會，
+ *    所以搬到這裡 —— C251。）
  *
  * ── 對真實 gateway 的誠實限制 ───────────────────────────────────────
  *

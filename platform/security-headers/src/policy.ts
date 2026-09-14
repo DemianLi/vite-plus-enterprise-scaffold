@@ -27,7 +27,7 @@ export const BASE_DIRECTIVES: CspDirectives = {
   // 無 'unsafe-eval'：畫面在建置期就編好了 —— JSX 由 Vite 編成函式呼叫，執行期沒有
   // 樣板編譯器。換成 React 時重量過：正式產物 `eval(`／`new Function` 0 處，
   // enforce 模式下打開對話框零違規。代價是執行期不得動態求值字串 —— 一旦有人用了，
-  // 整份 CSP 就得放寬，所以那條由 oxlint 的 no-eval / no-implied-eval 擋。
+  // 整份 CSP 就得放寬。
   // ⚠️ dev 會多一條 report-only 的 violation：@vitejs/plugin-react 在 index.html 注入
   // Fast Refresh 的 inline script。它只存在 dev server，建置產物沒有
   // （assertStaticCspCompatible 每次建置都在守）。

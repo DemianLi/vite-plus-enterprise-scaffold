@@ -32,8 +32,7 @@ import type { UiBadgeSlot } from "../theme.ts";
  * `UiThemeOverride` 裡兩個元件共享一組槽名，然後有一天要幫按鈕加一個
  * variant 而標籤被迫跟著長一格。分開的代價只是多一個 union。
  *
- * ⚠️ `tone` 刻意寫成字面值 union、不用型別別名，理由同 `UiButton`；
- * 預設值寫在解構參數裡，契約測試的「預設值必須是 union 成員」讀的是那裡。
+ * ⚠️ `tone` 刻意寫成字面值 union、不用型別別名，理由同 `UiButton`。
  */
 export function UiBadge({
   tone = "neutral",
@@ -60,8 +59,7 @@ export function UiBadge({
 const DEFAULT_PARTS: Readonly<Record<UiBadgeSlot, string>> = {
   /**
    * 版型（圓角、內距、字級）自己一格。第一版把它寫死在 `class` 上，於是各案換得掉
-   * 顏色、**換不掉圓角** —— 要 pill 形狀的案子只能來改 `platform/`。契約測試擋的是
-   * 「標記引用預設表」，擋不到「標記自己寫了一條」；接縫夠不夠是 review 的職責。
+   * 顏色、**換不掉圓角** —— 要 pill 形狀的案子只能來改 `platform/`。
    */
   badge: "inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-xs font-control",
   neutral: "border-control border-line bg-surface-hover text-fg",

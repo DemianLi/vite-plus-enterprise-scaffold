@@ -2,7 +2,7 @@
   "name": "@org/security-headers",
   "version": "0.0.0",
   "private": true,
-  "description": "CSP 與安全標頭的單一事實來源，供 BFF、dev server、測試共用",
+  "description": "CSP 與安全標頭的單一事實來源，供建置、dev server 與 BFF 共用",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
