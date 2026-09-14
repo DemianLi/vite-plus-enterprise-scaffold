@@ -133,10 +133,12 @@ describe("UiDatePicker（React）", () => {
     expect(document.querySelector("table")?.getAttribute("aria-label")).toBe("2030年8月");
   });
 
-  it("0–99 年不會被讀成 1900 年代", async () => {
+  it("0–99 年不會被讀成 1900 年代", () => {
+    // 按鈕文字與日曆吃的是同一個轉換結果：`new Date(50, 2, 1)` 那種寫法在這裡印成 1950/03/01。
+    // 不打開日曆 —— 年份下拉會從 50 年排到今年＋100，happy-dom 建兩千多個 option，
+    // 在 CI 上一趟 3～5 秒、貼著 5 秒逾時（本機 0.6 秒）。
     mountPicker({ value: new CalendarDate(50, 3, 1) });
-    await pressOn(button());
-    expect(document.activeElement).toBe(dayButton("0050-03-01"));
+    expect(text()).toBe("50/03/01");
   });
 
   it("🔴 不支援的 locale 丟例外，不是安靜退回英文", () => {
